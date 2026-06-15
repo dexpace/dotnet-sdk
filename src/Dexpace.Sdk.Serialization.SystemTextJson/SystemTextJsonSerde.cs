@@ -1,0 +1,93 @@
+// Copyright (c) 2026 dexpace and Omar Aljarrah.
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
+using System.Buffers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Serialization;
+
+namespace Dexpace.Sdk.Serialization.SystemTextJson;
+
+/// <summary>
+/// A <see cref="ISerde"/> implementation backed by System.Text.Json. Type metadata is resolved from
+/// a source-generated <see cref="JsonSerializerContext"/>, keeping serialization trim- and
+/// NativeAOT-safe with no runtime reflection.
+/// </summary>
+public sealed class SystemTextJsonSerde : ISerde
+{
+    private readonly JsonSerializerOptions _options;
+
+    /// <summary>Initializes a new instance from explicit options.</summary>
+    /// <param name="options">
+    /// Options whose <see cref="JsonSerializerOptions.TypeInfoResolver"/> is set (typically a
+    /// source-generated <see cref="JsonSerializerContext"/>).
+    /// </param>
+    /// <exception cref="ArgumentException">The options have no type-info resolver.</exception>
+    public SystemTextJsonSerde(JsonSerializerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.TypeInfoResolver is null)
+        {
+            throw new ArgumentException(
+                "The JsonSerializerOptions must have a TypeInfoResolver (for example, a source-generated "
+                + "JsonSerializerContext) for AOT-safe serialization.",
+                nameof(options));
+        }
+
+        options.MakeReadOnly();
+        _options = options;
+    }
+
+    /// <summary>Initializes a new instance from a source-generated context.</summary>
+    /// <param name="context">The source-generated serializer context.</param>
+    public SystemTextJsonSerde(JsonSerializerContext context)
+        : this((context ?? throw new ArgumentNullException(nameof(context))).Options)
+    {
+    }
+
+    /// <inheritdoc/>
+    public MediaType DefaultMediaType => CommonMediaTypes.ApplicationJsonUtf8;
+
+    /// <inheritdoc/>
+    public async ValueTask SerializeAsync<T>(Stream destination, T value, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        var info = GetTypeInfo<T>(forSerialize: true);
+        await JsonSerializer.SerializeAsync(destination, value, info, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<T?> DeserializeAsync<T>(Stream source, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var info = GetTypeInfo<T>(forSerialize: false);
+        return await JsonSerializer.DeserializeAsync(source, info, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public void Serialize<T>(IBufferWriter<byte> destination, T value) =>
+        throw new NotSupportedException("Implemented in a later task.");
+
+    /// <inheritdoc/>
+    public T? Deserialize<T>(ReadOnlySpan<byte> utf8) =>
+        throw new NotSupportedException("Implemented in a later task.");
+
+    private JsonTypeInfo<T> GetTypeInfo<T>(bool forSerialize)
+    {
+        if (_options.GetTypeInfo(typeof(T)) is JsonTypeInfo<T> info)
+        {
+            return info;
+        }
+
+        return forSerialize
+            ? throw new SerializationException(TypeInfoMessage<T>())
+            : throw new DeserializationException(TypeInfoMessage<T>());
+    }
+
+    private static string TypeInfoMessage<T>() =>
+        $"No JsonTypeInfo is registered for '{typeof(T)}'. Add it to a source-generated "
+        + "JsonSerializerContext supplied to SystemTextJsonSerde.";
+}
