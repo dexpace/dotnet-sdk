@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Dexpace.Sdk.Core</RootNamespace>
+    <AssemblyName>Dexpace.Sdk.Core</AssemblyName>
+    <PackageId>Dexpace.Sdk.Core</PackageId>
+    <Description>
+      HTTP-client toolkit (not an HTTP client): immutable HTTP models, transport SPI,
+      pipeline, auth, and instrumentation abstractions. Transports plug in via IHttpClient.
+    </Description>
+    <PackageTags>http;sdk;rest;toolkit;dexpace</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dexpace.Sdk.Core.Tests" />
+    <InternalsVisibleTo Include="Dexpace.Sdk.Http.SystemNet" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,102 @@
+// Copyright (c) 2026 dexpace and Omar Aljarrah.
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
+using System.Buffers;
+using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
+using Xunit;
+
+namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
+
+public sealed class SystemTextJsonSerdeTests
+{
+    private static SystemTextJsonSerde Serde() => new(TestJsonContext.Default);
+
+    [Fact]
+    public async Task SerializeAsync_then_DeserializeAsync_round_trips()
+    {
+        var serde = Serde();
+        var widget = new Widget("gizmo", 42);
+
+        using var stream = new MemoryStream();
+        await serde.SerializeAsync(stream, widget);
+        stream.Position = 0;
+        var result = await serde.DeserializeAsync<Widget>(stream);
+
+        Assert.Equal(widget, result);
+    }
+
+    [Fact]
+    public void DefaultMediaType_is_application_json_utf8()
+    {
+        Assert.Equal(CommonMediaTypes.ApplicationJsonUtf8, Serde().DefaultMediaType);
+    }
+
+    [Fact]
+    public void Serialize_then_Deserialize_sync_round_trips()
+    {
+        var serde = Serde();
+        var widget = new Widget("sprocket", 7);
+
+        var buffer = new ArrayBufferWriter<byte>();
+        serde.Serialize(buffer, widget);
+        var result = serde.Deserialize<Widget>(buffer.WrittenSpan);
+
+        Assert.Equal(widget, result);
+    }
+
+    private sealed record Unregistered(string Value);
+
+    [Fact]
+    public void Deserialize_unknown_type_throws_DeserializationException()
+    {
+        var serde = Serde();
+        var ex = Assert.Throws<DeserializationException>(
+            () => serde.Deserialize<Unregistered>("{}"u8));
+        Assert.Contains("Unregistered", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Deserialize_malformed_json_throws_DeserializationException()
+    {
+        var serde = Serde();
+        Assert.Throws<DeserializationException>(() => serde.Deserialize<Widget>("{ not json"u8));
+    }
+
+    // --- Widened catch tests ---
+
+    [Fact]
+    public void Serialize_reference_cycle_throws_SerializationException()
+    {
+        // JsonSerializer throws JsonException for reference cycles; the widened catch maps it.
+        var serde = Serde();
+        var n = new Node();
+        n.Next = n;
+
+        var buffer = new ArrayBufferWriter<byte>();
+        Assert.Throws<SerializationException>(() => serde.Serialize(buffer, n));
+    }
+
+    [Fact]
+    public async Task SerializeAsync_reference_cycle_throws_SerializationException()
+    {
+        var serde = Serde();
+        var n = new Node();
+        n.Next = n;
+
+        using var stream = new MemoryStream();
+        await Assert.ThrowsAsync<SerializationException>(() => serde.SerializeAsync(stream, n).AsTask());
+    }
+
+    [Fact]
+    public async Task DeserializeAsync_cancelled_token_propagates_OperationCanceledException()
+    {
+        // Cancellation must NOT be swallowed by the widened catch and re-thrown as DeserializationException.
+        var serde = Serde();
+        using var stream = new MemoryStream("{\"Name\":\"x\",\"Size\":1}"u8.ToArray());
+        var cancelled = new CancellationToken(canceled: true);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => serde.DeserializeAsync<Widget>(stream, cancelled).AsTask());
+    }
+}

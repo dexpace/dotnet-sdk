@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Dexpace.Sdk.Http.SystemNet</RootNamespace>
+    <AssemblyName>Dexpace.Sdk.Http.SystemNet</AssemblyName>
+    <PackageId>Dexpace.Sdk.Http.SystemNet</PackageId>
+    <Description>
+      Reference transport for the dexpace SDK: adapts System.Net.Http.HttpClient to the
+      Dexpace.Sdk.Core IHttpClient / IAsyncHttpClient transport SPI.
+    </Description>
+    <PackageTags>http;sdk;transport;httpclient;dexpace</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dexpace.Sdk.Http.SystemNet.Tests" />
+  </ItemGroup>
+
+</Project>
