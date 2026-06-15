@@ -23,7 +23,11 @@ public sealed class SystemTextJsonSerde : ISerde
     /// <summary>Initializes a new instance from explicit options.</summary>
     /// <param name="options">
     /// Options whose <see cref="JsonSerializerOptions.TypeInfoResolver"/> is set (typically a
-    /// source-generated <see cref="JsonSerializerContext"/>).
+    /// source-generated <see cref="JsonSerializerContext"/>). The supplied options are made
+    /// read-only by this constructor. The guard only verifies that a <see cref="JsonSerializerOptions.TypeInfoResolver"/>
+    /// is present; AOT-safety holds only when that resolver is a source-generated
+    /// <see cref="JsonSerializerContext"/> — use the <see cref="SystemTextJsonSerde(JsonSerializerContext)"/>
+    /// constructor to make this explicit.
     /// </param>
     /// <exception cref="ArgumentException">The options have no type-info resolver.</exception>
     public SystemTextJsonSerde(JsonSerializerOptions options)
@@ -60,7 +64,7 @@ public sealed class SystemTextJsonSerde : ISerde
         {
             await JsonSerializer.SerializeAsync(destination, value, info, cancellationToken).ConfigureAwait(false);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new SerializationException($"Failed to serialize '{typeof(T)}' to JSON.", ex);
         }
@@ -75,7 +79,7 @@ public sealed class SystemTextJsonSerde : ISerde
         {
             return await JsonSerializer.DeserializeAsync(source, info, cancellationToken).ConfigureAwait(false);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new DeserializationException($"Failed to deserialize JSON to '{typeof(T)}'.", ex);
         }
@@ -91,7 +95,7 @@ public sealed class SystemTextJsonSerde : ISerde
         {
             JsonSerializer.Serialize(writer, value, info);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
             throw new SerializationException($"Failed to serialize '{typeof(T)}' to JSON.", ex);
         }
@@ -105,7 +109,7 @@ public sealed class SystemTextJsonSerde : ISerde
         {
             return JsonSerializer.Deserialize(utf8, info);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new DeserializationException($"Failed to deserialize JSON to '{typeof(T)}'.", ex);
         }
