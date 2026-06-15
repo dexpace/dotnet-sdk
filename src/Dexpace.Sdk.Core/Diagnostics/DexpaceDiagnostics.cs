@@ -3,7 +3,7 @@
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Reflection;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Diagnostics;
 
@@ -18,30 +18,15 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 /// </remarks>
 public static class DexpaceDiagnostics
 {
-    private static readonly string s_version = BuildVersion();
-
     /// <summary>
     /// The <see cref="System.Diagnostics.ActivitySource"/> used by the SDK for distributed tracing.
     /// Name: <c>"Dexpace.Sdk"</c>.
     /// </summary>
-    public static readonly ActivitySource ActivitySource = new("Dexpace.Sdk", s_version);
+    public static readonly ActivitySource ActivitySource = new("Dexpace.Sdk", SdkVersion.Value);
 
     /// <summary>
     /// The <see cref="System.Diagnostics.Metrics.Meter"/> used by the SDK for metrics.
     /// Name: <c>"Dexpace.Sdk"</c>.
     /// </summary>
-    public static readonly Meter Meter = new("Dexpace.Sdk", s_version);
-
-    private static string BuildVersion()
-    {
-        var version = typeof(DexpaceDiagnostics).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion
-            ?? typeof(DexpaceDiagnostics).Assembly.GetName().Version?.ToString()
-            ?? "0.0.0";
-
-        // Strip git commit hash suffix (e.g. "0.0.1-alpha.1+abc123" → "0.0.1-alpha.1").
-        var plusIndex = version.IndexOf('+', StringComparison.Ordinal);
-        return plusIndex >= 0 ? version[..plusIndex] : version;
-    }
+    public static readonly Meter Meter = new("Dexpace.Sdk", SdkVersion.Value);
 }

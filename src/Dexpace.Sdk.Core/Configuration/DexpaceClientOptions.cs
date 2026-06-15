@@ -1,7 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Reflection;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Configuration;
 
@@ -49,23 +49,8 @@ public sealed class DexpaceClientOptions
     /// </summary>
     public RedirectOptions Redirect { get; set; } = new();
 
-    private static string BuildDefaultUserAgent()
-    {
-        var version = typeof(DexpaceClientOptions).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion
-            ?? typeof(DexpaceClientOptions).Assembly.GetName().Version?.ToString()
-            ?? "0.0.0";
-
-        // Strip git commit hash suffix (e.g. "0.0.1-alpha.1+abc123" → "0.0.1-alpha.1").
-        var plusIndex = version.IndexOf('+', StringComparison.Ordinal);
-        if (plusIndex >= 0)
-        {
-            version = version[..plusIndex];
-        }
-
-        return $"dexpace-dotnet/{version}";
-    }
+    private static string BuildDefaultUserAgent() =>
+        $"dexpace-dotnet/{SdkVersion.Value}";
 }
 
 /// <summary>
