@@ -1,0 +1,51 @@
+root = true
+
+# Copyright (c) 2026 dexpace and Omar Aljarrah.
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# Single source of truth for formatting and analyzer severities. The build runs with
+# TreatWarningsAsErrors and AnalysisLevel=latest-recommended (see Directory.Build.props), so any
+# rule left at warning/error must be satisfied by the code. Rules dialled down below are
+# intentional design choices, each annotated with its rationale.
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{cs,csx}]
+indent_size = 4
+max_line_length = 120
+
+# Prefer modern C# idioms (these are the conventions the code already follows).
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+csharp_style_var_for_built_in_types = false:suggestion
+
+# --- Intentional analyzer exemptions ---------------------------------------------------------
+
+# HTTP field names, media-type tokens, and protocol identifiers have a canonical *lower-case*
+# form (RFC 7230 §3.2). Lowercasing is correct here; ToUpperInvariant would be wrong.
+dotnet_diagnostic.CA1308.severity = none
+
+# The SDK deliberately accepts string URLs at its ergonomic entry points (e.g. Request.Get).
+# A System.Uri overload is also provided for callers that prefer it.
+dotnet_diagnostic.CA1054.severity = none
+dotnet_diagnostic.CA1055.severity = none
+dotnet_diagnostic.CA1056.severity = none
+
+# Argument null-checks are applied where they matter via ArgumentNullException.ThrowIfNull;
+# CA1062's blanket requirement on every public parameter is noise for this surface.
+dotnet_diagnostic.CA1062.severity = none
+
+# ConfigureAwait(false) is applied in library code where it matters, but `await using` / `await
+# foreach` emit implicit awaits the rule cannot see; the SDK does not depend on capturing context.
+dotnet_diagnostic.CA2007.severity = none
+
+[tests/**/*.cs]
+# Test method names use Pascal_Snake casing by convention (e.g. Method_DoesThing_WhenCondition).
+dotnet_diagnostic.CA1707.severity = none

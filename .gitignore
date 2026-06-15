@@ -1,0 +1,30 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+
+# .NET / Rider / VS
+.vs/
+*.user
+*.suo
+*.userprefs
+.idea/
+*.DotSettings.user
+
+# Test / coverage
+[Tt]est[Rr]esults/
+coverage/
+*.coverage
+*.trx
+*.cobertura.xml
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+
+# OS
+.DS_Store
+Thumbs.db
