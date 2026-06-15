@@ -22,13 +22,22 @@ public sealed record Request
     /// <param name="url">The fully-resolved, absolute target URL.</param>
     /// <param name="headers">The request headers (defaults to empty).</param>
     /// <param name="body">The request body, or <see langword="null"/>.</param>
-    /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URI.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="url"/> is not an absolute <c>http</c> or <c>https</c> URI.
+    /// </exception>
     public Request(Method method, Uri url, Headers? headers = null, RequestBody? body = null)
     {
         ArgumentNullException.ThrowIfNull(url);
         if (!url.IsAbsoluteUri)
         {
             throw new ArgumentException("Request URL must be an absolute URI.", nameof(url));
+        }
+
+        if (!url.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"Request URL scheme must be http or https, but was '{url.Scheme}'.", nameof(url));
         }
 
         Method = method;
@@ -55,8 +64,17 @@ public sealed record Request
     /// <param name="headers">The request headers, or <see langword="null"/>.</param>
     /// <param name="body">The request body, or <see langword="null"/>.</param>
     /// <returns>A new <see cref="Request"/>.</returns>
-    public static Request Create(Method method, string url, Headers? headers = null, RequestBody? body = null) =>
-        new(method, new Uri(url, UriKind.Absolute), headers, body);
+    /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URI.</exception>
+    public static Request Create(Method method, string url, Headers? headers = null, RequestBody? body = null)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            throw new ArgumentException("Request URL must be an absolute URI.", nameof(url));
+        }
+
+        return new Request(method, uri, headers, body);
+    }
 
     /// <summary>Creates a <c>GET</c> request for <paramref name="url"/>.</summary>
     /// <param name="url">The absolute target URL.</param>
