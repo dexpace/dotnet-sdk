@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Buffers;
 using Dexpace.Sdk.Core.Http.Common;
 using Xunit;
 
@@ -28,5 +29,18 @@ public sealed class SystemTextJsonSerdeTests
     public void DefaultMediaType_is_application_json_utf8()
     {
         Assert.Equal(CommonMediaTypes.ApplicationJsonUtf8, Serde().DefaultMediaType);
+    }
+
+    [Fact]
+    public void Serialize_then_Deserialize_sync_round_trips()
+    {
+        var serde = Serde();
+        var widget = new Widget("sprocket", 7);
+
+        var buffer = new ArrayBufferWriter<byte>();
+        serde.Serialize(buffer, widget);
+        var result = serde.Deserialize<Widget>(buffer.WrittenSpan);
+
+        Assert.Equal(widget, result);
     }
 }

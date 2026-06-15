@@ -68,12 +68,20 @@ public sealed class SystemTextJsonSerde : ISerde
     }
 
     /// <inheritdoc/>
-    public void Serialize<T>(IBufferWriter<byte> destination, T value) =>
-        throw new NotSupportedException("Implemented in a later task.");
+    public void Serialize<T>(IBufferWriter<byte> destination, T value)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        var info = GetTypeInfo<T>(forSerialize: true);
+        using var writer = new Utf8JsonWriter(destination);
+        JsonSerializer.Serialize(writer, value, info);
+    }
 
     /// <inheritdoc/>
-    public T? Deserialize<T>(ReadOnlySpan<byte> utf8) =>
-        throw new NotSupportedException("Implemented in a later task.");
+    public T? Deserialize<T>(ReadOnlySpan<byte> utf8)
+    {
+        var info = GetTypeInfo<T>(forSerialize: false);
+        return JsonSerializer.Deserialize(utf8, info);
+    }
 
     private JsonTypeInfo<T> GetTypeInfo<T>(bool forSerialize)
     {
