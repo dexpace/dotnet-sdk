@@ -19,6 +19,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
+          # The .NET 8 runtime is needed to execute the net8.0 test target; the pinned
+          # SDK (net10) comes from global.json and drives the build.
+          dotnet-version: 8.0.x
           global-json-file: global.json
 
       - name: Restore
