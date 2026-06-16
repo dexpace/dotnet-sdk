@@ -427,6 +427,68 @@ public sealed class RedirectPolicyTests
     }
 
     // -------------------------------------------------------------------------
+    // Malformed Location header — must not throw, must not follow
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessAsync_MalformedLocation_NoExceptionEscapes_3xxReturnedUnfollowed()
+    {
+        // "http://[bad" has an invalid IPv6 literal that causes new Uri(...) to throw
+        // UriFormatException but Uri.TryCreate to return false — that is exactly the
+        // boundary the fix guards.
+        var malformedHeaders = new Headers.Builder().Set("Location", "http://[bad").Build();
+        var transport = new ScriptedTransport(
+        [
+            new Response(Status.FromCode(302), malformedHeaders),
+            new Response(Status.Ok), // must never be reached
+        ]);
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
+
+        // No exception should escape the pipeline.
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+
+        // Redirect is not followed — the 3xx comes back to the caller.
+        Assert.Equal(302, result.Status.Code);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-hop chained redirect A→B→C→200
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessAsync_ChainedMultiHopRedirect_FollowsAllHops_EndsAt200()
+    {
+        // A → B → C → 200
+        const string urlA = "https://api.example.com/a";
+        const string urlB = "https://api.example.com/b";
+        const string urlC = "https://api.example.com/c";
+
+        var transport = new ScriptedTransport(
+        [
+            ScriptedTransport.Redirect302(urlB),  // A → B
+            ScriptedTransport.Redirect302(urlC),  // B → C
+            new Response(Status.Ok),              // C → 200
+        ]);
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
+
+        var result = await pipeline.SendAsync(
+            MakeGetRequest(urlA),
+            MakeOptions(maxRedirects: 10));
+
+        // Final response is 200.
+        Assert.Equal(Status.Ok, result.Status);
+
+        // Transport was called exactly 3 times.
+        Assert.Equal(3, transport.CallCount);
+
+        // URLs progressed A → B → C.
+        Assert.Equal(new Uri(urlA), transport.Requests[0].Url);
+        Assert.Equal(new Uri(urlB), transport.Requests[1].Url);
+        Assert.Equal(new Uri(urlC), transport.Requests[2].Url);
+    }
+
+    // -------------------------------------------------------------------------
     // Scripted transport helper
     // -------------------------------------------------------------------------
 

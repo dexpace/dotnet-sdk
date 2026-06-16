@@ -80,7 +80,12 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             }
 
             // Resolve Location (handles relative URIs) against current request URL.
-            var newUrl = new Uri(context.Request.Url, location);
+            // Use TryCreate so a malformed Location value from the server doesn't throw a raw
+            // UriFormatException through the pipeline — treat it as non-followable instead.
+            if (!Uri.TryCreate(context.Request.Url, location, out var newUrl))
+            {
+                return;
+            }
 
             // HTTPS → HTTP downgrade guard.
             if (context.Request.Url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
