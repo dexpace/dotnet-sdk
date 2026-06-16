@@ -134,12 +134,12 @@ public sealed class RetryPolicy : HttpPipelinePolicy
 
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="ex"/> is a retryable transport
-    /// exception. <see cref="OperationCanceledException"/> is explicitly excluded so
-    /// cancellation always propagates.
+    /// exception. Only <see cref="ServiceRequestException"/> and
+    /// <see cref="ServiceResponseException"/> qualify; <see cref="OperationCanceledException"/>
+    /// is intentionally not matched (cancellation always propagates).
     /// </summary>
     private static bool IsRetryableException(Exception ex) =>
-        ex is ServiceRequestException or ServiceResponseException
-        && ex is not OperationCanceledException;
+        ex is ServiceRequestException or ServiceResponseException;
 
     private static bool IsRetryableStatus(int code) =>
         s_retryableStatusCodes.Contains(code);
@@ -213,11 +213,15 @@ public sealed class RetryPolicy : HttpPipelinePolicy
         {
             // Full jitter: uniform in [0, min(BaseDelay * 2^attempt, MaxDelay)].
             // Guard the shift: cap at 30 to avoid overflow (2^30 ≈ 1e9 ms >> any MaxDelay).
+            // Saturate BEFORE multiplying: if BaseDelay.Ticks * 2^shift would overflow,
+            // clamp to MaxDelay.Ticks rather than letting the long wrap negative.
             var shift = Math.Min(attempt, 30);
-            var cap = TimeSpan.FromTicks(
-                Math.Min(
-                    (long)(options.BaseDelay.Ticks * (1L << shift)),
-                    options.MaxDelay.Ticks));
+            var baseTicks = options.BaseDelay.Ticks;
+            var maxTicks = options.MaxDelay.Ticks;
+            var capTicks = baseTicks <= (maxTicks >> shift)
+                ? baseTicks << shift
+                : maxTicks;
+            var cap = TimeSpan.FromTicks(Math.Min(capTicks, maxTicks));
             delay = TimeSpan.FromTicks((long)(cap.Ticks * Random.Shared.NextDouble()));
         }
 

@@ -415,6 +415,89 @@ public sealed class RetryPolicyTests
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Delay computation — backoff cap and no-overflow
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessAsync_DelayPerAttempt_IsNonNegativeAndNeverExceedsMaxDelay()
+    {
+        // Three consecutive retryable responses → three delays recorded.
+        // Each must be in [0, MaxDelay].
+        var baseDelay = TimeSpan.FromMilliseconds(5);
+        var maxDelay = TimeSpan.FromMilliseconds(50);
+
+        var transport = new ScriptedTransport(
+        [
+            new Response(Status.ServiceUnavailable),
+            new Response(Status.ServiceUnavailable),
+            new Response(Status.ServiceUnavailable),
+            new Response(Status.Ok),
+        ]);
+        var recording = new RecordingTimeProvider();
+
+        var options = new DexpaceClientOptions
+        {
+            Retry = new RetryOptions
+            {
+                MaxRetryAttempts = 3,
+                BaseDelay = baseDelay,
+                MaxDelay = maxDelay,
+                HonorRetryAfter = false,
+            }
+        };
+
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(recording)).Build(transport);
+        await pipeline.SendAsync(MakeGetRequest(), options);
+
+        // Three retries → three delays recorded.
+        Assert.Equal(3, recording.RequestedDelays.Count);
+        foreach (var (attemptIndex, delay) in recording.RequestedDelays)
+        {
+            Assert.True(delay >= TimeSpan.Zero, $"Delay at timer call {attemptIndex} was negative: {delay}");
+            Assert.True(delay <= maxDelay, $"Delay at timer call {attemptIndex} exceeded MaxDelay ({maxDelay}): {delay}");
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_VeryLargeBaseDelay_NeverOverflows_DelayClampedAtMaxDelay()
+    {
+        // BaseDelay large enough that naive multiplication overflows a long for attempt >= 1.
+        // MaxDelay is the same; the overflow-safe cap must clamp cleanly.
+        var baseDelay = TimeSpan.FromHours(1);  // 36_000_000_000_0 ticks — shift by 1 → overflow
+        var maxDelay = TimeSpan.FromSeconds(30);
+
+        var transport = new ScriptedTransport(
+        [
+            new Response(Status.ServiceUnavailable),
+            new Response(Status.ServiceUnavailable),
+            new Response(Status.Ok),
+        ]);
+        var recording = new RecordingTimeProvider();
+
+        var options = new DexpaceClientOptions
+        {
+            Retry = new RetryOptions
+            {
+                MaxRetryAttempts = 2,
+                BaseDelay = baseDelay,
+                MaxDelay = maxDelay,
+                HonorRetryAfter = false,
+            }
+        };
+
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(recording)).Build(transport);
+        await pipeline.SendAsync(MakeGetRequest(), options);
+
+        // Every recorded delay must be non-negative and at most MaxDelay.
+        Assert.Equal(2, recording.RequestedDelays.Count);
+        Assert.All(recording.RequestedDelays, pair =>
+        {
+            Assert.True(pair.Item2 >= TimeSpan.Zero, $"Delay was negative: {pair.Item2}");
+            Assert.True(pair.Item2 <= maxDelay, $"Delay exceeded MaxDelay ({maxDelay}): {pair.Item2}");
+        });
+    }
+
     /// <summary>
     /// A TimeProvider whose Task.Delay fires after 1 ms so tests don't block on real delays.
     /// </summary>
@@ -445,6 +528,33 @@ public sealed class RetryPolicyTests
             TimeSpan dueTime,
             TimeSpan period) =>
             base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+    }
+
+    /// <summary>
+    /// A TimeProvider that records every (attemptNumber, dueTime) pair requested via
+    /// <see cref="CreateTimer"/> so tests can assert on actual delays passed by the retry policy.
+    /// </summary>
+    private sealed class RecordingTimeProvider : TimeProvider
+    {
+        private readonly List<(int Attempt, TimeSpan Delay)> _delays = [];
+        private int _timerCallCount;
+
+        public List<(int Attempt, TimeSpan Delay)> RequestedDelays => _delays;
+
+        public override DateTimeOffset GetUtcNow() =>
+            new DateTimeOffset(2026, 6, 14, 12, 0, 0, TimeSpan.Zero);
+
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var attempt = Interlocked.Increment(ref _timerCallCount) - 1;
+            _delays.Add((attempt, dueTime));
+            // Fire immediately so the test doesn't block.
+            return base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+        }
     }
 
     /// <summary>
