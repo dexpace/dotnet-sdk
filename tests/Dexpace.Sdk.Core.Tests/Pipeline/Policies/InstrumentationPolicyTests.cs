@@ -16,6 +16,11 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+/// <summary>
+/// Placed in a dedicated xUnit collection to prevent parallel execution with other test classes
+/// that also exercise DexpaceDiagnostics.ActivitySource, avoiding cross-test activity leakage.
+/// </summary>
+[Collection("Instrumentation")]
 public sealed class InstrumentationPolicyTests : IDisposable
 {
     private readonly ActivityListener _listener;
