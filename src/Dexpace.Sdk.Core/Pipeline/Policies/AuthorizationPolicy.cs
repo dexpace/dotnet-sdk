@@ -12,9 +12,11 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <para>
 /// This base class implements the cross-origin withholding contract: credentials are stamped only
 /// when the current request's origin (scheme + host + port) matches the origin of the first
-/// invocation. If a redirect has moved the request to a different origin, the credential is
-/// withheld and the continuation is called unchanged — complementing
-/// <see cref="RedirectPolicy"/>'s header-stripping behaviour.
+/// invocation. If a redirect has moved the request to a different origin, the credential header is
+/// actively removed from the request before the continuation is called — providing defense-in-depth
+/// independent of <see cref="RedirectPolicy"/>. A consumer who composes an auth policy without
+/// <see cref="RedirectPolicy"/>, or who sets <c>StripSensitiveHeadersOnCrossOrigin=false</c>,
+/// cannot accidentally forward a stale credential to a foreign origin.
 /// </para>
 /// <para>
 /// The recorded origin is stored in <see cref="PipelineContext"/>'s property bag under the key
@@ -25,8 +27,11 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </para>
 /// <para>
 /// Derived classes must implement <see cref="GetCredentialAsync"/> to supply the header name
-/// and value to stamp. The base class performs the <c>Headers.Set</c> write and
-/// <c>continuation.RunAsync</c> call.
+/// and value to stamp, and <see cref="WithheldHeaderName"/> to identify the header to remove on a
+/// cross-origin hop. The base class performs the <c>Headers.Set</c> / <c>Headers.Without</c>
+/// writes and the <c>continuation.RunAsync</c> call. <see cref="WithheldHeaderName"/> is
+/// accessed only on the cross-origin branch; it must not trigger credential resolution (e.g. a
+/// token-cache lookup).
 /// </para>
 /// </remarks>
 public abstract class AuthorizationPolicy : HttpPipelinePolicy
@@ -36,6 +41,13 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
 
     /// <inheritdoc/>
     public sealed override PipelineStage Stage => PipelineStage.Auth;
+
+    /// <summary>
+    /// The name of the HTTP header that this policy stamps on same-origin requests.
+    /// On a cross-origin hop the base class removes this header from the outgoing request
+    /// before calling the continuation — no credential resolution is performed.
+    /// </summary>
+    protected abstract HttpHeaderName WithheldHeaderName { get; }
 
     /// <inheritdoc/>
     public sealed override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
@@ -52,7 +64,14 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
         }
         else if (!string.Equals(recordedOrigin, currentOrigin, StringComparison.OrdinalIgnoreCase))
         {
-            // Request has been redirected to a different origin — withhold credential.
+            // Request has been redirected to a different origin — strip the credential header
+            // (defense-in-depth: removes any stale value carried over from the original request)
+            // and forward the request without credential.
+            context.Request = context.Request with
+            {
+                Headers = context.Request.Headers.Without(WithheldHeaderName.Original)
+            };
+
             await continuation.RunAsync(context).ConfigureAwait(false);
             return;
         }

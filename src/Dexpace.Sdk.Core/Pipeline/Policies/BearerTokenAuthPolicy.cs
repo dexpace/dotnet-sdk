@@ -64,6 +64,9 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
     }
 
     /// <inheritdoc/>
+    protected override HttpHeaderName WithheldHeaderName => HttpHeaderName.WellKnown.Authorization;
+
+    /// <inheritdoc/>
     protected override async ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
         PipelineContext context)
     {

@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Auth;
+using Dexpace.Sdk.Core.Http.Common;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -43,6 +44,9 @@ public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
         ArgumentNullException.ThrowIfNull(credential);
         _credential = credential;
     }
+
+    /// <inheritdoc/>
+    protected override HttpHeaderName WithheldHeaderName => _credential.HeaderName;
 
     /// <inheritdoc/>
     protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(

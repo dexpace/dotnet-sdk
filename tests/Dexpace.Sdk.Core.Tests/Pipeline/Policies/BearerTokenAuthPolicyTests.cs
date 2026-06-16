@@ -224,6 +224,44 @@ public sealed class BearerTokenAuthPolicyTests
         Assert.Equal("Bearer retry-bearer", context.Request.Headers.Get("Authorization"));
     }
 
+    [Fact]
+    public async Task ProcessAsync_CrossOriginRequest_StripsStaleAuthorizationHeader()
+    {
+        // The request carries a stale Authorization header from the original hop.
+        // After the policy runs on a cross-origin request, that header must be absent —
+        // the foreign origin must never see it, even without RedirectPolicy in the pipeline.
+        var credential = new FakeTokenCredential("secret-bearer");
+        var options = MakeOptions();
+
+        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
+        var context = new PipelineContext(originalRequest, options);
+
+        var recordingTransport = new CapturingTransport();
+        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
+        var policy = new BearerTokenAuthPolicy(credential, "scope");
+
+        // First run: records origin, stamps header (calls credential once).
+        await policy.ProcessAsync(context, recordingRunner);
+        Assert.Equal("Bearer secret-bearer", context.Request.Headers.Get("Authorization"));
+        var callCountAfterFirstRun = credential.CallCount;
+
+        // Simulate a cross-origin redirect with the stale Authorization header still in place.
+        context.Request = MakeRequest("https://other-service.example.org/callback") with
+        {
+            Headers = Headers.Empty.Set("Authorization", "Bearer secret-bearer")
+        };
+
+        var foreignTransport = new CapturingTransport();
+        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
+
+        // Second run: different origin → stale Authorization header must be stripped.
+        // Crucially, the token cache / credential must NOT be called again.
+        await policy.ProcessAsync(context, foreignRunner);
+
+        Assert.Null(context.Request.Headers.Get("Authorization"));
+        Assert.Equal(callCountAfterFirstRun, credential.CallCount);
+    }
+
     // -------------------------------------------------------------------------
     // Helper: captures scopes passed to GetTokenAsync
     // -------------------------------------------------------------------------
