@@ -133,6 +133,17 @@ public static class PaginationStrategies
                 return null;
             }
 
+            // Scheme guard: only allow http/https to prevent untrusted Link headers
+            // (mailto:, javascript:, ftp:, etc.) from producing a request with a
+            // non-http/https URL. Note: `current with { Url = ... }` bypasses the
+            // Request constructor's scheme validation, so the guard must live here.
+            if (!resolved.IsAbsoluteUri
+                || (!resolved.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                    && !resolved.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+            {
+                return null;
+            }
+
             return current with { Url = resolved };
         };
     }
@@ -236,15 +247,22 @@ public static class PaginationStrategies
     /// <see langword="null"/> if not found.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Handles the comma-separated format:
     /// <c>&lt;https://api.example.com/items?page=2&gt;; rel="next", &lt;...&gt;; rel="prev"</c>
+    /// </para>
+    /// <para>
+    /// Quoted parameter values (e.g. <c>title="Page 3, final"</c>) are handled correctly:
+    /// commas and semicolons inside a double-quoted run are not treated as delimiters.
+    /// </para>
+    /// <para>
+    /// Per RFC 8288, <c>rel</c> is a space-separated token list; any token that matches
+    /// <paramref name="rel"/> is accepted.
+    /// </para>
     /// </remarks>
     private static string? ParseLinkHeader(string headerValue, string rel)
     {
-        // Split on commas that are not inside angle brackets.
-        // We do a simple state-machine split because link URLs may theoretically
-        // contain commas (e.g., in query parameters), but for RFC 8288 the entries
-        // are comma-separated at the top level.
+        // Split on commas that are not inside angle brackets or double-quoted strings.
         var entries = SplitLinkEntries(headerValue);
 
         foreach (var entry in entries)
@@ -253,9 +271,9 @@ public static class PaginationStrategies
             if (trimmed.Length == 0) { continue; }
 
             // Each entry: <URL>; param=value; param=value…
-            // Split on ';'
-            var parts = trimmed.Split(';');
-            if (parts.Length < 2) { continue; }
+            // Use quote-aware split on ';'.
+            var parts = SplitLinkParams(trimmed);
+            if (parts.Count < 2) { continue; }
 
             // First part must be <URL>.
             var urlPart = parts[0].Trim();
@@ -263,21 +281,26 @@ public static class PaginationStrategies
 
             var linkUrl = urlPart[1..^1].Trim();
 
-            // Scan the remaining parts for rel="<rel>".
+            // Scan the remaining parts for rel= (RFC 8288: space-separated token list).
             var hasMatchingRel = false;
-            for (var i = 1; i < parts.Length; i++)
+            for (var i = 1; i < parts.Count; i++)
             {
                 var param = parts[i].Trim();
 
-                // Strip optional quotes and compare.
                 if (param.StartsWith("rel=", StringComparison.OrdinalIgnoreCase))
                 {
+                    // Strip optional surrounding quotes, then split the token list on whitespace.
                     var relValue = param["rel=".Length..].Trim().Trim('"');
-                    if (string.Equals(relValue, rel, StringComparison.OrdinalIgnoreCase))
+                    foreach (var token in relValue.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                     {
-                        hasMatchingRel = true;
-                        break;
+                        if (string.Equals(token, rel, StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasMatchingRel = true;
+                            break;
+                        }
                     }
+
+                    if (hasMatchingRel) { break; }
                 }
             }
 
@@ -291,23 +314,34 @@ public static class PaginationStrategies
     }
 
     /// <summary>
-    /// Splits a <c>Link</c> header value on top-level commas (outside angle brackets).
+    /// Splits a <c>Link</c> header value on top-level commas — those that are outside
+    /// both angle brackets (<c>&lt;…&gt;</c>) and double-quoted strings (<c>"…"</c>).
     /// </summary>
     private static IEnumerable<string> SplitLinkEntries(string headerValue)
     {
-        var depth = 0;
+        var depth = 0;        // angle-bracket nesting
+        var inQuotes = false; // inside "…"
         var start = 0;
 
         for (var i = 0; i < headerValue.Length; i++)
         {
-            switch (headerValue[i])
+            var ch = headerValue[i];
+
+            if (ch == '"')
             {
-                case '<': depth++; break;
-                case '>': if (depth > 0) { depth--; } break;
-                case ',' when depth == 0:
-                    yield return headerValue[start..i];
-                    start = i + 1;
-                    break;
+                inQuotes = !inQuotes;
+            }
+            else if (!inQuotes)
+            {
+                switch (ch)
+                {
+                    case '<': depth++; break;
+                    case '>': if (depth > 0) { depth--; } break;
+                    case ',' when depth == 0:
+                        yield return headerValue[start..i];
+                        start = i + 1;
+                        break;
+                }
             }
         }
 
@@ -315,6 +349,39 @@ public static class PaginationStrategies
         {
             yield return headerValue[start..];
         }
+    }
+
+    /// <summary>
+    /// Splits one <c>Link</c> entry on semicolons that are outside double-quoted strings.
+    /// The first element is always the <c>&lt;URL&gt;</c> target; the remainder are parameters.
+    /// </summary>
+    private static List<string> SplitLinkParams(string entry)
+    {
+        var parts = new List<string>();
+        var inQuotes = false;
+        var start = 0;
+
+        for (var i = 0; i < entry.Length; i++)
+        {
+            var ch = entry[i];
+
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (!inQuotes && ch == ';')
+            {
+                parts.Add(entry[start..i]);
+                start = i + 1;
+            }
+        }
+
+        if (start <= entry.Length)
+        {
+            parts.Add(entry[start..]);
+        }
+
+        return parts;
     }
 
     // ── query-pair ref-struct enumerator ──────────────────────────────────────────────────────

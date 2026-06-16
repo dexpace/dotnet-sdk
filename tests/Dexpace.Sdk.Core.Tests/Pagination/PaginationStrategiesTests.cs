@@ -298,6 +298,145 @@ public class PaginationStrategiesTests
         Assert.NotNull(next);
     }
 
+    [Fact]
+    public void LinkHeader_QuotedCommaInParam_DoesNotSplitEntry()
+    {
+        // A comma inside a quoted parameter value must not be treated as an entry separator.
+        // Without quote-aware splitting, the entry is broken at the comma inside the title
+        // and the rel="next" token ends up in a truncated fragment, so parsing returns null.
+        var strategy = PaginationStrategies.LinkHeader<TestPage>("next");
+        var current = BaseRequest("https://api.example.com/items");
+        var response = ResponseWithLink(
+            "<https://api.example.com/items?page=3>; rel=\"next\"; title=\"Page 3, final\"");
+
+        var next = strategy(default!, response, current);
+
+        Assert.NotNull(next);
+        Assert.Equal(new Uri("https://api.example.com/items?page=3"), next.Url);
+    }
+
+    [Fact]
+    public void LinkHeader_QuotedSemicolonInParam_DoesNotBreakParamParsing()
+    {
+        // A semicolon inside a quoted parameter value must not be treated as a param separator.
+        var strategy = PaginationStrategies.LinkHeader<TestPage>("next");
+        var current = BaseRequest("https://api.example.com/items");
+        var response = ResponseWithLink(
+            "<https://api.example.com/items?page=2>; title=\"A; B\"; rel=\"next\"");
+
+        var next = strategy(default!, response, current);
+
+        Assert.NotNull(next);
+        Assert.Equal(new Uri("https://api.example.com/items?page=2"), next.Url);
+    }
+
+    [Fact]
+    public void LinkHeader_MultiValuedRel_MatchesWhenAnyTokenEquals()
+    {
+        // RFC 8288: rel is a space-separated token list; rel="prev next" should match "next".
+        var strategy = PaginationStrategies.LinkHeader<TestPage>("next");
+        var current = BaseRequest("https://api.example.com/items");
+        var response = ResponseWithLink(
+            "<https://api.example.com/items?page=2>; rel=\"prev next\"");
+
+        var next = strategy(default!, response, current);
+
+        Assert.NotNull(next);
+        Assert.Equal(new Uri("https://api.example.com/items?page=2"), next.Url);
+    }
+
+    [Fact]
+    public void LinkHeader_MailtoScheme_ReturnsNull()
+    {
+        // A Link header with a mailto: URL must not be followed.
+        var strategy = PaginationStrategies.LinkHeader<TestPage>("next");
+        var current = BaseRequest("https://api.example.com/items");
+        var response = ResponseWithLink("<mailto:admin@example.com>; rel=\"next\"");
+
+        var next = strategy(default!, response, current);
+
+        Assert.Null(next);
+    }
+
+    [Fact]
+    public void LinkHeader_FtpScheme_ReturnsNull()
+    {
+        // A Link header with an ftp: URL must not be followed.
+        var strategy = PaginationStrategies.LinkHeader<TestPage>("next");
+        var current = BaseRequest("https://api.example.com/items");
+        var response = ResponseWithLink("<ftp://files.example.com/data>; rel=\"next\"");
+
+        var next = strategy(default!, response, current);
+
+        Assert.Null(next);
+    }
+
+    // ── SetQueryParameter ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SetQueryParameter_PreservesFragment()
+    {
+        // SetQueryParameter must keep an existing fragment.
+        var strategy = PaginationStrategies.Cursor<TestPage>(p => p.Cursor, "cursor");
+        var current = BaseRequest("https://api.example.com/items#section2");
+        var page = new TestPage([], "abc", HasMore: true);
+
+        var next = strategy(page, EmptyResponse, current);
+
+        Assert.NotNull(next);
+        Assert.Equal("section2", next.Url.Fragment.TrimStart('#'));
+        Assert.Equal("abc", GetQueryParam(next.Url, "cursor"));
+    }
+
+    [Fact]
+    public void SetQueryParameter_PreservesSiblingQueryParam()
+    {
+        // SetQueryParameter must keep unrelated query parameters while replacing/adding the target.
+        var strategy = PaginationStrategies.Cursor<TestPage>(p => p.Cursor, "cursor");
+        var current = BaseRequest("https://api.example.com/items?limit=10");
+        var page = new TestPage([], "tok", HasMore: true);
+
+        var next = strategy(page, EmptyResponse, current);
+
+        Assert.NotNull(next);
+        Assert.Equal("tok", GetQueryParam(next.Url, "cursor"));
+        Assert.Equal("10", GetQueryParam(next.Url, "limit"));
+    }
+
+    // ── Body preservation ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Cursor_PreservesRequestBody()
+    {
+        // A request carrying a body must have that body carried over to the next request.
+        var strategy = PaginationStrategies.Cursor<TestPage>(p => p.Cursor, "cursor");
+        var body = RequestBody.FromBytes(new byte[] { 0x01, 0x02 }, MediaType.Of("application", "octet-stream"));
+        var current = Request.Create(Method.Post, "https://api.example.com/items", body: body);
+        var page = new TestPage([], "tok", HasMore: true);
+
+        var next = strategy(page, EmptyResponse, current);
+
+        Assert.NotNull(next);
+        Assert.Same(body, next.Body);
+        Assert.Equal("tok", GetQueryParam(next.Url, "cursor"));
+    }
+
+    [Fact]
+    public void PageNumber_PreservesRequestBody()
+    {
+        // A request carrying a body must have that body carried over to the next request.
+        var strategy = PaginationStrategies.PageNumber<TestPage>("page", p => p.HasMore);
+        var body = RequestBody.FromBytes(new byte[] { 0xAB }, MediaType.Of("application", "octet-stream"));
+        var current = Request.Create(Method.Post, "https://api.example.com/items?page=1", body: body);
+        var page = new TestPage([], null, HasMore: true);
+
+        var next = strategy(page, EmptyResponse, current);
+
+        Assert.NotNull(next);
+        Assert.Same(body, next.Body);
+        Assert.Equal("2", GetQueryParam(next.Url, "page"));
+    }
+
     // ── End-to-end: Pageable.Create + a strategy ──────────────────────────────────────────────
 
     [Fact]
