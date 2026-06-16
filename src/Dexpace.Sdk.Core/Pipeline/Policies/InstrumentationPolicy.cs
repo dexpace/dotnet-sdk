@@ -18,22 +18,32 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <b>Tracing.</b> A client-kind <see cref="Activity"/> is started from
 /// <see cref="DexpaceDiagnostics.ActivitySource"/> for each attempt. The activity name is the
 /// HTTP method (low cardinality). OTel HTTP semantic-convention tags are attached:
-/// <c>http.request.method</c>, <c>url.full</c> (redacted), <c>server.address</c>,
-/// <c>server.port</c>, <c>http.response.status_code</c>, and <c>http.request.resend_count</c>.
-/// On exception, <c>error.type</c> is set and the activity status is
-/// <see cref="ActivityStatusCode.Error"/>. When no listener is registered,
+/// <c>http.request.method</c>, <c>url.full</c> (redacted), <c>url.scheme</c>,
+/// <c>server.address</c>, <c>server.port</c>, <c>http.response.status_code</c>, and
+/// <c>http.request.resend_count</c>. On exception, <c>error.type</c> is set and the activity
+/// status is <see cref="ActivityStatusCode.Error"/>. When no listener is registered,
 /// <c>ActivitySource.StartActivity</c> returns <see langword="null"/> and the hot path
 /// allocates nothing for tracing.
+/// </para>
+/// <para>
+/// <b>W3C trace-context propagation.</b> When the started <see cref="Activity"/> is non-null
+/// and its <see cref="Activity.IdFormat"/> is <see cref="ActivityIdFormat.W3C"/>, the policy
+/// stamps <c>traceparent</c> (and, when non-empty, <c>tracestate</c>) onto the request headers
+/// before forwarding the call. This ensures trace context propagates over any transport
+/// without relying on transport-level auto-injection.
 /// </para>
 /// <para>
 /// <b>Metrics.</b> Two instruments are recorded per attempt:
 /// <list type="bullet">
 ///   <item>
-///     <c>http.client.request.duration</c> — <see cref="Histogram{T}"/> in seconds.
+///     <c>http.client.request.duration</c> — <see cref="Histogram{T}"/> in seconds, tagged
+///     with <c>http.request.method</c> and (on completion) <c>http.response.status_code</c> or
+///     <c>error.type</c>.
 ///   </item>
 ///   <item>
 ///     <c>http.client.active_requests</c> — <see cref="UpDownCounter{T}"/> incremented before
-///     the send and decremented after (in a <c>finally</c> block).
+///     the send and decremented after (in a <c>finally</c> block), tagged with
+///     <c>http.request.method</c>.
 ///   </item>
 /// </list>
 /// </para>
@@ -94,47 +104,115 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
         {
             activity.SetTag("http.request.method", method);
             activity.SetTag("url.full", redactedUrl);
+            activity.SetTag("url.scheme", request.Url.Scheme);
             activity.SetTag("server.address", request.Url.Host);
             activity.SetTag("server.port", request.Url.IsDefaultPort ? -1 : request.Url.Port);
             activity.SetTag("http.request.resend_count", context.AttemptNumber);
-            context.Activity = activity;
-        }
 
-        LogSendingRequest(_logger, method, redactedUrl);
-
-        var sw = Stopwatch.StartNew();
-        s_activeRequests.Add(1);
-
-        try
-        {
-            await continuation.RunAsync(context).ConfigureAwait(false);
-
-            var statusCode = context.Response?.Status.Code;
-            if (activity is not null && statusCode.HasValue)
+            // Inject W3C trace context onto the request so any transport carries the span.
+            if (activity.IdFormat == ActivityIdFormat.W3C && activity.Id is not null)
             {
-                activity.SetTag("http.response.status_code", statusCode.Value);
+                var headers = context.Request.Headers.Set("traceparent", activity.Id);
+                if (!string.IsNullOrEmpty(activity.TraceStateString))
+                {
+                    headers = headers.Set("tracestate", activity.TraceStateString);
+                }
+
+                context.Request = context.Request with { Headers = headers };
             }
 
-            LogReceivedResponse(_logger, method, statusCode, redactedUrl);
-        }
-        catch (Exception ex)
-        {
-            if (activity is not null)
+            // Capture the previous activity so we can restore it in the finally block.
+            var previousActivity = context.Activity;
+            context.Activity = activity;
+
+            LogSendingRequest(_logger, method, redactedUrl);
+
+            var sw = Stopwatch.StartNew();
+            var methodTag = new TagList { { "http.request.method", method } };
+            s_activeRequests.Add(1, methodTag);
+
+            try
+            {
+                await continuation.RunAsync(context).ConfigureAwait(false);
+
+                var statusCode = context.Response?.Status.Code;
+                if (statusCode.HasValue)
+                {
+                    activity.SetTag("http.response.status_code", statusCode.Value);
+                }
+
+                LogReceivedResponse(_logger, method, statusCode, redactedUrl);
+
+                var durationTags = new TagList
+                {
+                    { "http.request.method", method },
+                    { "http.response.status_code", statusCode },
+                };
+                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+            }
+            catch (Exception ex)
             {
                 activity.SetTag("error.type", ex.GetType().FullName);
                 activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+
+                LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
+
+                var durationTags = new TagList
+                {
+                    { "http.request.method", method },
+                    { "error.type", ex.GetType().FullName },
+                };
+                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+
+                throw;
             }
-
-            LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
-
-            throw;
+            finally
+            {
+                s_activeRequests.Add(-1, methodTag);
+                // Restore the activity that was active before we replaced it.
+                context.Activity = previousActivity;
+            }
         }
-        finally
+        else
         {
-            s_activeRequests.Add(-1);
-            s_requestDuration.Record(sw.Elapsed.TotalSeconds);
-            // Null out context.Activity so downstream observers don't access a disposed span.
-            context.Activity = null;
+            // No listener: no activity, no trace-context injection, no activity restoration needed.
+            LogSendingRequest(_logger, method, redactedUrl);
+
+            var sw = Stopwatch.StartNew();
+            var methodTag = new TagList { { "http.request.method", method } };
+            s_activeRequests.Add(1, methodTag);
+
+            try
+            {
+                await continuation.RunAsync(context).ConfigureAwait(false);
+
+                var statusCode = context.Response?.Status.Code;
+                LogReceivedResponse(_logger, method, statusCode, redactedUrl);
+
+                var durationTags = new TagList
+                {
+                    { "http.request.method", method },
+                    { "http.response.status_code", statusCode },
+                };
+                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+            }
+            catch (Exception ex)
+            {
+                LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
+
+                var durationTags = new TagList
+                {
+                    { "http.request.method", method },
+                    { "error.type", ex.GetType().FullName },
+                };
+                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+
+                throw;
+            }
+            finally
+            {
+                s_activeRequests.Add(-1, methodTag);
+            }
         }
     }
 

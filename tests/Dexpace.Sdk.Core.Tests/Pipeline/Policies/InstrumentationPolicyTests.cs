@@ -295,6 +295,170 @@ public sealed class InstrumentationPolicyTests : IDisposable
         Assert.Equal(Status.Ok, result.Status);
     }
 
+    // ─── W3C trace-context injection ─────────────────────────────────────────
+
+    [Fact]
+    public async Task ProcessAsync_W3CActivity_InjectsTraceparentHeader()
+    {
+        // Arrange: capture the request the transport receives.
+        Request? capturedRequest = null;
+        var transport = new CapturingRequestTransport(req =>
+        {
+            capturedRequest = req;
+            return new Response(Status.Ok);
+        });
+        var policy = new InstrumentationPolicy();
+        var url = new Uri("https://api.example.com/v1/items");
+
+        await RunAsync(policy, MakeRequest(url), transport);
+
+        // The listener fixture uses W3C format (the .NET default).
+        var started = Assert.Single(_activities);
+        Assert.Equal(ActivityIdFormat.W3C, started.IdFormat);
+        Assert.NotNull(capturedRequest);
+        var traceparent = capturedRequest.Headers.Get("traceparent");
+        Assert.NotNull(traceparent);
+        Assert.Equal(started.Id, traceparent);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_W3CActivity_InjectsTracestateHeader_WhenNonEmpty()
+    {
+        // Arrange: start a parent activity with tracestate so the child inherits it.
+        using var parentActivity = new Activity("parent");
+        parentActivity.TraceStateString = "vendor=value";
+        parentActivity.Start();
+
+        try
+        {
+            Request? capturedRequest = null;
+            var transport = new CapturingRequestTransport(req =>
+            {
+                capturedRequest = req;
+                return new Response(Status.Ok);
+            });
+            var policy = new InstrumentationPolicy();
+
+            await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+
+            Assert.NotNull(capturedRequest);
+            var tracestate = capturedRequest.Headers.Get("tracestate");
+            Assert.NotNull(tracestate);
+            Assert.False(string.IsNullOrEmpty(tracestate));
+        }
+        finally
+        {
+            parentActivity.Stop();
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NoListener_DoesNotInjectTraceparentHeader()
+    {
+        // Dispose the listener so StartActivity returns null.
+        _listener.Dispose();
+
+        Request? capturedRequest = null;
+        var transport = new CapturingRequestTransport(req =>
+        {
+            capturedRequest = req;
+            return new Response(Status.Ok);
+        });
+        var policy = new InstrumentationPolicy();
+
+        await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+
+        Assert.NotNull(capturedRequest);
+        Assert.False(capturedRequest.Headers.Contains("traceparent"), "traceparent must not be added when there is no activity");
+    }
+
+    // ─── Metric dimensions ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ProcessAsync_DurationHistogram_CarriesMethodAndStatusTags()
+    {
+        // Capture tags as an array so we can inspect them outside the callback.
+        KeyValuePair<string, object?>[]? capturedTags = null;
+
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Meter.Name == "Dexpace.Sdk" && instrument.Name == "http.client.request.duration")
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meterListener.SetMeasurementEventCallback<double>((_, _, tags, _) =>
+        {
+            // Materialise the span into an array before it goes out of scope.
+            capturedTags = tags.ToArray();
+        });
+        meterListener.Start();
+
+        var transport = new StaticTransport(new Response(Status.Ok));
+        var policy = new InstrumentationPolicy();
+        await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+
+        meterListener.RecordObservableInstruments();
+        Assert.NotNull(capturedTags);
+
+        var tagDict = capturedTags.ToDictionary(kv => kv.Key, kv => kv.Value);
+        Assert.True(tagDict.ContainsKey("http.request.method"), "Missing http.request.method tag");
+        Assert.True(tagDict.ContainsKey("http.response.status_code"), "Missing http.response.status_code tag");
+        Assert.Equal("GET", tagDict["http.request.method"]);
+    }
+
+    // ─── url.scheme tag ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ProcessAsync_Activity_HasUrlSchemeTag()
+    {
+        var transport = new StaticTransport(new Response(Status.Ok));
+        var policy = new InstrumentationPolicy();
+        var url = new Uri("https://api.example.com/v1/items");
+
+        await RunAsync(policy, MakeRequest(url), transport);
+
+        var activity = Assert.Single(_activities);
+        Assert.Equal("https", activity.GetTagItem("url.scheme"));
+    }
+
+    // ─── context.Activity restore guard ──────────────────────────────────────
+
+    [Fact]
+    public async Task ProcessAsync_RestoresPreviousActivity_AfterCompletion()
+    {
+        // Arrange: place a sentinel activity in context.Activity before instrumentation runs.
+        // We do that by wrapping InstrumentationPolicy with an outer policy that sets it first.
+        Activity? outerActivity = null;
+        Activity? activityAfterCompletion = null;
+
+        using var sentinel = new Activity("outer-sentinel");
+        sentinel.Start();
+        outerActivity = sentinel;
+
+        // OuterPolicy sets context.Activity to the sentinel, then calls the rest of the chain.
+        var outerPolicy = new DelegatePolicy(async (ctx, next) =>
+        {
+            ctx.Activity = outerActivity;
+            await next.RunAsync(ctx).ConfigureAwait(false);
+            activityAfterCompletion = ctx.Activity;
+        }, stage: (PipelineStage)500);
+
+        var transport = new StaticTransport(new Response(Status.Ok));
+        var pipeline = new PipelineBuilder()
+            .Add(outerPolicy)
+            .Add(new InstrumentationPolicy())   // Diagnostics = 600, runs after 500
+            .Build(transport);
+
+        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions());
+
+        // After InstrumentationPolicy's finally block, context.Activity should be the sentinel.
+        Assert.Same(outerActivity, activityAfterCompletion);
+
+        sentinel.Stop();
+    }
+
     // ─── Nested helpers ──────────────────────────────────────────────────────
 
     private sealed class StaticTransport(Response response) : IAsyncHttpClient
@@ -356,6 +520,24 @@ public sealed class InstrumentationPolicyTests : IDisposable
             TimeSpan dueTime,
             TimeSpan period) =>
             base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+    }
+
+    private sealed class CapturingRequestTransport(Func<Request, Response> handler) : IAsyncHttpClient
+    {
+        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(handler(request));
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class DelegatePolicy(
+        Func<PipelineContext, PipelineRunner, ValueTask> action,
+        PipelineStage stage = PipelineStage.PerAttempt) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => stage;
+
+        public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation) =>
+            action(context, continuation);
     }
 
     private sealed class RecordingLogger : ILogger
