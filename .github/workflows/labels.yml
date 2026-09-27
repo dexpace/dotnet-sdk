@@ -13,7 +13,7 @@
 #   3. dispatch with dry_run on. read the plan.
 #   4. dispatch with dry_run off. labels are created.
 #   5. set repo variable LABELS_PRUNE=true, dispatch once more. strays deleted.
-#   6. uncomment the push and schedule triggers below.
+#   6. uncomment the push and schedule triggers below.   <- DONE for this repo
 #
 # Step 6 is not optional. Between dispatches, a label edited in the web UI
 # stays edited — the Monday cron is what re-heals it. Skip step 6 and the YAML
@@ -32,12 +32,11 @@
 name: Labels
 
 on:
-  # --- Uncomment at step 6, once the first real sync has been read. ---
-  # push:
-  #   branches: [main]
-  #   paths: ['.github/workflows/labels.yml']
-  # schedule:
-  #   - cron: '0 4 * * 1'        # Monday reconciliation
+  push:
+    branches: [main]
+    paths: ['.github/workflows/labels.yml']
+  schedule:
+    - cron: '0 4 * * 1'        # Monday reconciliation
   workflow_dispatch:
     inputs:
       dry_run:
