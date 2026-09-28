@@ -50,32 +50,53 @@ public sealed class Response : IAsyncDisposable, IDisposable
     public bool IsSuccess => Status.IsSuccess;
 
     /// <summary>
-    /// Throws <see cref="HttpResponseException"/> if the status is not in the 2xx success range.
+    /// Throws <see cref="HttpResponseException"/> if the status is an error: 400–599.
     /// </summary>
     /// <remarks>
-    /// When the status is an error, the response body is drained up to
-    /// <see cref="MaxBufferedErrorBytes"/> into an in-memory buffer and attached to the
-    /// thrown exception so that <see cref="HttpResponseException.GetErrorAsync{T}"/> can read
-    /// it. The cap guards against oversized error pages consuming unbounded memory.
+    /// <para>
+    /// Only client and server errors map to an exception (BODY-31, RECOV-15). Every other status — 1xx, 2xx, a
+    /// <c>304 Not Modified</c> or a 3xx that no redirect policy followed — returns normally with the body untouched.
+    /// </para>
+    /// <para>
+    /// For an error, the response body is drained up to <see cref="MaxBufferedErrorBytes"/> into an in-memory copy
+    /// that can be read any number of times, and that copy is attached to the thrown exception so that
+    /// <see cref="HttpResponseException.GetErrorAsync{T}"/> can read it. The cap guards against oversized error
+    /// pages consuming unbounded memory; bytes beyond it are dropped. This response is disposed before the method
+    /// completes, whether or not the drain succeeded, so the connection behind it is released (HTTP-52, BODY-30).
+    /// </para>
+    /// <para>
+    /// <b>Breaking change (phase 1, S8):</b> when this method throws, it has already disposed this response. Do not
+    /// read <see cref="Body"/> after catching the exception; read the error body through the exception's
+    /// <see cref="HttpResponseException.Response"/> or <see cref="HttpResponseException.GetErrorAsync{T}"/> instead.
+    /// Disposing this response again, for example from an enclosing <c>using</c>, is safe.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token that can cancel the body-drain operation.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the check has been performed.</returns>
     /// <exception cref="HttpResponseException">
-    /// The response status is not in the 2xx range. The exception carries a buffered copy of
-    /// the error body (up to <see cref="MaxBufferedErrorBytes"/> bytes).
+    /// The response status is in the 400–599 range. The exception carries a replayable buffered copy of the error
+    /// body (up to <see cref="MaxBufferedErrorBytes"/> bytes).
     /// </exception>
     public async ValueTask EnsureSuccessAsync(CancellationToken cancellationToken = default)
     {
-        if (IsSuccess)
+        if (!Status.IsClientError && !Status.IsServerError)
         {
             return;
         }
 
-        // Drain and cap the body so the caller can read it from the exception.
-        var rawBytes = await DrainCappedAsync(Body, MaxBufferedErrorBytes, cancellationToken)
-            .ConfigureAwait(false);
+        // Drain and cap the body inside this response's dispose scope, so a failed drain still releases it.
+        byte[] rawBytes;
+        try
+        {
+            rawBytes = await DrainCappedAsync(Body, MaxBufferedErrorBytes, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await DisposeAsync().ConfigureAwait(false);
+        }
 
-        var bufferedBody = ResponseBody.FromBytes(rawBytes, Body.ContentType);
+        var bufferedBody = ResponseBody.FromReplayableBytes(rawBytes, Body.ContentType);
         var bufferedResponse = new Response(Status, Headers, bufferedBody, Protocol);
         throw new HttpResponseException(bufferedResponse);
     }

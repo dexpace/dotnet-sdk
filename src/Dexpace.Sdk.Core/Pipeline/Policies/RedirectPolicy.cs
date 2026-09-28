@@ -33,6 +33,10 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <see langword="true"/>.
 /// </para>
 /// <para>
+/// <b>Request isolation:</b> each hop is driven with the request this policy holds, and the next hop is built from
+/// it, so a hop never carries what a downstream policy wrote during the previous one.
+/// </para>
+/// <para>
 /// <b>Cross-origin header stripping:</b> when
 /// <see cref="Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin"/> is
 /// <see langword="true"/> and the new URL has a different origin (scheme/host/port), the
@@ -46,7 +50,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Redirect;
 
-    // MA0051 waiver: 101 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
+    // MA0051 waiver: 106 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
     // allowed-method set, downgrade and replayability errors); splitting it now would be rewritten there.
 #pragma warning disable MA0051
     /// <inheritdoc/>
@@ -57,8 +61,13 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
         var options = context.Options.Redirect;
         var redirectCount = 0;
 
+        // RETRY-44 / PIPE-16: each hop is driven with, and the next hop built from, the request this policy holds —
+        // never the one a downstream policy (auth) stamped during the previous hop.
+        var request = context.Request;
+
         while (true)
         {
+            context.Request = request;
             await continuation.RunAsync(context).ConfigureAwait(false);
 
             var response = context.Response;
@@ -85,13 +94,13 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             // Resolve Location (handles relative URIs) against current request URL.
             // Use TryCreate so a malformed Location value from the server doesn't throw a raw
             // UriFormatException through the pipeline — treat it as non-followable instead.
-            if (!Uri.TryCreate(context.Request.Url, location, out var newUrl))
+            if (!Uri.TryCreate(request.Url, location, out var newUrl))
             {
                 return;
             }
 
             // HTTPS → HTTP downgrade guard.
-            if (context.Request.Url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            if (request.Url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
                 && newUrl.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
                 && !options.AllowHttpsToHttpDowngrade)
             {
@@ -100,7 +109,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
 
             // Determine whether to preserve or drop method/body.
             var statusCode = response.Status.Code;
-            var currentMethod = context.Request.Method;
+            var currentMethod = request.Method;
             bool dropBody;
             Method newMethod;
 
@@ -124,14 +133,14 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             }
 
             // Non-replayable body guard: if body must be kept but cannot be replayed, stop.
-            if (!dropBody && context.Request.Body is { IsReplayable: false })
+            if (!dropBody && request.Body is { IsReplayable: false })
             {
                 return;
             }
 
             // Cross-origin header stripping.
-            var newHeaders = context.Request.Headers;
-            if (options.StripSensitiveHeadersOnCrossOrigin && IsCrossOrigin(context.Request.Url, newUrl))
+            var newHeaders = request.Headers;
+            if (options.StripSensitiveHeadersOnCrossOrigin && IsCrossOrigin(request.Url, newUrl))
             {
                 newHeaders = newHeaders
                     .Without(HttpHeaderName.WellKnown.Authorization.Original)
@@ -142,12 +151,12 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             await response.DisposeAsync().ConfigureAwait(false);
             context.Response = null;
 
-            context.Request = context.Request with
+            request = request with
             {
                 Url = newUrl,
                 Method = newMethod,
                 Headers = newHeaders,
-                Body = dropBody ? null : context.Request.Body,
+                Body = dropBody ? null : request.Body,
             };
 
             redirectCount++;

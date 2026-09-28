@@ -14,7 +14,9 @@ namespace Dexpace.Sdk.Core.Http.Response;
 /// The body is not pre-buffered. <see cref="OpenReadAsync"/> exposes the raw stream;
 /// <see cref="ReadAsBytesAsync"/> and <see cref="ReadAsStringAsync"/> fully drain and then close
 /// it. Reads are single-use: a second read after the stream is consumed raises
-/// <see cref="StreamConsumedException"/>. Always dispose the body (directly or via the owning
+/// <see cref="StreamConsumedException"/>. The one exception is the buffered error body an
+/// <see cref="HttpResponseException"/> raised by <see cref="Response.EnsureSuccessAsync"/> carries, which can be read
+/// any number of times. Always dispose the body (directly or via the owning
 /// <see cref="Response"/>) to release the underlying connection.
 /// </remarks>
 public abstract class ResponseBody : IAsyncDisposable, IDisposable
@@ -65,6 +67,13 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     public static ResponseBody FromBytes(ReadOnlyMemory<byte> bytes, MediaType? contentType = null) =>
         new BytesResponseBody(bytes.ToArray(), contentType);
 
+    /// <summary>
+    /// Creates an in-memory body that, unlike <see cref="FromBytes"/>, can be read any number of times. Used for the
+    /// buffered error body an <see cref="Errors.HttpResponseException"/> carries (HTTP-52, BODY-30).
+    /// </summary>
+    internal static ResponseBody FromReplayableBytes(byte[] bytes, MediaType? contentType) =>
+        new ReplayableBytesResponseBody(bytes, contentType);
+
     /// <summary>Creates a streaming response body wrapping <paramref name="source"/>.</summary>
     /// <param name="source">The payload stream (owned by the returned body).</param>
     /// <param name="contentType">The media type, or <see langword="null"/>.</param>
@@ -104,6 +113,16 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
 
             return Task.FromResult<Stream>(new MemoryStream(bytes, writable: false));
         }
+    }
+
+    private sealed class ReplayableBytesResponseBody(byte[] bytes, MediaType? contentType) : ResponseBody
+    {
+        public override MediaType? ContentType { get; } = contentType;
+
+        public override long ContentLength => bytes.LongLength;
+
+        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<Stream>(new MemoryStream(bytes, writable: false));
     }
 
     private sealed class StreamResponseBody(Stream source, MediaType? contentType, long contentLength) : ResponseBody

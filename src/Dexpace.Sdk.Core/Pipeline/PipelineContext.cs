@@ -46,6 +46,11 @@ public sealed class PipelineContext
     /// <summary>
     /// The current request. Policies (e.g. redirect, auth) may replace this during the call.
     /// </summary>
+    /// <remarks>
+    /// A replacement is seen only downstream of the policy that made it, for the current drive: the retry and
+    /// redirect policies restore the request they hold before every re-drive (RETRY-44, PIPE-16), so a policy must
+    /// not rely on its write surviving into the next attempt or hop.
+    /// </remarks>
     public Request Request { get; set; }
 
     /// <summary>

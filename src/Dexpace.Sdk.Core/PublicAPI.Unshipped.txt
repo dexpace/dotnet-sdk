@@ -82,8 +82,9 @@ Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(System.Uri! uri) -> string!
+Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor() -> void
-Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! sensitiveParams) -> void
+Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! queryAllowList) -> void
 Dexpace.Sdk.Core.Errors.DeserializationException
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException() -> void
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message) -> void
@@ -405,7 +406,7 @@ static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
-static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultSensitiveParams -> System.Collections.Generic.IReadOnlyCollection<string!>!
+static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!
 virtual Dexpace.Sdk.Core.Auth.TokenCredential.GetToken(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Auth.AccessToken
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ContentLength.get -> long
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.IsReplayable.get -> bool

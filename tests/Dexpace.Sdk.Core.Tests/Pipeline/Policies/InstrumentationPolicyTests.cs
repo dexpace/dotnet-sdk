@@ -107,7 +107,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
-        // "api_key" is in UrlRedactor.DefaultSensitiveParams
+        // Default-deny: neither "api_key" nor "page" is in UrlRedactor.DefaultQueryAllowList
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET123&page=2");
 
         await RunAsync(policy, MakeRequest(url), transport);
@@ -116,9 +116,9 @@ public sealed class InstrumentationPolicyTests : IDisposable
         var urlFull = activity.GetTagItem("url.full") as string;
         Assert.NotNull(urlFull);
         Assert.DoesNotContain("SECRET123", urlFull);
-        Assert.Contains("REDACTED", urlFull);
-        // Non-sensitive param should be preserved
-        Assert.Contains("page=2", urlFull);
+        Assert.Contains("api_key=***", urlFull);
+        // A value that is not allow-listed is redacted too (OBS-12)
+        Assert.Contains("page=***", urlFull);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
             Assert.DoesNotContain("SECRET", message);
         }
         // Verify the redacted marker is present in at least one entry
-        Assert.Contains(logger.Entries, e => e.Message.Contains("REDACTED"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("api_key=***"));
     }
 
     [Fact]
