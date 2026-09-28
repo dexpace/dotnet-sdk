@@ -8,6 +8,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
 
+[Trait("Category", "Unit")]
 public sealed class SystemTextJsonSerdeTests
 {
     private static SystemTextJsonSerde Serde() => new(TestJsonContext.Default);
@@ -19,9 +20,9 @@ public sealed class SystemTextJsonSerdeTests
         var widget = new Widget("gizmo", 42);
 
         using var stream = new MemoryStream();
-        await serde.SerializeAsync(stream, widget);
+        await serde.SerializeAsync(stream, widget, TestContext.Current.CancellationToken);
         stream.Position = 0;
-        var result = await serde.DeserializeAsync<Widget>(stream);
+        var result = await serde.DeserializeAsync<Widget>(stream, TestContext.Current.CancellationToken);
 
         Assert.Equal(widget, result);
     }
@@ -85,7 +86,7 @@ public sealed class SystemTextJsonSerdeTests
         n.Next = n;
 
         using var stream = new MemoryStream();
-        await Assert.ThrowsAsync<SerializationException>(() => serde.SerializeAsync(stream, n).AsTask());
+        await Assert.ThrowsAsync<SerializationException>(() => serde.SerializeAsync(stream, n, TestContext.Current.CancellationToken).AsTask());
     }
 
     [Fact]

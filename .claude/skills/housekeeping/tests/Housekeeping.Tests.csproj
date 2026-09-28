@@ -5,6 +5,7 @@
        Directory.Packages.props; no PackageReference carries a Version. -->
   <PropertyGroup>
     <RootNamespace>Housekeeping.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <!-- Tests are exempt from the strict documentation gate, as the repository's own test projects are. -->
@@ -13,9 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>

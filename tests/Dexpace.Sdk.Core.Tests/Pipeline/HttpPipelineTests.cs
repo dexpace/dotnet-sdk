@@ -1,15 +1,16 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
+[Trait("Category", "Unit")]
 public class HttpPipelineTests
 {
     private static Request MakeRequest() =>
@@ -17,21 +18,13 @@ public class HttpPipelineTests
 
     private static DexpaceClientOptions MakeOptions() => new();
 
-    private sealed class CannedTransport(Response canned) : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(canned);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
     [Fact]
     public async Task SendAsync_ReturnsTransportResponse()
     {
         var expected = new Response(Status.Ok);
-        var pipeline = new PipelineBuilder().Build(new CannedTransport(expected));
+        var pipeline = new PipelineBuilder().Build(new RecordingTransport(_ => expected));
 
-        var actual = await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        var actual = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Same(expected, actual);
     }
@@ -40,9 +33,9 @@ public class HttpPipelineTests
     public void Send_ReturnsTransportResponse()
     {
         var expected = new Response(Status.Ok);
-        var pipeline = new PipelineBuilder().Build(new CannedTransport(expected));
+        var pipeline = new PipelineBuilder().Build(new RecordingTransport(_ => expected));
 
-        var actual = pipeline.Send(MakeRequest(), MakeOptions());
+        var actual = pipeline.Send(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Same(expected, actual);
     }
@@ -56,9 +49,9 @@ public class HttpPipelineTests
         var pipeline = new PipelineBuilder()
             .Add(new LoggingPolicy("a", PipelineStage.Operation, log))
             .Add(new LoggingPolicy("b", PipelineStage.PerAttempt, log))
-            .Build(new CannedTransport(expected));
+            .Build(new RecordingTransport(_ => expected));
 
-        var actual = await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        var actual = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Same(expected, actual);
         Assert.Equal(["a:in", "b:in", "b:out", "a:out"], log);

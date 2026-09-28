@@ -2,17 +2,17 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Auth;
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class ApiKeyAuthPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -23,22 +23,6 @@ public sealed class ApiKeyAuthPolicyTests
         => Request.Get(url);
 
     private static DexpaceClientOptions MakeOptions() => new();
-
-    /// <summary>
-    /// Captures the last request received and returns a canned 200 OK.
-    /// </summary>
-    private sealed class CapturingTransport : IAsyncHttpClient
-    {
-        public Request? LastRequest { get; private set; }
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            return Task.FromResult(new Response(Status.Ok));
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     // -------------------------------------------------------------------------
     // Stage
@@ -59,12 +43,12 @@ public sealed class ApiKeyAuthPolicyTests
     public async Task ProcessAsync_NoScheme_StampsKeyAsEntireHeaderValue()
     {
         var credential = new ApiKeyCredential("sk-test-abc");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("Authorization");
         Assert.Equal("sk-test-abc", value);
@@ -74,12 +58,12 @@ public sealed class ApiKeyAuthPolicyTests
     public async Task ProcessAsync_WithScheme_PrefixesSchemeBeforeKey()
     {
         var credential = new ApiKeyCredential("sk-test-abc", scheme: "Bearer");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("Authorization");
         Assert.Equal("Bearer sk-test-abc", value);
@@ -94,12 +78,12 @@ public sealed class ApiKeyAuthPolicyTests
     {
         var xApiKey = HttpHeaderName.Of("X-Api-Key");
         var credential = new ApiKeyCredential("my-key", header: xApiKey);
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("X-Api-Key");
         Assert.Equal("my-key", value);
@@ -112,12 +96,12 @@ public sealed class ApiKeyAuthPolicyTests
     {
         var xApiKey = HttpHeaderName.Of("X-Api-Key");
         var credential = new ApiKeyCredential("my-key", header: xApiKey, scheme: "Token");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("X-Api-Key");
         Assert.Equal("Token my-key", value);
@@ -136,12 +120,12 @@ public sealed class ApiKeyAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", "old-value")
         };
 
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(request, MakeOptions());
+        await pipeline.SendAsync(request, MakeOptions(), TestContext.Current.CancellationToken);
 
         var values = transport.LastRequest!.Headers.GetAll("Authorization");
         Assert.Single(values);
@@ -157,16 +141,16 @@ public sealed class ApiKeyAuthPolicyTests
     {
         // Simulate the pipeline being called twice on contexts with same origin.
         var credential = new ApiKeyCredential("sk-secret", scheme: "Bearer");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new ApiKeyAuthPolicy(credential))
             .Build(transport);
 
         // Two independent calls — each gets a fresh PipelineContext, same origin.
-        await pipeline.SendAsync(MakeRequest("https://api.example.com/v1/a"), MakeOptions());
+        await pipeline.SendAsync(MakeRequest("https://api.example.com/v1/a"), MakeOptions(), TestContext.Current.CancellationToken);
         var firstAuth = transport.LastRequest!.Headers.Get("Authorization");
 
-        await pipeline.SendAsync(MakeRequest("https://api.example.com/v1/b"), MakeOptions());
+        await pipeline.SendAsync(MakeRequest("https://api.example.com/v1/b"), MakeOptions(), TestContext.Current.CancellationToken);
         var secondAuth = transport.LastRequest!.Headers.Get("Authorization");
 
         Assert.Equal("Bearer sk-secret", firstAuth);
@@ -186,7 +170,7 @@ public sealed class ApiKeyAuthPolicyTests
         var context = new PipelineContext(originalRequest, options);
 
         // Record the original origin by running the policy once against a no-op continuation.
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new ApiKeyAuthPolicy(credential);
 
@@ -203,7 +187,7 @@ public sealed class ApiKeyAuthPolicyTests
             Headers = Headers.Empty
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run on same context: origin differs → credential must be withheld.
@@ -220,7 +204,7 @@ public sealed class ApiKeyAuthPolicyTests
         var options = MakeOptions();
         var request = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(request, options);
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var runner = new PipelineRunner([], 0, transport);
         var policy = new ApiKeyAuthPolicy(credential);
 
@@ -249,7 +233,7 @@ public sealed class ApiKeyAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new ApiKeyAuthPolicy(credential);
 
@@ -264,7 +248,7 @@ public sealed class ApiKeyAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", "Bearer sk-secret")
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run: different origin → stale header must be stripped.
@@ -284,7 +268,7 @@ public sealed class ApiKeyAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new ApiKeyAuthPolicy(credential);
 
@@ -298,7 +282,7 @@ public sealed class ApiKeyAuthPolicyTests
             Headers = Headers.Empty.Set("X-Api-Key", "my-key")
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run: different origin → stale X-Api-Key header must be stripped.

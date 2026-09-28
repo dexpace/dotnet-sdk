@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Http;
 
+[Trait("Category", "Unit")]
 public sealed class EnsureSuccessTests
 {
     // -------------------------------------------------------------------------
@@ -23,7 +24,7 @@ public sealed class EnsureSuccessTests
     public async Task EnsureSuccessAsync_SuccessStatusCode_DoesNotThrow(int statusCode)
     {
         using var response = new Response(Status.FromCode(statusCode));
-        await response.EnsureSuccessAsync();   // must not throw
+        await response.EnsureSuccessAsync(TestContext.Current.CancellationToken);   // must not throw
     }
 
     // -------------------------------------------------------------------------
@@ -40,7 +41,7 @@ public sealed class EnsureSuccessTests
     public async Task EnsureSuccessAsync_ErrorStatusCode_ThrowsHttpResponseException(int statusCode)
     {
         using var response = new Response(Status.FromCode(statusCode));
-        await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
     }
 
     // -------------------------------------------------------------------------
@@ -51,7 +52,7 @@ public sealed class EnsureSuccessTests
     public async Task EnsureSuccessAsync_ExceptionCarriesCorrectStatus()
     {
         using var response = new Response(Status.FromCode(404));
-        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
         Assert.Equal(Status.FromCode(404), ex.Status);
     }
 
@@ -66,10 +67,10 @@ public sealed class EnsureSuccessTests
         var body = ResponseBody.FromBytes(bodyBytes, MediaType.Of("application", "json"));
         using var response = new Response(Status.FromCode(404), body: body);
 
-        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         // The body on the exception must be readable (replayable)
-        var readBytes = await ex.Response.Body.ReadAsBytesAsync();
+        var readBytes = await ex.Response.Body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
         Assert.Equal(bodyBytes, readBytes);
     }
 
@@ -82,9 +83,9 @@ public sealed class EnsureSuccessTests
         var body = ResponseBody.FromBytes(bodyBytes);
         using var response = new Response(Status.FromCode(500), body: body);
 
-        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
-        var first = await ex.Response.Body.ReadAsBytesAsync();
+        var first = await ex.Response.Body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
 
         // A second read should also succeed (BytesResponseBody is single-use per contract
         // unless we make it replayable; the buffered body IS replayable since
@@ -106,7 +107,7 @@ public sealed class EnsureSuccessTests
         var body = ResponseBody.FromBytes(Encoding.UTF8.GetBytes("{}"), contentType);
         using var response = new Response(Status.FromCode(422), body: body);
 
-        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(contentType, ex.Response.Body.ContentType);
     }
@@ -121,7 +122,7 @@ public sealed class EnsureSuccessTests
         var headers = Headers.Empty.Set("X-Request-Id", "abc-123");
         using var response = new Response(Status.FromCode(503), headers: headers, protocol: Protocol.Http2);
 
-        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync().AsTask());
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal("abc-123", ex.Response.Headers.Get("X-Request-Id"));
         Assert.Equal(Protocol.Http2, ex.Response.Protocol);

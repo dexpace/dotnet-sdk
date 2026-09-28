@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Auth;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Auth;
@@ -47,26 +48,11 @@ file sealed class ThrowingTokenCredential : TokenCredential
         => throw _ex;
 }
 
-/// <summary>
-/// A controllable TimeProvider for deterministic time tests.
-/// </summary>
-file sealed class ManualTimeProvider : TimeProvider
-{
-    private DateTimeOffset _now;
-
-    public ManualTimeProvider(DateTimeOffset initial) => _now = initial;
-
-    public override DateTimeOffset GetUtcNow() => _now;
-
-    public void Advance(TimeSpan delta) => _now = _now.Add(delta);
-
-    public void SetUtcNow(DateTimeOffset value) => _now = value;
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
+[Trait("Category", "Unit")]
 public class AccessTokenCacheTests
 {
     private static TokenRequestContext Ctx(string scope = "scope") =>
@@ -81,15 +67,15 @@ public class AccessTokenCacheTests
     [Fact]
     public async Task GetAsync_WithinValidity_ReturnsTokenWithoutRefetch()
     {
-        var time = new ManualTimeProvider(Now());
+        var time = new FakeTimeProvider(Now());
         var expected = new AccessToken("tok", time.GetUtcNow().AddHours(1));
         var cred = new FakeTokenCredential(_ => expected);
         var cache = new AccessTokenCache(cred, time);
         var ctx = Ctx();
 
-        var t1 = await cache.GetAsync(ctx);
-        var t2 = await cache.GetAsync(ctx);
-        var t3 = await cache.GetAsync(ctx);
+        var t1 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
+        var t2 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
+        var t3 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected.Token, t1.Token);
         Assert.Equal(expected.Token, t2.Token);
@@ -105,7 +91,7 @@ public class AccessTokenCacheTests
     public async Task GetAsync_PastRefreshOn_RefreshesOnce()
     {
         var start = Now();
-        var time = new ManualTimeProvider(start);
+        var time = new FakeTimeProvider(start);
 
         // First token: expires in 1h, refresh hint at 50m
         var firstToken = new AccessToken("first", start.AddHours(1), start.AddMinutes(50));
@@ -121,19 +107,19 @@ public class AccessTokenCacheTests
         var ctx = Ctx();
 
         // Call within validity window — gets first token
-        var t1 = await cache.GetAsync(ctx);
+        var t1 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("first", t1.Token);
         Assert.Equal(1, callCount);
 
         // Advance past RefreshOn but still before ExpiresOn
         time.Advance(TimeSpan.FromMinutes(51));
 
-        var t2 = await cache.GetAsync(ctx);
+        var t2 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("second", t2.Token);
         Assert.Equal(2, callCount);
 
         // Further calls still use refreshed token — no additional fetches
-        var t3 = await cache.GetAsync(ctx);
+        var t3 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("second", t3.Token);
         Assert.Equal(2, callCount);
     }
@@ -146,7 +132,7 @@ public class AccessTokenCacheTests
     public async Task GetAsync_PastExpiresOn_RefreshesToken()
     {
         var start = Now();
-        var time = new ManualTimeProvider(start);
+        var time = new FakeTimeProvider(start);
 
         var firstToken = new AccessToken("expired", start.AddMinutes(10));
         var secondToken = new AccessToken("fresh", start.AddHours(2));
@@ -160,13 +146,13 @@ public class AccessTokenCacheTests
         var cache = new AccessTokenCache(cred, time);
         var ctx = Ctx();
 
-        var t1 = await cache.GetAsync(ctx);
+        var t1 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("expired", t1.Token);
 
         // Jump past ExpiresOn
         time.Advance(TimeSpan.FromMinutes(11));
 
-        var t2 = await cache.GetAsync(ctx);
+        var t2 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("fresh", t2.Token);
         Assert.Equal(2, callCount);
     }
@@ -178,7 +164,7 @@ public class AccessTokenCacheTests
     [Fact]
     public async Task GetAsync_Concurrent_SingleFlightRefresh()
     {
-        var time = new ManualTimeProvider(Now());
+        var time = new FakeTimeProvider(Now());
 
         // Use a TaskCompletionSource to make the credential artificially slow so
         // all concurrent callers arrive before any returns.
@@ -213,7 +199,7 @@ public class AccessTokenCacheTests
     public async Task GetAsync_RefreshThrows_WhileStillValid_ReturnsCachedToken()
     {
         var start = Now();
-        var time = new ManualTimeProvider(start);
+        var time = new FakeTimeProvider(start);
 
         // Token: expires in 1h, refresh hint at 50m
         var validToken = new AccessToken("valid", start.AddHours(1), start.AddMinutes(50));
@@ -233,14 +219,14 @@ public class AccessTokenCacheTests
         var ctx = Ctx();
 
         // Populate cache
-        var t1 = await cache.GetAsync(ctx);
+        var t1 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("valid", t1.Token);
 
         // Advance past RefreshOn — triggers a refresh attempt
         time.Advance(TimeSpan.FromMinutes(51));
 
         // Despite the throw, should return the still-valid cached token
-        var t2 = await cache.GetAsync(ctx);
+        var t2 = await cache.GetAsync(ctx, TestContext.Current.CancellationToken);
         Assert.Equal("valid", t2.Token);
 
         // Credential was called for the failed refresh
@@ -254,13 +240,13 @@ public class AccessTokenCacheTests
     [Fact]
     public async Task GetAsync_RefreshThrows_WithNoValidToken_Propagates()
     {
-        var time = new ManualTimeProvider(Now());
+        var time = new FakeTimeProvider(Now());
         var ex = new InvalidOperationException("no token");
         var cred = new ThrowingTokenCredential(ex);
         var cache = new AccessTokenCache(cred, time);
 
         var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            cache.GetAsync(Ctx()).AsTask());
+            cache.GetAsync(Ctx(), TestContext.Current.CancellationToken).AsTask());
 
         Assert.Same(ex, thrown);
     }
@@ -272,7 +258,7 @@ public class AccessTokenCacheTests
     [Fact]
     public async Task GetAsync_DifferentContexts_CachedIndependently()
     {
-        var time = new ManualTimeProvider(Now());
+        var time = new FakeTimeProvider(Now());
         var callCount = 0;
         var cred = new FakeTokenCredential(ctx =>
         {
@@ -282,9 +268,9 @@ public class AccessTokenCacheTests
 
         var cache = new AccessTokenCache(cred, time);
 
-        var t1 = await cache.GetAsync(Ctx("scope1"));
-        var t2 = await cache.GetAsync(Ctx("scope2"));
-        var t3 = await cache.GetAsync(Ctx("scope1")); // should hit cache
+        var t1 = await cache.GetAsync(Ctx("scope1"), TestContext.Current.CancellationToken);
+        var t2 = await cache.GetAsync(Ctx("scope2"), TestContext.Current.CancellationToken);
+        var t3 = await cache.GetAsync(Ctx("scope1"), TestContext.Current.CancellationToken); // should hit cache
 
         Assert.Equal("tok-scope1", t1.Token);
         Assert.Equal("tok-scope2", t2.Token);

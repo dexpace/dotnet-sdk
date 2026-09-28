@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
 
+[Trait("Category", "Unit")]
 public sealed class BodyConvenienceTests
 {
     private static SystemTextJsonSerde Serde() => new(TestJsonContext.Default);
@@ -24,9 +25,9 @@ public sealed class BodyConvenienceTests
         Assert.Equal(CommonMediaTypes.ApplicationJsonUtf8, body.ContentType);
 
         using var first = new MemoryStream();
-        await body.WriteToAsync(first);
+        await body.WriteToAsync(first, TestContext.Current.CancellationToken);
         using var second = new MemoryStream();
-        await body.WriteToAsync(second);
+        await body.WriteToAsync(second, TestContext.Current.CancellationToken);
         Assert.Equal(first.ToArray(), second.ToArray());
     }
 
@@ -36,7 +37,7 @@ public sealed class BodyConvenienceTests
         var json = Encoding.UTF8.GetBytes("""{"Name":"bolt","Size":3}""");
         var body = ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson);
 
-        var widget = await body.ReadValueAsync<Widget>(Serde());
+        var widget = await body.ReadValueAsync<Widget>(Serde(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(new Widget("bolt", 3), widget);
     }
@@ -47,9 +48,9 @@ public sealed class BodyConvenienceTests
         var json = Encoding.UTF8.GetBytes("""{"Name":"bolt","Size":3}""");
         var body = ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson);
 
-        await body.ReadValueAsync<Widget>(Serde());
+        await body.ReadValueAsync<Widget>(Serde(), cancellationToken: TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<StreamConsumedException>(
-            async () => await body.ReadValueAsync<Widget>(Serde()));
+            async () => await body.ReadValueAsync<Widget>(Serde(), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public sealed class BodyConvenienceTests
             ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
         var ex = new HttpResponseException(response);
 
-        var error = await ex.GetErrorAsync<ApiError>(Serde());
+        var error = await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);
 
         Assert.Equal(new ApiError("rate_limited", "slow down"), error);
     }
@@ -73,8 +74,8 @@ public sealed class BodyConvenienceTests
             ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
         var ex = new HttpResponseException(response);
 
-        await ex.GetErrorAsync<ApiError>(Serde());
+        await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ResponseNotReadException>(
-            async () => await ex.GetErrorAsync<ApiError>(Serde()));
+            async () => await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken));
     }
 }

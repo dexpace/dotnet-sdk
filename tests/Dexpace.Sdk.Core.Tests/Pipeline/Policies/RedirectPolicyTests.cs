@@ -1,17 +1,18 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class RedirectPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -64,13 +65,13 @@ public sealed class RedirectPolicyTests
         const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(RedirectUrl),
+            TestResponses.Redirect(302, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         // Act
-        var result = await pipeline.SendAsync(MakePostRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakePostRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(Status.Ok, result.Status);
@@ -95,12 +96,12 @@ public sealed class RedirectPolicyTests
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(307, RedirectUrl),
+            TestResponses.Redirect(307, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(originalRequest, MakeOptions());
+        var result = await pipeline.SendAsync(originalRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -121,14 +122,12 @@ public sealed class RedirectPolicyTests
         // Arrange: GET /v1/items → 302 ../v2/items → 200
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302("../v2/items"),
+            TestResponses.Redirect(302, "../v2/items"),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakeGetRequest("https://api.example.com/v1/items"),
-            MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest("https://api.example.com/v1/items"), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -148,14 +147,14 @@ public sealed class RedirectPolicyTests
         const string Location = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(Location),
-            ScriptedTransport.Redirect302(Location),
-            ScriptedTransport.Redirect302(Location),
+            TestResponses.Redirect(302, Location),
+            TestResponses.Redirect(302, Location),
+            TestResponses.Redirect(302, Location),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRedirects: 2));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRedirects: 2), TestContext.Current.CancellationToken);
 
         // Should stop after 2 redirects and return the last 3xx (the 3rd call)
         Assert.Equal(302, result.Status.Code);
@@ -179,12 +178,12 @@ public sealed class RedirectPolicyTests
         const string CrossOriginUrl = "https://other.example.org/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(CrossOriginUrl),
+            TestResponses.Redirect(302, CrossOriginUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true));
+        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -210,12 +209,12 @@ public sealed class RedirectPolicyTests
         const string SameOriginUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(SameOriginUrl),
+            TestResponses.Redirect(302, SameOriginUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true));
+        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
@@ -232,15 +231,13 @@ public sealed class RedirectPolicyTests
         const string HttpUrl = "http://api.example.com/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(HttpUrl),
+            TestResponses.Redirect(302, HttpUrl),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         // allowHttpsToHttpDowngrade defaults to false
-        var result = await pipeline.SendAsync(
-            MakeGetRequest("https://api.example.com/secure"),
-            MakeOptions(allowHttpsToHttpDowngrade: false));
+        var result = await pipeline.SendAsync(MakeGetRequest("https://api.example.com/secure"), MakeOptions(allowHttpsToHttpDowngrade: false), TestContext.Current.CancellationToken);
 
         // Should return the 302 without following
         Assert.Equal(302, result.Status.Code);
@@ -257,14 +254,12 @@ public sealed class RedirectPolicyTests
         const string HttpUrl = "http://api.example.com/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(HttpUrl),
+            TestResponses.Redirect(302, HttpUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakeGetRequest("https://api.example.com/secure"),
-            MakeOptions(allowHttpsToHttpDowngrade: true));
+        var result = await pipeline.SendAsync(MakeGetRequest("https://api.example.com/secure"), MakeOptions(allowHttpsToHttpDowngrade: true), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -283,12 +278,12 @@ public sealed class RedirectPolicyTests
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(303, RedirectUrl),
+            TestResponses.Redirect(303, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(putRequest, MakeOptions());
+        var result = await pipeline.SendAsync(putRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
@@ -309,12 +304,12 @@ public sealed class RedirectPolicyTests
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(308, RedirectUrl),
+            TestResponses.Redirect(308, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(originalRequest, MakeOptions());
+        var result = await pipeline.SendAsync(originalRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
@@ -332,12 +327,12 @@ public sealed class RedirectPolicyTests
         const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(301, RedirectUrl),
+            TestResponses.Redirect(301, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(MakePostRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakePostRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
@@ -355,12 +350,12 @@ public sealed class RedirectPolicyTests
         const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(301, RedirectUrl),
+            TestResponses.Redirect(301, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
@@ -377,7 +372,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport([new Response(Status.Ok)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -398,7 +393,7 @@ public sealed class RedirectPolicyTests
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(302, result.Status.Code);
         Assert.Equal(1, transport.CallCount);
@@ -414,13 +409,13 @@ public sealed class RedirectPolicyTests
         const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(307, RedirectUrl),
+            TestResponses.Redirect(307, RedirectUrl),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         // Non-replayable body — cannot re-send
-        var result = await pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions());
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(307, result.Status.Code);
         Assert.Equal(1, transport.CallCount);
@@ -445,7 +440,7 @@ public sealed class RedirectPolicyTests
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         // No exception should escape the pipeline.
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         // Redirect is not followed — the 3xx comes back to the caller.
         Assert.Equal(302, result.Status.Code);
@@ -466,15 +461,13 @@ public sealed class RedirectPolicyTests
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(UrlB),  // A → B
-            ScriptedTransport.Redirect302(UrlC),  // B → C
+            TestResponses.Redirect(302, UrlB),  // A → B
+            TestResponses.Redirect(302, UrlC),  // B → C
             new Response(Status.Ok),              // C → 200
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakeGetRequest(UrlA),
-            MakeOptions(maxRedirects: 10));
+        var result = await pipeline.SendAsync(MakeGetRequest(UrlA), MakeOptions(maxRedirects: 10), TestContext.Current.CancellationToken);
 
         // Final response is 200.
         Assert.Equal(Status.Ok, result.Status);
@@ -492,50 +485,4 @@ public sealed class RedirectPolicyTests
     // Scripted transport helper
     // -------------------------------------------------------------------------
 
-    private sealed class ScriptedTransport : IAsyncHttpClient
-    {
-        private readonly List<object> _script;
-        private int _callCount;
-        private readonly List<Request> _requests = [];
-
-        public ScriptedTransport(IEnumerable<object> script)
-        {
-            _script = [.. script];
-        }
-
-        public int CallCount => _callCount;
-        public List<Request> Requests => _requests;
-
-        public static Response Redirect302(string location)
-        {
-            var h = new Headers.Builder().Set("Location", location).Build();
-            return new Response(Status.FromCode(302), h);
-        }
-
-        public static Response Redirect(int statusCode, string location)
-        {
-            var h = new Headers.Builder().Set("Location", location).Build();
-            return new Response(Status.FromCode(statusCode), h);
-        }
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            _requests.Add(request);
-            var index = Interlocked.Increment(ref _callCount) - 1;
-            if (index >= _script.Count)
-            {
-                throw new InvalidOperationException($"Script ran out of entries at call {index + 1}.");
-            }
-
-            var entry = _script[index];
-            return entry switch
-            {
-                Response r => Task.FromResult(r),
-                Exception ex => Task.FromException<Response>(ex),
-                _ => throw new InvalidOperationException($"Unknown script entry type: {entry.GetType()}"),
-            };
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 }

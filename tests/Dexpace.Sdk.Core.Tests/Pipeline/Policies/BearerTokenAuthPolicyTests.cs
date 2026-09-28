@@ -2,17 +2,17 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Auth;
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class BearerTokenAuthPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -26,22 +26,6 @@ public sealed class BearerTokenAuthPolicyTests
         => Request.Get(url);
 
     private static DexpaceClientOptions MakeOptions() => new();
-
-    /// <summary>
-    /// Captures the last request received and returns a canned 200 OK.
-    /// </summary>
-    private sealed class CapturingTransport : IAsyncHttpClient
-    {
-        public Request? LastRequest { get; private set; }
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            return Task.FromResult(new Response(Status.Ok));
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     /// <summary>
     /// A <see cref="TokenCredential"/> that returns a canned token and tracks how many times
@@ -85,12 +69,12 @@ public sealed class BearerTokenAuthPolicyTests
     public async Task ProcessAsync_StampsBearerTokenInAuthorizationHeader()
     {
         var credential = new FakeTokenCredential("abc123");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BearerTokenAuthPolicy(credential, "scope1", "scope2"))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("Authorization");
         Assert.Equal("Bearer abc123", value);
@@ -105,12 +89,12 @@ public sealed class BearerTokenAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", "Bearer old-token")
         };
 
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BearerTokenAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(request, MakeOptions());
+        await pipeline.SendAsync(request, MakeOptions(), TestContext.Current.CancellationToken);
 
         var values = transport.LastRequest!.Headers.GetAll("Authorization");
         Assert.Single(values);
@@ -128,16 +112,16 @@ public sealed class BearerTokenAuthPolicyTests
         // the same AccessTokenCache. The token expires far in the future, so the second
         // send must reuse the cached token without calling the credential again.
         var credential = new FakeTokenCredential("shared-token");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var policy = new BearerTokenAuthPolicy(credential, "read", "write");
         var pipeline = new PipelineBuilder()
             .Add(policy)
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
         var firstValue = transport.LastRequest!.Headers.Get("Authorization");
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
         var secondValue = transport.LastRequest!.Headers.Get("Authorization");
 
         Assert.Equal("Bearer shared-token", firstValue);
@@ -157,12 +141,12 @@ public sealed class BearerTokenAuthPolicyTests
             "scope-token",
             scopes => capturedScopes = scopes);
 
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BearerTokenAuthPolicy(credential, "openid", "profile"))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.NotNull(capturedScopes);
         Assert.Equal(["openid", "profile"], capturedScopes!);
@@ -181,7 +165,7 @@ public sealed class BearerTokenAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new BearerTokenAuthPolicy(credential, "scope");
 
@@ -195,7 +179,7 @@ public sealed class BearerTokenAuthPolicyTests
             Headers = Headers.Empty
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run on same context: different origin → credential must be withheld.
@@ -210,7 +194,7 @@ public sealed class BearerTokenAuthPolicyTests
         var options = MakeOptions();
         var request = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(request, options);
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var runner = new PipelineRunner([], 0, transport);
         var policy = new BearerTokenAuthPolicy(credential, "scope");
 
@@ -236,7 +220,7 @@ public sealed class BearerTokenAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new BearerTokenAuthPolicy(credential, "scope");
 
@@ -251,7 +235,7 @@ public sealed class BearerTokenAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", "Bearer secret-bearer")
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run: different origin → stale Authorization header must be stripped.

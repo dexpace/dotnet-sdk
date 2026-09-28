@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Core's suite (design §2.3): references Dexpace.Sdk.Core and the in-memory fakes of Dexpace.Sdk.TestSupport,
+       and never a transport or serializer adapter. SEAM-2's conformance clause is only structurally true while
+       this project compiles without one; Architecture/Seam2ArchitectureTests.cs enforces it. -->
   <PropertyGroup>
     <RootNamespace>Dexpace.Sdk.Core.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <!-- Tests are exempt from the strict documentation gate. -->
@@ -10,15 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
-    <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+    <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
   </ItemGroup>
 
 </Project>

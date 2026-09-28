@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
@@ -11,6 +10,9 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Diagnostics;
+using Dexpace.Sdk.TestSupport.Time;
+using Dexpace.Sdk.TestSupport.Transports;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -21,21 +23,12 @@ namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 /// that also exercise DexpaceDiagnostics.ActivitySource, avoiding cross-test activity leakage.
 /// </summary>
 [Collection("Instrumentation")]
+[Trait("Category", "Unit")]
 public sealed class InstrumentationPolicyTests : IDisposable
 {
-    private readonly ActivityListener _listener;
-    private readonly List<Activity> _activities = [];
+    private readonly ActivityRecorder _listener = new("Dexpace.Sdk");
 
-    public InstrumentationPolicyTests()
-    {
-        _listener = new ActivityListener
-        {
-            ShouldListenTo = src => src.Name == "Dexpace.Sdk",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStarted = a => _activities.Add(a),
-        };
-        ActivitySource.AddActivityListener(_listener);
-    }
+    private IReadOnlyList<Activity> Activities => _listener.Started;
 
     public void Dispose() => _listener.Dispose();
 
@@ -69,39 +62,39 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_StartsActivity_WithClientKind()
     {
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         Assert.Equal(ActivityKind.Client, activity.Kind);
     }
 
     [Fact]
     public async Task ProcessAsync_ActivityName_IsHttpMethod()
     {
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         Assert.Equal("GET", activity.DisplayName);
     }
 
     [Fact]
     public async Task ProcessAsync_Activity_HasExpectedOtelTags()
     {
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com:8443/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         Assert.Equal("GET", activity.GetTagItem("http.request.method"));
         Assert.NotNull(activity.GetTagItem("url.full"));
         Assert.Equal("api.example.com", activity.GetTagItem("server.address"));
@@ -112,14 +105,14 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_UrlFull_IsSensitiveParamRedacted()
     {
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         // "api_key" is in UrlRedactor.DefaultSensitiveParams
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET123&page=2");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         var urlFull = activity.GetTagItem("url.full") as string;
         Assert.NotNull(urlFull);
         Assert.DoesNotContain("SECRET123", urlFull);
@@ -141,12 +134,12 @@ public sealed class InstrumentationPolicyTests : IDisposable
             .Add(new InstrumentationPolicy())
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions());
+        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
         // Two activities should have been started: attempt 0 and attempt 1
-        Assert.Equal(2, _activities.Count);
-        Assert.Equal(0, _activities[0].GetTagItem("http.request.resend_count"));
-        Assert.Equal(1, _activities[1].GetTagItem("http.request.resend_count"));
+        Assert.Equal(2, Activities.Count);
+        Assert.Equal(0, Activities[0].GetTagItem("http.request.resend_count"));
+        Assert.Equal(1, Activities[1].GetTagItem("http.request.resend_count"));
     }
 
     [Fact]
@@ -157,13 +150,13 @@ public sealed class InstrumentationPolicyTests : IDisposable
         Activity? capturedActivity = null;
         var capturingPolicy = new CapturingPolicy(ctx => capturedActivity = ctx.Activity, stage: (PipelineStage)650);
 
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new InstrumentationPolicy())
             .Add(capturingPolicy)
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions());
+        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
         Assert.NotNull(capturedActivity);
     }
@@ -172,7 +165,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_Exception_SetsErrorTypeTag_AndActivityStatusError()
     {
         var ex = new InvalidOperationException("boom");
-        await using var transport = new ThrowingTransport(ex);
+        await using var transport = new RecordingTransport(_ => throw ex);
         var policy = new InstrumentationPolicy();
 
         var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -180,7 +173,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
 
         Assert.Same(ex, thrown);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         var errorType = activity.GetTagItem("error.type") as string;
         Assert.NotNull(errorType);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
@@ -192,7 +185,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         // Dispose the listener — now no listener is active, StartActivity returns null.
         _listener.Dispose();
 
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
 
         // Must not throw even when Activity is null
@@ -205,26 +198,16 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_RecordsDurationHistogram()
     {
-        double? recordedDuration = null;
-        using var meterListener = new MeterListener();
-        meterListener.InstrumentPublished = (instrument, listener) =>
-        {
-            if (instrument.Meter.Name == "Dexpace.Sdk" && instrument.Name == "http.client.request.duration")
-            {
-                listener.EnableMeasurementEvents(instrument);
-            }
-        };
-        meterListener.SetMeasurementEventCallback<double>((_, measurement, _, _) =>
-        {
-            recordedDuration = measurement;
-        });
-        meterListener.Start();
+        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
 
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
         meterListener.RecordObservableInstruments();
+        var recordedDuration = meterListener.For("http.client.request.duration") is [.., var lastDuration]
+            ? lastDuration.Value
+            : (double?)null;
         Assert.NotNull(recordedDuration);
         Assert.True(recordedDuration >= 0, "Duration must be non-negative");
     }
@@ -232,31 +215,24 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_ActiveRequestsCounter_IncrementsThenDecrements()
     {
-        long maxObserved = 0;
-        long lastObserved = 0;
-        using var meterListener = new MeterListener();
-        meterListener.InstrumentPublished = (instrument, listener) =>
-        {
-            if (instrument.Meter.Name == "Dexpace.Sdk" && instrument.Name == "http.client.active_requests")
-            {
-                listener.EnableMeasurementEvents(instrument);
-            }
-        };
-        meterListener.SetMeasurementEventCallback<long>((_, measurement, _, _) =>
-        {
-            lastObserved += measurement;
-            if (lastObserved > maxObserved)
-            {
-                maxObserved = lastObserved;
-            }
-        });
-        meterListener.Start();
+        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.active_requests");
 
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
         meterListener.RecordObservableInstruments();
+        long maxObserved = 0;
+        long lastObserved = 0;
+        foreach (var measurement in meterListener.For("http.client.active_requests"))
+        {
+            lastObserved += (long)measurement.Value;
+            if (lastObserved > maxObserved)
+            {
+                maxObserved = lastObserved;
+            }
+        }
+
         // After completion the counter should be back to 0 (net effect)
         Assert.Equal(0, lastObserved);
         // And at some point during the call it was positive
@@ -269,7 +245,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_LogsStructuredEvent_WithRedactedUrl()
     {
         var logger = new RecordingLogger();
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy(logger);
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET&x=1");
 
@@ -289,7 +265,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_NullLogger_DoesNotThrow()
     {
         // Passing null logger should fall back to NullLogger.Instance
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy(null);
         var result = await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
         Assert.Equal(Status.Ok, result.Status);
@@ -302,7 +278,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         // Arrange: capture the request the transport receives.
         Request? capturedRequest = null;
-        var transport = new CapturingRequestTransport(req =>
+        var transport = new RecordingTransport(req =>
         {
             capturedRequest = req;
             return new Response(Status.Ok);
@@ -313,7 +289,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         await RunAsync(policy, MakeRequest(url), transport);
 
         // The listener fixture uses W3C format (the .NET default).
-        var started = Assert.Single(_activities);
+        var started = Assert.Single(Activities);
         Assert.Equal(ActivityIdFormat.W3C, started.IdFormat);
         Assert.NotNull(capturedRequest);
         var traceparent = capturedRequest.Headers.Get("traceparent");
@@ -332,7 +308,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         try
         {
             Request? capturedRequest = null;
-            var transport = new CapturingRequestTransport(req =>
+            var transport = new RecordingTransport(req =>
             {
                 capturedRequest = req;
                 return new Response(Status.Ok);
@@ -359,7 +335,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         _listener.Dispose();
 
         Request? capturedRequest = null;
-        var transport = new CapturingRequestTransport(req =>
+        var transport = new RecordingTransport(req =>
         {
             capturedRequest = req;
             return new Response(Status.Ok);
@@ -377,29 +353,15 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_DurationHistogram_CarriesMethodAndStatusTags()
     {
-        // Capture tags as an array so we can inspect them outside the callback.
-        KeyValuePair<string, object?>[]? capturedTags = null;
+        // The recorder materialises each measurement's tag span, so the tags can be inspected after the call.
+        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
 
-        using var meterListener = new MeterListener();
-        meterListener.InstrumentPublished = (instrument, listener) =>
-        {
-            if (instrument.Meter.Name == "Dexpace.Sdk" && instrument.Name == "http.client.request.duration")
-            {
-                listener.EnableMeasurementEvents(instrument);
-            }
-        };
-        meterListener.SetMeasurementEventCallback<double>((_, _, tags, _) =>
-        {
-            // Materialise the span into an array before it goes out of scope.
-            capturedTags = tags.ToArray();
-        });
-        meterListener.Start();
-
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
         meterListener.RecordObservableInstruments();
+        var capturedTags = meterListener.For("http.client.request.duration") is [.., var last] ? last.Tags : null;
         Assert.NotNull(capturedTags);
 
         var tagDict = capturedTags.ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -413,13 +375,13 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_Activity_HasUrlSchemeTag()
     {
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(_activities);
+        var activity = Assert.Single(Activities);
         Assert.Equal("https", activity.GetTagItem("url.scheme"));
     }
 
@@ -445,13 +407,13 @@ public sealed class InstrumentationPolicyTests : IDisposable
             activityAfterCompletion = ctx.Activity;
         }, stage: (PipelineStage)500);
 
-        var transport = new StaticTransport(new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => new Response(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(outerPolicy)
             .Add(new InstrumentationPolicy())   // Diagnostics = 600, runs after 500
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions());
+        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
         // After InstrumentationPolicy's finally block, context.Activity should be the sentinel.
         Assert.Same(outerActivity, activityAfterCompletion);
@@ -460,43 +422,6 @@ public sealed class InstrumentationPolicyTests : IDisposable
     }
 
     // ─── Nested helpers ──────────────────────────────────────────────────────
-
-    private sealed class StaticTransport(Response response) : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(response);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class ThrowingTransport(Exception ex) : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromException<Response>(ex);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class ScriptedTransport : IAsyncHttpClient
-    {
-        private readonly List<object> _script;
-        private int _index;
-
-        public ScriptedTransport(IEnumerable<object> script) => _script = [.. script];
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            var entry = _script[_index++];
-            return entry switch
-            {
-                Response r => Task.FromResult(r),
-                Exception ex => Task.FromException<Response>(ex),
-                _ => throw new InvalidOperationException($"Unknown script entry: {entry.GetType()}"),
-            };
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     private sealed class CapturingPolicy(Action<PipelineContext> capture, PipelineStage stage = PipelineStage.PerAttempt) : HttpPipelinePolicy
     {
@@ -507,27 +432,6 @@ public sealed class InstrumentationPolicyTests : IDisposable
             capture(context);
             await continuation.RunAsync(context).ConfigureAwait(false);
         }
-    }
-
-    private sealed class InstantTimeProvider : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() =>
-            new DateTimeOffset(2026, 6, 14, 12, 0, 0, TimeSpan.Zero);
-
-        public override ITimer CreateTimer(
-            TimerCallback callback,
-            object? state,
-            TimeSpan dueTime,
-            TimeSpan period) =>
-            base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
-    }
-
-    private sealed class CapturingRequestTransport(Func<Request, Response> handler) : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(handler(request));
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class DelegatePolicy(

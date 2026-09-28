@@ -7,10 +7,12 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class OperationPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -32,15 +34,6 @@ public sealed class OperationPolicyTests
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
             return new Response(Status.Ok);
         }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    // A transport that completes immediately with 200 OK.
-    private sealed class InstantTransport : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new Response(Status.Ok));
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
@@ -70,7 +63,7 @@ public sealed class OperationPolicyTests
         var options = OptionsWithTimeout(TimeSpan.FromMilliseconds(30));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => pipeline.SendAsync(MakeRequest(), options).AsTask());
+            () => pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken).AsTask());
     }
 
     [Fact]
@@ -78,9 +71,9 @@ public sealed class OperationPolicyTests
     {
         var pipeline = new PipelineBuilder()
             .Add(new OperationPolicy())
-            .Build(new InstantTransport());
+            .Build(new RecordingTransport());
 
-        var response = await pipeline.SendAsync(MakeRequest(), OptionsNoTimeout());
+        var response = await pipeline.SendAsync(MakeRequest(), OptionsNoTimeout(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
     }
@@ -91,10 +84,10 @@ public sealed class OperationPolicyTests
         // A zero TimeSpan is non-positive — treated as "no timeout".
         var pipeline = new PipelineBuilder()
             .Add(new OperationPolicy())
-            .Build(new InstantTransport());
+            .Build(new RecordingTransport());
 
         var options = OptionsWithTimeout(TimeSpan.Zero);
-        var response = await pipeline.SendAsync(MakeRequest(), options);
+        var response = await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
     }
@@ -105,10 +98,10 @@ public sealed class OperationPolicyTests
         // A negative TimeSpan is non-positive — treated as "no timeout".
         var pipeline = new PipelineBuilder()
             .Add(new OperationPolicy())
-            .Build(new InstantTransport());
+            .Build(new RecordingTransport());
 
         var options = OptionsWithTimeout(TimeSpan.FromSeconds(-1));
-        var response = await pipeline.SendAsync(MakeRequest(), options);
+        var response = await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
     }

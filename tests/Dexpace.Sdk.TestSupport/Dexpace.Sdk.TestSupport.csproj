@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- In-memory test doubles shared by every suite (design §2.3, §9.3; styleguide 11.4, 11.6): fake transports for
+       both transport seams, a scripted ISerde, TimeProviders (FakeTimeProvider comes from
+       Microsoft.Extensions.TimeProvider.Testing and flows to every referencing suite), and recording
+       ActivityListener / MeterListener wrappers. It references Dexpace.Sdk.Core only — never a transport or serializer
+       adapter — so Dexpace.Sdk.Core.Tests can take it without breaking SEAM-2's partition. Framework-free: no
+       xUnit dependency, so the conformance kit (roadmap phase 8a) can take the same doubles. Test infrastructure,
+       not a library: it lives under tests/, so the src/-only library gates (public-API files, banned APIs,
+       trim/AOT analyzers, package validation) and the coverage and dependency audits do not apply to it. -->
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.TestSupport</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+  </ItemGroup>
+
+</Project>

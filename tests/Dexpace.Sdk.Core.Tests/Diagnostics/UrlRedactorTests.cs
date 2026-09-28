@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Diagnostics;
 
+[Trait("Category", "Unit")]
 public class UrlRedactorTests
 {
     // Use the default-set instance for most tests.

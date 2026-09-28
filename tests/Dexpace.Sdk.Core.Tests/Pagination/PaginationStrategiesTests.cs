@@ -1,15 +1,14 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Buffers;
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pagination;
 using Dexpace.Sdk.Core.Pipeline;
-using Dexpace.Sdk.Core.Serialization;
+using Dexpace.Sdk.TestSupport.Serialization;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pagination;
@@ -17,6 +16,7 @@ namespace Dexpace.Sdk.Core.Tests.Pagination;
 /// <summary>
 /// Unit tests for <see cref="PaginationStrategies"/>.
 /// </summary>
+[Trait("Category", "Unit")]
 public class PaginationStrategiesTests
 {
     // ── helpers ────────────────────────────────────────────────────────────────────────────────
@@ -36,58 +36,6 @@ public class PaginationStrategiesTests
         new(Status.Ok, Headers.Empty.With("Link", linkHeaderValue));
 
     // ── ScriptedTransport + ScriptedSerde (mirrors PageableTests helpers) ──────────────────────
-
-    private sealed class ScriptedTransport(params Response[] responses) : IAsyncHttpClient
-    {
-        private int _index;
-
-        public int CallCount => _index;
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            if (_index >= responses.Length)
-            {
-                throw new InvalidOperationException(
-                    $"ScriptedTransport exhausted: call #{_index + 1} received.");
-            }
-
-            return Task.FromResult(responses[_index++]);
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class ScriptedSerde<TScripted>(params TScripted[] pages) : ISerde
-    {
-        private int _index;
-
-        public MediaType DefaultMediaType => MediaType.Of("application", "json");
-
-        public ValueTask SerializeAsync<TVal>(Stream destination, TVal value, CancellationToken ct = default) =>
-            ValueTask.CompletedTask;
-
-        public async ValueTask<TVal?> DeserializeAsync<TVal>(Stream source, CancellationToken ct = default)
-        {
-            await source.CopyToAsync(Stream.Null, ct).ConfigureAwait(false);
-
-            if (typeof(TVal) != typeof(TScripted))
-            {
-                throw new InvalidOperationException(
-                    $"ScriptedSerde<{typeof(TScripted).Name}> asked for {typeof(TVal).Name}.");
-            }
-
-            if (_index >= pages.Length)
-            {
-                throw new InvalidOperationException("ScriptedSerde exhausted.");
-            }
-
-            return (TVal)(object)pages[_index++]!;
-        }
-
-        public void Serialize<TVal>(IBufferWriter<byte> destination, TVal value) { }
-
-        public TVal? Deserialize<TVal>(ReadOnlySpan<byte> utf8) => default;
-    }
 
     // Builds a pipeline from a scripted transport.
     private static (HttpPipeline, ScriptedTransport) MakePipeline(params Response[] responses)

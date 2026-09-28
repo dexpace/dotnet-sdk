@@ -1,17 +1,17 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class IdempotencyPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -19,25 +19,6 @@ public sealed class IdempotencyPolicyTests
     // -------------------------------------------------------------------------
 
     private static DexpaceClientOptions MakeOptions() => new();
-
-    /// <summary>
-    /// Captures every request it receives and returns a canned 200 OK.
-    /// </summary>
-    private sealed class CapturingTransport : IAsyncHttpClient
-    {
-        private readonly List<Request> _requests = [];
-
-        public List<Request> Requests => _requests;
-        public Request? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            _requests.Add(request);
-            return Task.FromResult(new Response(Status.Ok));
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     // -------------------------------------------------------------------------
     // Stage
@@ -57,12 +38,12 @@ public sealed class IdempotencyPolicyTests
     [Fact]
     public async Task ProcessAsync_Post_SetsIdempotencyKeyHeader()
     {
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new IdempotencyPolicy())
             .Build(transport);
 
-        await pipeline.SendAsync(Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty)), MakeOptions());
+        await pipeline.SendAsync(Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty)), MakeOptions(), TestContext.Current.CancellationToken);
 
         var key = transport.LastRequest!.Headers.Get("Idempotency-Key");
         Assert.NotNull(key);
@@ -72,12 +53,12 @@ public sealed class IdempotencyPolicyTests
     [Fact]
     public async Task ProcessAsync_Get_DoesNotSetIdempotencyKeyHeader()
     {
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new IdempotencyPolicy())
             .Build(transport);
 
-        await pipeline.SendAsync(Request.Get("https://api.example.com/v1/items"), MakeOptions());
+        await pipeline.SendAsync(Request.Get("https://api.example.com/v1/items"), MakeOptions(), TestContext.Current.CancellationToken);
 
         var key = transport.LastRequest!.Headers.Get("Idempotency-Key");
         Assert.Null(key);
@@ -98,7 +79,7 @@ public sealed class IdempotencyPolicyTests
         // twice. Each call constructs a new PipelineContext, so to test re-use we
         // instead drive the policy directly through a minimal two-leg pipeline that
         // re-runs the policy via the transport capturing both keys.
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
 
         // Use a "double-call" transport: on the first call it re-drives the policy
         // (simulating a retry) by calling SendAsync again on an inner pipeline, then
@@ -114,8 +95,8 @@ public sealed class IdempotencyPolicyTests
 
         var postRequest = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty));
 
-        await pipeline.SendAsync(postRequest, MakeOptions());
-        await pipeline.SendAsync(postRequest, MakeOptions());
+        await pipeline.SendAsync(postRequest, MakeOptions(), TestContext.Current.CancellationToken);
+        await pipeline.SendAsync(postRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         var key1 = transport.Requests[0].Headers.Get("Idempotency-Key");
         var key2 = transport.Requests[1].Headers.Get("Idempotency-Key");
@@ -133,7 +114,7 @@ public sealed class IdempotencyPolicyTests
     [Fact]
     public async Task ProcessAsync_ExistingIdempotencyKeyNotOverwritten()
     {
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new IdempotencyPolicy())
             .Build(transport);
@@ -146,7 +127,7 @@ public sealed class IdempotencyPolicyTests
             Headers = Headers.Empty.Set("Idempotency-Key", "caller-supplied-key")
         };
 
-        await pipeline.SendAsync(requestWithKey, MakeOptions());
+        await pipeline.SendAsync(requestWithKey, MakeOptions(), TestContext.Current.CancellationToken);
 
         var key = transport.LastRequest!.Headers.Get("Idempotency-Key");
         Assert.Equal("caller-supplied-key", key);
@@ -159,14 +140,14 @@ public sealed class IdempotencyPolicyTests
     [Fact]
     public async Task ProcessAsync_CustomMethodSet_SetsKeyForConfiguredMethod()
     {
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         // Only PATCH configured, not POST
         var pipeline = new PipelineBuilder()
             .Add(new IdempotencyPolicy([Method.Patch]))
             .Build(transport);
 
         var patchRequest = Request.Create(Method.Patch, "https://api.example.com/v1/items/1");
-        await pipeline.SendAsync(patchRequest, MakeOptions());
+        await pipeline.SendAsync(patchRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         var key = transport.LastRequest!.Headers.Get("Idempotency-Key");
         Assert.NotNull(key);
@@ -176,7 +157,7 @@ public sealed class IdempotencyPolicyTests
     [Fact]
     public async Task ProcessAsync_CustomMethodSet_DoesNotSetKeyForUnconfiguredMethod()
     {
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         // Only PATCH configured
         var pipeline = new PipelineBuilder()
             .Add(new IdempotencyPolicy([Method.Patch]))
@@ -184,7 +165,7 @@ public sealed class IdempotencyPolicyTests
 
         // POST is NOT in the custom set
         var postRequest = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty));
-        await pipeline.SendAsync(postRequest, MakeOptions());
+        await pipeline.SendAsync(postRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         var key = transport.LastRequest!.Headers.Get("Idempotency-Key");
         Assert.Null(key);
@@ -200,7 +181,7 @@ public sealed class IdempotencyPolicyTests
         // We verify intra-context key stability by building a pipeline with a
         // "double-call" policy that calls continuation.RunAsync twice — simulating
         // a retry policy calling the remainder of the chain twice for the same context.
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
 
         var pipeline = new PipelineBuilder()
             .Add(new DoubleCallPolicy())       // calls continuation twice
@@ -208,7 +189,7 @@ public sealed class IdempotencyPolicyTests
             .Build(transport);
 
         var postRequest = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty));
-        await pipeline.SendAsync(postRequest, MakeOptions());
+        await pipeline.SendAsync(postRequest, MakeOptions(), TestContext.Current.CancellationToken);
 
         // Two requests were captured (double-call sent twice)
         Assert.Equal(2, transport.Requests.Count);
