@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 dexpace and Omar Aljarrah.
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# scripts/knowledge — forwards to the knowledge CLI in tools/Knowledge, so the skill and a reader can say
+# `scripts/knowledge --gaps RETRY` instead of the full `dotnet run` line. Every argument, and the exit
+# code (0 found, 1 no match / nothing harvested, 2 usage error), passes through unchanged. The first
+# argument may be a subcommand: `scripts/knowledge verify-structure`, `scripts/knowledge drift`.
+set -euo pipefail
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "${DOTNET:-dotnet}" run --project "$repo/tools/Knowledge" --configuration Release -- "$@"

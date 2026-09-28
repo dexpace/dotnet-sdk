@@ -1,0 +1,92 @@
+## Appendix B — Conformance Test Checklist
+
+A porter runs this checklist to prove a reimplementation conforms. Each item references the requirement IDs it exercises. Items are organized by subsystem; a check passes only when the observable behavior matches.
+
+### B.1 Pagination (PAGE)
+
+- [ ] Item view and page view over one 3-page walk yield concatenated server-order items and three page objects (PAGE-1); page metadata survives close (PAGE-2); a page closes its response exactly once and a fetcher does not close it (PAGE-3).
+- [ ] Blocking iteration triggers zero exchanges until the first probe, then one per page consumed; async begins fetching on invocation (PAGE-6); no fetch past the terminal page and idempotent end-probes (PAGE-7); two iterations each drive a full sequence (PAGE-8).
+- [ ] `cap ≤ 0` throws at construction; a non-advancing server stops at exactly N exchanges (PAGE-9); the default cap is effectively unbounded (PAGE-10).
+- [ ] Item view eager-closes each page before yielding items on partial consume (PAGE-11); page view releases held + buffered pages on early break / probe-then-close (PAGE-12); a second page-view iterator throws (PAGE-14); a held-page close error surfaces wrapped, with a second failure suppressed (PAGE-15).
+- [ ] Parse-throw closes the response inline with the parse error primary and a close error suppressed (PAGE-13).
+- [ ] Cursor null/empty → end, single body read (PAGE-16); page-number empty items → end, start-page fallback on garbage (PAGE-17); Link-header rel=next with quoted commas, multi-token rel, multi-header split (PAGE-18, PAGE-20); query-only reference preserves the base path, unparseable target → end (PAGE-19).
+- [ ] Verbatim query splice preserves untouched params byte-for-byte (PAGE-21); RFC 3986 component encode/decode with `+` as data (PAGE-22); set replaces first/appends/removes, whole-URL follow preserves method/headers/body (PAGE-23); non-query URL components preserved (PAGE-24).
+- [ ] Async: no per-page thread block, cancel aborts the in-flight transport future (PAGE-25); page-granular cancellation drops+closes a staged page (PAGE-26); every response closed exactly once across all paths (PAGE-27); failures surface the original cause, eager transport throw handled (PAGE-28); serial ordered delivery + executor mode (PAGE-29); executor rejection fails the walk and closes the staged page (PAGE-30); trampoline over thousands of sync pages (PAGE-31); throwing close on success reported through the future (PAGE-32); documented cancellation-race ownership (PAGE-33).
+- [ ] Fetcher front-end: first fetcher once, nextLink over token, blank link / null terminates (PAGE-34); same options instance threaded and mutation observed (PAGE-35).
+- [ ] Per-call options reach every page exchange (PAGE-36).
+
+### B.2 Server-Sent Events (SSE)
+
+- [ ] Blank-line dispatch and fresh per-block accumulators (SSE-1); LF/CR/CRLF terminators (SSE-2); first-colon field split, colon-less/trailing-colon empty value (SSE-3); present-but-empty distinct from absent (SSE-4); single-space strip (SSE-5); comment capture counts as content (SSE-6); unknown fields discarded (SSE-7); multi-`data` accumulation as a list (SSE-8); NUL-bearing id ignored (SSE-9); absent `event` not defaulted to `message` (SSE-10); digit-only `retry` with overflow rejection (SSE-11); start-only BOM strip, mid-stream BOM preserved (SSE-12).
+- [ ] Permissive dispatch of id-/retry-/comment-only blocks, no-field blocks skipped (SSE-13); EOF partial dispatch (SSE-14); stable end sentinel (SSE-15); no persistent last-event-id (SSE-16); reader does not own the source (SSE-17); single-thread reader contract (SSE-18); unbounded lines accepted or a documented cap (SSE-19).
+- [ ] Immutable event with defensively-copied data (SSE-20); value equality over five fields (SSE-21); is-empty predicate with comment-non-empty (SSE-22).
+- [ ] Facade closes the owned resource exactly once across clean end / explicit close / use-block / partial consume / mid-stream failure (SSE-23, SSE-24, SSE-25); single-pass iterator (SSE-26); post-close iterator fails, in-flight ends cleanly (SSE-27); idempotent close (SSE-28); mid-stream failure releases before propagating with a suppressed close error (SSE-29); auto-terminal release failure swallowed vs explicit close propagates (SSE-30); cross-thread close (SSE-31); response-opening convenience binds lifecycle and rejects a bodyless response (SSE-32).
+- [ ] Typed adapter: mapper receives (event-name, `\n`-joined data) (SSE-33); Value/Skip/Done honored (SSE-34); lazy per-element decode (SSE-35); mapper throw releases the resource first (SSE-36).
+- [ ] Core holds no sentinel/error/serde convention (SSE-37); no auto-reconnect / last-event-id header (SSE-38); pull-based, one poll per demand (SSE-39); lazy single-pass convenience views reuse one reader (SSE-40); reactive fatal/non-fatal split and source-ownership documented (SSE-41).
+
+### B.3 Serialization (SERDE)
+
+- [ ] Serde bundle round-trips through its own serializer/deserializer (SERDE-1); declared media type is the default Content-Type, not defaulted at the SPI (SERDE-2).
+- [ ] Streaming/buffer targets not closed (SERDE-3); encode-into-buffer returns length, honors offset, throws a non-serde range error on overflow (SERDE-4).
+- [ ] Decode requires an explicit type witness (SERDE-5); parametric carriers preserve element types, a no-codec decoder fails loudly on a parametric ref but decodes a plain-class carrier (SERDE-6); reified helper routes through the carrier (SERDE-7); carrier rejects an unresolved type variable at construction (SERDE-8).
+- [ ] Failures surface the stable serde type chaining the original cause, no library type escapes (SERDE-9); write/read directional subtypes (SERDE-10); unchecked failures (SERDE-11); genuine stream I/O error propagates unwrapped (SERDE-12); wire null into a non-null target fails naming the type across overloads (SERDE-13).
+- [ ] Tristate: three states with Present(null) unrepresentable (SERDE-14); Absent omits key / Null emits null / Present emits value (SERDE-15); round-trip decode of `{}` / `{"x":null}` / `{"x":v}` (SERDE-16); missing key → Absent via field default (SERDE-17); construction/consumption helpers, ofNullable never yields Absent (SERDE-18); default codec auto-registers the wiring (SERDE-19); top-level/array-element degradation (SERDE-20); stable sentinel strings (SERDE-30).
+- [ ] Strict cross-shape coercion rejected (SERDE-21); widening and empty-string→string permitted (SERDE-22); unknown fields ignored (SERDE-23); ISO-8601 dates round-trip (SERDE-24); fresh codec per factory call (SERDE-25); caller-supplied codec not mutated (SERDE-26); shared-after-config thread safety (SERDE-29).
+- [ ] Streaming response handler closes on all paths, missing body / codec / I/O handling (SERDE-27); status-aware handler decodes only 2xx, buffers a bounded 4xx/5xx error body, raises a status-naming serde exception for other non-2xx (SERDE-28).
+
+### B.4 Instrumentation (OBS)
+
+- [ ] Disabled level allocates nothing and emits nothing, returning a shared inert event (OBS-1); four levels map to the backend (OBS-2); empty key rejected, null value → literal `null` (OBS-3); reserved `event` tag emitted exactly once, empty clears (OBS-4); field > global > diagnostic-context precedence, one occurrence per key (OBS-5); total rendering with placeholder on a throwing string conversion (OBS-6); bounded truncation with primitives exempt (OBS-7); single-emit guard correct under races (OBS-8); global context on every event (OBS-9); reserved-key collision warned once per logger (OBS-40).
+- [ ] Diagnostic-context allow-list defaults to `{trace.id, span.id}`, null folds all, null values skipped (OBS-10).
+- [ ] URL userinfo always redacted (OBS-11); query values redacted unless allow-listed, atomic multi-value (OBS-12); fragment key=value scrubbed, plain fragment preserved (OBS-13); scheme/host/port/path preserved, no spurious `?` from a fragment `?` (OBS-14); malformed URL → `[malformed url]`, never throws (OBS-15); header-value URLs redacted with path-kept `?***` fallback (OBS-16); Location/Content-Location redacted via the shared policy (OBS-17); header-name allow-list default-deny (OBS-18); dropped-header verbosity policy (OBS-19).
+- [ ] Logging failures caught and re-emitted as `http.instrumentation.*`; tracer/meter throws propagate (OBS-20).
+- [ ] Span recording flag and idempotent end (OBS-21); scope restores prior span on close incl. on throw (OBS-22); log-correlation scope pushes/restores trace.id/span.id, skipped for non-recording (OBS-23); async MDC bridge saves/installs/restores incl. on throw (OBS-24); allocation-free no-op tracing defaults (OBS-25).
+- [ ] W3C identifiers and all-zero invalid sentinels (OBS-26); W3C / Datadog / no-op id generation never all-zero (OBS-27); HTTP-tracer vocabulary with default no-ops (OBS-28); lifecycle ordering incl. exhausted→failed pairing (OBS-29); tracer/meter callbacks concurrent-safe and never throw (OBS-30).
+- [ ] Meter yields a monotonic counter + histogram with attributes, no-op default discards, no metrics runtime pulled (OBS-31); OpenTelemetry-convention names/units (OBS-32); counter non-negative-only, histogram tolerates any input (OBS-33).
+- [ ] Log level none/headers/body with span+metrics running independent of level (OBS-34); layered tolerant level resolution, no baked-in key (OBS-35); bounded body preview streams full body to caller (OBS-36); async skips capture for unknown-length bodies (OBS-37); charset-aware/binary-safe non-throwing preview (OBS-38); stable event names/keys with redacted url.full (OBS-39).
+
+### B.5 Configuration (CFG)
+
+- [ ] Four-layer precedence override > env > normalized-property > default (CFG-1); empty env treated as absent (CFG-2); property key normalization (CFG-3); raw property accessor without normalization (CFG-4); typed accessors resolve through the full layered lookup (CFG-38).
+- [ ] Never-throw int/duration accessors, negatives valid (CFG-5); strict boolean only true/false (CFG-6); duration ISO / shorthand / bare-number-milliseconds, negatives rejected (CFG-7).
+- [ ] Built config immutable, override map copied at build (CFG-8); copy-on-write derive with shared source seams (CFG-9); remove drops only the override layer (CFG-10); substitutable env/property seams (CFG-11); single-threaded builder (CFG-12); global slot last-write-wins (CFG-13); well-known key constants (CFG-14); null required argument rejected (CFG-37).
+- [ ] Clock seam (now/monotonic/interruptible sleep) with a shared default (CFG-15); monotonic non-decreasing, wall-clock not for elapsed (CFG-16); sleep rejects negative, honors cancellation re-asserting the flag (CFG-17); non-blocking scheduled delay cancels its task (CFG-18); async-wrapper unwrap cycle-safe (CFG-19); interruptible task future with clean interrupt state (CFG-20); orphaned closeable result closed on discard (CFG-21).
+- [ ] Immutable credential-masking proxy model (CFG-22); glob bypass full-string case-insensitive (CFG-23); proxy resolution precedence never throws, host/port from the same layer, https-only creds (CFG-24); explicit in-range port or null (CFG-25); non-proxy list precedence and escape handling (CFG-26); single bare `*` → bypass-all (CFG-27); opt-in environment resolution (CFG-28).
+- [ ] RFC 1123 canonical formatting (CFG-29) and tolerant parsing with informational weekday and zone aliases (CFG-30), strict on the rest (CFG-31); non-blocking non-cryptographic type-4 UUID (CFG-32); deep value equality content-based and null-safe (CFG-33) with NaN/signed-zero and kind-distinct array semantics (CFG-34); shared retryability classifier where implemented (CFG-35); build/runtime descriptor with non-blank `unknown` fallback (CFG-36).
+
+### B.6 Transport (TRANSPORT)
+
+- [ ] Native redirects and native auto-retry disabled on SDK-managed transports (TRANSPORT-1, TRANSPORT-2).
+- [ ] Sync cancellation → terminal interrupt type with the flag preserved, not the retryable type (TRANSPORT-3); timeout → retryable type with a clear flag, timeout-subtype checked first (TRANSPORT-4); per-call timeout applies to one call only (TRANSPORT-5); sub-resolution positive timeout clamped not truncated (TRANSPORT-6); async future cancel propagates into the native exchange (TRANSPORT-7); native-internal cancel → terminal type, timeout stays retryable (TRANSPORT-8); adaptation-race response closed (TRANSPORT-9).
+- [ ] Explicit Content-Type wins, body-derived only when absent (TRANSPORT-10); framing headers dropped and recomputed (TRANSPORT-11); model-valid-but-native-rejected header dropped not thrown, sync and async (TRANSPORT-12); dropped-header logging policy bounded and case-insensitive (TRANSPORT-13); malformed inbound header dropped not response, obs-text preserved (TRANSPORT-14).
+- [ ] Ownership-aware close leaves BYO client usable (TRANSPORT-15); idempotent, non-blocking, interrupt-safe close (TRANSPORT-16); single-use body written once (TRANSPORT-17); re-subscribable producer replays identical bytes or fails on buffering failure (TRANSPORT-18); abandoned streaming subscription unblocks its producer (TRANSPORT-19).
+- [ ] No-response failure → retryable I/O-subtype exception (TRANSPORT-20); pre-dispatch async failure via the future not synchronous throw (TRANSPORT-21); response-adaptation throw closes the native response (TRANSPORT-22); async never completes with null on success (TRANSPORT-23); vendor status codes surfaced with a readable body (TRANSPORT-24); lazy streaming body with close-cascade (TRANSPORT-25); body-less request valid for any method, zero-length body substituted where required (TRANSPORT-26); malformed inbound Content-Type/Length downgraded (TRANSPORT-27); file body zero-copy where supported and replayable (TRANSPORT-28); concurrent-safe immutable transport (TRANSPORT-29); unsupported proxy features discoverable, credentials never leaked (TRANSPORT-30).
+
+### B.7 Asynchronous runtime adapter (ASYNC)
+
+- [ ] Single-value future non-null on success or exceptional (ASYNC-1); construction failures via the failure channel (ASYNC-2).
+- [ ] Two-mode cancellation with queued/finished tasks never interrupted (ASYNC-3); ordered interrupt delivery prevents pooled-thread poisoning under stress (ASYNC-4); orphaned closeable closed exactly once on the lost race (ASYNC-5); bidirectional cancellation per adapter (ASYNC-6); documented per-adapter interrupt-mode-vs-not (ASYNC-7).
+- [ ] Logging-context propagation across hops (ASYNC-8); save/install/restore incl. on throw (ASYNC-9); per-subscription / per-submission capture (ASYNC-10); safe with no logging backend (ASYNC-11); explicit transfer at the thread-creation boundary on lightweight-thread runtimes (ASYNC-12).
+- [ ] Wrapper-exception unwrapping cycle-safe (ASYNC-13); blocking bridge honors interruption and unwraps (ASYNC-14).
+- [ ] Owned-executor close idempotent/ownership-aware/interrupt-safe (ASYNC-15); graceful executor shutdown on close (ASYNC-16); no-op default close for functional implementations (ASYNC-17).
+- [ ] Non-blocking scheduled delay, zero immediate, negative rejected, cancel cancels the task (ASYNC-18); per-call options threaded through every bridge (ASYNC-19); delivered Response not closed on late cancel (ASYNC-20); reactive SSE backpressure, source not closed, single-subscriber (ASYNC-21); concurrent-safe async transport (ASYNC-22).
+
+### B.8 Cross-cutting invariants (XCUT)
+
+- [ ] Cancellation terminal-non-retryable with the flag preserved (XCUT-1); timeout retryable with a clear flag, discriminated out-of-band, subtype-first (XCUT-2); inter-attempt wait promptly cancellable (XCUT-3).
+- [ ] Two-branch error taxonomy, transport error always-retryable and I/O-family (XCUT-4); baked protocol-error flag from one classifier (408/429/all-5xx-except-501/505) (XCUT-5); capability-based classification for non-protocol errors (XCUT-6); configurable authoritative retryable-status set drives protocol-error retries (XCUT-7); status factory rejects non-error status (XCUT-8); cause-chain walks cycle-safe (XCUT-9).
+- [ ] Retry-safety gate applies uniformly incl. transport errors — bare POST not retried, non-replayable body not re-sent (XCUT-10).
+- [ ] Shared components concurrent-safe with per-call state local (XCUT-11); wait-free credential read + scoped single-flight refresh (XCUT-12); idempotent non-blocking close (XCUT-13); SDK closes only what it created (XCUT-22); pluggable seam resolves explicit > auto-discovery > loud-fail on zero/ambiguous (XCUT-23).
+- [ ] Caller/server-keyed maps bounded with drain-to-cap loop (XCUT-14); immutable public wire models with no external-mutable alias (XCUT-15).
+- [ ] No credential over non-HTTPS (XCUT-16); redirect credential hygiene — Authorization always stripped, cross-origin strips Cookie/Proxy-Authorization judged against the seed, userinfo dropped, downgrade default-denied (XCUT-17); header name/value validation against splitting at the model layer (XCUT-18); default-deny log redaction of userinfo/query/fragment/headers/credentials/bodies (XCUT-19); observability never throws into the request path (XCUT-20); CSPRNG for security-relevant randomness (XCUT-21); byte-capped non-consuming diagnostic previews (XCUT-24).
+
+### B.9 Non-functional quality bar (NFR)
+
+- [ ] Core has zero concrete runtime dependencies beyond stdlib + compile-only logging facade (NFR-1); adapters depend on core plus at most one third-party library (NFR-2).
+- [ ] Public surface explicit and minimal (NFR-3); machine-comparable API snapshot gates drift, regeneration is deliberate (NFR-4).
+- [ ] Aggregate coverage floor enforced by the default build (NFR-5); warnings-as-errors (NFR-6); lint/static-analysis fatal with documented scoped waivers (NFR-7); all gates automatic and blocking (NFR-17).
+- [ ] Shrinker keep-configuration shipped for reflective/SPI surface (NFR-8); shrink-and-run regression guard in the default build (NFR-9).
+- [ ] Declared runtime floor with higher-floor features isolated, emitted-target and visible-API agree (NFR-10).
+- [ ] Core concurrency-model agnostic, no async-framework types in the public surface (NFR-11).
+- [ ] Reproducible byte-identical artifacts (NFR-12); per-file license header (NFR-13); single-source-of-truth versions/coordinates (NFR-14); runtime-resolvable version metadata, never the placeholder in packaged artifacts (NFR-15); artifacts signed on the release/CI path, optional locally (NFR-16).
+

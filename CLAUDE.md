@@ -126,8 +126,31 @@ Layered, bottom-up:
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
   reference them without a `Version` attribute.
 
-## Planned (not yet implemented)
+## Documentation, specification and workflow
 
-Mirroring the Java/Python ports: pipeline (staged policies — redirect, retry, idempotency, set-date,
-client-identity, logging, tracing), context promotion chain, auth (token credentials, bearer/basic,
-RFC 7235 challenges), SSE, pagination, webhooks, and instrumentation. See `docs/architecture.md`.
+Read [`docs/README.md`](docs/README.md) first — it is the ownership table for everything under `docs/`.
+
+- **`docs/product-spec/`** — the normative, language-agnostic specification shared with the Ruby and Node
+  siblings: 645 requirement IDs across 19 prefixes (`SEAM`, `HTTP`, `IO`, `BODY`, `CTX`, `PIPE`, `RECOV`,
+  `RETRY`, `REDIR`, `AUTH`, `PAGE`, `SSE`, `SERDE`, `OBS`, `CFG`, `TRANSPORT`, `ASYNC`, `XCUT`, `NFR`).
+  Appendix C is the canonical ID index. Cite IDs in code comments, tests and phase documents.
+- **`docs/sdk-design-dotnet/`** — how each spec area maps to idiomatic .NET (retrofitted from
+  `sdk-design-ruby`). Every section ends with an **As built (d45e64b)** verdict; §10 is the deviation ledger,
+  §11 the spec-ambiguity resolutions, §12 the coverage index. Where it and this file disagree about the code's
+  target shape, the design wins and this file is drift.
+- **`docs/styleguide/`** — the vendored dexpace C# styleguide, binding for every `.cs` file. Its
+  [SDK overlay](docs/styleguide/README.md#sdk-overlay--where-this-repository-departs) lists the departures
+  (public API keeps the `I` prefix and `Async` suffix; see design §10).
+- **`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`** — the v1 roadmap (phases 0–12). Each phase
+  runs brainstorm → design → plan → checklist; the Superpowers skills write into `docs/superpowers/`
+  (an inbox), and the `housekeeping` skill files them under `docs/work/<delivery>/phaseN[/phaseNx]/`.
+  `docs/first-release.md` is the release register.
+- **Skills** (`.claude/skills/`): `knowledge-lookup` (start of every phase/task — `scripts/knowledge
+  --prefix-info RETRY`, `--gaps RETRY`, `--req RETRY-5`) and `housekeeping` (`dotnet run --project
+  .claude/skills/housekeeping/src -- probe`, before handing over a phase). Their tools and tests build from
+  `tools/Dexpace.Tools.sln`, separate from `Dexpace.Sdk.sln`.
+- **Known drift, owned by roadmap phase 0:** `Dexpace.Sdk.Core` already depends on
+  `Microsoft.Extensions.Logging.Abstractions` (so "BCL-only" above is no longer literally true — design §10
+  records it); `main` fails to build on SDK 10.0.4xx with `NU1902` (SourceLink 8.0.0 advisory); the
+  "Planned" list that used to live here is now the roadmap — pipeline, policies, auth and pagination are
+  already built.
