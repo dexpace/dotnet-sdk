@@ -7,12 +7,15 @@ using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
-using Dexpace.Sdk.Http.SystemNet;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;
 
-namespace Dexpace.Sdk.Core.Tests.Transport;
+namespace Dexpace.Sdk.Http.SystemNet.Tests;
 
+// Handler-stub tests of the adapter's model mapping: no socket, so Unit (design §9.3). Moved, assertions
+// unchanged, from Dexpace.Sdk.Core.Tests/Transport/ when core's suite stopped referencing a transport (SEAM-2,
+// design §2.3).
+[Trait("Category", "Unit")]
 public class SystemNetHttpClientTests
 {
     [Fact]
@@ -31,12 +34,12 @@ public class SystemNetHttpClientTests
         });
 
         await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
-        await using var response = await transport.ExecuteAsync(Request.Get("https://example.test/ping"));
+        await using var response = await transport.ExecuteAsync(Request.Get("https://example.test/ping"), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal("abc123", response.Headers.Get("x-trace"));
         Assert.Equal("text", response.Body.ContentType!.Type);
-        Assert.Equal("pong", await response.Body.ReadAsStringAsync());
+        Assert.Equal("pong", await response.Body.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -53,7 +56,7 @@ public class SystemNetHttpClientTests
         var request = Request.Post(
             "https://example.test/items",
             RequestBody.FromString("{\"name\":\"widget\"}", CommonMediaTypes.ApplicationJson));
-        await using var response = await transport.ExecuteAsync(request);
+        await using var response = await transport.ExecuteAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Created, response.Status);
         Assert.Equal("{\"name\":\"widget\"}", observed);
@@ -66,7 +69,7 @@ public class SystemNetHttpClientTests
         await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
 
         await Assert.ThrowsAsync<ServiceRequestException>(
-            () => transport.ExecuteAsync(Request.Get("https://example.test/x")));
+            () => transport.ExecuteAsync(Request.Get("https://example.test/x"), TestContext.Current.CancellationToken));
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler

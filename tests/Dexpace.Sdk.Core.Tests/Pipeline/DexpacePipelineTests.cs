@@ -1,12 +1,13 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.TestSupport.Time;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
@@ -17,6 +18,7 @@ namespace Dexpace.Sdk.Core.Tests.Pipeline;
 /// concurrent execution causes activity leakage across test instances.
 /// </summary>
 [Collection("Instrumentation")]
+[Trait("Category", "Unit")]
 public sealed class DexpacePipelineTests
 {
     private static Request MakeGetRequest() => Request.Get("https://api.example.com/v1/items");
@@ -39,7 +41,7 @@ public sealed class DexpacePipelineTests
         var transport = new ScriptedTransport([new Response(Status.Ok)]);
         var pipeline = DexpacePipeline.CreateDefault(transport);
 
-        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions());
+        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal(1, transport.CallCount);
@@ -50,14 +52,14 @@ public sealed class DexpacePipelineTests
     {
         var auth = new MarkingPolicy("x-auth-stamped", "true");
         string? authHeaderSeen = null;
-        var transport = new CapturingTransport(req =>
+        var transport = new RecordingTransport(req =>
         {
             authHeaderSeen = req.Headers.Get("x-auth-stamped");
             return new Response(Status.Ok);
         });
 
         var pipeline = DexpacePipeline.CreateDefault(transport, authPolicy: auth);
-        await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions());
+        await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal("true", authHeaderSeen);
     }
@@ -73,7 +75,7 @@ public sealed class DexpacePipelineTests
         ]);
         var pipeline = DexpacePipeline.CreateDefault(transport, timeProvider: new InstantTimeProvider());
 
-        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions());
+        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal(2, transport.CallCount);
@@ -86,7 +88,7 @@ public sealed class DexpacePipelineTests
         var transport = new ScriptedTransport(Enumerable.Repeat(new Response(Status.ServiceUnavailable), 4));
         var pipeline = DexpacePipeline.CreateDefault(transport, timeProvider: new InstantTimeProvider());
 
-        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions());
+        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, response.Status);
         Assert.Equal(4, transport.CallCount);
@@ -102,7 +104,7 @@ public sealed class DexpacePipelineTests
             .Build();
 
         Uri? finalUrl = null;
-        var transport = new CapturingTransport(req =>
+        var transport = new RecordingTransport(req =>
         {
             finalUrl = req.Url;
             if (req.Url.AbsolutePath == "/v1/items")
@@ -114,7 +116,7 @@ public sealed class DexpacePipelineTests
         });
 
         var pipeline = DexpacePipeline.CreateDefault(transport);
-        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions());
+        var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.NotNull(finalUrl);
@@ -122,37 +124,6 @@ public sealed class DexpacePipelineTests
     }
 
     // ─── Nested helpers ──────────────────────────────────────────────────────
-
-    private sealed class ScriptedTransport : IAsyncHttpClient
-    {
-        private readonly List<Response> _script;
-        private int _callCount;
-
-        public ScriptedTransport(IEnumerable<Response> script) => _script = [.. script];
-
-        public int CallCount => _callCount;
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            var index = Interlocked.Increment(ref _callCount) - 1;
-            if (index >= _script.Count)
-            {
-                throw new InvalidOperationException($"Script ran out at call {index + 1}.");
-            }
-
-            return Task.FromResult(_script[index]);
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class CapturingTransport(Func<Request, Response> handler) : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(handler(request));
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     /// <summary>A policy that stamps a fixed header — used to verify auth policy injection.</summary>
     private sealed class MarkingPolicy(string header, string value) : HttpPipelinePolicy
@@ -170,16 +141,4 @@ public sealed class DexpacePipelineTests
         }
     }
 
-    private sealed class InstantTimeProvider : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() =>
-            new DateTimeOffset(2026, 6, 14, 12, 0, 0, TimeSpan.Zero);
-
-        public override ITimer CreateTimer(
-            TimerCallback callback,
-            object? state,
-            TimeSpan dueTime,
-            TimeSpan period) =>
-            base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
-    }
 }

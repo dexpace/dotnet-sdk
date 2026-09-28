@@ -227,11 +227,11 @@ compile does not already catch.
 ## Its own tests
 
 ```bash
-dotnet test .claude/skills/housekeeping/tests
-dotnet test .claude/skills/housekeeping/tests --filter "FullyQualifiedName~GuardTests"
+dotnet test --project .claude/skills/housekeeping/tests
+dotnet test --project .claude/skills/housekeeping/tests --filter-class "*GuardTests"
 ```
 
-xUnit, with versions from the root `Directory.Packages.props`. Every check has a **pair**: a
+xUnit v3 on Microsoft.Testing.Platform (global.json selects the platform's `dotnet test` mode), with versions from the root `Directory.Packages.props`. Every check has a **pair**: a
 throwaway fixture repository (a temp directory, `git init`-ed with a hermetic config and deleted
 afterwards) it must report clean over, and a mutation of that tree it must fire on. A suite that
 only asserts the live repository is clean passes just as happily over a check whose body has become

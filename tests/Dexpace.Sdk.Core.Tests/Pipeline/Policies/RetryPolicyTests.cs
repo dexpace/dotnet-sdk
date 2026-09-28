@@ -1,7 +1,6 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
@@ -9,10 +8,13 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Time;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class RetryPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -68,7 +70,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -86,7 +88,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response503, response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -102,7 +104,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(responses);
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, result.Status);
         Assert.Equal(4, transport.CallCount);
@@ -115,7 +117,7 @@ public sealed class RetryPolicyTests
             new object[] { new Response(Status.InternalServerError), new Response(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -128,7 +130,7 @@ public sealed class RetryPolicyTests
             new object[] { new Response(Status.TooManyRequests), new Response(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -145,7 +147,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response400 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.BadRequest, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -157,7 +159,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { new Response(Status.NotFound) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.NotFound, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -175,9 +177,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response503 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakePostRequest(replayable: false),
-            MakeOptions(retryNonIdempotentWhenReplayable: false));
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -190,9 +190,7 @@ public sealed class RetryPolicyTests
             new object[] { new Response(Status.ServiceUnavailable), new Response(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakePostRequest(replayable: true),
-            MakeOptions(maxRetryAttempts: 1, retryNonIdempotentWhenReplayable: true));
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(maxRetryAttempts: 1, retryNonIdempotentWhenReplayable: true), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -204,9 +202,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { new Response(Status.ServiceUnavailable) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(
-            MakePostRequest(replayable: true),
-            MakeOptions(retryNonIdempotentWhenReplayable: false));
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -224,7 +220,7 @@ public sealed class RetryPolicyTests
             new object[] { ex, new Response(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -240,7 +236,7 @@ public sealed class RetryPolicyTests
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var thrown = await Assert.ThrowsAsync<ServiceRequestException>(
-            () => pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3)).AsTask());
+            () => pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken).AsTask());
 
         Assert.Same(ex, thrown);
         Assert.Equal(4, transport.CallCount);
@@ -254,7 +250,7 @@ public sealed class RetryPolicyTests
             new object[] { ex, new Response(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -268,9 +264,7 @@ public sealed class RetryPolicyTests
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         await Assert.ThrowsAsync<ServiceRequestException>(
-            () => pipeline.SendAsync(
-                MakePostRequest(replayable: false),
-                MakeOptions(retryNonIdempotentWhenReplayable: false)).AsTask());
+            () => pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(1, transport.CallCount);
     }
@@ -310,7 +304,7 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response503, response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -329,10 +323,10 @@ public sealed class RetryPolicyTests
 
         // Fake time pinned to fixedNow so the delta is parsed correctly.
         var pipeline = new PipelineBuilder()
-            .Add(new RetryPolicy(new FixedTimeProvider(fixedNow)))
+            .Add(new RetryPolicy(new InstantTimeProvider(fixedNow)))
             .Build(transport);
 
-        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1));
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -348,7 +342,7 @@ public sealed class RetryPolicyTests
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var opts = MakeOptions(maxRetryAttempts: 1, honorRetryAfter: false);
-        var result = await pipeline.SendAsync(MakeGetRequest(), opts);
+        var result = await pipeline.SendAsync(MakeGetRequest(), opts, TestContext.Current.CancellationToken);
 
         // Still retries (with jitter), just doesn't wait 60s.
         Assert.Equal(Status.Ok, result.Status);
@@ -371,7 +365,7 @@ public sealed class RetryPolicyTests
             .Add(capturePolicy)
             .Build(transport);
 
-        await pipeline.SendAsync(MakeGetRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Single(recordedAttempts);
         Assert.Equal(0, recordedAttempts[0]);
@@ -395,7 +389,7 @@ public sealed class RetryPolicyTests
             .Add(capturePolicy)
             .Build(transport);
 
-        await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3));
+        await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken);
 
         Assert.Equal([0, 1, 2], recordedAttempts);
     }
@@ -463,7 +457,7 @@ public sealed class RetryPolicyTests
         };
 
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(recording)).Build(transport: new ScriptedTransport(responses));
-        await pipeline.SendAsync(MakeGetRequest(), options);
+        await pipeline.SendAsync(MakeGetRequest(), options, TestContext.Current.CancellationToken);
 
         // Five retries → five delays recorded (one per retry, not per attempt).
         Assert.Equal(5, recording.RequestedDelays.Count);
@@ -508,7 +502,7 @@ public sealed class RetryPolicyTests
         };
 
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(recording)).Build(transport: new ScriptedTransport(responses));
-        await pipeline.SendAsync(MakeGetRequest(), options);
+        await pipeline.SendAsync(MakeGetRequest(), options, TestContext.Current.CancellationToken);
 
         // Three retries → three delays recorded.
         Assert.Equal(3, recording.RequestedDelays.Count);
@@ -519,38 +513,6 @@ public sealed class RetryPolicyTests
             Assert.True(pair.Item2 <= maxDelay,
                 $"Delay at timer call {pair.Item1} exceeded MaxDelay ({maxDelay}): {pair.Item2}");
         });
-    }
-
-    /// <summary>
-    /// A TimeProvider whose Task.Delay fires after 1 ms so tests don't block on real delays.
-    /// </summary>
-    private sealed class InstantTimeProvider : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() =>
-            new DateTimeOffset(2026, 6, 14, 12, 0, 0, TimeSpan.Zero);
-
-        public override ITimer CreateTimer(
-            TimerCallback callback,
-            object? state,
-            TimeSpan dueTime,
-            TimeSpan period) =>
-            base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
-    }
-
-    /// <summary>
-    /// A TimeProvider pinned to a fixed instant (useful for Retry-After HTTP-date tests).
-    /// Task.Delay also fires after 1 ms.
-    /// </summary>
-    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => utcNow;
-
-        public override ITimer CreateTimer(
-            TimerCallback callback,
-            object? state,
-            TimeSpan dueTime,
-            TimeSpan period) =>
-            base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
     }
 
     /// <summary>
@@ -580,41 +542,4 @@ public sealed class RetryPolicyTests
         }
     }
 
-    /// <summary>
-    /// A transport whose responses (or exceptions) are scripted per call index.
-    /// Entries may be <see cref="Response"/> instances, <see cref="Exception"/> instances,
-    /// or <c>Func&lt;Response&gt;</c> factories.
-    /// </summary>
-    private sealed class ScriptedTransport : IAsyncHttpClient
-    {
-        private readonly List<object> _script;
-        private int _callCount;
-
-        public ScriptedTransport(IEnumerable<object> script)
-        {
-            _script = script.ToList();
-        }
-
-        public int CallCount => _callCount;
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            var index = Interlocked.Increment(ref _callCount) - 1;
-            if (index >= _script.Count)
-            {
-                throw new InvalidOperationException($"Script ran out of entries at call {index + 1}.");
-            }
-
-            var entry = _script[index];
-            return entry switch
-            {
-                Response r => Task.FromResult(r),
-                Exception ex => Task.FromException<Response>(ex),
-                Func<Response> f => Task.FromResult(f()),
-                _ => throw new InvalidOperationException($"Unknown script entry type: {entry.GetType()}"),
-            };
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 }

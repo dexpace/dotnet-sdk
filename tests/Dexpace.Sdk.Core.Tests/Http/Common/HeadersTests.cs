@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Http.Common;
 
+[Trait("Category", "Unit")]
 public class HeadersTests
 {
     [Fact]

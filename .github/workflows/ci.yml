@@ -9,8 +9,16 @@ name: CI
 # RS0016/RS0017 public-API files (NFR-4), RS0030 banned APIs (design §9.1), trim/AOT analyzers on every library
 # (NFR-8), NuGet audit, and package validation during `dotnet pack` (EnablePackageValidation).
 #
+# Tests run on xUnit v3 over Microsoft.Testing.Platform: global.json's "test.runner" puts `dotnet test` in the
+# platform's mode, so its options are the platform's (--solution, --report-trx, --coverlet), not VSTest's. Every
+# test carries a [Trait("Category", ...)] of design §9.3 (Unit, Integration, Conformance, AotSmoke, Security), which
+# each suite's TestCategoryTests enforces; the default run executes them all. SEAM-2's partition (core's suite never
+# references a transport) is an architecture test in tests/Dexpace.Sdk.Core.Tests/Architecture/.
+#
 # Gates wired but inert until their subject exists, and the phase that turns each on:
-#   - SSE-37 architecture test (serde independence of SSE and paging): phase 7, when the SSE namespace lands.
+#   - SSE-37 architecture test (serde independence of SSE and paging): wired in
+#     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
+#     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
 #   - Transport conformance kit (Dexpace.Sdk.Conformance, TRANSPORT-*): phase 8.
 #   - NativeAOT smoke consumer: runs below over today's surface; phase 7 extends it to the Tristate, paging and SSE
 #     round trip, and phase 10 completes it.
@@ -61,12 +69,13 @@ jobs:
       - name: Format
         run: dotnet format Dexpace.Sdk.sln --verify-no-changes --no-restore
 
+      # coverlet.MTP writes one Cobertura report per test project into the results directory.
       - name: Test
         run: >-
-          dotnet test Dexpace.Sdk.sln --configuration Release --no-build
-          --collect:"XPlat Code Coverage"
+          dotnet test --solution Dexpace.Sdk.sln --configuration Release --no-build
           --results-directory artifacts/test-results
-          --logger trx
+          --report-trx
+          --coverlet --coverlet-output-format cobertura
 
       # NFR-5: aggregate line coverage over the src/ assemblies, merged across every test project. Measured at
       # 88.38% when the gate was wired, so the floor is the design's 80% from the start.
@@ -91,7 +100,7 @@ jobs:
         run: dotnet format tools/Dexpace.Tools.sln --verify-no-changes --no-restore
 
       - name: Tools - test
-        run: dotnet test tools/Dexpace.Tools.sln --configuration Release --no-build
+        run: dotnet test --solution tools/Dexpace.Tools.sln --configuration Release --no-build
 
       # Blocking. A structural check over committed files, so one row suffices; the tool's own tests run on all
       # three above.

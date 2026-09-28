@@ -3,17 +3,17 @@
 
 using System.Text;
 using Dexpace.Sdk.Core.Auth;
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
+[Trait("Category", "Unit")]
 public sealed class BasicAuthPolicyTests
 {
     // -------------------------------------------------------------------------
@@ -27,22 +27,6 @@ public sealed class BasicAuthPolicyTests
 
     private static string Base64(string user, string pass)
         => Convert.ToBase64String(Encoding.UTF8.GetBytes($"{user}:{pass}"));
-
-    /// <summary>
-    /// Captures the last request received and returns a canned 200 OK.
-    /// </summary>
-    private sealed class CapturingTransport : IAsyncHttpClient
-    {
-        public Request? LastRequest { get; private set; }
-
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            return Task.FromResult(new Response(Status.Ok));
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 
     // -------------------------------------------------------------------------
     // Stage
@@ -63,12 +47,12 @@ public sealed class BasicAuthPolicyTests
     public async Task ProcessAsync_StampsBasicAuthorizationHeader()
     {
         var credential = new BasicCredential("alice", "s3cr3t");
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BasicAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("Authorization");
         Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", value);
@@ -78,12 +62,12 @@ public sealed class BasicAuthPolicyTests
     public async Task ProcessAsync_EmptyPassword_StampsCorrectly()
     {
         var credential = new BasicCredential("user", string.Empty);
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BasicAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         var value = transport.LastRequest!.Headers.Get("Authorization");
         Assert.Equal($"Basic {Base64("user", "")}", value);
@@ -98,12 +82,12 @@ public sealed class BasicAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", "Bearer old-token")
         };
 
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
             .Add(new BasicAuthPolicy(credential))
             .Build(transport);
 
-        await pipeline.SendAsync(request, MakeOptions());
+        await pipeline.SendAsync(request, MakeOptions(), TestContext.Current.CancellationToken);
 
         var values = transport.LastRequest!.Headers.GetAll("Authorization");
         Assert.Single(values);
@@ -123,7 +107,7 @@ public sealed class BasicAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new BasicAuthPolicy(credential);
 
@@ -137,7 +121,7 @@ public sealed class BasicAuthPolicyTests
             Headers = Headers.Empty
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run: different origin → credential must be withheld.
@@ -152,7 +136,7 @@ public sealed class BasicAuthPolicyTests
         var options = MakeOptions();
         var request = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(request, options);
-        var transport = new CapturingTransport();
+        var transport = new RecordingTransport();
         var runner = new PipelineRunner([], 0, transport);
         var policy = new BasicAuthPolicy(credential);
 
@@ -180,7 +164,7 @@ public sealed class BasicAuthPolicyTests
         var originalRequest = MakeRequest("https://api.example.com/v1/resource");
         var context = new PipelineContext(originalRequest, options);
 
-        var recordingTransport = new CapturingTransport();
+        var recordingTransport = new RecordingTransport();
         var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new BasicAuthPolicy(credential);
 
@@ -194,7 +178,7 @@ public sealed class BasicAuthPolicyTests
             Headers = Headers.Empty.Set("Authorization", $"Basic {Base64("user", "pass")}")
         };
 
-        var foreignTransport = new CapturingTransport();
+        var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
 
         // Second run: different origin → stale Authorization header must be stripped.

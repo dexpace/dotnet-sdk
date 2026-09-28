@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
+[Trait("Category", "Unit")]
 public class PipelineContextTests
 {
     private static Request MakeRequest() =>

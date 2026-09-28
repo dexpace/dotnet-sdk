@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The reference transport's own suite (design §2.3, roadmap constraint 4): the only place wire-level tests of
+       Dexpace.Sdk.Http.SystemNet live. Loopback/ holds the TcpListener HTTP/1.1 fixture that records the raw bytes a
+       request put on the socket; roadmap phase 8a promotes it into Dexpace.Sdk.Conformance. -->
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.Http.SystemNet.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Tests are exempt from the strict documentation gate. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+    <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+  </ItemGroup>
+
+</Project>

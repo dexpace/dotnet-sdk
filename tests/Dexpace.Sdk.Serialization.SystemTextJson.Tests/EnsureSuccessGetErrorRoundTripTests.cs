@@ -14,6 +14,7 @@ namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
 /// <c>HttpResponseException.GetErrorAsync&lt;T&gt;</c> to verify the buffered body is
 /// deserializable after the exception is thrown.
 /// </summary>
+[Trait("Category", "Unit")]
 public sealed class EnsureSuccessGetErrorRoundTripTests
 {
     private static SystemTextJsonSerde Serde() => new(TestJsonContext.Default);
@@ -28,10 +29,10 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
 
         // Act: EnsureSuccessAsync should throw with the body buffered
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
-            () => response.EnsureSuccessAsync().AsTask());
+            () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         // Assert: GetErrorAsync can deserialize the body that was buffered by EnsureSuccessAsync
-        var error = await ex.GetErrorAsync<ApiError>(Serde());
+        var error = await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);
         Assert.Equal(new ApiError("validation_failed", "Name is required"), error);
     }
 
@@ -46,10 +47,10 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
 
         // Act
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
-            () => response.EnsureSuccessAsync().AsTask());
+            () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         // Assert: the stream was drained and buffered; GetErrorAsync can read it
-        var error = await ex.GetErrorAsync<ApiError>(Serde());
+        var error = await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);
         Assert.Equal(new ApiError("server_error", "Unexpected error"), error);
     }
 
@@ -61,10 +62,10 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
 
         // Act
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
-            () => response.EnsureSuccessAsync().AsTask());
+            () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         // Assert: empty body is readable (zero bytes)
-        var bytes = await ex.Response.Body.ReadAsBytesAsync();
+        var bytes = await ex.Response.Body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
         Assert.Empty(bytes);
     }
 
@@ -72,6 +73,6 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
     public async Task EnsureSuccessAsync_SuccessResponse_ReturnsWithoutThrowing()
     {
         using var response = new Response(Status.FromCode(200));
-        await response.EnsureSuccessAsync();  // must not throw
+        await response.EnsureSuccessAsync(TestContext.Current.CancellationToken);  // must not throw
     }
 }

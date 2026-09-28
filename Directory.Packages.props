@@ -27,10 +27,17 @@
   </ItemGroup>
 
   <ItemGroup Label="Tests">
-    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- xUnit v3 on Microsoft.Testing.Platform v2 (styleguide 11.1, design §9.3): each test project is its own
+         executable, and `dotnet test` runs in the platform's mode (global.json "test.runner"). The 4.x package
+         carries the MTP v2 integration. Test-only: nothing here reaches a library's closure. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <!-- NFR-5's collector on the platform: coverlet's MTP extension writes the same Cobertura report that
+         scripts/ci/coverage-gate.cs merges. -->
+    <PackageVersion Include="coverlet.MTP" Version="10.1.0" />
+    <!-- The TRX report (report-trx option), for the per-OS test-results artifact CI uploads. -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <!-- The FakeTimeProvider of styleguide 11.6, re-exported to every suite by Dexpace.Sdk.TestSupport. -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
   </ItemGroup>
 
 </Project>

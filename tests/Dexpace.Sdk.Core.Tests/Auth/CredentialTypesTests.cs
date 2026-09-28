@@ -7,6 +7,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Auth;
 
+[Trait("Category", "Unit")]
 public class AccessTokenTests
 {
     [Fact]
@@ -39,6 +40,7 @@ public class AccessTokenTests
     }
 }
 
+[Trait("Category", "Unit")]
 public class TokenRequestContextTests
 {
     [Fact]
@@ -106,6 +108,7 @@ public class TokenRequestContextTests
     }
 }
 
+[Trait("Category", "Unit")]
 public class TokenCredentialTests
 {
     private sealed class ConstantTokenCredential : TokenCredential
@@ -125,7 +128,7 @@ public class TokenCredentialTests
         var cred = new ConstantTokenCredential(expected);
         var ctx = new TokenRequestContext(["scope"]);
 
-        var actual = await cred.GetTokenAsync(ctx);
+        var actual = await cred.GetTokenAsync(ctx, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected.Token, actual.Token);
     }
@@ -137,12 +140,13 @@ public class TokenCredentialTests
         var cred = new ConstantTokenCredential(expected);
         var ctx = new TokenRequestContext(["scope"]);
 
-        var actual = cred.GetToken(ctx);
+        var actual = cred.GetToken(ctx, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected.Token, actual.Token);
     }
 }
 
+[Trait("Category", "Unit")]
 public class ApiKeyCredentialTests
 {
     [Fact]
@@ -179,6 +183,7 @@ public class ApiKeyCredentialTests
     }
 }
 
+[Trait("Category", "Unit")]
 public class BasicCredentialTests
 {
     [Fact]

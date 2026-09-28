@@ -1,15 +1,15 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
+[Trait("Category", "Unit")]
 public class PipelineBuilderTests
 {
     // ---------------------------------------------------------------------------
@@ -93,15 +93,7 @@ public class PipelineBuilderTests
     // Fakes / helpers
     // ---------------------------------------------------------------------------
 
-    private sealed class FakeTransport : IAsyncHttpClient
-    {
-        public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new Response(Status.Ok));
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private static FakeTransport MakeTransport() => new();
+    private static RecordingTransport MakeTransport() => new();
 
     private static DexpaceClientOptions MakeOptions() => new();
 
@@ -127,7 +119,7 @@ public class PipelineBuilderTests
             .Add(new RecordingPolicy("op", PipelineStage.Operation, log))
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         // Build stable-sorts by stage (ascending), so execution order is:
         // op (100) → redirect (200) → diag (600), then unwind.
@@ -183,7 +175,7 @@ public class PipelineBuilderTests
             .InsertAfter<RecordingPerCallA>(new RecordingPerCallB(log)) // list: [A, B]
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(["A:in", "B:in", "B:out", "A:out"], log);
     }
@@ -219,7 +211,7 @@ public class PipelineBuilderTests
             .InsertBefore<RecordingPerCallA>(new RecordingPerCallB(log)) // list: [B, A]
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(["B:in", "A:in", "A:out", "B:out"], log);
     }
@@ -255,7 +247,7 @@ public class PipelineBuilderTests
             .Replace<RecordingPerCallA>(new RecordingPerCallA2(log)) // A swapped for A2
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Contains("A2:in", log);
         Assert.DoesNotContain("A:in", log);
@@ -292,7 +284,7 @@ public class PipelineBuilderTests
             .Remove<RecordingPerCallA>()
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Contains("B:in", log);
         Assert.DoesNotContain("A:in", log);
@@ -309,7 +301,7 @@ public class PipelineBuilderTests
     public async Task Build_EmptyPipeline_TransportResponds()
     {
         var pipeline = new PipelineBuilder().Build(MakeTransport());
-        var response = await pipeline.SendAsync(MakeRequest(), MakeOptions());
+        var response = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
         Assert.NotNull(response);
     }
 }

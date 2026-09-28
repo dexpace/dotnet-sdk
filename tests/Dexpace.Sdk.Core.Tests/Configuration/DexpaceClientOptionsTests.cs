@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Configuration;
 
+[Trait("Category", "Unit")]
 public class DexpaceClientOptionsTests
 {
     [Fact]
