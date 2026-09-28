@@ -13,6 +13,10 @@
 
   <PropertyGroup Label="Dependencies">
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Audit transitive packages too, not only direct ones. The SDK default depends on the target framework
+         (net10.0+ audits everything, net8.0 only direct references), so set it once for every project.
+         Advisories fail the build under TreatWarningsAsErrors; fix them, never suppress them (design §9). -->
+    <NuGetAuditMode>all</NuGetAuditMode>
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata">
