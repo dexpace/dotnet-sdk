@@ -1,0 +1,16 @@
+<Project>
+
+  <!-- The trimmer pack (Microsoft.NET.ILLink.Tasks) is an implicit PackageReference of every IsTrimmable or
+       IsAotCompatible project, and its version defaults to the one bundled with whichever SDK patch runs the
+       build. Pinned here to $(DexpaceToolchainPackVersion) (Directory.Packages.props), so the committed
+       packages.lock.json files hold on any 10.0.4xx SDK that global.json's latestPatch admits (a CI runner image
+       may carry a newer patch than the one setup-dotnet installs), and the trim analysis does not drift with the
+       SDK patch. -->
+  <Target Name="DexpacePinToolchainPacks" BeforeTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <KnownILLinkPack Condition="'%(KnownILLinkPack.TargetFramework)' == '$(TargetFramework)'"
+                       ILLinkPackVersion="$(DexpaceToolchainPackVersion)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

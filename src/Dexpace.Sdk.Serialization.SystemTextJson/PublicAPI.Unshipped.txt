@@ -1,0 +1,9 @@
+#nullable enable
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.DefaultMediaType.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.Deserialize<T>(System.ReadOnlySpan<byte> utf8) -> T?
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.DeserializeAsync<T>(System.IO.Stream! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SystemTextJsonSerde(System.Text.Json.JsonSerializerOptions! options) -> void
+Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SystemTextJsonSerde(System.Text.Json.Serialization.JsonSerializerContext! context) -> void

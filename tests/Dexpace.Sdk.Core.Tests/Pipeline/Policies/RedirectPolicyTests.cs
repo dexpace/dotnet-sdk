@@ -61,10 +61,10 @@ public sealed class RedirectPolicyTests
     public async Task ProcessAsync_302OnPost_BecomesGetWithNoBody()
     {
         // Arrange: POST → 302 to /v2/items → 200 OK
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(redirectUrl),
+            ScriptedTransport.Redirect302(RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -79,7 +79,7 @@ public sealed class RedirectPolicyTests
         var secondRequest = transport.Requests[1];
         Assert.Equal(Method.Get, secondRequest.Method);
         Assert.Null(secondRequest.Body);
-        Assert.Equal(new Uri(redirectUrl), secondRequest.Url);
+        Assert.Equal(new Uri(RedirectUrl), secondRequest.Url);
     }
 
     // -------------------------------------------------------------------------
@@ -89,13 +89,13 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_307OnPost_PreservesMethodAndBody()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var body = RequestBody.FromBytes(new byte[] { 1, 2, 3 });
         var originalRequest = Request.Post("https://api.example.com/v1/items", body);
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(307, redirectUrl),
+            ScriptedTransport.Redirect(307, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -108,7 +108,7 @@ public sealed class RedirectPolicyTests
         var secondRequest = transport.Requests[1];
         Assert.Equal(Method.Post, secondRequest.Method);
         Assert.NotNull(secondRequest.Body);
-        Assert.Equal(new Uri(redirectUrl), secondRequest.Url);
+        Assert.Equal(new Uri(RedirectUrl), secondRequest.Url);
     }
 
     // -------------------------------------------------------------------------
@@ -145,12 +145,12 @@ public sealed class RedirectPolicyTests
     public async Task ProcessAsync_MaxRedirects_StopsAndReturnsLast3xxResponse()
     {
         // MaxRedirects = 2: initial + 2 hops = 3 transport calls; 3rd call still 302 → return it
-        const string loc = "https://api.example.com/v2/items";
+        const string Location = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(loc),
-            ScriptedTransport.Redirect302(loc),
-            ScriptedTransport.Redirect302(loc),
+            ScriptedTransport.Redirect302(Location),
+            ScriptedTransport.Redirect302(Location),
+            ScriptedTransport.Redirect302(Location),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -176,10 +176,10 @@ public sealed class RedirectPolicyTests
             .Build();
         var request = Request.Create(Method.Get, "https://api.example.com/v1/items", headers);
 
-        const string crossOriginUrl = "https://other.example.org/v1/items";
+        const string CrossOriginUrl = "https://other.example.org/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(crossOriginUrl),
+            ScriptedTransport.Redirect302(CrossOriginUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -207,10 +207,10 @@ public sealed class RedirectPolicyTests
         var request = Request.Create(Method.Get, "https://api.example.com/v1/items", headers);
 
         // Same host, different path
-        const string sameOriginUrl = "https://api.example.com/v2/items";
+        const string SameOriginUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(sameOriginUrl),
+            ScriptedTransport.Redirect302(SameOriginUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -229,10 +229,10 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_HttpsToHttpDowngrade_NotFollowed_WhenFlagFalse()
     {
-        const string httpUrl = "http://api.example.com/v1/items";
+        const string HttpUrl = "http://api.example.com/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(httpUrl),
+            ScriptedTransport.Redirect302(HttpUrl),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -254,10 +254,10 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_HttpsToHttpDowngrade_Followed_WhenFlagTrue()
     {
-        const string httpUrl = "http://api.example.com/v1/items";
+        const string HttpUrl = "http://api.example.com/v1/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(httpUrl),
+            ScriptedTransport.Redirect302(HttpUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -277,13 +277,13 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_303OnPut_BecomesGetWithNoBody()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var body = RequestBody.FromBytes(new byte[] { 1, 2, 3 });
         var putRequest = Request.Create(Method.Put, "https://api.example.com/v1/items", body: body);
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(303, redirectUrl),
+            ScriptedTransport.Redirect(303, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -303,13 +303,13 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_308OnPost_PreservesMethodAndBody()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var body = RequestBody.FromBytes(new byte[] { 1, 2, 3 });
         var originalRequest = Request.Post("https://api.example.com/v1/items", body);
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(308, redirectUrl),
+            ScriptedTransport.Redirect(308, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -329,10 +329,10 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_301OnPost_BecomesGet()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(301, redirectUrl),
+            ScriptedTransport.Redirect(301, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -352,10 +352,10 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_301OnGet_KeepsGet()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(301, redirectUrl),
+            ScriptedTransport.Redirect(301, RedirectUrl),
             new Response(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -411,10 +411,10 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_307OnPost_NonReplayableBody_NotFollowed()
     {
-        const string redirectUrl = "https://api.example.com/v2/items";
+        const string RedirectUrl = "https://api.example.com/v2/items";
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect(307, redirectUrl),
+            ScriptedTransport.Redirect(307, RedirectUrl),
             new Response(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
@@ -460,20 +460,20 @@ public sealed class RedirectPolicyTests
     public async Task ProcessAsync_ChainedMultiHopRedirect_FollowsAllHops_EndsAt200()
     {
         // A → B → C → 200
-        const string urlA = "https://api.example.com/a";
-        const string urlB = "https://api.example.com/b";
-        const string urlC = "https://api.example.com/c";
+        const string UrlA = "https://api.example.com/a";
+        const string UrlB = "https://api.example.com/b";
+        const string UrlC = "https://api.example.com/c";
 
         var transport = new ScriptedTransport(
         [
-            ScriptedTransport.Redirect302(urlB),  // A → B
-            ScriptedTransport.Redirect302(urlC),  // B → C
+            ScriptedTransport.Redirect302(UrlB),  // A → B
+            ScriptedTransport.Redirect302(UrlC),  // B → C
             new Response(Status.Ok),              // C → 200
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         var result = await pipeline.SendAsync(
-            MakeGetRequest(urlA),
+            MakeGetRequest(UrlA),
             MakeOptions(maxRedirects: 10));
 
         // Final response is 200.
@@ -483,9 +483,9 @@ public sealed class RedirectPolicyTests
         Assert.Equal(3, transport.CallCount);
 
         // URLs progressed A → B → C.
-        Assert.Equal(new Uri(urlA), transport.Requests[0].Url);
-        Assert.Equal(new Uri(urlB), transport.Requests[1].Url);
-        Assert.Equal(new Uri(urlC), transport.Requests[2].Url);
+        Assert.Equal(new Uri(UrlA), transport.Requests[0].Url);
+        Assert.Equal(new Uri(UrlB), transport.Requests[1].Url);
+        Assert.Equal(new Uri(UrlC), transport.Requests[2].Url);
     }
 
     // -------------------------------------------------------------------------

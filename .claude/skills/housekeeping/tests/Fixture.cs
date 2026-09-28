@@ -23,7 +23,7 @@ internal sealed class Fixture : IDisposable
         "Two shipped projects live under `src/`, both published to NuGet.\n\n" +
         "One phase directory under docs/work/ so far, and one harvested topic in the corpus.\n";
 
-    private static readonly Dictionary<string, string> GitEnvironment = new()
+    private static readonly Dictionary<string, string> s_gitEnvironment = new()
     {
         ["GIT_CONFIG_GLOBAL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
         ["GIT_CONFIG_SYSTEM"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
@@ -113,7 +113,7 @@ internal sealed class Fixture : IDisposable
             root,
             ["-c", "user.email=fixture@example.invalid", "-c", "user.name=fixture", "-c", "commit.gpgsign=false",
              "-c", "init.defaultBranch=main", .. args],
-            GitEnvironment);
+            s_gitEnvironment);
         return result.Success
             ? result.Output
             : throw new InvalidOperationException($"git {string.Join(' ', args)} failed in {root}: {result.Error}{result.Output}");

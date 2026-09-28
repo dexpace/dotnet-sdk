@@ -10,7 +10,7 @@ namespace Housekeeping;
 /// <summary>Runs the checks and collects their findings. Read-only.</summary>
 internal sealed class Probe
 {
-    private static readonly Func<Check>[] All =
+    private static readonly Func<Check>[] s_all =
     [
         () => new Inbox(), () => new Root(), () => new Claims(), () => new Readmes(), () => new Links(),
         () => new Registers(), () => new Citations(), () => new GuardCheck(), () => new Chapters(),
@@ -37,10 +37,10 @@ internal sealed class Probe
     }
 
     /// <summary>Every check's name, in run order.</summary>
-    public static IReadOnlyList<string> Names { get; } = [.. All.Select(create => create().Name)];
+    public static IReadOnlyList<string> Names { get; } = [.. s_all.Select(create => create().Name)];
 
     /// <summary>The checks this probe will run, in run order.</summary>
-    public IReadOnlyList<Check> Checks() => [.. All.Select(create => create()).Where(check => _selected.Contains(check.Name))];
+    public IReadOnlyList<Check> Checks() => [.. s_all.Select(create => create()).Where(check => _selected.Contains(check.Name))];
 
     /// <summary>Every finding of every selected check.</summary>
     public IReadOnlyList<Finding> Run() => [.. Checks().SelectMany(check => check.Run(_repo))];
@@ -58,7 +58,7 @@ internal static class ProbeCli
         "  --root PATH     probe this tree instead of the enclosing repository\n" +
         "  -h, --help      this message";
 
-    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions s_indented = new() { WriteIndented = true };
 
     /// <summary>0 when clean (or <c>--warn-only</c>), 1 on any finding, 2 on a usage error.</summary>
     public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error)
@@ -144,7 +144,7 @@ internal static class ProbeCli
                 ["checks_with_findings"] = findings.Select(f => f.Check).Distinct(StringComparer.Ordinal).Count(),
             },
         };
-        output.WriteLine(document.ToJsonString(Indented));
+        output.WriteLine(document.ToJsonString(s_indented));
     }
 
     private static void RenderText(TextWriter output, Repo repo, IReadOnlyList<Finding> findings)

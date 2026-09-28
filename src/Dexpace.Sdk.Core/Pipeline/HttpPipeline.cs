@@ -76,9 +76,11 @@ public sealed class HttpPipeline
     /// <exception cref="PipelineAbortedException">
     /// The pipeline completed without producing a response.
     /// </exception>
+#pragma warning disable RS0030 // The pipeline's documented sync bridge (design §5.3; see remarks above).
     public Response Send(
         Request request,
         DexpaceClientOptions options,
         CancellationToken cancellationToken = default) =>
         SendAsync(request, options, cancellationToken).AsTask().GetAwaiter().GetResult();
+#pragma warning restore RS0030
 }

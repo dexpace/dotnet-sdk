@@ -19,7 +19,7 @@ public sealed class BearerTokenAuthPolicyTests
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static readonly DateTimeOffset FarFuture =
+    private static readonly DateTimeOffset s_farFuture =
         new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     private static Request MakeRequest(string url = "https://api.example.com/v1/items")
@@ -59,7 +59,7 @@ public sealed class BearerTokenAuthPolicyTests
             CancellationToken ct = default)
         {
             Interlocked.Increment(ref _callCount);
-            return new ValueTask<AccessToken>(new AccessToken(token, FarFuture));
+            return new ValueTask<AccessToken>(new AccessToken(token, s_farFuture));
         }
     }
 
@@ -275,7 +275,7 @@ public sealed class BearerTokenAuthPolicyTests
             CancellationToken ct = default)
         {
             onGetToken([.. context.Scopes]);
-            return new ValueTask<AccessToken>(new AccessToken(token, FarFuture));
+            return new ValueTask<AccessToken>(new AccessToken(token, s_farFuture));
         }
     }
 }

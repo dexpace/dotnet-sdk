@@ -1,5 +1,22 @@
 name: CI
 
+# Every gate of design §9 that has a subject today, blocking on every pull request (roadmap phase 0, tasks 2-3).
+# Target framework: net10.0 only (roadmap decision D1), so each job needs just the SDK global.json pins, which
+# carries the .NET 10 runtime the tests run on.
+#
+# Wired in the build itself (TreatWarningsAsErrors turns each into an error): analyzers and code style
+# (AnalysisLevel, EnforceCodeStyleInBuild, .editorconfig), IDE0073 license headers (NFR-13), MA0051 method length,
+# RS0016/RS0017 public-API files (NFR-4), RS0030 banned APIs (design §9.1), trim/AOT analyzers on every library
+# (NFR-8), NuGet audit, and package validation during `dotnet pack` (EnablePackageValidation).
+#
+# Gates wired but inert until their subject exists, and the phase that turns each on:
+#   - SSE-37 architecture test (serde independence of SSE and paging): phase 7, when the SSE namespace lands.
+#   - Transport conformance kit (Dexpace.Sdk.Conformance, TRANSPORT-*): phase 8.
+#   - NativeAOT smoke consumer: runs below over today's surface; phase 7 extends it to the Tristate, paging and SSE
+#     round trip, and phase 10 completes it.
+#   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
+#   - NFR-11's public-signature type scan: phase 10. Strong naming and author signing (NFR-16): phase 12.
+
 on:
   push:
     branches: [main]
@@ -9,9 +26,88 @@ on:
 permissions:
   contents: read
 
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
 jobs:
   build:
-    name: build & test
+    name: build & test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Every project commits a packages.lock.json; a graph that moved without a reviewed lock-file diff fails here.
+      - name: Restore (locked)
+        run: dotnet restore Dexpace.Sdk.sln --locked-mode
+
+      # TreatWarningsAsErrors + the analyzer set make the build itself the lint gate (NFR-6, NFR-7).
+      - name: Build
+        run: dotnet build Dexpace.Sdk.sln --configuration Release --no-restore
+
+      - name: Format
+        run: dotnet format Dexpace.Sdk.sln --verify-no-changes --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test Dexpace.Sdk.sln --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/test-results
+          --logger trx
+
+      # NFR-5: aggregate line coverage over the src/ assemblies, merged across every test project. Measured at
+      # 88.38% when the gate was wired, so the floor is the design's 80% from the start.
+      - name: Coverage floor
+        run: dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80
+
+      # EnablePackageValidation runs inside pack for every library (Directory.Build.props).
+      - name: Pack
+        run: dotnet pack Dexpace.Sdk.sln --configuration Release --no-build --output artifacts/packages
+
+      # SEAM-1/NFR-1/NFR-2 (roadmap constraint 2): each library's deps.json closure and nuspec dependency groups.
+      - name: Dependency audit
+        run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages
+
+      - name: Tools - restore (locked)
+        run: dotnet restore tools/Dexpace.Tools.sln --locked-mode
+
+      - name: Tools - build
+        run: dotnet build tools/Dexpace.Tools.sln --configuration Release --no-restore
+
+      - name: Tools - format
+        run: dotnet format tools/Dexpace.Tools.sln --verify-no-changes --no-restore
+
+      - name: Tools - test
+        run: dotnet test tools/Dexpace.Tools.sln --configuration Release --no-build
+
+      # Blocking. A structural check over committed files, so one row suffices; the tool's own tests run on all
+      # three above.
+      - name: Knowledge corpus structure
+        if: runner.os == 'Linux'
+        run: scripts/knowledge verify-structure
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: artifacts/test-results/
+
+  reproducible:
+    name: reproducible packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,27 +115,36 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          # The .NET 8 runtime is needed to execute the net8.0 test target; the pinned
-          # SDK (net10) comes from global.json and drives the build.
-          dotnet-version: 8.0.x
           global-json-file: global.json
 
-      - name: Restore
-        run: dotnet restore
+      # NFR-12's build half: two packs from a clean src/ tree with SOURCE_DATE_EPOCH at the commit time must be
+      # byte-identical. The release half (a published artifact rebuilt from its tag) is phase 12's.
+      - name: Pack twice and compare
+        run: scripts/ci/reproducible-pack.sh artifacts/reproducible
 
-      # TreatWarningsAsErrors + AnalysisLevel=latest-recommended make the build itself the lint gate.
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+  aot-smoke:
+    name: NativeAOT smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Test
-        run: >-
-          dotnet test --configuration Release --no-build
-          --collect:"XPlat Code Coverage"
-          --logger "trx;LogFileName=test-results.trx"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          name: test-results
-          path: "**/test-results.trx"
+          global-json-file: global.json
+
+      # The NativeAOT toolchain's native prerequisites on Linux.
+      - name: Install clang and zlib
+        run: sudo apt-get update && sudo apt-get install --yes clang zlib1g-dev
+
+      - name: Restore (locked)
+        run: dotnet restore Dexpace.Sdk.sln --locked-mode
+
+      # NFR-9: publish with PublishAot (set in the project), trim and AOT warnings as errors, then run the binary.
+      - name: Publish
+        run: >-
+          dotnet publish tests/Dexpace.Sdk.AotSmoke/Dexpace.Sdk.AotSmoke.csproj
+          --configuration Release --no-restore --output artifacts/aot-smoke
+
+      - name: Run
+        run: ./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke

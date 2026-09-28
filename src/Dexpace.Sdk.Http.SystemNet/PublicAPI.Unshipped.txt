@@ -1,0 +1,8 @@
+#nullable enable
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.Dispose() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client) -> void

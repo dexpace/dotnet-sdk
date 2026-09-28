@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- NFR-9's regression guard (design §9.2): a consumer of every package, published with NativeAOT and run by
+       CI's aot-smoke job. The analyzer proves the libraries are annotated; this binary proves the annotations
+       are true. Phase 0 exercises the current surface over an in-process transport; phase 7 extends it to the
+       Tristate, paging and SSE round trip, and phase 10 completes it (roadmap constraint 1). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Dexpace.Sdk.AotSmoke</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- The RID is set here rather than with `publish -r`: a command-line RID is a global property, so restore
+         would re-resolve the referenced libraries for that RID and their committed lock files would no longer
+         match. Set in the project, it stays this executable's own. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+    <!-- No lock file for this executable alone: its restore adds the host RID's NativeAOT compiler and runtime
+         packs, which differ on every CI operating system, so one committed lock file cannot hold on all three.
+         Its package graph is otherwise the three libraries', each of which is locked. -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <!-- Trim and AOT warnings fail the publish, exactly as every other warning fails the build. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- An executable, not a library: its members need no XML documentation. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Serialization.SystemTextJson\Dexpace.Sdk.Serialization.SystemTextJson.csproj" />
+  </ItemGroup>
+
+</Project>

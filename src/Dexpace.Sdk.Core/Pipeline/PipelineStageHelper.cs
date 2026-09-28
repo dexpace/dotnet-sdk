@@ -26,7 +26,7 @@ internal static class PipelineStageHelper
     /// The set of all pillar stages, used for cardinality validation during
     /// <see cref="PipelineBuilder.Build"/>.
     /// </summary>
-    internal static readonly PipelineStage[] PillarStages =
+    internal static PipelineStage[] PillarStages { get; } =
     [
         PipelineStage.Operation,
         PipelineStage.Redirect,

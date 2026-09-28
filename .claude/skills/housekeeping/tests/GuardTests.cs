@@ -14,25 +14,25 @@ namespace Housekeeping.Tests;
 public sealed class GuardTests
 {
     // A root that does not exist, so the lexical half is exercised without the filesystem.
-    private static readonly string FakeRoot = Path.Combine(Path.GetTempPath(), "housekeeping-guard-no-such-repo");
+    private static readonly string s_fakeRoot = Path.Combine(Path.GetTempPath(), "housekeeping-guard-no-such-repo");
 
     [Fact]
     public void Every_frozen_entry_is_itself_refused()
     {
         foreach (var entry in Guard.Frozen)
         {
-            Assert.Equal(entry, Guard.FrozenEntryFor(entry, FakeRoot));
+            Assert.Equal(entry, Guard.FrozenEntryFor(entry, s_fakeRoot));
         }
     }
 
     [Fact]
     public void A_file_under_a_frozen_tree_is_refused_at_any_depth()
     {
-        Assert.Equal("docs/product-spec", Guard.FrozenEntryFor("docs/product-spec/04-core.md", FakeRoot));
-        Assert.Equal("docs/knowledge", Guard.FrozenEntryFor("docs/knowledge/harvested/documentation.md", FakeRoot));
-        Assert.Equal("docs/knowledge", Guard.FrozenEntryFor("docs/knowledge/notes/pagination.md", FakeRoot));
-        Assert.Equal("docs/sdk-design-dotnet", Guard.FrozenEntryFor("docs/sdk-design-dotnet/10-deviations.md", FakeRoot));
-        Assert.Equal("docs/styleguide", Guard.FrozenEntryFor("docs/styleguide/csharp/09-concurrency.md", FakeRoot));
+        Assert.Equal("docs/product-spec", Guard.FrozenEntryFor("docs/product-spec/04-core.md", s_fakeRoot));
+        Assert.Equal("docs/knowledge", Guard.FrozenEntryFor("docs/knowledge/harvested/documentation.md", s_fakeRoot));
+        Assert.Equal("docs/knowledge", Guard.FrozenEntryFor("docs/knowledge/notes/pagination.md", s_fakeRoot));
+        Assert.Equal("docs/sdk-design-dotnet", Guard.FrozenEntryFor("docs/sdk-design-dotnet/10-deviations.md", s_fakeRoot));
+        Assert.Equal("docs/styleguide", Guard.FrozenEntryFor("docs/styleguide/csharp/09-concurrency.md", s_fakeRoot));
     }
 
     // Bypass 1. The failure a raw string prefix test would produce, and the reason the comparison
@@ -45,7 +45,7 @@ public sealed class GuardTests
     [InlineData("docs/styleguides/x.md")]
     [InlineData("docs/product-spec.md.bak")]
     public void A_sibling_whose_name_merely_starts_with_a_frozen_one_is_writable(string path) =>
-        Assert.False(Guard.IsFrozen(path, FakeRoot));
+        Assert.False(Guard.IsFrozen(path, s_fakeRoot));
 
     // Bypass 2. A path that spells its way in must not spell its way past the check.
     [Theory]
@@ -54,23 +54,23 @@ public sealed class GuardTests
     [InlineData("docs/work/mvp/../../product-spec/x.md", "docs/product-spec")]
     [InlineData("docs/work/../styleguide/README.md", "docs/styleguide")]
     public void A_dotdot_segment_that_lands_inside_is_refused(string path, string entry) =>
-        Assert.Equal(entry, Guard.FrozenEntryFor(path, FakeRoot));
+        Assert.Equal(entry, Guard.FrozenEntryFor(path, s_fakeRoot));
 
     [Fact]
     public void A_dotdot_segment_that_escapes_upward_is_not_mistaken_for_containment()
     {
-        Assert.False(Guard.IsFrozen("docs/product-spec/../work/mvp/phase1/x.md", FakeRoot));
-        Assert.False(Guard.IsFrozen("docs/knowledge/../README.md", FakeRoot));
+        Assert.False(Guard.IsFrozen("docs/product-spec/../work/mvp/phase1/x.md", s_fakeRoot));
+        Assert.False(Guard.IsFrozen("docs/knowledge/../README.md", s_fakeRoot));
     }
 
     // Bypass 3. An absolute path is resolved against nothing; it is already resolved.
     [Fact]
     public void An_absolute_path_is_resolved_not_treated_as_relative()
     {
-        Assert.Equal("docs/product-spec", Guard.FrozenEntryFor(Path.Combine(FakeRoot, "docs/product-spec/04.md"), FakeRoot));
+        Assert.Equal("docs/product-spec", Guard.FrozenEntryFor(Path.Combine(s_fakeRoot, "docs/product-spec/04.md"), s_fakeRoot));
         // Outside the repository is nobody's business, but is certainly not frozen.
-        Assert.False(Guard.IsFrozen(Path.Combine(Path.GetTempPath(), "elsewhere/docs/product-spec/04.md"), FakeRoot));
-        Assert.False(Guard.IsFrozen("/docs/knowledge/x.md", FakeRoot));
+        Assert.False(Guard.IsFrozen(Path.Combine(Path.GetTempPath(), "elsewhere/docs/product-spec/04.md"), s_fakeRoot));
+        Assert.False(Guard.IsFrozen("/docs/knowledge/x.md", s_fakeRoot));
     }
 
     // Bypass 4. Lexically `docs/work/...` escapes every frozen entry; physically it lands inside
@@ -161,14 +161,14 @@ public sealed class GuardTests
     [InlineData("src/Dexpace.Sdk.Core/README.md")]
     public void Everything_the_skill_is_allowed_to_write_stays_writable(string path)
     {
-        Assert.False(Guard.IsFrozen(path, FakeRoot));
-        Assert.Equal(path, Guard.AssertWritable(path, FakeRoot));
+        Assert.False(Guard.IsFrozen(path, s_fakeRoot));
+        Assert.Equal(path, Guard.AssertWritable(path, s_fakeRoot));
     }
 
     [Fact]
     public void AssertWritable_throws_a_frozen_path_exception_naming_both_paths()
     {
-        var error = Assert.Throws<FrozenPathException>(() => Guard.AssertWritable("docs/product-spec/04-core.md", FakeRoot));
+        var error = Assert.Throws<FrozenPathException>(() => Guard.AssertWritable("docs/product-spec/04-core.md", s_fakeRoot));
 
         Assert.Equal("docs/product-spec/04-core.md", error.PathName);
         Assert.Equal("docs/product-spec", error.Entry);
@@ -179,8 +179,8 @@ public sealed class GuardTests
     public void AssertAllWritable_refuses_the_whole_batch()
     {
         Assert.Throws<FrozenPathException>(
-            () => Guard.AssertAllWritable(["docs/README.md", "docs/product-spec/04-core.md", "CLAUDE.md"], FakeRoot));
-        Assert.Equal(["docs/README.md", "CLAUDE.md"], Guard.AssertAllWritable(["docs/README.md", "CLAUDE.md"], FakeRoot));
+            () => Guard.AssertAllWritable(["docs/README.md", "docs/product-spec/04-core.md", "CLAUDE.md"], s_fakeRoot));
+        Assert.Equal(["docs/README.md", "CLAUDE.md"], Guard.AssertAllWritable(["docs/README.md", "CLAUDE.md"], s_fakeRoot));
     }
 
     [Fact]

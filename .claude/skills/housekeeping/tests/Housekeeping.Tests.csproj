@@ -4,7 +4,6 @@
        must be silent over and a mutation of it that it must fire on. Versions come from the root
        Directory.Packages.props; no PackageReference carries a Version. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Housekeeping.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>

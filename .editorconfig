@@ -26,6 +26,101 @@ csharp_using_directive_placement = outside_namespace:warning
 dotnet_sort_system_directives_first = true
 csharp_style_var_for_built_in_types = false:suggestion
 
+# --- License header (NFR-13) -----------------------------------------------------------------
+
+# Every .cs file opens with the two-line MIT header; IDE0073 fails the build on a missing or altered one.
+file_header_template = Copyright (c) 2026 dexpace and Omar Aljarrah.\nLicensed under the MIT License. See LICENSE in the repository root for details.
+dotnet_diagnostic.IDE0073.severity = warning
+
+# --- Method length (styleguide 1.7, 5.1) -----------------------------------------------------
+
+# Meziantou.Analyzer runs in MeziantouAnalysisMode=None (Directory.Build.props); MA0051 is the one rule on.
+# The cap is lines only: the guide caps a method at 70 lines and sets no statement count, so that check is off.
+dotnet_diagnostic.MA0051.severity = warning
+MA0051.maximum_lines_per_method = 70
+MA0051.maximum_statements_per_method = 0
+
+# --- Rules latest-recommended leaves off (design §9.4, verified) ----------------------------
+
+# Styleguide 8.2/8.4: no catch-all that swallows. A catch-all that rethrows, wraps or records is written with a
+# `when` filter or carries a scoped #pragma with its reason.
+dotnet_diagnostic.CA1031.severity = warning
+# Styleguide 13.1: every IDisposable created is disposed or handed to an owner. Handing it to a constructor
+# is a hand-off: Response owns its ResponseBody, a pipeline its transport, a transport its handler, and the
+# analyzer cannot otherwise see that ownership.
+dotnet_diagnostic.CA2000.severity = warning
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
+
+# --- ConfigureAwait (styleguide 9.4) ---------------------------------------------------------
+
+# Library code never needs its caller's SynchronizationContext, so every await is ConfigureAwait(false),
+# including `await using` (`await using var x = y.ConfigureAwait(false)`) and `await foreach`
+# (`await foreach (var i in s.ConfigureAwait(false))`), both of which CA2007 does report. The rule is relaxed
+# only for application-shaped code (tests, tools, the AOT smoke consumer) further down, as styleguide 9.4 says.
+dotnet_diagnostic.CA2007.severity = warning
+
+# --- Naming (styleguide 02) ------------------------------------------------------------------
+
+# Interfaces keep the I prefix: a recorded departure (docs/styleguide/README.md overlay; design §10).
+dotnet_naming_rule.interfaces_are_i_prefixed.severity = warning
+dotnet_naming_rule.interfaces_are_i_prefixed.symbols = interfaces
+dotnet_naming_rule.interfaces_are_i_prefixed.style = i_prefix_pascal_case
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.i_prefix_pascal_case.required_prefix = I
+dotnet_naming_style.i_prefix_pascal_case.capitalization = pascal_case
+
+# Type parameters are T-prefixed PascalCase (CA1715's convention).
+dotnet_naming_rule.type_parameters_are_t_prefixed.severity = warning
+dotnet_naming_rule.type_parameters_are_t_prefixed.symbols = type_parameters
+dotnet_naming_rule.type_parameters_are_t_prefixed.style = t_prefix_pascal_case
+dotnet_naming_symbols.type_parameters.applicable_kinds = type_parameter
+dotnet_naming_style.t_prefix_pascal_case.required_prefix = T
+dotnet_naming_style.t_prefix_pascal_case.capitalization = pascal_case
+
+# 2.4: constants are PascalCase, fields and locals alike. The `const` modifier makes this rule more specific
+# than the field rules below, so a const field is judged here.
+dotnet_naming_rule.constants_are_pascal_case.severity = warning
+dotnet_naming_rule.constants_are_pascal_case.symbols = constants
+dotnet_naming_rule.constants_are_pascal_case.style = pascal_case
+dotnet_naming_symbols.constants.applicable_kinds = field, local
+dotnet_naming_symbols.constants.required_modifiers = const
+
+# 2.3: [ThreadStatic] is not expressible here; t_ is reviewed. Static non-public fields are s_camelCase.
+dotnet_naming_rule.static_fields_are_s_prefixed.severity = warning
+dotnet_naming_rule.static_fields_are_s_prefixed.symbols = non_public_static_fields
+dotnet_naming_rule.static_fields_are_s_prefixed.style = s_prefix_camel_case
+dotnet_naming_symbols.non_public_static_fields.applicable_kinds = field
+dotnet_naming_symbols.non_public_static_fields.applicable_accessibilities = private, internal, private_protected
+dotnet_naming_symbols.non_public_static_fields.required_modifiers = static
+dotnet_naming_style.s_prefix_camel_case.required_prefix = s_
+dotnet_naming_style.s_prefix_camel_case.capitalization = camel_case
+
+# 2.3: instance non-public fields are _camelCase.
+dotnet_naming_rule.instance_fields_are_underscore_prefixed.severity = warning
+dotnet_naming_rule.instance_fields_are_underscore_prefixed.symbols = non_public_fields
+dotnet_naming_rule.instance_fields_are_underscore_prefixed.style = underscore_camel_case
+dotnet_naming_symbols.non_public_fields.applicable_kinds = field
+dotnet_naming_symbols.non_public_fields.applicable_accessibilities = private, internal, private_protected
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# 2.2: parameters and locals are camelCase.
+dotnet_naming_rule.parameters_and_locals_are_camel_case.severity = warning
+dotnet_naming_rule.parameters_and_locals_are_camel_case.symbols = parameters_and_locals
+dotnet_naming_rule.parameters_and_locals_are_camel_case.style = camel_case
+dotnet_naming_symbols.parameters_and_locals.applicable_kinds = parameter, local
+dotnet_naming_style.camel_case.capitalization = camel_case
+
+# Naming findings are build errors under EnforceCodeStyleInBuild.
+dotnet_diagnostic.IDE1006.severity = warning
+
+# 2.1: every type and every member not covered above (public fields included) is PascalCase.
+dotnet_naming_rule.types_and_members_are_pascal_case.severity = warning
+dotnet_naming_rule.types_and_members_are_pascal_case.symbols = types_and_members
+dotnet_naming_rule.types_and_members_are_pascal_case.style = pascal_case
+dotnet_naming_symbols.types_and_members.applicable_kinds = namespace, class, struct, enum, delegate, method, property, event, field, local_function
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
 # --- Intentional analyzer exemptions ---------------------------------------------------------
 
 # HTTP field names, media-type tokens, and protocol identifiers have a canonical *lower-case*
@@ -42,10 +137,20 @@ dotnet_diagnostic.CA1056.severity = none
 # CA1062's blanket requirement on every public parameter is noise for this surface.
 dotnet_diagnostic.CA1062.severity = none
 
-# ConfigureAwait(false) is applied in library code where it matters, but `await using` / `await
-# foreach` emit implicit awaits the rule cannot see; the SDK does not depend on capturing context.
+# --- Application-shaped code -----------------------------------------------------------------
+
+# Tests, repository tools and the AOT smoke consumer are applications, not libraries: none runs under a
+# SynchronizationContext it could deadlock, and xUnit's own analyzer (xUnit1030) forbids ConfigureAwait(false)
+# in test methods. Styleguide 9.4 enables CA2007 in library projects and suppresses it in app/host projects.
+[{tests,tools,.claude}/**/*.cs]
 dotnet_diagnostic.CA2007.severity = none
 
 [tests/**/*.cs]
 # Test method names use Pascal_Snake casing by convention (e.g. Method_DoesThing_WhenCondition).
 dotnet_diagnostic.CA1707.severity = none
+# CA2000 in tests: a test hands its fakes to the pipeline or transport under test through a factory call or a
+# scripted-response list, which is an ownership hand-off the analyzer cannot follow. Method-call hand-off counts
+# here (never in src/), and Response is exempt because scripted Responses wrap in-memory bodies that the
+# scripted transport owns and hands on. A test that creates a Response it keeps still disposes it.
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_method_call = true
+dotnet_code_quality.CA2000.excluded_type_names_with_derived_types = T:Dexpace.Sdk.Core.Http.Response.Response

@@ -151,6 +151,15 @@ applies.
 gem; .NET assemblies are loaded by the runtime on first type reference and there is nothing to choose. Ruby's
 `sig/` tree of RBS signatures has no counterpart either: the C# signatures are the types.
 
+**Correction (2026-09-28): roadmap decision D1 is approved, and the floor is `net10.0` only.** The lead ruled on
+D1 on 2026-09-28 and accepted the roadmap's proposal. Every library and test project targets `net10.0` alone, set once
+as `TargetFramework` in `Directory.Build.props`, so the per-project settings noted below are gone. Three statements
+in this section assumed `net8.0;net10.0`, and all three are superseded: the `net8.0;net10.0` library target with its
+one-edit rise after 2026-11-10 (the rise happened in phase 0, before any package was published); test projects
+multi-targeting "so both the `net8.0` and `net10.0` builds of every library are exercised"; and CI installing the
+.NET 8 runtime. The text above stands as written, and this paragraph is the correction. `global.json` now pins
+`10.0.401` with `rollForward: latestPatch` (§9.3).
+
 **As built (d45e64b):** built — diverges: libraries declare `TargetFramework` per project (Core and
 `Http.SystemNet` are `net8.0` only; `Serialization.SystemTextJson` is `net8.0;net10.0`); only
 `Serialization.SystemTextJson` sets `IsAotCompatible`; core grants `InternalsVisibleTo` to the transport; transport
@@ -245,6 +254,15 @@ can load core once per context, and an `SdkException` thrown in one context is n
 `SdkException`. That is the plugin host's isolation choice, not something a library can prevent; core documents
 that its types are not designed to cross load-context boundaries, and the version-skew risk the Ruby section
 discussed is covered by lockstep versioning (§2.3).
+
+**Correction (2026-09-28): D1 approved, and the band is measured.** With the floor at `net10.0` only (§2.3's
+correction), a single band remains. `Directory.Packages.props` pins the facade at 10.0.12. The closure is read from
+core's `net10.0` `deps.json`, and it is exactly `Microsoft.Extensions.Logging.Abstractions` 10.0.12 plus
+`Microsoft.Extensions.DependencyInjection.Abstractions` 10.0.12. `System.Diagnostics.DiagnosticSource` is no longer a
+package in the graph; it resolves to the in-box assembly. The 8.0.x `net8.0` band described above is retired. The
+dependency audit is `scripts/ci/dependency-audit.cs`, a blocking CI step after `dotnet pack` rather than a test in
+the default run, because its nuspec half needs the packed `.nupkg`. It asserts that audit, the band, and the single
+`net10.0` dependency group. `CentralPackageTransitivePinningEnabled` is on.
 
 **As built (d45e64b):** built — diverges: core's `net8.0` runtime closure is
 `Microsoft.Extensions.Logging.Abstractions` 9.0.5 plus `Microsoft.Extensions.DependencyInjection.Abstractions` 9.0.5

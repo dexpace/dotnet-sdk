@@ -48,6 +48,8 @@ public static class HttpClientExtensions
         }
     }
 
+    // AsBlocking's documented sync bridge (design §3.3): blocking on the async transport is its whole purpose.
+#pragma warning disable RS0030
     private sealed class AsyncToSyncAdapter(IAsyncHttpClient inner) : IHttpClient
     {
         public Response Execute(Request request) =>
@@ -56,4 +58,5 @@ public static class HttpClientExtensions
         public void Dispose() =>
             inner.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
+#pragma warning restore RS0030
 }
