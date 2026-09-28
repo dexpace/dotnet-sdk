@@ -45,15 +45,15 @@ internal sealed partial class Chapters : Check
     private const string ExemptTarget = "appendix-c-consolidated-normative-requirement-index.md";
     private const char Boundary = ';';
 
-    private static readonly string Alternation = string.Join('|', Prefixes);
+    private static readonly string s_alternation = string.Join('|', Prefixes);
 
-    private static readonly Regex Id = new($@"\b({Alternation})-([0-9]+)\b");
+    private static readonly Regex s_id = new($@"\b({s_alternation})-([0-9]+)\b");
 
     /// <summary>
     /// <c>`SEAM-11`–`SEAM-15`</c>, <c>SEAM-11–SEAM-15</c>, <c>SEAM-11–15</c>: backticks tolerated on
     /// either end, which is what hides a backticked range from a pattern written for bare text.
     /// </summary>
-    private static readonly Regex Range = new($@"`?\b({Alternation})-([0-9]+)`?\s*[–—]\s*`?(?:\1-)?([0-9]+)\b`?");
+    private static readonly Regex s_range = new($@"`?\b({s_alternation})-([0-9]+)`?\s*[–—]\s*`?(?:\1-)?([0-9]+)\b`?");
 
     /// <summary>
     /// Prose whose subject is that the ID is NOT in the named chapter, over the line and the next one,
@@ -61,7 +61,7 @@ internal sealed partial class Chapters : Check
     /// an IgnorePatternWhitespace pattern: under that option the spaces inside a phrase are stripped
     /// and "appears nowhere" silently becomes "appearsnowhere".
     /// </summary>
-    private static readonly Regex Negation = new(
+    private static readonly Regex s_negation = new(
         string.Join('|', new[]
         {
             "appear nowhere", "appears nowhere", "harvested nowhere", "appear in no", "appears in no",
@@ -74,7 +74,7 @@ internal sealed partial class Chapters : Check
         }.Select(Regex.Escape)),
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    private static readonly string[] Scanned = ["docs"];
+    private static readonly string[] s_scanned = ["docs"];
 
     private readonly string[] _exemptDocuments;
 
@@ -184,7 +184,7 @@ internal sealed partial class Chapters : Check
         }
 
         var covered = new List<(int Start, int End)>();
-        foreach (Match match in Range.Matches(clause))
+        foreach (Match match in s_range.Matches(clause))
         {
             covered.Add((match.Index, match.Index + match.Length));
             var from = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
@@ -195,7 +195,7 @@ internal sealed partial class Chapters : Check
             }
         }
 
-        foreach (Match match in Id.Matches(clause))
+        foreach (Match match in s_id.Matches(clause))
         {
             if (covered.Any(span => match.Index >= span.Start && match.Index < span.End))
             {
@@ -216,12 +216,12 @@ internal sealed partial class Chapters : Check
     private static Dictionary<string, HashSet<string>> ChapterIds(Repo repo) =>
         repo.Present("docs/product-spec/*.md").ToDictionary(
             path => Path.GetFileName(path),
-            path => Id.Matches(repo.Read(path)).Select(m => $"{m.Groups[1].Value}-{m.Groups[2].Value}")
+            path => s_id.Matches(repo.Read(path)).Select(m => $"{m.Groups[1].Value}-{m.Groups[2].Value}")
                 .ToHashSet(StringComparer.Ordinal),
             StringComparer.Ordinal);
 
     private IEnumerable<string> Documents(Repo repo) =>
-        repo.Present(Scanned)
+        repo.Present(s_scanned)
             .Where(path => path.EndsWith(".md", StringComparison.Ordinal))
             .Where(path => !Skipped().IsMatch(path))
             .Where(path => !_exemptDocuments.Any(prefix => path.StartsWith(prefix, StringComparison.Ordinal)));
@@ -232,7 +232,7 @@ internal sealed partial class Chapters : Check
         for (var index = 0; index < lines.Count; index++)
         {
             var window = lines[index] + (index + 1 < lines.Count ? lines[index + 1] : string.Empty);
-            if (Negation.IsMatch(window))
+            if (s_negation.IsMatch(window))
             {
                 continue;
             }

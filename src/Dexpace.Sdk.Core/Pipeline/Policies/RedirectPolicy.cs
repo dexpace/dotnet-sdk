@@ -46,6 +46,9 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Redirect;
 
+    // MA0051 waiver: 101 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
+    // allowed-method set, downgrade and replayability errors); splitting it now would be rewritten there.
+#pragma warning disable MA0051
     /// <inheritdoc/>
     public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
     {
@@ -150,6 +153,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             redirectCount++;
         }
     }
+#pragma warning restore MA0051
 
     private static bool IsCrossOrigin(Uri current, Uri redirected)
     {

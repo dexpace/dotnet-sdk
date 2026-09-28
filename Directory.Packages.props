@@ -2,10 +2,32 @@
 
   <!-- Single source of truth for dependency versions (the libs.versions.toml analog).
        Projects reference packages WITHOUT a Version attribute. -->
-  <ItemGroup>
+  <PropertyGroup>
+    <!-- A PackageVersion below also pins the package when it arrives transitively, so a transitive package whose
+         version matters is fixed here rather than floating with whatever a direct dependency asks for (design
+         §2.3). -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <!-- The runtime band of the SDK pinned in global.json. The SDK's implicit toolchain packs (the trimmer pack
+         of IsTrimmable libraries) are pinned to it in Directory.Build.targets, so the lock files do not move
+         with the SDK patch. Move it with global.json. -->
+    <DexpaceToolchainPackVersion>10.0.12</DexpaceToolchainPackVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="Runtime">
+    <!-- The one runtime dependency core may take (roadmap constraint 2, design §2.4), band-matched to the
+         net10.0 target: its 10.0.x net10.0 group resolves System.Diagnostics.DiagnosticSource to the in-box
+         assembly instead of a package copy. scripts/ci/dependency-audit.cs enforces the band. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup Label="Build-only analyzers (PrivateAssets=all)">
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.290" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Tests">
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

@@ -75,15 +75,26 @@ internal sealed class KnowledgePaths
 
     /// <summary>
     /// An absolute source path (a styleguide harvested from a sibling repository) is used as given;
-    /// everything else is repo-relative.
+    /// everything else is repo-relative. "Absolute" is the host's notion (<c>/x</c>, <c>C:\x</c>, <c>\\host\x</c>).
     /// </summary>
     public string Resolve(string source) =>
-        source.StartsWith('/') ? source : Path.Combine(Root, source);
+        Path.IsPathRooted(source) ? source : Path.Combine(Root, source);
 
-    public string Relative(string path)
+    /// <summary>
+    /// <paramref name="path"/> relative to <see cref="Root"/>, with <c>/</c> separators on every host, since
+    /// that is how the corpus and every printed command spell paths; a path outside the root is returned as given.
+    /// </summary>
+    public string Relative(string path) => RelativeTo(Root, path, Path.DirectorySeparatorChar);
+
+    /// <summary>
+    /// The separator-explicit core of <see cref="Relative"/>, so a host with one separator can test the other's
+    /// paths. Both <paramref name="separator"/> and <c>/</c> separate segments (Windows accepts either).
+    /// </summary>
+    internal static string RelativeTo(string root, string path, char separator)
     {
-        var prefix = Root + "/";
-        return path.StartsWith(prefix, StringComparison.Ordinal) ? path[prefix.Length..] : path;
+        var normalRoot = root.Replace(separator, '/').TrimEnd('/') + "/";
+        var normalPath = path.Replace(separator, '/');
+        return normalPath.StartsWith(normalRoot, StringComparison.Ordinal) ? normalPath[normalRoot.Length..] : path;
     }
 
     /// <summary>The sha256 of a whole file, lower-case hex, truncated to <paramref name="width"/>.</summary>

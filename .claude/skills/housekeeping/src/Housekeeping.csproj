@@ -6,7 +6,6 @@
        BCL covers process spawning, regular expressions and JSON. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Housekeeping</RootNamespace>
     <AssemblyName>Housekeeping</AssemblyName>
     <IsPackable>false</IsPackable>

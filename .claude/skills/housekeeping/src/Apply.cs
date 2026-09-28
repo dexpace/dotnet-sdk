@@ -242,14 +242,7 @@ internal static class ApplyCli
                         phase = reader.Value(arg);
                         break;
                     case "--rename":
-                        var value = reader.Value(arg);
-                        var equals = value.IndexOf('=', StringComparison.Ordinal);
-                        if (equals <= 0 || equals == value.Length - 1)
-                        {
-                            throw new ArgumentException($"--rename wants FROM=TO, got {value}");
-                        }
-
-                        renames[value[..equals]] = value[(equals + 1)..];
+                        AddRename(renames, reader.Value(arg));
                         break;
                     case "--write":
                         write = true;
@@ -297,6 +290,18 @@ internal static class ApplyCli
             error.WriteLine($"refusing: {e.Message}");
             return 1;
         }
+    }
+
+    /// <summary>Records one <c>--rename FROM=TO</c> pair, refusing a value without both halves.</summary>
+    private static void AddRename(Dictionary<string, string> renames, string value)
+    {
+        var equals = value.IndexOf('=', StringComparison.Ordinal);
+        if (equals <= 0 || equals == value.Length - 1)
+        {
+            throw new ArgumentException($"--rename wants FROM=TO, got {value}");
+        }
+
+        renames[value[..equals]] = value[(equals + 1)..];
     }
 
     private static int DryRun(TextWriter output, IReadOnlyList<Move> moves)

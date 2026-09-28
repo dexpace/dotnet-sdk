@@ -1,9 +1,21 @@
 <Project>
 
+  <!-- One source of truth for every project in the repository, including the tools solution
+       (docs/styleguide/csharp/01-formatting-and-tooling.md 1.1). A leaf .csproj carries only its own
+       identity, references and genuine per-project exceptions; it never restates a property set here. -->
+
+  <PropertyGroup Label="Target framework">
+    <!-- Roadmap decision D1 (approved 2026-09-28): the floor is net10.0 only, for libraries and tests alike.
+         Raising or widening it is this one edit, plus the CI runtime matrix. -->
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
   <PropertyGroup Label="Compiler">
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Usings are explicit: each project commits a GlobalUsings.cs with its curated set, and every other
+         dependency is visible at the top of the file that takes it (styleguide 1.5, 12.7; design §9.4). -->
+    <ImplicitUsings>disable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
@@ -11,13 +23,53 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
+  <PropertyGroup Label="Analyzers">
+    <!-- Meziantou.Analyzer is referenced for MA0051 (the 70-line method cap, styleguide 1.7) only. Every other
+         MA rule starts at `none`; .editorconfig turns MA0051 on. Adopting another MA rule is an .editorconfig
+         edit with its own rationale, never a change of this mode. -->
+    <MeziantouAnalysisMode>None</MeziantouAnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup Label="Analyzers">
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
   <PropertyGroup Label="Dependencies">
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <!-- Audit transitive packages too, not only direct ones. The SDK default depends on the target framework
-         (net10.0+ audits everything, net8.0 only direct references), so set it once for every project.
-         Advisories fail the build under TreatWarningsAsErrors; fix them, never suppress them (design §9). -->
+    <!-- Audit transitive packages too, not only direct ones. Set explicitly so the audit does not depend on the
+         target framework's default. Advisories fail the build under TreatWarningsAsErrors; fix them, never
+         suppress them (design §9). -->
     <NuGetAuditMode>all</NuGetAuditMode>
+    <!-- Every project commits a packages.lock.json, and CI restores in locked mode, so the dependency graph cannot
+         move without a reviewed diff (styleguide 1.6; design §9, "Formatting and lock files"). -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
+
+  <!-- Libraries are the projects under src/. They alone carry the trim/AOT analyzers, the public-API snapshot,
+       the banned-API list and package validation. Decided by location rather than by IsPackable, because a
+       leaf project's IsPackable is not yet visible when this file is evaluated. -->
+  <PropertyGroup>
+    <DexpaceIsLibrary Condition="$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').StartsWith('src$([System.IO.Path]::DirectorySeparatorChar)'))">true</DexpaceIsLibrary>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">
+    <!-- NFR-8/NFR-9: the trim, single-file and AOT analyzers run at the library's own build (design §9.2). -->
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- NFR-4's binary half. No PackageValidationBaselineVersion until the first published version (phase 12);
+         until then it checks the package's own consistency. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
+  <ItemGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">
+    <!-- NFR-3/NFR-4: RS0016/RS0017 against the PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt beside each
+         project file, which the package's own build props pick up. Shipped stays empty until the first release
+         (phase 12); every public surface change until then is a reviewed Unshipped diff (roadmap constraint 8). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <!-- RS0030 against the repository's BannedSymbols.txt (design §9.1). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" Link="BannedSymbols.txt" />
+  </ItemGroup>
 
   <PropertyGroup Label="Package metadata">
     <VersionPrefix>0.0.1</VersionPrefix>

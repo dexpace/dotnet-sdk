@@ -1,0 +1,11 @@
+# Checkouts are byte-identical on every OS. .editorconfig sets end_of_line = lf and `dotnet format
+# --verify-no-changes` runs on the Windows CI row; the knowledge tooling hashes raw bytes (the committed corpus
+# under docs/knowledge/ and the tools/Knowledge.Tests fixtures record per-source digests); and shell scripts
+# break on a CR. So every text file checks out LF, whatever core.autocrlf says.
+* text=auto eol=lf
+
+# Vendored upstream verbatim with CRLF endings (docs/styleguide/README.md: "Do not edit the vendored chapters
+# here"). Left byte-for-byte as committed rather than renormalised, so they are also stable on every OS.
+docs/styleguide/git-and-code-review.md -text
+docs/styleguide/performance.md -text
+docs/styleguide/security.md -text

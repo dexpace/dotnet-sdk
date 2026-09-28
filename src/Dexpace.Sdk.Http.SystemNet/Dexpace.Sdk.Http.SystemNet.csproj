@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Dexpace.Sdk.Http.SystemNet</RootNamespace>
     <AssemblyName>Dexpace.Sdk.Http.SystemNet</AssemblyName>
     <PackageId>Dexpace.Sdk.Http.SystemNet</PackageId>

@@ -1,0 +1,57 @@
+# Copyright (c) 2026 dexpace and Omar Aljarrah.
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# RS0030 banned-API list for every library under src/ (design §9.1). Each entry is a documentation-comment ID,
+# then `;` and the reason RS0030 prints. A justified exception is a scoped `#pragma warning disable RS0030`
+# with a why-comment naming the design section that sanctions it; never delete a line to land a change.
+
+# Cancellation and execution-context discipline (design §8.1, §8.3). Flow suppression is allowed only inside the
+# one background-launch helper of design §5.4, which does not exist yet.
+M:System.Threading.Thread.Interrupt;Thread.Interrupt is prohibited (design §8.3); cancel through a CancellationToken
+M:System.Threading.ExecutionContext.SuppressFlow;Flow suppression belongs only in the background-launch helper of design §5.4
+M:System.Threading.ThreadPool.UnsafeQueueUserWorkItem(System.Threading.WaitCallback,System.Object);Flow-suppressing queueing belongs only in the background-launch helper of design §5.4
+M:System.Threading.ThreadPool.UnsafeQueueUserWorkItem(System.Threading.IThreadPoolWorkItem,System.Boolean);Flow-suppressing queueing belongs only in the background-launch helper of design §5.4
+M:System.Threading.ThreadPool.UnsafeQueueUserWorkItem``1(System.Action{``0},``0,System.Boolean);Flow-suppressing queueing belongs only in the background-launch helper of design §5.4
+
+# Sync-over-async outside the documented sync bridges of design §3.3 and §5.3 (styleguide 09 rule 9.1).
+P:System.Threading.Tasks.Task`1.Result;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait(System.Int32);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait(System.Int32,System.Threading.CancellationToken);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan,System.Threading.CancellationToken);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.TaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.TaskAwaiter`1.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ValueTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ValueTaskAwaiter`1.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1.ConfiguredTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable.ConfiguredValueTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+M:System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1.ConfiguredValueTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+
+# URLs on wire, log and equality paths (design §3.5): Uri.ToString() unescapes, so use OriginalString or
+# GetComponents with an explicit UriFormat.
+M:System.Uri.ToString;Uri.ToString() unescapes; use OriginalString or GetComponents(..., UriFormat) (design §3.5)
+
+# Context-store and lifetime discipline in core (design §5.4).
+M:System.Collections.Concurrent.ConcurrentDictionary`2.TryRemove(System.Collections.Generic.KeyValuePair{`0,`1});The value-comparing TryRemove belongs only in the context store's slot type (design §5.4)
+T:System.Runtime.CompilerServices.ConditionalWeakTable`2;Weak tables are not used in core (design §5.4)
+T:System.WeakReference`1;Weak references are not used in core (design §5.4)
+T:System.WeakReference;Weak references are not used in core (design §5.4)
+
+# Unsafe deserialization (design §3.4). The Newtonsoft entries are inert while no project references it; they
+# keep the ban in force if one ever does.
+T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter;BinaryFormatter is prohibited (design §3.4)
+F:Newtonsoft.Json.TypeNameHandling.Objects;TypeNameHandling other than None is prohibited (design §3.4)
+F:Newtonsoft.Json.TypeNameHandling.Arrays;TypeNameHandling other than None is prohibited (design §3.4)
+F:Newtonsoft.Json.TypeNameHandling.All;TypeNameHandling other than None is prohibited (design §3.4)
+F:Newtonsoft.Json.TypeNameHandling.Auto;TypeNameHandling other than None is prohibited (design §3.4)
+
+# HttpClient construction outside the transport's owned-client factory (styleguide 13 rule 13.8).
+M:System.Net.Http.HttpClient.#ctor;Construct HttpClient only in the transport's owned-client factory (styleguide 13.8)
+M:System.Net.Http.HttpClient.#ctor(System.Net.Http.HttpMessageHandler);Construct HttpClient only in the transport's owned-client factory (styleguide 13.8)
+M:System.Net.Http.HttpClient.#ctor(System.Net.Http.HttpMessageHandler,System.Boolean);Construct HttpClient only in the transport's owned-client factory (styleguide 13.8)
+
+# Console output from a library (styleguide csharp-aspnetcore 06 rule 6.8): log through ILogger instead.
+T:System.Console;Libraries never write to the console; log through ILogger (styleguide aspnetcore 6.8)

@@ -32,8 +32,10 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     private readonly bool _ownsClient;
 
     /// <summary>Creates a transport backed by an internally owned <c>HttpClient</c>.</summary>
+#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8).
     public SystemNetHttpClient()
         : this(new SystemHttpClient(), ownsClient: true)
+#pragma warning restore RS0030
     {
     }
 
@@ -85,8 +87,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     }
 
     /// <inheritdoc/>
+    // The transport's documented sync bridge (design §3.3). CA2000 reads the awaited Task as an undisposed
+    // IDisposable; a Task needs no disposal (it holds no wait handle unless one is requested).
+#pragma warning disable RS0030, CA2000
     public Response Execute(Request request) =>
         ExecuteAsync(request).GetAwaiter().GetResult();
+#pragma warning restore RS0030, CA2000
 
     /// <inheritdoc/>
     public void Dispose()
@@ -151,11 +157,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             }
         }
 
-        return new Response(
-            Status.FromCode((int)message.StatusCode),
-            headersBuilder.Build(),
-            new HttpResponseMessageBody(message),
-            MapProtocol(message.Version));
+        // Everything that can throw is computed before the body wraps the message, so the body is handed to
+        // the Response the moment it exists (CA2000).
+        var status = Status.FromCode((int)message.StatusCode);
+        var headers = headersBuilder.Build();
+        var protocol = MapProtocol(message.Version);
+        return new Response(status, headers, new HttpResponseMessageBody(message), protocol);
     }
 
     private static Protocol MapProtocol(Version version) => version switch

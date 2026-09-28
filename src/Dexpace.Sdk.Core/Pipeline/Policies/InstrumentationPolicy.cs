@@ -86,6 +86,10 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Diagnostics;
 
+    // MA0051 waiver: 126 lines of interleaved log, span and metric handling. Roadmap phase 5 (5b's LoggerMessage
+    // delegates and emission guard, 5c's operation-level Activity and metric rework) restructures this method;
+    // splitting it now would be rewritten there.
+#pragma warning disable MA0051
     /// <inheritdoc/>
     public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
     {
@@ -215,6 +219,7 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
             }
         }
     }
+#pragma warning restore MA0051
 
     // ─── Source-generated zero-alloc logger messages ──────────────────────────
 

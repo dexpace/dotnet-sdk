@@ -135,6 +135,31 @@ only, while the STJ package and both test projects multi-target — so the `net1
 `net8.0` binary. Moving `TargetFrameworks` into `Directory.Build.props` fixes both at once
 (`docs/styleguide/csharp/01-formatting-and-tooling.md` 1.1).
 
+**Correction (2026-09-28): roadmap decision D1 is approved, so the floor is `net10.0` only.** The lead ruled on
+D1 on 2026-09-28. The target framework is `net10.0` for every project, set once in `Directory.Build.props`. The
+paragraph above, which declares a `net8.0` floor and a `net8.0` test leg as the **NFR-10** gate, is superseded.
+There is now one target and one runtime, and the gate is that the tests run on it on every matrix row.
+
+Part (3) of the zero-dependency audit also has no subject now. That is the in-box-versus-package split for
+`System.IO.Pipelines`, `System.Net.ServerSentEvents` and `System.Linq.AsyncEnumerable`, and all three are in-box on
+`net10.0`. The nuspec assertion still reads every dependency group, and it now also requires there to be exactly one,
+`net10.0`.
+
+The same ruling corrects §9.3's CI matrix: each row installs only the SDK that `global.json` pins, which carries the
+.NET 10 runtime, and the tests run on one target framework. The text above stands as written, and this paragraph is
+the correction.
+
+**Correction (2026-09-28): the adapters' nuspecs also list the logging facade.** Part (1) above says
+`Dexpace.Sdk.Serialization.SystemTextJson` lists only `Core`. That no longer holds, because
+`CentralPackageTransitivePinningEnabled` is on (§2.3). NuGet promotes a centrally pinned transitive package to a
+direct nuspec dependency. The facade reaches each adapter through `Core`, so pinning it promotes it. As packed, both
+adapter nuspecs (`Dexpace.Sdk.Http.SystemNet` and `Dexpace.Sdk.Serialization.SystemTextJson`) have a single
+`net10.0` group. That group lists `Dexpace.Sdk.Core` 0.0.1-alpha.1 and `Microsoft.Extensions.Logging.Abstractions`
+10.0.12. `Dexpace.Sdk.Core` lists the facade alone. Roadmap constraint 2 holds adapters to the same rule as core,
+plus at most one third-party library, and that rule allows the facade, so the result is consistent with it. Neither
+adapter lists a third-party library. `scripts/ci/dependency-audit.cs` accepts the facade in an adapter's nuspec, and
+in no other extra dependency. The sentence above stands as written, and this paragraph is the correction.
+
 **NFR-11**'s "leaks no async-framework types" is satisfied in spirit before any gate: `Task`, `ValueTask`,
 `IAsyncEnumerable<T>` and `CancellationToken` are the runtime's own, not a framework's. The mechanical form is a test
 over `PublicAPI.Shipped.txt` asserting every type named in a public signature is from `System.*`,

@@ -38,7 +38,8 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     /// <returns>The payload bytes.</returns>
     public virtual async Task<byte[]> ReadAsBytesAsync(CancellationToken cancellationToken = default)
     {
-        await using var stream = await OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        await using var streamScope = stream.ConfigureAwait(false);
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         return buffer.ToArray();

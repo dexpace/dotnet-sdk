@@ -88,7 +88,7 @@ internal sealed class Root : Check
 internal sealed partial class Claims : Check
 {
     /// <summary>Topic-directory furniture, not topics.</summary>
-    private static readonly string[] NonTopicFiles = ["INDEX.md", "SOURCES.md", "README.md"];
+    private static readonly string[] s_nonTopicFiles = ["INDEX.md", "SOURCES.md", "README.md"];
 
     /// <inheritdoc/>
     public override string Name => "claims";
@@ -121,7 +121,7 @@ internal sealed partial class Claims : Check
     /// <summary>Topic files in the harvested corpus.</summary>
     public static int TopicCount(Repo repo) =>
         repo.Children("docs/knowledge/harvested")
-            .Count(file => file.EndsWith(".md", StringComparison.Ordinal) && !NonTopicFiles.Contains(file));
+            .Count(file => file.EndsWith(".md", StringComparison.Ordinal) && !s_nonTopicFiles.Contains(file));
 
     private static Claim[] Table(Repo repo)
     {
@@ -506,7 +506,7 @@ internal sealed partial class Links : Check
 /// </remarks>
 internal sealed partial class Registers : Check
 {
-    private static readonly string[] Trees =
+    private static readonly string[] s_trees =
     [
         "docs/work", "docs/superpowers", "docs/sdk-documentation", "docs/product-spec", "docs/sdk-design-dotnet",
     ];
@@ -517,7 +517,7 @@ internal sealed partial class Registers : Check
     /// <inheritdoc/>
     public override IReadOnlyList<Finding> Run(Repo repo) =>
     [
-        .. repo.Present(Trees)
+        .. repo.Present(s_trees)
             .Where(file => file.EndsWith(".md", StringComparison.Ordinal))
             .SelectMany(file => CheckFile(repo, file)),
     ];
@@ -590,7 +590,7 @@ internal sealed partial class Citations : Check
     /// <summary>Retired prefixes: prefix → (the sentence saying where its items went, the file it lived in). Empty.</summary>
     public static readonly IReadOnlyDictionary<string, RetiredRegister> DefaultRetired = new Dictionary<string, RetiredRegister>();
 
-    private static readonly string[] Trees = ["docs", "*.md", "src", "tests", ".claude"];
+    private static readonly string[] s_trees = ["docs", "*.md", "src", "tests", ".claude"];
 
     private readonly IReadOnlyDictionary<string, string> _registers;
     private readonly IReadOnlyDictionary<string, RetiredRegister> _retired;
@@ -658,7 +658,7 @@ internal sealed partial class Citations : Check
     private IEnumerable<string> CitedFiles(Repo repo)
     {
         var registerFiles = _registers.Values.Concat(_retired.Values.Select(r => r.File)).ToHashSet(StringComparer.Ordinal);
-        return repo.Present(Trees)
+        return repo.Present(s_trees)
             .Where(file => Readable().IsMatch(file) && !Excluded().IsMatch(file) && !registerFiles.Contains(file));
     }
 

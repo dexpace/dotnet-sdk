@@ -43,6 +43,8 @@ public abstract class TokenCredential
     /// <param name="context">The scopes and optional claims for the token request.</param>
     /// <param name="ct">A token to cancel the request.</param>
     /// <returns>The access token.</returns>
+#pragma warning disable RS0030 // The documented blocking bridge of the credential's sync path (design §3.3, §5.3).
     public virtual AccessToken GetToken(TokenRequestContext context, CancellationToken ct = default)
         => GetTokenAsync(context, ct).AsTask().GetAwaiter().GetResult();
+#pragma warning restore RS0030
 }

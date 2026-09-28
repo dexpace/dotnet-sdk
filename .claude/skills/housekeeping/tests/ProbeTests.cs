@@ -395,12 +395,12 @@ public sealed class ProbeTests
     // constructor seam over a prefix and a register file each fixture invents: OLD for a retired
     // register, FIX for a live one.
 
-    private static readonly Dictionary<string, RetiredRegister> Retired = new()
+    private static readonly Dictionary<string, RetiredRegister> s_retired = new()
     {
         ["OLD"] = new RetiredRegister("the fixture's old register, retired 2026-01-01: cite the owning plan task instead", "docs/old-items.md"),
     };
 
-    private static readonly Dictionary<string, string> Live = new() { ["FIX"] = "docs/fixture-register.md" };
+    private static readonly Dictionary<string, string> s_live = new() { ["FIX"] = "docs/fixture-register.md" };
 
     private const string RetiredOld = @"cites OLD-99, an ID from the fixture's old register, retired 2026-01-01: cite the owning plan task instead\.";
 
@@ -410,7 +410,7 @@ public sealed class ProbeTests
         Dictionary<string, RetiredRegister>? retired = null)
     {
         using var fixture = Fixture.Create(overrides);
-        return new Citations(registers ?? Live, retired ?? Retired).Run(new Repo(fixture.Root));
+        return new Citations(registers ?? s_live, retired ?? s_retired).Run(new Repo(fixture.Root));
     }
 
     [Fact]

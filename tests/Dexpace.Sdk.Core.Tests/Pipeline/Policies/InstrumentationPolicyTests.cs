@@ -172,7 +172,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_Exception_SetsErrorTypeTag_AndActivityStatusError()
     {
         var ex = new InvalidOperationException("boom");
-        var transport = new ThrowingTransport(ex);
+        await using var transport = new ThrowingTransport(ex);
         var policy = new InstrumentationPolicy();
 
         var thrown = await Assert.ThrowsAsync<InvalidOperationException>(

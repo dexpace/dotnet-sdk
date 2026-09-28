@@ -91,7 +91,8 @@ public sealed class Response : IAsyncDisposable, IDisposable
         int maxBytes,
         CancellationToken cancellationToken)
     {
-        await using var stream = await body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        await using var streamScope = stream.ConfigureAwait(false);
         using var buffer = new MemoryStream();
 
         var remaining = maxBytes;

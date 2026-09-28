@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dexpace.Sdk.Serialization.S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dexpace.Sdk.Serialization.SystemTextJson.Tests", "tests\Dexpace.Sdk.Serialization.SystemTextJson.Tests\Dexpace.Sdk.Serialization.SystemTextJson.Tests.csproj", "{2B3774D6-EBF7-44D0-AE70-6995A0D13B5B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dexpace.Sdk.AotSmoke", "tests\Dexpace.Sdk.AotSmoke\Dexpace.Sdk.AotSmoke.csproj", "{9F25BA11-FF2E-4E07-AB22-3DB802D48250}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,18 @@ Global
 		{2B3774D6-EBF7-44D0-AE70-6995A0D13B5B}.Release|x64.Build.0 = Release|Any CPU
 		{2B3774D6-EBF7-44D0-AE70-6995A0D13B5B}.Release|x86.ActiveCfg = Release|Any CPU
 		{2B3774D6-EBF7-44D0-AE70-6995A0D13B5B}.Release|x86.Build.0 = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|x64.Build.0 = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Debug|x86.Build.0 = Debug|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|x64.ActiveCfg = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|x64.Build.0 = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|x86.ActiveCfg = Release|Any CPU
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,5 +111,6 @@ Global
 		{76FABB12-AA28-40B2-9A76-73CEADD69405} = {892AF1FA-5CA2-4CB1-8286-F7BC8E8B6D93}
 		{152954B1-C5B3-47C0-804C-6FE77A9E0790} = {1345587B-8949-4F11-B5B7-5F5508DA63FF}
 		{2B3774D6-EBF7-44D0-AE70-6995A0D13B5B} = {892AF1FA-5CA2-4CB1-8286-F7BC8E8B6D93}
+		{9F25BA11-FF2E-4E07-AB22-3DB802D48250} = {892AF1FA-5CA2-4CB1-8286-F7BC8E8B6D93}
 	EndGlobalSection
 EndGlobal

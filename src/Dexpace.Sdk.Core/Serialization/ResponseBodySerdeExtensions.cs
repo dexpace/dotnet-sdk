@@ -22,7 +22,8 @@ public static class ResponseBodySerdeExtensions
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(serde);
 
-        await using var stream = await body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        var stream = await body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+        await using var streamScope = stream.ConfigureAwait(false);
         return await serde.DeserializeAsync<T>(stream, cancellationToken).ConfigureAwait(false);
     }
 }

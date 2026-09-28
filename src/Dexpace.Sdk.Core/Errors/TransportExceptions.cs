@@ -122,7 +122,8 @@ public class HttpResponseException : SdkException
         ArgumentNullException.ThrowIfNull(serde);
         try
         {
-            await using var stream = await Response.Body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+            var stream = await Response.Body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+            await using var streamScope = stream.ConfigureAwait(false);
             return await serde.DeserializeAsync<T>(stream, cancellationToken).ConfigureAwait(false);
         }
         catch (StreamConsumedException ex)

@@ -16,7 +16,7 @@ internal static class SdkVersion
     /// suffix (e.g. <c>+abc123</c>) removed. Falls back to the assembly's <c>Version</c>
     /// property, and ultimately to <c>"0.0.0"</c> if neither attribute is present.
     /// </summary>
-    internal static readonly string Value = BuildVersion();
+    internal static string Value { get; } = BuildVersion();
 
     private static string BuildVersion()
     {

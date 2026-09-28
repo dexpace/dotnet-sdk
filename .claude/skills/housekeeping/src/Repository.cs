@@ -169,13 +169,13 @@ internal sealed class Repo
 /// </remarks>
 internal static class Numeral
 {
-    private static readonly string[] Ones =
+    private static readonly string[] s_ones =
     [
         "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
         "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
     ];
 
-    private static readonly Dictionary<string, int> Tens = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, int> s_tens = new(StringComparer.Ordinal)
     {
         ["twenty"] = 20,
         ["thirty"] = 30,
@@ -199,24 +199,24 @@ internal static class Numeral
             return int.TryParse(word, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
         }
 
-        var ones = Array.IndexOf(Ones, word);
+        var ones = Array.IndexOf(s_ones, word);
         if (ones >= 0)
         {
             return ones;
         }
 
-        if (Tens.TryGetValue(word, out var tens))
+        if (s_tens.TryGetValue(word, out var tens))
         {
             return tens;
         }
 
         var dash = word.IndexOf('-', StringComparison.Ordinal);
-        if (dash < 0 || !Tens.TryGetValue(word[..dash], out var head))
+        if (dash < 0 || !s_tens.TryGetValue(word[..dash], out var head))
         {
             return null;
         }
 
-        var unit = Array.IndexOf(Ones, word[(dash + 1)..]);
+        var unit = Array.IndexOf(s_ones, word[(dash + 1)..]);
         return unit is > 0 and < 10 ? head + unit : null;
     }
 }

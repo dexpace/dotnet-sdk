@@ -47,7 +47,7 @@ public readonly record struct Status
     /// <param name="code">The numeric status code.</param>
     /// <returns>A <see cref="Status"/> wrapping the code.</returns>
     public static Status FromCode(int code) =>
-        KnownByCode.TryGetValue(code, out var known) ? known : new Status(code, null);
+        s_knownByCode.TryGetValue(code, out var known) ? known : new Status(code, null);
 
     /// <summary>Equality over <see cref="Code"/> only.</summary>
     public bool Equals(Status other) => Code == other.Code;
@@ -132,7 +132,7 @@ public readonly record struct Status
     /// <summary>504 Gateway Timeout.</summary>
     public static Status GatewayTimeout { get; } = new(504, "GATEWAY_TIMEOUT");
 
-    private static readonly Dictionary<int, Status> KnownByCode = new[]
+    private static readonly Dictionary<int, Status> s_knownByCode = new[]
     {
         Continue, SwitchingProtocols,
         Ok, Created, Accepted, NoContent, PartialContent,

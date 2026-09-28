@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>Dexpace.Sdk.Serialization.SystemTextJson</RootNamespace>
     <AssemblyName>Dexpace.Sdk.Serialization.SystemTextJson</AssemblyName>
     <PackageId>Dexpace.Sdk.Serialization.SystemTextJson</PackageId>
@@ -11,7 +10,6 @@
     </Description>
     <PackageTags>http;sdk;json;serialization;dexpace</PackageTags>
     <IsPackable>true</IsPackable>
-    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
