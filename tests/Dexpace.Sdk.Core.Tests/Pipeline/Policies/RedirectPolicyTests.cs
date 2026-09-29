@@ -194,11 +194,11 @@ public sealed class RedirectPolicyTests
     }
 
     // -------------------------------------------------------------------------
-    // Same-origin hop does NOT strip Authorization
+    // Same-origin hop strips Authorization too (REDIR-7: every hop; the auth policy re-stamps per hop)
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ProcessAsync_SameOriginRedirect_KeepsAuthorizationHeader()
+    public async Task ProcessAsync_SameOriginRedirect_StripsAuthorizationHeader()
     {
         var headers = new Headers.Builder()
             .Set("Authorization", "Bearer token123")
@@ -218,7 +218,7 @@ public sealed class RedirectPolicyTests
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];
-        Assert.Equal("Bearer token123", secondRequest.Headers.Get("authorization"));
+        Assert.Null(secondRequest.Headers.Get("authorization"));
     }
 
     // -------------------------------------------------------------------------

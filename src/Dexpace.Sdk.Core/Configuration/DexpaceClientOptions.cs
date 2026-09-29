@@ -105,8 +105,11 @@ public sealed class RedirectOptions
     public bool AllowHttpsToHttpDowngrade { get; set; }
 
     /// <summary>
-    /// When <see langword="true"/>, sensitive headers (e.g. <c>Authorization</c>) are stripped
-    /// when the redirect crosses an origin boundary. Defaults to <see langword="true"/>.
+    /// No longer has any effect. <see cref="Pipeline.Policies.RedirectPolicy"/> always strips
+    /// <c>Authorization</c> on every hop and <c>Cookie</c> and <c>Proxy-Authorization</c> on a
+    /// cross-origin hop, because REDIR-7 and REDIR-9 are MUSTs that a switch must not narrow.
+    /// <b>Breaking</b> (phase 1): setting it to <see langword="false"/> used to keep those headers.
+    /// Roadmap phase 6b removes the property (design §6.2).
     /// </summary>
     public bool StripSensitiveHeadersOnCrossOrigin { get; set; } = true;
 }

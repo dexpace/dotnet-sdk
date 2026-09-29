@@ -8,8 +8,43 @@ All notable changes to this project are documented here. The format is based on
 
 ### Security
 
-Roadmap phase 1, defects S4–S8, each pinned by a `[Trait("Category", "Security")]` regression test in
-`tests/Dexpace.Sdk.Core.Tests/Security/`.
+Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security")]` regression test in
+`tests/Dexpace.Sdk.Core.Tests/Security/` and, for the wire-level proofs of S1, S2, S3 and S9, in
+`tests/Dexpace.Sdk.Http.SystemNet.Tests/Security/` against the loopback server.
+
+- **Header CR/LF injection is refused before the wire** (S1; `HTTP-17`, `HTTP-18`, `HTTP-20`, `HTTP-26`, `XCUT-18`,
+  `TRANSPORT-12`). `Headers.With`, `Headers.Set`, `Headers.Builder.Add`, `Headers.Builder.Set` (and so
+  `Request.WithHeader`) trim surrounding SP/HTAB from the name, require an RFC 9110 token name, and accept only HTAB
+  and printable ASCII in the value; `HttpHeaderName.Of` trims and validates the same way; `MediaType.Of` and
+  `MediaType.Parse` apply the value rule to parameter values, and `MediaType.Parse` trims only spaces and tabs, so a
+  CR, LF or Unicode whitespace around its parts is rejected. A rejection is an `ArgumentException` naming the
+  offending character by code point (`U+000D`) that never echoes the value. `SystemNetHttpClient` re-checks every
+  header at the wire boundary and drops one that fails, with a warning naming it. New
+  `Headers.Builder.AddInbound(string, string)` is the lenient path for received headers (obs-text allowed, controls
+  still rejected), and the transport uses it, dropping a response header that carries a control character.
+  **Breaking:** header names and values, and media-type parameter values, that were accepted before (CR, LF, NUL,
+  other controls, DEL, non-ASCII, a non-token name such as `X Trace`) now throw `ArgumentException`; so does a policy
+  (`ApiKeyAuthPolicy`, `ClientIdentityPolicy`, …) stamping such a value. Error messages from `MediaType.Parse` no
+  longer quote the input.
+- **A caller-set `Host` and the framing headers never reach the wire** (S2; `TRANSPORT-11`). `SystemNetHttpClient`
+  drops `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade`, `TE` and `Expect` from
+  the request, so `HttpClient` computes them, with a `Debug` log entry naming each dropped header (never its value).
+  New constructors `SystemNetHttpClient(ILogger)` and `SystemNetHttpClient(HttpClient, ILogger)` take the logger.
+- **The SDK is the only redirect authority** (S3; `TRANSPORT-1`, `REDIR-7`, `REDIR-8`, `REDIR-9`, `REDIR-12`,
+  `XCUT-17`). `new SystemNetHttpClient()` now builds its `HttpClient` over `SocketsHttpHandler { AllowAutoRedirect =
+  false }` and returns a 3xx as is, so `RedirectPolicy` sees it. A caller-supplied `HttpClient` that follows a redirect
+  anyway is detected (the final request URI differs from the one sent in scheme, host, port or path; a handler that
+  only rewrites the query is not mistaken for one), its response disposed, and a non-retryable `SdkException` naming `AllowAutoRedirect` thrown (the
+  client itself is still never disposed). `RedirectPolicy` strips `Authorization` before every hop, same-origin
+  included; judges cross-origin against the seed request rather than the previous hop; strips `Cookie` and
+  `Proxy-Authorization` on a cross-origin hop; and drops userinfo from the `Location` target. **Breaking:** the
+  parameterless transport no longer follows redirects; a same-origin redirect hop no longer carries `Authorization`
+  (the auth policy re-stamps it); `RedirectOptions.StripSensitiveHeadersOnCrossOrigin` no longer has any effect
+  (stripping always applies); and a borrowed client that follows redirects now fails the call.
+- **A malformed inbound `Content-Type` no longer fails the response or leaks it** (S9; `TRANSPORT-27`,
+  `TRANSPORT-22`). New `MediaType.TryParse(string?, out MediaType?)`; the transport uses it, so an unparseable
+  `Content-Type` (`text/plain; foo`) means `ResponseBody.ContentType` is `null` instead of an `ArgumentException`, and
+  the native `HttpResponseMessage` is disposed if adapting the response throws for any reason.
 
 - **Credentials are never sent over plain `http`** (S4; `AUTH-28`, `XCUT-16`). Every `AuthorizationPolicy`
   (`BasicAuthPolicy`, `ApiKeyAuthPolicy`, `BearerTokenAuthPolicy`) now throws a non-retryable `SdkException` naming

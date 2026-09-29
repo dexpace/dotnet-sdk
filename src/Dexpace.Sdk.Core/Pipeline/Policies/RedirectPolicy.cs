@@ -37,10 +37,13 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// it, so a hop never carries what a downstream policy wrote during the previous one.
 /// </para>
 /// <para>
-/// <b>Cross-origin header stripping:</b> when
-/// <see cref="Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin"/> is
-/// <see langword="true"/> and the new URL has a different origin (scheme/host/port), the
-/// <c>Authorization</c> and <c>Cookie</c> headers are removed from the forwarded request.
+/// <b>Credential hygiene (REDIR-7, REDIR-8, REDIR-9, REDIR-12, XCUT-17):</b> <c>Authorization</c> is removed before
+/// <em>every</em> re-issue, same-origin included; re-attaching a credential is the auth policy's job, which runs per
+/// hop. When the target's origin (scheme, case-insensitive host, effective port) differs from the <em>seed</em>
+/// request's — the request this policy received, not the previous hop — <c>Cookie</c> and
+/// <c>Proxy-Authorization</c> are removed too. Userinfo in the <c>Location</c> target is dropped before re-issue.
+/// These always apply; <see cref="Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin"/> no longer turns
+/// them off. <b>Breaking</b> (phase 1): a same-origin hop no longer keeps <c>Authorization</c>.
 /// </para>
 /// </remarks>
 public sealed class RedirectPolicy : HttpPipelinePolicy
@@ -50,7 +53,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Redirect;
 
-    // MA0051 waiver: 106 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
+    // MA0051 waiver: 111 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
     // allowed-method set, downgrade and replayability errors); splitting it now would be rewritten there.
 #pragma warning disable MA0051
     /// <inheritdoc/>
@@ -64,6 +67,10 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
         // RETRY-44 / PIPE-16: each hop is driven with, and the next hop built from, the request this policy holds —
         // never the one a downstream policy (auth) stamped during the previous hop.
         var request = context.Request;
+
+        // REDIR-8: cross-origin is judged against the seed request, never the previous hop. Phase 4c moves the seed
+        // origin onto the call-scoped context, and phase 6b's rewrite reads it there.
+        var seedUrl = request.Url;
 
         while (true)
         {
@@ -98,6 +105,9 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             {
                 return;
             }
+
+            // REDIR-12: server-supplied credentials in the target are never used.
+            newUrl = WithoutUserInfo(newUrl);
 
             // HTTPS → HTTP downgrade guard.
             if (request.Url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
@@ -138,13 +148,11 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
                 return;
             }
 
-            // Cross-origin header stripping.
-            var newHeaders = request.Headers;
-            if (options.StripSensitiveHeadersOnCrossOrigin && IsCrossOrigin(request.Url, newUrl))
+            // REDIR-7: Authorization is removed before every hop. REDIR-9: Cookie and Proxy-Authorization, cross-origin.
+            var newHeaders = request.Headers.Without(HttpHeaderName.WellKnown.Authorization.Original);
+            if (IsCrossOrigin(seedUrl, newUrl))
             {
-                newHeaders = newHeaders
-                    .Without(HttpHeaderName.WellKnown.Authorization.Original)
-                    .Without("Cookie");
+                newHeaders = newHeaders.Without("Cookie").Without("Proxy-Authorization");
             }
 
             // Dispose the current redirect response before issuing the next request.
@@ -163,6 +171,11 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
         }
     }
 #pragma warning restore MA0051
+
+    private static Uri WithoutUserInfo(Uri url) =>
+        url.UserInfo.Length == 0
+            ? url
+            : new Uri(url.GetComponents(UriComponents.AbsoluteUri & ~UriComponents.UserInfo, UriFormat.UriEscaped));
 
     private static bool IsCrossOrigin(Uri current, Uri redirected)
     {

@@ -20,8 +20,11 @@ internal sealed class HttpResponseMessageBody : ResponseBody
     public HttpResponseMessageBody(HttpResponseMessage message)
     {
         _message = message;
-        var mediaType = message.Content.Headers.ContentType?.ToString();
-        ContentType = mediaType is not null ? MediaType.Parse(mediaType) : null;
+        // TRANSPORT-27: an inbound Content-Type the model cannot parse (HttpClient accepts `text/plain; foo`) is
+        // "no media type", never a failed response.
+        ContentType = MediaType.TryParse(message.Content.Headers.ContentType?.ToString(), out var mediaType)
+            ? mediaType
+            : null;
         ContentLength = message.Content.Headers.ContentLength ?? -1;
     }
 

@@ -1192,3 +1192,32 @@ separately:
 From here on, a new issue is routed the same way when it is filed: to the phase card whose scope it falls in
 (and, once that phase is planned, to a numbered task in its plan), or to `docs/first-release.md` when it belongs
 to the release. An issue never becomes a section of this document.
+
+**2026-09-29 — Phase 1 exit.** Phase 1 closes with all nine defects fixed: S4–S8 through issue
+[#17](https://github.com/dexpace/dotnet-sdk/issues/17) (PR #23), and S1, S2, S3 and S9 through issue
+[#18](https://github.com/dexpace/dotnet-sdk/issues/18). S1, S2, S3 and S9 are proven against the loopback fixture,
+on the raw bytes it received. The record is the checklist
+[`phase1/2026-09-28-phase1-security-fixes-checklist.md`](phase1/2026-09-28-phase1-security-fixes-checklist.md). It
+has one row per defect in constraint 3's legend. Each row lists its IDs, the clause phase 1 closed, the `Security`
+tests with their pre-fix failures, and the remaining clauses under ⏳ with the phase that owns them. The checklist
+also records the `SECURITY.md` advisory decision: nothing is published, so no advisory is owed. Phase 1 wrote no
+design document, so the checklist is where that decision lives. Phase 1 opened no deviation, so there are no ledger
+entries.
+
+Postponed work goes to the owning phases' cards, because none of them has a plan yet. When a phase plans, it turns
+its entries below into numbered tasks. It must also keep the named `Security` classes green, or move them without
+weakening them (constraint 5):
+
+| Phase | Takes over from phase 1 | Keeps green |
+|---|---|---|
+| 2a | S1: the ordered, casing-preserving `Headers` with an ASCII-only fold for lookups; `HttpHeaderName` as a class; one public syntax predicate the adapter can call | `HeaderInjectionValidationTests`, `HeaderInjectionWireTests` |
+| 3b | S9: the dispose latches | `MalformedContentTypeWireTests` |
+| 4c | S3: the seed origin on the call-scoped context (coupling obligation 2); S6, S8 as the checklist says | `RedirectCredentialHygieneTests`, `ReDriveRequestIsolationTests`, `EnsureSuccessErrorMappingTests` |
+| 5b | S5 as the checklist says | `UrlRedactionDefaultDenyTests` |
+| 6a | S7 as the checklist says | `RetryPacingOverflowTests` |
+| 6b | S3: the redirect rewrite (the `REDIR-15` error, `REDIR-16`, `REDIR-17`, removing `StripSensitiveHeadersOnCrossOrigin`) | `RedirectCredentialHygieneTests`, `RedirectWireTests` |
+| 6c | S3/S4: stamping against the seed origin, `AUTH-29`; S5's `XCUT-19`(d) | `AuthHttpsGuardTests`, `RedirectWireTests`, `UrlRedactionDefaultDenyTests` |
+| 8b | S1, S2, S9: header mapping (`TRANSPORT-10`, `TRANSPORT-13`'s once-per-name latch, `TRANSPORT-14`); the handler-taking constructor that refuses a redirect-following handler; inbound adaptation on the real synchronous path | `HeaderInjectionWireTests`, `FramingHeaderDropWireTests`, `RedirectWireTests`, `MalformedContentTypeWireTests` |
+| 9 | S3: the DI package configures each named client's primary handler with `AllowAutoRedirect = false` | `RedirectWireTests` |
+
+Nothing goes to phase 11's inbound list or to `docs/first-release.md`.

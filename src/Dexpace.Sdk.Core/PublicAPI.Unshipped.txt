@@ -138,6 +138,7 @@ Dexpace.Sdk.Core.Http.Common.CommonMediaTypes
 Dexpace.Sdk.Core.Http.Common.Headers
 Dexpace.Sdk.Core.Http.Common.Headers.Builder
 Dexpace.Sdk.Core.Http.Common.Headers.Builder.Add(string! name, string! value) -> Dexpace.Sdk.Core.Http.Common.Headers.Builder!
+Dexpace.Sdk.Core.Http.Common.Headers.Builder.AddInbound(string! name, string! value) -> Dexpace.Sdk.Core.Http.Common.Headers.Builder!
 Dexpace.Sdk.Core.Http.Common.Headers.Builder.Build() -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Common.Headers.Builder.Builder() -> void
 Dexpace.Sdk.Core.Http.Common.Headers.Builder.Remove(string! name) -> Dexpace.Sdk.Core.Http.Common.Headers.Builder!
@@ -347,6 +348,7 @@ static Dexpace.Sdk.Core.Http.Common.MediaType.Of(string! type, string! subtype, 
 static Dexpace.Sdk.Core.Http.Common.MediaType.operator !=(Dexpace.Sdk.Core.Http.Common.MediaType? left, Dexpace.Sdk.Core.Http.Common.MediaType? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.MediaType.operator ==(Dexpace.Sdk.Core.Http.Common.MediaType? left, Dexpace.Sdk.Core.Http.Common.MediaType? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.MediaType.Parse(string! value) -> Dexpace.Sdk.Core.Http.Common.MediaType!
+static Dexpace.Sdk.Core.Http.Common.MediaType.TryParse(string? value, out Dexpace.Sdk.Core.Http.Common.MediaType? mediaType) -> bool
 static Dexpace.Sdk.Core.Http.Common.Method.Connect.get -> Dexpace.Sdk.Core.Http.Common.Method
 static Dexpace.Sdk.Core.Http.Common.Method.Delete.get -> Dexpace.Sdk.Core.Http.Common.Method
 static Dexpace.Sdk.Core.Http.Common.Method.Get.get -> Dexpace.Sdk.Core.Http.Common.Method
