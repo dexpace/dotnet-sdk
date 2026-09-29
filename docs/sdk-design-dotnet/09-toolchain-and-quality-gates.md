@@ -40,6 +40,13 @@ retires. It is roadmap phase 0, because until it lands the "warnings as errors" 
 the
 wall is the gate working as intended, since NuGet audit is exactly the CVE check the table asks for.
 
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
+
 ### 9.1 API-surface lock, and what the analyzers can and cannot see
 
 **NFR-4** is the one gate .NET provides twice, and both halves are needed. `PublicApiAnalyzers` makes the source-level
@@ -129,8 +136,10 @@ default. It reopens through packages whose `net8.0` asset differs from their `ne
 The declared floor is `net8.0`, with a caveat the design must carry: .NET 8 leaves support on 2026-11-10, so the floor
 rises to `net10.0` in the roadmap, and that single change retires §7.2's hand-written line-reader justification for
 `PipeReader`, the `net8.0` STJ gap for `RespectNullableAnnotations` (§7.3) and the `System.Linq.AsyncEnumerable`
-caveat (§7.1). Until then, the target-framework settings are inconsistent: the platform design (D4) and the styleguide
-overlay say libraries are `net8.0;net10.0`, but `Dexpace.Sdk.Core` and `Dexpace.Sdk.Http.SystemNet` target `net8.0`
+caveat (§7.1). Until then, the target-framework settings are inconsistent: the pre-roadmap modern multi-target decision
+(Porting Method) and the
+styleguide overlay say libraries are `net8.0;net10.0`, but `Dexpace.Sdk.Core` and `Dexpace.Sdk.Http.SystemNet` target
+`net8.0`
 only, while the STJ package and both test projects multi-target — so the `net10.0` test run exercises `Core`'s
 `net8.0` binary. Moving `TargetFrameworks` into `Directory.Build.props` fixes both at once
 (`docs/styleguide/csharp/01-formatting-and-tooling.md` 1.1).
@@ -179,7 +188,9 @@ missing the two-line MIT header (verified: a header-less file raised `IDE0073` u
 **NFR-16**:
 nuget.org repository-signs every package, which satisfies provenance for consumers; author signing with the
 organisation's certificate runs on the release job only, optional locally, per the requirement's own split. Strong
-naming, which the platform design lists, is not a security measure on .NET (Core); it is kept because
+naming, which the pre-roadmap platform design listed among its native defaults and nothing has built yet, is not a
+security measure on .NET
+(Core); it is kept because
 strong-named consumers cannot reference an unsigned assembly, with the key committed as Microsoft's library guidance
 recommends.
 
@@ -331,6 +342,18 @@ not in the overlay; the port conforms (a committed `GlobalUsings.cs`, `ImplicitU
 because the guide's reason — every dependency visible at the top of the file — applies with full force to a library
 whose dependency surface is under audit (§9.2). The `rollForward` and lock-file departures are conformed likewise
 (§9.3), and `MA0051` is the overlay's own roadmap row.
+
+**Correction (2026-09-29): `CA2007` is re-enabled for libraries, so the `CA2007` half of the departure above is
+conformed, not recorded.** Roadmap phase 0 (PR #21, 2026-09-28) set `CA2007` to `warning` for everything under
+`src/`, an error under `TreatWarningsAsErrors`, and to `none` for tests, repository tools and the AOT smoke consumer
+(`[{tests,tools,.claude}/**/*.cs]` in `.editorconfig`), which is the split styleguide 9.4 itself makes (enabled in
+libraries, suppressed in app and host projects). Library code satisfies it on `await using` with
+`await using var x = y.ConfigureAwait(false)` and on `await foreach` with `.ConfigureAwait(false)` on the sequence,
+accepting the ergonomic cost this section weighed. The wrong `.editorconfig` rationale is gone, and the overlay row was
+corrected the same day. So three statements above are superseded: the 09 Concurrency row's "`CA2007` dialled to
+`none`", `CA2007` in the list of five analyzers `.editorconfig` dials to `none`, and "Both are §10 entry 28" (only
+`CA1062` remains a recorded departure; §10 entry 28 carries the matching correction). The `CA1062` reasoning is
+unchanged. The text above stands as written, and this paragraph is the correction.
 
 **As built (d45e64b):** partial: warnings-as-errors, recommended analyzers, code-style enforcement, documentation
 gate,

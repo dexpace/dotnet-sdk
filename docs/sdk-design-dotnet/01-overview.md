@@ -20,8 +20,9 @@ a bearer token or a cookie cross-origin (**REDIR-7**–**REDIR-13**, **XCUT-17**
 parsing (**SSE-1**–**SSE-19**), and PATCH's absent/null/present three-state semantics (**SERDE-14**–**SERDE-20**) — so
 that no codegen backend re-solves any of it. The secondary audience is application teams who want those guarantees
 while keeping their own `HttpClient` configuration (proxy, mTLS, HTTP/2 and HTTP/3, corporate `DelegatingHandler`s)
-and their own codec. The platform decision D3 in `docs/superpowers/specs/2026-06-14-dotnet-sdk-platform-design.md`
-states the division of labour this document keeps: *SDK-domain* concerns (auth, idempotency keys, typed-error- and
+and their own codec. The connection-layer split, a platform decision taken before this document (Porting Method)
+and the one PR #6's pipeline was built on, is the division of labour this document keeps: *SDK-domain* concerns (auth,
+idempotency keys, typed-error- and
 `Retry-After`-aware retry, redirect semantics, SDK spans and metrics) live in the SDK pipeline; *connection-level*
 concerns live in the `HttpMessageHandler` chain underneath it. One P13 consequence of that split is load-bearing
 enough to state in the overview: the handler chain underneath **also follows redirects by default**, which silently
@@ -100,5 +101,12 @@ A faithful port preserves the seams and their invariants; it does not preserve t
 port ends up with *fewer* seams surviving than the Ruby port — the async pivot collapses into the runtime's `Task`,
 and discovery collapses into explicit construction and the DI container (§3.6) — and with fewer packages than the
 reference's module map, because the runtime already ships the pieces the reference had to wrap.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 ---

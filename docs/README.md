@@ -18,7 +18,7 @@ only describes what already exists is a table that gets edited after the fact.
 | [`first-release.md`](./first-release.md) | Release-readiness register: package versions, blockers before first publish, the release path, what v1 ships without, post-release triggers | A human, updated as blockers close | No |
 | `deviations.md` **(planned)** | As-built audit of `sdk-design-dotnet/10`'s deviation ledger, plus deviations found outside a phase. Created by roadmap phase 11 | A human, following a phase or review | No — judgment, not a mechanical append |
 | `sdk-documentation/` **(planned)** | **As-built** user documentation — how the packages compose, worked examples — one page per phase that ships a layer, mirroring `ruby-sdk/docs/sdk-documentation/` | A human, or a skill on request | Yes |
-| [`architecture.md`](./architecture.md) | The original foundation-slice architecture note. Superseded by `sdk-design-dotnet/`; kept until roadmap phase 0 folds it into `sdk-documentation/` | A human | Yes |
+| [`architecture.md`](./architecture.md) | The original foundation-slice architecture note, marked superseded by `sdk-design-dotnet/01-overview.md`; kept until roadmap phase 12 writes `sdk-documentation/architecture.md` | A human | Yes |
 | [`README.md`](./README.md) | This index | A human | Yes |
 
 ## Frozen means frozen
@@ -42,8 +42,8 @@ them, and that refusal is a tested guard rather than a paragraph of good intent
 ## `work/` and the inbox
 
 `docs/work/<delivery>/phaseN[/phaseNx]/` is the archive. `mvp/` is the first delivery; a later
-(or, for the pre-roadmap slice documents, an earlier) effort becomes a sibling of it. A phase
-directory is `phaseN`, no hyphen; a sub-phase nests one level deeper as `phaseN/phaseNx`. Every
+effort becomes a sibling of it. (The pre-roadmap slice documents were retired rather than filed
+here, per roadmap decision D2.) A phase directory is `phaseN`, no hyphen; a sub-phase nests one level deeper as `phaseN/phaseNx`. Every
 file keeps its `YYYY-MM-DD-` prefix, and a (sub)phase has three files: `…-design.md`, the plain
 plan `….md`, and `…-checklist.md`.
 

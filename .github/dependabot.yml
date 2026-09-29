@@ -1,0 +1,76 @@
+# .github/dependabot.yml
+#
+# Version updates for the NuGet packages and the GitHub Actions this repository uses. Ported from
+# nodejs-sdk@54aeed4's .github/dependabot.yml (roadmap phase 0, task 5) and retargeted from `bun` to `nuget`
+# and `github-actions`.
+#
+# How the NuGet side meets this repository's shape:
+#
+#   * Central Package Management. Every version lives in the root Directory.Packages.props, and no
+#     PackageReference carries a Version. Dependabot's NuGet updater edits the PackageVersion there. One
+#     `directory: '/'` entry covers both solutions (Dexpace.Sdk.sln and tools/Dexpace.Tools.sln), because
+#     they share that one file; listing /tools as well would open a duplicate PR for every bump.
+#   * Lock files. Every project commits a packages.lock.json, and CI restores with --locked-mode. Treat
+#     Dependabot's lock-file handling here as unproven. If a PR bumps Directory.Packages.props but leaves a
+#     lock file stale (the tools and skill projects under tools/ and .claude/ are the likeliest), CI fails at
+#     its first step, "Restore (locked)". That failure is the tooling, not the bump. Check out the PR branch,
+#     run `dotnet restore Dexpace.Sdk.sln` and `dotnet restore tools/Dexpace.Tools.sln`, and push the
+#     changed lock files onto it.
+#   * The logging facade is band-matched. Microsoft.Extensions.Logging.Abstractions must stay on the 10.0.x
+#     band of the net10.0 target (roadmap constraint 2, design §2.4), and scripts/ci/dependency-audit.cs
+#     fails any other band. Its major updates are ignored below; the band moves only with the target
+#     framework, by hand.
+#   * Not covered: global.json's SDK pin and Directory.Packages.props' DexpaceToolchainPackVersion, which
+#     move together, by hand (see Directory.Build.targets).
+#
+# Security updates: NuGet is an ecosystem Dependabot also raises security updates for, when they are
+# enabled in the repository settings. The NuGet audit (NuGetAuditMode=all, warnings as errors) fails the
+# build on a known advisory whether or not a PR arrives.
+#
+# Labels: `dependencies` only. The org label sync (.github/workflows/labels.yml) owns the label set, and
+# Dependabot's default per-ecosystem labels are not in it.
+version: 2
+
+updates:
+  - package-ecosystem: 'nuget'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    # 5 is Dependabot's own default, written out so it reads as a decision rather than an omission. Every PR
+    # runs the full three-OS CI matrix plus the reproducible-pack and NativeAOT jobs.
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    ignore:
+      - dependency-name: 'Microsoft.Extensions.Logging.Abstractions'
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      # One PR for the routine drift. A major bump is excluded, so it arrives on its own branch and the
+      # breaking change gets reviewed alone.
+      minor-and-patch:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+    groups:
+      actions:
+        patterns:
+          - '*'

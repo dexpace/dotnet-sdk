@@ -10,6 +10,7 @@
     </Description>
     <PackageTags>http;sdk;rest;toolkit;dexpace</PackageTags>
     <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

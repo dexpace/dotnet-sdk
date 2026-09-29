@@ -5,52 +5,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository
 
 The .NET counterpart to [`dexpace/java-sdk`](https://github.com/dexpace/java-sdk) and
-[`dexpace/python-sdk`](https://github.com/dexpace/python-sdk). The architecture follows the same
-shape (immutable HTTP models, transport SPI, body abstractions, typed errors) but the public API
-uses .NET idioms — `record` / `readonly record struct` instead of builder objects, `interface`
-instead of Kotlin `fun interface` / Python `Protocol`, `IDisposable` / `IAsyncDisposable` instead
-of `AutoCloseable` / context managers, `Task<T>` as the async contract. The pluggable I/O seam that
-exists in the Java SDK (`IoProvider` over Okio) was intentionally **not** ported: .NET's
-`System.IO.Stream`, `Memory<byte>`, and `IAsyncDisposable` cover the same surface natively, exactly
-as the Python port leans on `bytes` / `BinaryIO`.
+[`dexpace/python-sdk`](https://github.com/dexpace/python-sdk), and a sibling of the Ruby and Node ports
+that share its product spec. The architecture follows the same shape (immutable HTTP models, transport
+SPI, body abstractions, typed errors, a staged pipeline) but the public API uses .NET idioms — `record` /
+`readonly record struct` instead of builder objects, `interface` instead of Kotlin `fun interface` /
+Python `Protocol`, `IDisposable` / `IAsyncDisposable` instead of `AutoCloseable` / context managers,
+`Task<T>` as the async contract. The pluggable I/O seam that exists in the Java SDK (`IoProvider` over
+Okio) was intentionally **not** ported: .NET's `System.IO.Stream`, `Memory<byte>`, and
+`IAsyncDisposable` cover the same surface natively (design §3.1).
 
 ## Build & test (from the repository root)
 
 ```bash
-dotnet restore
-dotnet build  --configuration Release   # the build IS the lint gate (warnings-as-errors)
-dotnet test   --configuration Release
-dotnet format --verify-no-changes       # formatting gate (uses .editorconfig)
+dotnet restore Dexpace.Sdk.sln --locked-mode                 # lock files are committed; CI restores locked
+dotnet build   Dexpace.Sdk.sln --configuration Release        # the build IS the lint gate (warnings-as-errors)
+dotnet format  Dexpace.Sdk.sln --verify-no-changes            # formatting gate (uses .editorconfig)
+dotnet test    --solution Dexpace.Sdk.sln --configuration Release
+dotnet test    --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-trait "Category=Security"
+dotnet pack    Dexpace.Sdk.sln --configuration Release --output artifacts/packages
 ```
 
-The .NET SDK is pinned in `global.json` (10.0.100, `rollForward: latestFeature`). Library projects
-target `net8.0`.
+Tests are xUnit v3 on **Microsoft.Testing.Platform**: `global.json`'s `"test": { "runner": … }` puts
+`dotnet test` in the platform's mode, so it takes `--solution` / `--project` and the platform's options
+(`--filter-class`, `--filter-trait`, `--report-trx`, `--coverlet`), not VSTest's `--filter`.
+
+The rest of CI (`.github/workflows/ci.yml`) is runnable locally, and should be before a push:
+
+```bash
+dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80     # after `dotnet test … --coverlet --coverlet-output-format cobertura --results-directory artifacts/test-results`
+dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages  # constraint 2, over deps.json and nuspecs
+scripts/ci/reproducible-pack.sh                                        # pack twice, byte-compare (NFR-12)
+dotnet publish tests/Dexpace.Sdk.AotSmoke --configuration Release --output artifacts/aot-smoke && ./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke
+dotnet build tools/Dexpace.Tools.sln --configuration Release && dotnet test --solution tools/Dexpace.Tools.sln --configuration Release
+scripts/knowledge verify-structure
+```
+
+The .NET SDK is pinned in `global.json` (`10.0.401`, `rollForward: latestPatch`). Every project — libraries,
+tests and tools — targets **`net10.0` only**, set once in `Directory.Build.props` (roadmap decision D1).
 
 ## Conventions (enforced — match these when adding code)
 
-- **net8.0 libraries, C# `latest`, `Nullable` + `ImplicitUsings` enabled.** Modern idioms: file-scoped
-  namespaces, records, `readonly record struct`, pattern matching, `init` accessors, collection
-  expressions where they fit.
-- **`TreatWarningsAsErrors` + `AnalysisLevel=latest-recommended` + `EnforceCodeStyleInBuild`.** The
-  build is the lint gate. Rule severities live in `.editorconfig`; a handful of analyzer rules are
-  deliberately dialled down there with a documented rationale (CA1308 lower-casing, CA1054/55/56
-  string URLs, CA1062, CA2007) — do not silence others without justification.
+- **net10.0, C# `latest`, `Nullable` on, `ImplicitUsings` off.** Each project commits a `GlobalUsings.cs`
+  with its curated set; every other namespace is imported at the top of the file that uses it. Modern
+  idioms: file-scoped namespaces, records, `readonly record struct`, pattern matching, `init` accessors,
+  collection expressions where they fit.
+- **`TreatWarningsAsErrors` + `AnalysisLevel=latest-recommended` + `EnforceCodeStyleInBuild`.** The build
+  is the lint gate. Rule severities live in `.editorconfig`; a handful of analyzer rules are deliberately
+  dialled down there with a documented rationale (CA1308 lower-casing, CA1054/55/56 string URLs, CA1062,
+  CA1707 for test names) — do not silence others without justification. `CA2007` is **on** for `src/`
+  (every library `await` uses `ConfigureAwait(false)`, including `await using` and `await foreach`) and off
+  for tests, tools and the AOT smoke consumer.
+- **Library gates** (every project under `src/`, from `Directory.Build.props`): `IsTrimmable` +
+  `IsAotCompatible`, `EnablePackageValidation`, the public-API files (`PublicAPI.Shipped.txt` stays empty
+  until the first release; every surface change is a reviewed `PublicAPI.Unshipped.txt` diff, RS0016/RS0017),
+  the banned-API list (`BannedSymbols.txt`, RS0030), `MA0051`'s 70-line method cap, and the `IDE0073`
+  license header.
 - **Immutable models.** `record` / `readonly record struct`; mutate via `with` expressions or `With*`
   helpers. No builder-as-object types — object initializers and `with` make them redundant. `Headers`
   is the one mutable-builder exception (`Headers.Builder`) for batched edits.
-- **Interfaces for SPIs.** `IHttpClient`, `IAsyncHttpClient` are the transport seams.
-  `Dexpace.Sdk.Core` ships **no** transport; transports adapt one HTTP library each and live in their
-  own project (`Dexpace.Sdk.Http.*`).
+- **Interfaces for SPIs.** `IHttpClient`, `IAsyncHttpClient` are the transport seams; `ISerde` is the codec
+  seam. `Dexpace.Sdk.Core` ships **no** transport and no concrete codec; each adapts one library in its own
+  project (`Dexpace.Sdk.Http.*`, `Dexpace.Sdk.Serialization.*`).
 - **Deterministic cleanup.** `Response`, `ResponseBody`, and transports implement `IDisposable` /
   `IAsyncDisposable`. Single-use bodies (stream-backed) throw `StreamConsumedException` on a second
   read; call `RequestBody.ToReplayableAsync()` before the first send if retries are needed.
-- **No runtime dependencies in `core`.** It builds against the BCL only. `SourceLink` is the only
-  build-time package. Transports may depend on their HTTP library; `core` may not.
+- **The dependency rule for core** (roadmap constraint 2; design §2.4 is the authority). `Dexpace.Sdk.Core`
+  may reference only assemblies in the `Microsoft.NETCore.App` reference pack of its target framework,
+  `Microsoft.Extensions.Logging.Abstractions` (band-matched to the target, 10.0.x), and build-only packages
+  marked `PrivateAssets="all"`. The logging facade is a recorded deviation (`logging-abstractions-dependency`,
+  design §10); nobody re-litigates it, and nothing else is added. Adapters are held to the same rule plus
+  NFR-2's "at most one third-party library". `scripts/ci/dependency-audit.cs` enforces it on every pack.
 - **Narrow, fully-documented public API.** `GenerateDocumentationFile` is on, so every public member
   needs a `///` XML doc comment (missing docs are CS1591 → build error). Implementation helpers are
-  `internal` (with `InternalsVisibleTo` for the test and transport assemblies).
+  `internal`, with `InternalsVisibleTo` granted to the library's own test project only.
 - **Central package versions.** `Directory.Packages.props` is the single source of truth (the
-  `libs.versions.toml` analog). `PackageReference`s carry no `Version` attribute.
+  `libs.versions.toml` analog), with transitive pinning on. `PackageReference`s carry no `Version` attribute.
+- **Tests** carry `[Trait("Category", …)]`: `Unit`, `Integration`, `Conformance`, `AotSmoke`, or `Security`
+  (the permanent phase-1 regression tests — never delete or loosen one). Each suite's `TestCategoryTests`
+  enforces it. `Dexpace.Sdk.Core.Tests` references core and in-memory fakes only, never a transport (SEAM-2,
+  an architecture test).
 - **MIT license header on every `.cs` file** — the two-line block, src and tests alike:
 
   ```csharp
@@ -59,41 +92,60 @@ target `net8.0`.
   ```
 
 - **Commit style:** `chore:` for refactors/cleanup; `feat:` for new features; `fix:` for bug fixes;
-  `docs:` for documentation-only changes.
+  `docs:` for documentation-only changes; `test:` for tests only; `ci:` for CI configuration.
 
 ## Repository Layout
 
-A single solution (`Dexpace.Sdk.sln`) with central build/package configuration at the root. Each
-distribution is its own project under `src/`; tests under `tests/`.
+A single solution (`Dexpace.Sdk.sln`) with central build/package configuration at the root, plus a separate
+tools solution. Each NuGet package is its own project under `src/`, with a `README.md` packed into it; tests
+are under `tests/`.
 
 ```
 dotnet-sdk/
 ├── Dexpace.Sdk.sln
-├── Directory.Build.props            # shared compiler + package metadata
+├── Directory.Build.props            # shared compiler, analyzer, library-gate and package settings
+├── Directory.Build.targets          # packs each library's README; pins the ILLink pack to the SDK band
 ├── Directory.Packages.props         # central package versions
+├── BannedSymbols.txt                # RS0030 banned-API list for src/
 ├── .editorconfig                    # formatting + analyzer severities
-├── global.json                      # pinned .NET SDK
+├── global.json                      # pinned .NET SDK + the Microsoft.Testing.Platform test runner
 ├── nuget.config
-├── docs/architecture.md
-└── src/
-    ├── Dexpace.Sdk.Core/            # toolkit; no transport, BCL-only
-    │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes,
-    │   │                            # HttpHeaderName, Headers
-    │   ├── Http/Request/            # Request, RequestBody
-    │   ├── Http/Response/           # Response, ResponseBody, Status
-    │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions
-    │   └── Errors/                  # SdkException + ServiceRequest/Response, HttpResponse,
-    │                                # streaming, serialization, pipeline exceptions
-    └── Dexpace.Sdk.Http.SystemNet/  # reference transport over System.Net.Http.HttpClient
-└── tests/
-    └── Dexpace.Sdk.Core.Tests/      # xUnit suite (references core + transport)
+├── src/
+│   ├── Dexpace.Sdk.Core/                        # toolkit; no transport, no concrete codec
+│   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers
+│   │   ├── Http/Request/            # Request, RequestBody
+│   │   ├── Http/Response/           # Response, ResponseBody, Status
+│   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions
+│   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, HttpPipelinePolicy, PipelineContext,
+│   │   │   └── Policies/            #   DexpacePipeline; operation, redirect, retry, idempotency, set-date,
+│   │   │                            #   client-identity, instrumentation and auth policies
+│   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
+│   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
+│   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions
+│   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor
+│   │   ├── Serialization/           # ISerde, ResponseBodySerdeExtensions
+│   │   └── Errors/                  # SdkException hierarchy
+│   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
+│   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+├── tests/
+│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-2 and SSE-37
+│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over a Loopback/ server
+│   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
+│   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
+│   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
+├── scripts/
+│   ├── ci/                          # coverage-gate.cs, dependency-audit.cs, reproducible-pack.sh
+│   └── knowledge                    # the knowledge-lookup CLI
+├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/housekeeping/{src,tests}
+├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates
+└── docs/                            # see docs/README.md
 ```
 
 ## Architecture — Big Picture
 
 The SDK is an **HTTP-client toolkit, not an HTTP client**. `Dexpace.Sdk.Core` provides abstractions,
-models, and (over time) pipelines; consuming libraries plug in a concrete transport via
-`IHttpClient` / `IAsyncHttpClient`.
+models and the pipeline; consuming libraries plug in a concrete transport via `IHttpClient` /
+`IAsyncHttpClient`, and a codec via `ISerde`.
 
 Layered, bottom-up:
 
@@ -101,28 +153,37 @@ Layered, bottom-up:
    `ResponseBody.OpenReadAsync` / `ReadAsBytesAsync` / `ReadAsStringAsync` drain the incoming side.
    Bytes/string bodies are replayable; stream bodies are single-use.
 2. **HTTP value models** (`Http/Common`, `Http/Response/Status`) — immutable, case-insensitive
-   `Headers` multimap; `MediaType` with quote-aware parse/round-trip; `Method`, `Protocol`, `Status`
-   value types with well-known instances.
+   `Headers` multimap with validated names and values; `MediaType` with quote-aware parse/round-trip;
+   `Method`, `Protocol`, `Status` value types with well-known instances.
 3. **Request / Response** — `Request` is an immutable `record` (absolute `Uri`); `Response` is a
    disposable carrier of status/headers/body/protocol.
 4. **Transport SPI** (`Client`) — async-first `IAsyncHttpClient` plus a synchronous `IHttpClient`,
    with `AsAsync` / `AsBlocking` bridges.
-5. **Errors** — `SdkException` roots the hierarchy: `ServiceRequestException` (never sent, retry-safe
+5. **Pipeline** (`Pipeline`) — staged `HttpPipelinePolicy`s over the transport, assembled by
+   `DexpacePipeline.CreateDefault`; auth, pagination and serde sit on top of it.
+6. **Errors** — `SdkException` roots the hierarchy: `ServiceRequestException` (never sent, retry-safe
    on idempotent methods), `ServiceResponseException` (sent, response unreadable),
    `HttpResponseException` (4xx/5xx received intact), plus lifecycle/serialization/pipeline failures.
 
 ## Things That Will Bite You
 
 - **The build is the lint gate.** A missing `///` doc comment on a public member, an unused `using`,
-  or an unsuppressed analyzer finding fails the build (`TreatWarningsAsErrors`). Build before
-  declaring done.
-- **`Dexpace.Sdk.Core` must stay BCL-only.** Do not add a runtime `PackageReference` to it — model
-  third-party needs behind an interface and implement them in an adapter project.
+  a new public member missing from `PublicAPI.Unshipped.txt`, a method over 70 lines, a missing
+  `ConfigureAwait(false)` in `src/`, or an unsuppressed analyzer finding fails the build
+  (`TreatWarningsAsErrors`). Build before declaring done.
+- **Core's dependency rule is exact** (above). A new runtime `PackageReference` in `Dexpace.Sdk.Core`
+  fails the dependency audit; model a third-party need behind an interface and implement it in an adapter.
+- **Lock files are committed.** After changing `Directory.Packages.props` or a reference, run
+  `dotnet restore` (both solutions) and commit every changed `packages.lock.json`; CI's locked restore
+  fails otherwise. `DexpaceToolchainPackVersion` moves with `global.json`.
 - **Single-use bodies throw on second consumption.** `RequestBody.FromStream` /
   `ResponseBody.FromStream` raise `StreamConsumedException` the second time. Buffer first
   (`ToReplayableAsync`) when retries are in play.
-- **Transports are ownership-aware.** A caller-supplied `System.Net.Http.HttpClient` is never disposed
-  by `SystemNetHttpClient`; only an internally created one is.
+- **Transports are ownership-aware, and the SDK is the only redirect authority.** A caller-supplied
+  `System.Net.Http.HttpClient` is never disposed by `SystemNetHttpClient`; only an internally created one
+  is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails.
+- **Headers are validated.** CR, LF and other controls in a header name or value throw
+  `ArgumentException` at construction; received headers take the lenient `Headers.Builder.AddInbound` path.
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
   reference them without a `Version` attribute.
 
@@ -137,20 +198,43 @@ Read [`docs/README.md`](docs/README.md) first — it is the ownership table for 
 - **`docs/sdk-design-dotnet/`** — how each spec area maps to idiomatic .NET (retrofitted from
   `sdk-design-ruby`). Every section ends with an **As built (d45e64b)** verdict; §10 is the deviation ledger,
   §11 the spec-ambiguity resolutions, §12 the coverage index. Where it and this file disagree about the code's
-  target shape, the design wins and this file is drift.
+  target shape, the design wins and this file is drift. Frozen to routine work: a change is a dated correction.
 - **`docs/styleguide/`** — the vendored dexpace C# styleguide, binding for every `.cs` file. Its
   [SDK overlay](docs/styleguide/README.md#sdk-overlay--where-this-repository-departs) lists the departures
   (public API keeps the `I` prefix and `Async` suffix; see design §10).
-- **`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`** — the v1 roadmap (phases 0–12). Each phase
-  runs brainstorm → design → plan → checklist; the Superpowers skills write into `docs/superpowers/`
-  (an inbox), and the `housekeeping` skill files them under `docs/work/<delivery>/phaseN[/phaseNx]/`.
-  `docs/first-release.md` is the release register.
-- **Skills** (`.claude/skills/`): `knowledge-lookup` (start of every phase/task — `scripts/knowledge
-  --prefix-info RETRY`, `--gaps RETRY`, `--req RETRY-5`) and `housekeeping` (`dotnet run --project
-  .claude/skills/housekeeping/src -- probe`, before handing over a phase). Their tools and tests build from
+- **`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`** — the v1 roadmap (phases 0–12), its
+  cross-cutting constraints and its Phase Status Notes. `docs/first-release.md` is the release register.
+- **Skills** (`.claude/skills/`): `knowledge-lookup` and `housekeeping`. Their tools and tests build from
   `tools/Dexpace.Tools.sln`, separate from `Dexpace.Sdk.sln`.
-- **Known drift, owned by roadmap phase 0:** `Dexpace.Sdk.Core` already depends on
-  `Microsoft.Extensions.Logging.Abstractions` (so "BCL-only" above is no longer literally true — design §10
-  records it); `main` fails to build on SDK 10.0.4xx with `NU1902` (SourceLink 8.0.0 advisory); the
-  "Planned" list that used to live here is now the roadmap — pipeline, policies, auth and pagination are
-  already built.
+
+**The phase workflow** (roadmap, "How Phases Get Executed"). Each phase or sub-phase runs
+brainstorm → design → plan → checklist, on a branch `<issue>-phase-<N[x]>-<slug>` off `main`:
+
+```bash
+# 1. Read what is known — at the start of the phase and of every numbered task.
+scripts/knowledge --origin note --brief
+scripts/knowledge --section conflicts --brief
+scripts/knowledge --prefix-info RETRY        # per prefix in scope
+scripts/knowledge --gaps RETRY               # IDs to read out of appendix C itself
+scripts/knowledge --req RETRY-5
+# 2–3. The brainstorming and writing-plans skills write into the docs/superpowers/ inbox.
+# 4. File them under docs/work/mvp/phaseN[/phaseNx]/ and fix what the last probe reports.
+dotnet run --project .claude/skills/housekeeping/src -- probe
+dotnet run --project .claude/skills/housekeeping/src -- apply --delivery mvp --phase 5a            # dry run
+dotnet run --project .claude/skills/housekeeping/src -- apply --delivery mvp --phase 5a --write    # git mv
+dotnet run --project .claude/skills/housekeeping/src -- probe --only links,citations
+```
+
+Then implement the plan's numbered tasks TDD, write the checklist from what was built (one row per
+requirement ID), add a `CHANGELOG.md` `[Unreleased]` entry, append a dated status note to the roadmap, and
+run the probe once more before handing over.
+
+**What is genuinely unbuilt** (the roadmap schedules each): the domain-model rework — the `Headers` rebuild,
+`Request` validation, query parameters, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions`, and the
+transport SPI taking `RequestOptions` (phase 2); the I/O and body lifecycle — file, form-urlencoded and multipart
+bodies, the logging body wrappers, and dispose latches (3); the execution-context chain and the recovery
+chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
+challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
+conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
+path (12). Phase 0's knowledge harvest for the `design` and `styleguide` roles is also still to run;
+until then `scripts/knowledge` answers from the `spec` role only.

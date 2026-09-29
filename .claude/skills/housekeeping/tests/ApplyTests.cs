@@ -68,7 +68,7 @@ public sealed class ApplyTests
     {
         using var fixture = Fixture.Create();
 
-        // The shape of this repository's legacy slice designs: dated, no phase in the name.
+        // The shape of the retired 2026-06 slice designs: dated, no phase in the name.
         Assert.Equal("docs/work/mvp", new Apply(fixture.Root).TargetDirectory("docs/superpowers/specs/2026-06-14-auth-slice-design.md"));
     }
 

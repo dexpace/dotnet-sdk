@@ -33,13 +33,16 @@ documentation that is true and useless at the same time. After `--write`, run th
 A file left here is not lost — it is just not filed. The probe reports it every run until it
 is.
 
-## The legacy files
+## The inbox today
 
-The thirteen `2026-06-14`/`2026-06-15` documents already here (eleven specs, two plans) predate this
-workflow: they are the .NET SDK's original platform design and per-slice designs, written
-before the product spec and the design document were ported. The v1 roadmap's phase 0 files
-them (they carry no phase in their names, so they need an explicit target) — until then the
-probe reports them, correctly.
+Empty. `specs/` and `plans/` hold only a `.gitkeep`, so the paths the skills write to exist.
+
+The thirteen `2026-06-14`/`2026-06-15` documents that used to sit here (the .NET SDK's original platform design,
+ten slice designs and two plans, written before the product spec and the design document were ported) were
+**retired on 2026-09-29** under roadmap decision D2, as the lead ruled: they are replaced by the specification, the
+design and the roadmap, not filed under `docs/work/`. They were deleted with `git rm`, and git history keeps them.
+Every citation of them was repointed to the document that now owns the decision (see the roadmap's
+2026-09-29 status note).
 
 ## What must not happen here
 

@@ -7,6 +7,13 @@ specification's lifecycle and parsing clauses. Behaviour asserted as verified be
 scratchpad .NET SDK 10.0.401 (runtime 10.0.12); a claim about the `net8.0` floor was checked against the
 `Microsoft.NETCore.App.Ref` 8.0.31 reference pack, since no .NET 8 runtime was available to execute on.
 
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
+
 ### 7.1 Pagination
 
 **PAGE-1**'s two consumption views over one lazy walk are `AsyncPageable<T> : IAsyncEnumerable<T>` (items) and
@@ -140,7 +147,7 @@ rejection path cannot occur. Recorded as §10 entry 19.
 
 **The fetcher front-end** (**PAGE-34**, **PAGE-35**) is not built. Its .NET shape is a factory taking
 `Func<string?, CancellationToken, ValueTask<Page<T>>>` keyed by a continuation token, which needs `Page<T>` to carry
-`ContinuationToken`/`NextLink` (the slice design had `ContinuationToken`; the as-built dropped it). **The blocking
+`ContinuationToken`/`NextLink` (PR #9 deferred `ContinuationToken` and token-based resumption). **The blocking
 view** — a `Pageable<T> : IEnumerable<T>` beside the async one, which C# permits beside the static `Pageable` factory
 because the arities differ — waits on a genuinely synchronous pipeline path; `HttpPipeline.Send` is sync-over-async
 today (§5.3), and a sync pager built on it would inherit the thread-pool starvation hazard rather than remove it.
@@ -247,13 +254,13 @@ content length is zero).
 Decoding is lazy per element because the adapter is itself an async iterator (**SSE-35**); a `Skip` pulls the next
 raw event, a `Done` closes the stream and completes without yielding the sentinel (**SSE-34**).
 
-**What the slice design got wrong, and is overturned.** The 2026-06-14 SSE slice sketched
+**What the pre-roadmap sketch got wrong, and is overturned.** The SSE design that came with PR #3 (never built) sketched
 `ServerSentEvent(string? Id, string EventType, string Data, TimeSpan? Retry)` with "`event:` sets the type (default
 `"message"`)", "`id:` is sticky for the connection", joined `data`, a lean toward dropping comments, and a
 reconnecting `ServerSentEventStream` that resumes with `Last-Event-ID` and honours `retry:`. Each of those is a
 MUST-level conflict — **SSE-10**, **SSE-16**, **SSE-8**, **SSE-6**/**SSE-13** and, for the reconnecting client,
 **SSE-38**: "the subsystem ... MUST NOT auto-reconnect, MUST NOT persist a last-event-id across events ..., and MUST
-NOT set a reconnect request header." The slice was reproducing `SseParser`'s WHATWG semantics — the same gotcha one
+NOT set a reconnect request header." The sketch was reproducing `SseParser`'s WHATWG semantics — the same gotcha one
 layer up. The reconnect loop is documented as a caller recipe over the retry hint and each event's raw id; it does
 not ship. **SSE-37**'s hard boundary — "no serialization dependency" — is enforced mechanically: an architecture test
 asserts no type in `Dexpace.Sdk.Core.ServerSentEvents` or `Dexpace.Sdk.Core.Pagination`'s engine references
@@ -327,7 +334,8 @@ conversions, which is the usage covariance was for. Recorded as §10 entry 21.
 three `Is*` predicates; **SERDE-30**'s stable strings are an overridden `ToString` returning `Absent`, `Null` and
 `Present(value)`, since a record struct's synthesized form would print its private fields.
 
-The name overturns the serde slice, which called the type `Optional<T>`. .NET already has a two-state `Optional<T>`
+The name overturns the serde design that came with PR #3, which called the type `Optional<T>` (as
+dexpace/dotnet-sdk#1 still does). .NET already has a two-state `Optional<T>`
 in wide circulation (Roslyn's `Microsoft.CodeAnalysis.Optional<T>`: `HasValue` and `Value`, nothing more), so reusing
 the name for three states would contradict vocabulary the ecosystem has converged on (P14); the specification's own
 word is `Tristate`.
@@ -357,9 +365,9 @@ of core.
 its `Web` default — the P13 gotcha of this section. Verified with `JsonSerializerDefaults.General`: `"5"`→`int`,
 `1.5`→`int`, `true`→`double`, `5`→`string`, `"true"`→`bool` and `1`→`bool` all throw `JsonException`, while
 `5`→`double` widens. `JsonSerializerDefaults.Web` sets `NumberHandling = AllowReadingFromString`, and verified,
-`"5"` then decodes to `5` — the first coercion **SERDE-21** forbids. The serde slice made `Web` the default
-("camelCase,
-case-insensitive"); that is overturned to `Web` naming with `NumberHandling = Strict` forced back. **SERDE-23**
+`"5"` then decodes to `5` — the first coercion **SERDE-21** forbids. The serde design that came with PR #3 made
+`Web` the default (camelCase, case-insensitive), though the as-built serde takes its options from the caller's
+context; that `Web` default is overturned to `Web` naming with `NumberHandling = Strict` forced back. **SERDE-23**
 (unknown members ignored) and **SERDE-24** (ISO-8601 round-trip) are STJ defaults (verified). **SERDE-25**'s fresh
 instance per factory call applies to a `SystemTextJsonSerde.CreateDefaultOptions()` factory the adapter does not
 have yet.
@@ -393,8 +401,9 @@ accepted (**SERDE-13**); missing: `Tristate<T>` and its wiring, default-options 
 
 ### 7.4 Webhooks, outside the reference contract
 
-The 2026-06-14 webhooks slice (Standard Webhooks HMAC-SHA256 verification behind an `IWebhookVerifier` seam) has no
-counterpart in the specification — no requirement prefix covers it — so it is an extension, and this document
+The webhooks design that came with PR #3 (Standard Webhooks HMAC-SHA256 verification behind an `IWebhookVerifier`
+seam; never built) has no counterpart in the specification — no requirement prefix covers it — so it is an extension,
+and this document
 neither overturns nor adopts it beyond three .NET facts its design already respects: the body is verified as
 `ReadOnlySpan<byte>` because a `string` round trip can change the signed bytes; comparison is
 `CryptographicOperations.FixedTimeEquals`; and time comes from `TimeProvider`. It takes an `ISerde` for its

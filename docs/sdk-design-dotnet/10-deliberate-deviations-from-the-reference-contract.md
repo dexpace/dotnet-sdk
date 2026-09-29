@@ -250,6 +250,13 @@ two departures from it are recorded here because the `docs/styleguide/README.md`
     ergonomic (`ConfiguredAsyncDisposable` changes the local's type), and the `.editorconfig` comment and the overlay
     row should carry that reason instead. §9.4.
 
+    **Correction (2026-09-29): the `CA2007` half of this entry is retired.** Roadmap phase 0 (PR #21, 2026-09-28)
+    re-enabled `CA2007` at `warning` for library code under `src/` and kept it at `none` only for tests, repository
+    tools and the AOT smoke consumer, the split styleguide 9.4 makes; the library code now uses
+    `ConfigureAwait(false)` throughout, including on `await using` and `await foreach`. `CA2007` is therefore
+    conformed and no longer a departure. The entry now records `CA1062` alone, whose reasoning is unchanged. The
+    entry keeps its number and the text above stands as written (§9.4 carries the matching correction).
+
 Three things that are deliberately **not** deviations, recorded because a reader may expect them. The fixed-buffer
 encode profile of **SERDE-4** is met, not bent: core derives `Serialize<T>(ISerde, Span<byte>, T)` from the
 `IBufferWriter<byte>` primitive, the caller expresses the offset as `buffer.AsSpan(offset)`, the count is returned,

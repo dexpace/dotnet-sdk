@@ -1,11 +1,19 @@
 ## 6. Retry, Redirect, and Authentication
 
 All three pillars are built in some form at `d45e64b`, and all three were designed from the platform's idioms
-rather than from the specification (platform decision D1: "the siblings inform *what* to build, not *how*"). This
+rather than from the specification (the pre-roadmap native-first decision, Porting Method: the siblings inform *what* to
+build, not *how*). This
 chapter keeps what those idioms got right, reconciles each pillar against the requirement text, and treats the one
 structural question the reference never had to answer: this SDK's pipeline sits *above* an `HttpClient` whose own
 handler chain can already retry and already follows redirects, so the port must decide which layer owns each
 behaviour and make the other one stand down.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 ### 6.1 Retry
 
@@ -81,8 +89,8 @@ status and method sets are copied into `FrozenSet<T>` when the pipeline is built
 collection they configured cannot change a running client. As built, `RetryOptions` is an unvalidated mutable
 class read live on every call (§8.2).
 
-**Backoff follows the specification, not the slice design.** The core-policies slice left "jitter formula (full vs
-decorrelated)" open and the as-built policy chose full jitter — uniform over `[0, min(base × 2^attempt, max)]` —
+**Backoff follows the specification, not the as-built choice.** The pre-roadmap design left the jitter formula (full
+or decorrelated) open, and the policy PR #6 built chose full jitter — uniform over `[0, min(base × 2^attempt, max)]` —
 which violates **RETRY-9** (`initialDelay × multiplier^(attempt−1)`) and **RETRY-10** (symmetric jitter over
 `[d(1−j/2), d(1+j/2)]`). The defaults also differ from **RETRY-12** (200 ms, 2.0, 8 s, 0.2, three sends): as built,
 `MaxDelay` is 30 s and `MaxRetryAttempts` is 3, which is *four* sends, breaking **RETRY-14**'s equivalence of three
@@ -149,9 +157,10 @@ neither (§11 item 19). `OperationPolicy.OverallTimeout` is not a unification: i
 whole-call deadline enforced by cancellation, outside both loops, off by default. Both stacks share `RetryFacts`,
 the pacing parser and `RetryWait`, and **RETRY-14**'s three-sends equivalence is asserted by test.
 
-**The layer underneath: Microsoft.Extensions.Http.Resilience (D3).** Platform decision D3 routes connection-level
-resilience into the transport's `HttpClient`, "so an enterprise's existing `DelegatingHandler` / Polly chain
-composes **underneath** the SDK". The specification has no clause for a second retry engine below the transport, and
+**The layer underneath: Microsoft.Extensions.Http.Resilience (the connection-layer split).** The pre-roadmap
+connection-layer split (Porting Method) routes connection-level resilience into the transport's `HttpClient`, so that
+an enterprise's existing `DelegatingHandler` / Polly chain composes **underneath** the SDK. The specification has no
+clause for a second retry engine below the transport, and
 composing two unchanged produces two failures (§11 item 24). **Multiplied sends**: the SDK's
 three sends each become up to four sends of a standard resilience handler's retry strategy, so one logical call can
 reach a flaky server a dozen times, with two independent backoff schedules and pacing honoured twice. **A re-send
@@ -344,8 +353,8 @@ SDK's `Response` is not. The port's `AuthenticationChallenge.Parse(ReadOnlySpan<
 machine: the grammar is not regular, and even `RegexOptions.NonBacktracking`, which removes the ReDoS risk, cannot
 match balanced quoting with escapes. Composition takes a defensive copy of its handler list and delegates to the
 first that can handle (**AUTH-23**); the header written is chosen by an explicit proxy flag (**AUTH-25**); a handler
-that cannot answer returns `null`, never an empty header. None of this is built, although the auth slice design
-scoped the parser and a Basic handler into v1.
+that cannot answer returns `null`, never an empty header. None of this is built: PR #8 deferred the parser and the
+Basic challenge handler to dexpace/dotnet-sdk#7.
 
 **Digest** (**AUTH-15**–**AUTH-22**; deferred as dexpace/dotnet-sdk#2) needs only the BCL. `MD5.HashData` and
 `SHA256.HashData` are one-shot static hashes. **P13 — the BCL's hex is upper-case.** RFC 7616 and **AUTH-17**

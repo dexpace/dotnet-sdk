@@ -1,5 +1,13 @@
 # Architecture
 
+> **Superseded (2026-09-29).** This is the original foundation-slice note, kept for its idiom table. The
+> architecture is now owned by [design chapter 1](sdk-design-dotnet/01-overview.md) and the rest of
+> [`sdk-design-dotnet/`](sdk-design-dotnet.md); roadmap phase 12 replaces this file with the as-built
+> `docs/sdk-documentation/architecture.md`. The text below is not maintained, and its "Planned" list is stale:
+> the pipeline and its policies, auth (credentials, token cache, auth policies) and pagination shipped in
+> PRs #6, #8 and #9. What is genuinely unbuilt is scheduled by the
+> [v1 roadmap](work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md).
+
 The dexpace .NET SDK is an **HTTP-client toolkit, not an HTTP client**. `Dexpace.Sdk.Core`
 provides abstractions, models, and (over time) pipelines; consuming libraries plug in a concrete
 transport via the `IHttpClient` / `IAsyncHttpClient` interfaces. This mirrors the `dexpace/java-sdk`

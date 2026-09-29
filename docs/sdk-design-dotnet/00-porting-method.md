@@ -65,9 +65,15 @@ directions, and §2.4 argues the resolution and records it as a deviation rather
 platform. Second, unlike the Ruby port, this design is written *after* code: the tree at `d45e64b` already ships the
 HTTP models, bodies, transport SPI, errors, the `System.Net.Http` transport, the `System.Text.Json` codec, options,
 diagnostics, the pipeline and its policies, auth and pagination. Every design section therefore ends with a one-line
-**As built (d45e64b):** status, and the earlier .NET design notes in `docs/superpowers/specs/2026-06-14-*.md` (the
-platform decisions D1–D4 and the slice designs) are treated as the existing .NET decisions — adopted unless the
-specification or this method argues otherwise, and overturned explicitly where they are.
+**As built (d45e64b):** status, and the .NET decisions taken before this document, which PRs #3–#9 built, are
+treated as the existing .NET decisions — adopted unless the specification or this method argues otherwise, and
+overturned explicitly where they are. Four of them were cross-cutting platform decisions, and later chapters name
+them by topic: **native-first** (the siblings inform *what* to build, not *how*); **core may take the standard
+abstraction packages** (§2.4); the **connection-layer split** (*SDK-domain* concerns in the SDK pipeline,
+*connection-level* concerns in the `HttpMessageHandler` chain underneath it; §1, §6.1); and **modern multi-target, trim-
+and AOT-safe** (libraries on `net8.0;net10.0`, since superseded by roadmap decision D1's `net10.0` only; §2.3, §9.2).
+The rest were per-subsystem choices, and the chapter that adopts or overturns one states it
+inline, naming the pull request that built it.
 
 .NET facts asserted below were verified against .NET SDK 10.0.401 / runtime 10.0.12 on the authoring machine
 (file-based apps run with `dotnet run check.cs`, some of them against a local `HttpListener`/`TcpListener` peer)
@@ -78,5 +84,12 @@ cache, and is marked so at the point of use. Where verification contradicted sec
 code's own documentation, the verified behaviour is what is written down and the conflict is noted at the point of
 use. Sibling port designs for other host languages (Ruby, Node.js) exist and follow this same method; nothing in
 this document depends on them, and where this port reverses one of their conclusions the reversal is argued here.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 ---

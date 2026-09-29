@@ -671,9 +671,10 @@ request bytes. A handler stub cannot see what reached the socket.
 
 **Scope.**
 
-- **CTX** (16 MUSTs). The gap analysis marked 15 of them as N/A candidates, on the strength of the 2026-06-14
-  instrumentation slice's "no `ContextStore`". **Design §5.4 overturns that decision**, so those 15 are build work,
-  not N/A. **4a:**
+- **CTX** (16 MUSTs). The gap analysis marked 15 of them as N/A candidates, on the strength of the "no
+  `ContextStore`" decision PR #4 built (corrected 2026-09-29, per decision D2: this cell cited the retired 2026-06-14
+  instrumentation slice design, which is no longer in the tree). **Design §5.4 overturns that decision**, so those 15
+  are build work, not N/A. **4a:**
   - the promotion chain (`DispatchContext`, `RequestContext`, `ExchangeContext`);
   - the `CallKey` struct;
   - the store over `BoundedMap`;
@@ -937,7 +938,9 @@ request bytes. A handler stub cannot see what reached the socket.
   design topic `typed-accessors-fail-fast`);
 - named clients whose `IHttpClientFactory` primary handler has redirects off (`TRANSPORT-1`);
 - **no** retrying handler, with documentation on composing `AddStandardResilienceHandler` without its retry
-  (`XCUT-10`, decision D3 of the 2026-06-14 platform design);
+  (`XCUT-10`; design §6.1, "The layer underneath", and §11 item 24. Corrected 2026-09-29, per decision D2: this
+  cell cited decision D3 of the retired 2026-06-14 platform design, which design §6.1 calls the connection-layer
+  split);
 - the single-registration check (`SEAM-5`, `SEAM-6`);
 - a test that builds the provider with `ValidateScopes` and `ValidateOnBuild`.
 
@@ -1221,3 +1224,29 @@ weakening them (constraint 5):
 | 9 | S3: the DI package configures each named client's primary handler with `AllowAutoRedirect = false` | `RedirectWireTests` |
 
 Nothing goes to phase 11's inbound list or to `docs/first-release.md`.
+
+**2026-09-29 — Phase 0: the lead's rulings on D1–D3, and the legacy documents retired.** The roadmap asks phase 0's
+design to record and quote the lead's rulings on the three sign-off decisions. Phase 0 runs from this card through
+issues #14–#19 and has no design document of its own, so this note records and quotes them instead, and each ruling
+is back-ported to the documents it changes.
+
+- **D1, ruled 2026-09-28: approved as proposed.** The lead's ruling: "net10.0 only (Recommended)". The floor is `net10.0` only, for libraries and tests alike, set
+  once as `TargetFramework` in `Directory.Build.props` (PR #21). The dated corrections are in design §2.3, §2.4 and
+  §9.2 and in the overlay's TFM row of `docs/styleguide/README.md`.
+- **D2, ruled 2026-09-29: the legacy documents are replaced, not filed.** The lead's ruling: "legacy docs get
+  replaced with the new ones". This **differs from the proposal above**, which is left as written. The thirteen 2026-06-14/15 documents (the platform design, ten slice designs and two
+  plans) are superseded by the specification, the design and this roadmap. They were deleted with `git rm` (issue
+  #19), and git history keeps them. There is no `docs/work/foundation/` delivery. The `apply --delivery foundation`
+  step, named in D2 above and in issue #19, is not run. Every citation of them outside `docs/superpowers/` was
+  repointed in the same change:
+  - to the design section that now owns the decision;
+  - or, where no document covers the point, to an inline statement of the decision naming the pull request (#3–#9)
+    that built it.
+
+  Each edited design chapter, and the design index, carries a dated correction saying so. Two cells here, in the
+  phase 4 and phase 9 cards, are corrected in place. `docs/superpowers/README.md` records the retirement, and the
+  inbox is empty. Two citations remain where this repository cannot edit them: the bodies of issues #7 (now design
+  §6.3) and #10 (now design §7.2 and `SSE-19`).
+- **D3: not ruled.** Its two proposals (webhooks as a post-release entry; no second first-party transport) remain
+  proposals. `docs/first-release.md` already lists both under *What v1 ships without*, and its webhooks entry names
+  D3 as a proposal.

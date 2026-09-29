@@ -5,12 +5,13 @@ package under `src/` and one test project per package under `tests/`, the shape 
 SDK for .NET use for the same problem (one lean core plus independently installable satellites, shared CI, one
 central build configuration). The dependency topology is the one **NFR-2** asks for: "each optional capability ...
 SHOULD be a separately installable unit depending on the core plus at most one third-party library." The granularity is
-the one the platform design fixed (`docs/superpowers/specs/2026-06-14-dotnet-sdk-platform-design.md` §4) and this
-chapter adopts: **one cohesive `Dexpace.Sdk.Core` toolkit** holding models, bodies, the transport SPI, errors, the
+the one PR #3 set when it laid out the packages, and this chapter adopts it: **one cohesive `Dexpace.Sdk.Core` toolkit**
+holding models, bodies, the transport SPI, errors, the
 serde abstraction, pipeline and policies, context, instrumentation, auth, SSE, pagination and webhooks, plus
-separate packages for each concrete implementation and for host integration. The alternative that document set
-aside — a NuGet package per subsystem (`.Auth`, `.Sse`, `.Webhooks`, …) — is rejected here for the same reason and
-one more: **NFR-2** is about *optional capabilities that carry a third-party dependency*, and none of those
+separate packages for each concrete implementation and for host integration. The alternative set aside then — a
+NuGet package per subsystem (`.Auth`, `.Sse`, `.Webhooks`, …), because the subsystems are co-designed and share their
+dependencies — is rejected here for the same reason and one more: **NFR-2** is about *optional capabilities that carry a
+third-party dependency*, and none of those
 subsystems carries one, so splitting them buys release-cadence independence at the price of eight co-versioned
 packages and no dependency saving. The one-repository-per-package model is rejected as the Ruby port rejected it:
 adapters track the core SPI closely enough during the pre-1.0 period that cross-repository CI would cost more than it
@@ -20,6 +21,13 @@ Package identifiers, assembly names, root namespaces and folder names are the sa
 `Dexpace.Sdk.<Area>[.<Impl>]` — `Dexpace.Sdk.Http.SystemNet` is the package, the assembly, the namespace root and
 `src/Dexpace.Sdk.Http.SystemNet/` — so a reader can derive any one from any other, which is also what
 `docs/styleguide/csharp/12-project-organization.md` rule 12.1 (namespaces mirror folders) requires.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 ### 2.1 MVP packages
 
@@ -100,8 +108,10 @@ styleguide finding, not a design question.
 compiler switches every project shares (`LangVersion` `latest`, `Nullable`, `TreatWarningsAsErrors`,
 `AnalysisLevel` `latest-recommended`, `EnforceCodeStyleInBuild`, `GenerateDocumentationFile`, `Deterministic`) and
 the package metadata (`VersionPrefix`, `VersionSuffix`, authors, license expression, repository URLs). The target
-frameworks belong there too, rather than in each `.csproj`: every library targets `net8.0;net10.0` (platform decision
-D4's floor; .NET 8 leaves support on 2026-11-10, after which the floor rises to `net10.0` in one edit), and every
+frameworks belong there too, rather than in each `.csproj`: every library targets `net8.0;net10.0` (the
+pre-roadmap modern multi-target decision, Porting Method, which PR #3 applied only to the STJ package and the test
+projects; .NET 8 leaves support on 2026-11-10, after which the floor rises
+to `net10.0` in one edit), and every
 library sets `IsTrimmable` and `IsAotCompatible` so the trim and AOT analyzers run as part of the lint gate
 (**NFR-8**, §9). Test projects override `GenerateDocumentationFile` and the CS1591 suppression locally, as they do
 today. `Directory.Packages.props` turns on Central Package Management, so a `PackageReference` never carries a `Version`
@@ -134,7 +144,8 @@ merely tested. Test projects multi-target the same frameworks as the libraries s
 builds of every library are exercised; CI installs the .NET 8 runtime for that reason.
 
 **Versioning is lockstep, not per package.** The Ruby port versioned each gem independently. This port overturns that
-for the reason the platform design gives — the packages are co-designed and share one SPI — and one .NET-specific
+for the reason the pre-roadmap platform decisions gave — the packages are co-designed and share one SPI — and one
+.NET-specific
 reason: NuGet expresses a `ProjectReference` as a floor-only dependency (`>= x.y.z`), and .NET convention discourages
 upper bounds, so independently versioned adapters would admit a core/adapter pair that was never built together. One
 `VersionPrefix` in `Directory.Build.props` stamps every package, every assembly's `AssemblyInformationalVersion`
@@ -188,8 +199,9 @@ and is in-box only from .NET 9; `Microsoft.Extensions.Logging.Abstractions` and
 `Microsoft.Extensions.DependencyInjection.Abstractions` are in no `Microsoft.NETCore.App` version at all (they ship
 in the ASP.NET Core shared framework and as NuGet packages). The trap has two directions. Using `PipeReader` in a
 `net8.0` build silently adds a package dependency that the `net10.0` build does not have. And adding a
-`PackageReference` to an in-box assembly — the serde slice design proposed `System.Text.Json` in
-`Directory.Packages.props`, which this design overturns — replaces the runtime's serviced copy with a package copy,
+`PackageReference` to an in-box assembly — the serde design that preceded PR #3 proposed `System.Text.Json` in
+`Directory.Packages.props`; PR #3 did not adopt it, and this design rules it out — replaces the runtime's serviced copy
+with a package copy,
 so security fixes stop arriving through runtime servicing and start depending on this SDK re-releasing.
 
 The rule this port adopts, stated precisely: **`Dexpace.Sdk.Core` may reference only (a) assemblies present in the
@@ -206,7 +218,9 @@ first log call. So the facade is a runtime dependency, full stop. P2's test is u
 it is installed from a registry. What justifies it is P14 — `ILogger`/`ILoggerFactory` is the single logging shape
 every .NET host, test framework and logging backend (Serilog, NLog, OpenTelemetry, Application Insights) already
 speaks, and a core-owned facade would be the "parallel vocabulary" P14 forbids, forcing every consumer to write an
-adapter to the thing they already have. The platform design reached the same conclusion (decision D2). This is a
+adapter to the thing they already have. PR #6, which added the reference, rested on the same conclusion (the pre-roadmap
+platform decision that core may
+take the standard abstraction packages, Porting Method). This is a
 deviation, and it is recorded as one rather than argued away: §10 entry 1. Per P10,
 it is *sanctioned* for "a logging facade" by SEAM-1's appendix-C wording and *judged* against NFR-1's
 "compile-time-only".
@@ -239,7 +253,7 @@ on net8+" is true of the platform and false of this build. The terms under which
 `ActivitySource` and `Meter` do get a P2 pass: they are in-box on every supported framework, and choosing them is
 choosing the platform. Configuration binding (`IConfiguration`, `IOptions<T>`) does not enter core at all; plain
 options types live in core and the binding lives in `Dexpace.Sdk.Extensions.DependencyInjection` (§8.2), which is
-where the platform design's options slice already put it. `CLAUDE.md` still says core "builds against the BCL only";
+where the options of PR #4 already put it. `CLAUDE.md` still says core "builds against the BCL only";
 that sentence has been false since the logging facade was referenced and is corrected by this section, not by
 relaxing the rule further.
 

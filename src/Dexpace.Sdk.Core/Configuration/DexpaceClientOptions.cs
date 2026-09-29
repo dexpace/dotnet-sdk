@@ -20,6 +20,11 @@ public sealed class DexpaceClientOptions
     /// The base address prepended to relative request URLs, or <see langword="null"/> when
     /// requests always use absolute URLs.
     /// </summary>
+    /// <remarks>
+    /// <b>Not yet read by anything.</b> Setting it has no effect today: a <see cref="Http.Request.Request"/>
+    /// always carries an absolute URL, and no policy or transport consults this property. Roadmap
+    /// phase 2b wires it, with the operation-input projection (design §3.5).
+    /// </remarks>
     public Uri? BaseAddress { get; set; }
 
     /// <summary>
@@ -37,6 +42,11 @@ public sealed class DexpaceClientOptions
     /// <summary>
     /// The deadline for a single send attempt, or <see langword="null"/> for no per-attempt deadline.
     /// </summary>
+    /// <remarks>
+    /// <b>Not yet read by anything.</b> Setting it has no effect today: no policy bounds a single
+    /// attempt, and only <see cref="OverallTimeout"/> is enforced. Roadmap phase 6a wires it
+    /// (design §6.1).
+    /// </remarks>
     public TimeSpan? AttemptTimeout { get; set; }
 
     /// <summary>
