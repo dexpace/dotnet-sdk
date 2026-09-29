@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Dexpace.Sdk.Core.Http.Common;
@@ -64,13 +65,19 @@ public sealed record MediaType
 
     /// <summary>
     /// Constructs a media type from its components. Type and subtype are validated as RFC 7230
-    /// tokens and lower-cased; parameter keys are lower-cased, values preserved.
+    /// tokens and lower-cased; parameter keys are lower-cased, values preserved. A parameter value
+    /// may hold only HTAB and printable ASCII — the outbound header-value predicate — so a media type
+    /// can always be emitted as a <c>Content-Type</c> header (HTTP-26).
     /// </summary>
     /// <param name="type">The primary type.</param>
     /// <param name="subtype">The subtype.</param>
     /// <param name="parameters">Optional parameters.</param>
     /// <returns>The constructed <see cref="MediaType"/>.</returns>
-    /// <exception cref="ArgumentException">A component is empty, not a valid token, or a half-wildcard.</exception>
+    /// <exception cref="ArgumentException">
+    /// A component is empty, not a valid token, or a half-wildcard; or a parameter value holds a control or non-ASCII
+    /// character (new in phase 1, breaking: CR/LF in a value was previously accepted). Messages name the offending
+    /// character by code point and never echo the value (HTTP-20).
+    /// </exception>
     public static MediaType Of(
         string type,
         string subtype,
@@ -91,7 +98,19 @@ public sealed record MediaType
         {
             foreach (var (key, value) in parameters)
             {
-                builder[RequireToken(key, nameof(parameters)).ToLowerInvariant()] = value;
+                var name = RequireToken(key, nameof(parameters)).ToLowerInvariant();
+                ArgumentNullException.ThrowIfNull(value, nameof(parameters));
+                var invalid = HeaderSyntax.IndexOfInvalidOutbound(value);
+                if (invalid >= 0)
+                {
+                    throw new ArgumentException(
+                        $"Media-type parameter '{name}' value contains the invalid character "
+                        + $"{HeaderSyntax.CodePoint(value[invalid])} at index {invalid}; a parameter value accepts "
+                        + "only HTAB and printable ASCII.",
+                        nameof(parameters));
+                }
+
+                builder[name] = value;
             }
         }
 
@@ -104,21 +123,24 @@ public sealed record MediaType
     /// </summary>
     /// <param name="value">The header value to parse.</param>
     /// <returns>The parsed <see cref="MediaType"/>.</returns>
-    /// <exception cref="ArgumentException"><paramref name="value"/> is not a well-formed media type.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="value"/> is not a well-formed media type, or holds a control or non-ASCII character (HTTP-26).
+    /// The message never echoes the value (HTTP-20).
+    /// </exception>
     public static MediaType Parse(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
         var segments = SplitRespectingQuotes(value);
-        var typeParts = segments[0].Trim().Split('/');
+        var typeParts = TrimOws(segments[0]).Split('/');
         if (typeParts.Length != 2)
         {
-            throw new ArgumentException($"Malformed media type: '{value}'.", nameof(value));
+            throw new ArgumentException("Malformed media type: expected 'type/subtype'.", nameof(value));
         }
 
         var parameters = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 1; i < segments.Count; i++)
         {
-            var segment = segments[i].Trim();
+            var segment = TrimOws(segments[i]);
             if (segment.Length == 0)
             {
                 continue;
@@ -127,15 +149,44 @@ public sealed record MediaType
             var eq = segment.IndexOf('=');
             if (eq < 0)
             {
-                throw new ArgumentException($"Malformed media-type parameter: '{segment}'.", nameof(value));
+                throw new ArgumentException(
+                    $"Malformed media-type parameter at position {i}: expected 'name=value'.",
+                    nameof(value));
             }
 
-            var key = segment[..eq].Trim();
-            var raw = segment[(eq + 1)..].Trim();
+            var key = TrimOws(segment[..eq]);
+            var raw = TrimOws(segment[(eq + 1)..]);
             parameters[key] = Unquote(raw);
         }
 
         return Of(typeParts[0], typeParts[1], parameters);
+    }
+
+    /// <summary>
+    /// Parses a media type as <see cref="Parse"/> does, without throwing: the lenient path a transport uses for a
+    /// received <c>Content-Type</c>, where an unparseable value means "no media type" rather than a failed response
+    /// (TRANSPORT-27).
+    /// </summary>
+    /// <param name="value">The header value to parse; <see langword="null"/> yields <see langword="false"/>.</param>
+    /// <param name="mediaType">The parsed media type, or <see langword="null"/> when parsing failed.</param>
+    /// <returns><see langword="true"/> when <paramref name="value"/> is a well-formed, header-safe media type.</returns>
+    public static bool TryParse([NotNullWhen(true)] string? value, [NotNullWhen(true)] out MediaType? mediaType)
+    {
+        mediaType = null;
+        if (value is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            mediaType = Parse(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -208,7 +259,9 @@ public sealed record MediaType
         {
             if (!IsTokenChar(c) && c != '*')
             {
-                throw new ArgumentException($"Invalid media-type token character '{c}'.", paramName);
+                throw new ArgumentException(
+                    $"Invalid media-type token character {HeaderSyntax.CodePoint(c)}.",
+                    paramName);
             }
         }
 
@@ -237,6 +290,10 @@ public sealed record MediaType
         sb.Append('"');
         return sb.ToString();
     }
+
+    // RFC 9110 OWS only (SP, HTAB): string.Trim() would also strip CR, LF and Unicode whitespace, letting a control or
+    // non-ASCII character through a value HTTP-26 requires be rejected.
+    private static string TrimOws(string value) => value.Trim(' ', '\t');
 
     private static List<string> SplitRespectingQuotes(string value)
     {

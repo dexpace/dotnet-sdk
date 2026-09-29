@@ -26,27 +26,20 @@ public readonly record struct HttpHeaderName
     /// <summary>The original spelling supplied by the caller (for display only).</summary>
     public string Original { get; }
 
-    /// <summary>Creates a header name, validating it as an RFC 7230 token.</summary>
+    /// <summary>
+    /// Creates a header name: surrounding SP/HTAB is trimmed, and the rest must be an RFC 9110 token (HTTP-17, design
+    /// §11 item 36).
+    /// </summary>
     /// <param name="name">The header field name.</param>
-    /// <returns>The typed header name.</returns>
-    /// <exception cref="ArgumentException"><paramref name="name"/> is empty or not a valid token.</exception>
+    /// <returns>The typed header name; <see cref="Original"/> is the trimmed spelling.</returns>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is blank or not a valid token. The message names the offending character by code point
+    /// (<c>U+000D</c>) and never carries the raw character (HTTP-20).
+    /// </exception>
     public static HttpHeaderName Of(string name)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        if (name.Length == 0)
-        {
-            throw new ArgumentException("Header name must not be empty.", nameof(name));
-        }
-
-        foreach (var c in name)
-        {
-            if (!IsTokenChar(c))
-            {
-                throw new ArgumentException($"Invalid header-name character '{c}'.", nameof(name));
-            }
-        }
-
-        return new HttpHeaderName(name.ToLowerInvariant(), name);
+        var trimmed = HeaderSyntax.ValidateName(name, nameof(name));
+        return new HttpHeaderName(trimmed.ToLowerInvariant(), trimmed);
     }
 
     /// <summary>Returns the canonical (lower-cased) name.</summary>
@@ -57,13 +50,6 @@ public readonly record struct HttpHeaderName
 
     /// <inheritdoc/>
     public override int GetHashCode() => CanonicalName.GetHashCode(StringComparison.Ordinal);
-
-    private static bool IsTokenChar(char c) =>
-        c is >= 'a' and <= 'z'
-        or >= 'A' and <= 'Z'
-        or >= '0' and <= '9'
-        or '!' or '#' or '$' or '%' or '&' or '\'' or '*'
-        or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
 
     /// <summary>Common request/response header names as typed constants.</summary>
     public static class WellKnown

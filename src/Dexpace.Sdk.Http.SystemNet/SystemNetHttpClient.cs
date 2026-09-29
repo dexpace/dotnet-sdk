@@ -1,11 +1,18 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SystemHttpClient = System.Net.Http.HttpClient;
 
 namespace Dexpace.Sdk.Http.SystemNet;
@@ -22,46 +29,149 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </para>
 /// <para>
 /// <b>Ownership.</b> When constructed with a caller-supplied <c>HttpClient</c> the underlying client
-/// is <em>not</em> disposed by this adapter; when constructed with the parameterless constructor the
-/// adapter owns and disposes an internally created client.
+/// is <em>not</em> disposed by this adapter; when constructed without one the adapter owns and disposes an
+/// internally created client.
+/// </para>
+/// <para>
+/// <b>Redirects (TRANSPORT-1).</b> The SDK pipeline's <c>RedirectPolicy</c> is the only redirect authority. The
+/// internally created client never follows a redirect (<c>SocketsHttpHandler.AllowAutoRedirect</c> is
+/// <see langword="false"/>), so a 3xx is returned as is. A caller-supplied client must be configured the same way:
+/// if it follows a redirect anyway, the adapter disposes the response and throws a non-retryable
+/// <see cref="SdkException"/> naming <c>AllowAutoRedirect</c>, because a credential may already have crossed an origin.
+/// A followed redirect is detected when the final request URI differs from the one sent in scheme, host, port or
+/// path; a handler that rewrites only the query or fragment (a <c>DelegatingHandler</c> adding <c>api-version</c>, for
+/// example) is not mistaken for one. Two limits follow: a handler that itself rewrites the scheme, host, port or path
+/// is reported as a redirect, and a redirect that ends on the URI originally sent goes undetected.
+/// <b>Breaking</b> (phase 1): the parameterless constructor used to follow redirects, and a following caller-supplied
+/// client used to succeed.
+/// </para>
+/// <para>
+/// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,
+/// <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and <c>Expect</c> — are
+/// dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (TRANSPORT-11). Every other
+/// header is re-checked against the model's outbound rule at the wire boundary, and one that fails it is dropped
+/// with a <see cref="LogLevel.Warning"/> naming it; values are never logged (XCUT-18, TRANSPORT-12).
+/// </para>
+/// <para>
+/// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
+/// carrying a control character is dropped. An unparseable <c>Content-Type</c> becomes "no media type"
+/// (TRANSPORT-27), and if adapting the response throws, the native response is disposed first (TRANSPORT-22).
 /// </para>
 /// </remarks>
 public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 {
+    // TRANSPORT-11: the framing set the native client computes from the body and the connection (design §3.2).
+    private static readonly FrozenSet<string> s_framingHeaders = FrozenSet.Create(
+        StringComparer.OrdinalIgnoreCase,
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "keep-alive",
+        "upgrade",
+        "te",
+        "expect");
+
+    private static readonly Action<ILogger, string, Exception?> s_framingHeaderDropped = LoggerMessage.Define<string>(
+        LogLevel.Debug,
+        new EventId(1, "FramingHeaderDropped"),
+        "Dropped the caller-set '{HeaderName}' header: the transport computes it (TRANSPORT-11).");
+
+    private static readonly Action<ILogger, string, Exception?> s_unsafeHeaderDropped = LoggerMessage.Define<string>(
+        LogLevel.Warning,
+        new EventId(2, "UnsafeHeaderDropped"),
+        "Dropped the '{HeaderName}' request header: it is not valid on the wire (XCUT-18, TRANSPORT-12).");
+
+    private static readonly Action<ILogger, string, Exception?> s_inboundHeaderDropped = LoggerMessage.Define<string>(
+        LogLevel.Debug,
+        new EventId(3, "InboundHeaderDropped"),
+        "Dropped the '{HeaderName}' response header: its value carries a control character (HTTP-19, XCUT-18).");
+
     private readonly SystemHttpClient _client;
     private readonly bool _ownsClient;
+    private readonly ILogger _logger;
 
-    /// <summary>Creates a transport backed by an internally owned <c>HttpClient</c>.</summary>
-#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8).
+    /// <summary>
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects.
+    /// </summary>
     public SystemNetHttpClient()
-        : this(new SystemHttpClient(), ownsClient: true)
-#pragma warning restore RS0030
+        : this(CreateOwnedClient(), ownsClient: true, NullLogger.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, logging
+    /// header drops to <paramref name="logger"/>.
+    /// </summary>
+    /// <param name="logger">
+    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
+    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
+    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// </param>
+    public SystemNetHttpClient(ILogger logger)
+        : this(CreateOwnedClient(), ownsClient: true, logger)
     {
     }
 
     /// <summary>
     /// Creates a transport backed by a caller-supplied <c>HttpClient</c>. The supplied client is not
-    /// disposed when this adapter is disposed.
+    /// disposed when this adapter is disposed, and its handler must not follow redirects: a followed redirect (a final
+    /// request URI whose scheme, host, port or path differs from the one sent) fails the call (see remarks).
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
     public SystemNetHttpClient(SystemHttpClient client)
-        : this(client, ownsClient: false)
+        : this(client, ownsClient: false, NullLogger.Instance)
     {
     }
 
-    private SystemNetHttpClient(SystemHttpClient client, bool ownsClient)
+    /// <summary>
+    /// Creates a transport backed by a caller-supplied <c>HttpClient</c>, logging header drops to
+    /// <paramref name="logger"/>. The supplied client is not disposed when this adapter is disposed, and its handler
+    /// must not follow redirects: a followed redirect (a final request URI whose scheme, host, port or path differs
+    /// from the one sent) fails the call (see remarks).
+    /// </summary>
+    /// <param name="client">The HTTP client to wrap.</param>
+    /// <param name="logger">
+    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
+    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
+    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// </param>
+    public SystemNetHttpClient(SystemHttpClient client, ILogger logger)
+        : this(client, ownsClient: false, logger)
+    {
+    }
+
+    /// <summary>
+    /// Test seam: the SDK-managed construction, with <paramref name="configureOwnedHandler"/> applied to the owned
+    /// handler after the SDK's own settings, so a wire test can pin environment-dependent settings (the proxy) without
+    /// leaving the owned-client path.
+    /// </summary>
+    internal SystemNetHttpClient(Action<SocketsHttpHandler> configureOwnedHandler)
+        : this(CreateOwnedClient(configureOwnedHandler), ownsClient: true, NullLogger.Instance)
+    {
+    }
+
+    private SystemNetHttpClient(SystemHttpClient client, bool ownsClient, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(logger);
         _client = client;
         _ownsClient = ownsClient;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
+    /// <exception cref="SdkException">
+    /// A caller-supplied client followed a redirect itself (TRANSPORT-1): the final request URI differs from the one
+    /// sent in scheme, host, port or path. The response has been disposed.
+    /// </exception>
     public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         using var message = ToHttpRequestMessage(request);
 
+        // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
+        var sentUri = message.RequestUri!;
         HttpResponseMessage response;
         try
         {
@@ -83,7 +193,17 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             throw new ServiceRequestException("The request could not be sent to the server.", ex);
         }
 
-        return ToResponse(response);
+        // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first.
+        try
+        {
+            ThrowIfRedirected(sentUri, response);
+            return ToResponse(response);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -110,7 +230,53 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
-    private static HttpRequestMessage ToHttpRequestMessage(Request request)
+    // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does.
+#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8).
+    private static SystemHttpClient CreateOwnedClient(Action<SocketsHttpHandler>? configure = null)
+    {
+        var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        configure?.Invoke(handler);
+        return new(handler);
+    }
+#pragma warning restore RS0030
+
+    // TRANSPORT-1's last line for a borrowed client (design §3.2, §6.2): after an automatic redirect the handler leaves
+    // the final URI on RequestMessage.RequestUri. Only scheme, host, port and path are compared, in Uri's normalised
+    // form (lower-case host, explicit port): a DelegatingHandler that rewrites the query (api-version) or fragment is
+    // not a redirect. No URI goes into the message: it may carry a secret in its query.
+    private static void ThrowIfRedirected(Uri sentUri, HttpResponseMessage response)
+    {
+        const UriComponents Target = UriComponents.Scheme | UriComponents.Host | UriComponents.StrongPort
+            | UriComponents.Path;
+        if (response.RequestMessage?.RequestUri is { IsAbsoluteUri: true } finalUri
+            && Uri.Compare(sentUri, finalUri, Target, UriFormat.UriEscaped, StringComparison.Ordinal) != 0)
+        {
+            throw new SdkException(
+                "The HttpClient passed to SystemNetHttpClient followed a redirect itself, so the SDK's redirect policy "
+                + "could not strip credentials from it. Configure the client's primary handler with "
+                + "AllowAutoRedirect = false (TRANSPORT-1).");
+        }
+    }
+
+    private static bool IsWireSafe(string name, IReadOnlyList<string> values)
+    {
+        if (name.Length == 0 || !name.All(HeaderSyntaxOnWire.IsTokenChar))
+        {
+            return false;
+        }
+
+        foreach (var value in values)
+        {
+            if (!value.All(HeaderSyntaxOnWire.IsOutboundValueChar))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private HttpRequestMessage ToHttpRequestMessage(Request request)
     {
         var message = new HttpRequestMessage(new HttpMethod(request.Method.Name), request.Url);
         if (request.Body is { } body)
@@ -120,14 +286,28 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 
         foreach (var (name, values) in request.Headers)
         {
+            if (s_framingHeaders.Contains(name))
+            {
+                s_framingHeaderDropped(_logger, name, null);
+                continue;
+            }
+
+            // Content-Type is owned by the content (set in RequestBodyContent); skip it here.
+            if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // XCUT-18 defence in depth: the model validated this header, but a value accepted on the lenient inbound
+            // path can be re-used on a request. Drop it rather than let HttpClient write it or fail the whole send.
+            if (!IsWireSafe(name, values))
+            {
+                s_unsafeHeaderDropped(_logger, HeaderSyntaxOnWire.Escape(name), null);
+                continue;
+            }
+
             foreach (var value in values)
             {
-                // Content-Type is owned by the content (set in RequestBodyContent); skip it here.
-                if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 if (!message.Headers.TryAddWithoutValidation(name, value))
                 {
                     message.Content?.Headers.TryAddWithoutValidation(name, value);
@@ -138,24 +318,11 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return message;
     }
 
-    private static Response ToResponse(HttpResponseMessage message)
+    private Response ToResponse(HttpResponseMessage message)
     {
         var headersBuilder = new Headers.Builder();
-        foreach (var (name, values) in message.Headers)
-        {
-            foreach (var value in values)
-            {
-                headersBuilder.Add(name, value);
-            }
-        }
-
-        foreach (var (name, values) in message.Content.Headers)
-        {
-            foreach (var value in values)
-            {
-                headersBuilder.Add(name, value);
-            }
-        }
+        AddInbound(headersBuilder, message.Headers);
+        AddInbound(headersBuilder, message.Content.Headers);
 
         // Everything that can throw is computed before the body wraps the message, so the body is handed to
         // the Response the moment it exists (CA2000).
@@ -163,6 +330,26 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         var headers = headersBuilder.Build();
         var protocol = MapProtocol(message.Version);
         return new Response(status, headers, new HttpResponseMessageBody(message), protocol);
+    }
+
+    // HTTP-19 / XCUT-18: received headers take the lenient path; one that fails even that is dropped on its own
+    // (TRANSPORT-14), never failing the response.
+    private void AddInbound(Headers.Builder builder, System.Net.Http.Headers.HttpHeaders source)
+    {
+        foreach (var (name, values) in source)
+        {
+            foreach (var value in values)
+            {
+                try
+                {
+                    builder.AddInbound(name, value);
+                }
+                catch (ArgumentException)
+                {
+                    s_inboundHeaderDropped(_logger, HeaderSyntaxOnWire.Escape(name), null);
+                }
+            }
+        }
     }
 
     private static Protocol MapProtocol(Version version) => version switch
@@ -173,4 +360,45 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         { Major: 3 } => Protocol.Quic,
         _ => Protocol.Http11,
     };
+
+    /// <summary>
+    /// The wire-boundary re-check's predicates: the same rules the model enforces (RFC 9110 token names; HTAB and
+    /// printable ASCII values), restated here because an adapter builds against core's public surface only.
+    /// </summary>
+    private static class HeaderSyntaxOnWire
+    {
+        public static bool IsTokenChar(char c) =>
+            c is >= 'a' and <= 'z'
+            or >= 'A' and <= 'Z'
+            or >= '0' and <= '9'
+            or '!' or '#' or '$' or '%' or '&' or '\'' or '*'
+            or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
+
+        public static bool IsOutboundValueChar(char c) => c == '\t' || c is >= ' ' and <= '~';
+
+        // A name for a log line: every non-token character becomes \uXXXX, so a forged CR/LF cannot inject a line
+        // (HTTP-20).
+        public static string Escape(string name)
+        {
+            if (name.All(IsTokenChar))
+            {
+                return name;
+            }
+
+            var sb = new StringBuilder(name.Length + 8);
+            foreach (var c in name)
+            {
+                if (IsTokenChar(c))
+                {
+                    sb.Append(c);
+                }
+                else
+                {
+                    sb.Append(CultureInfo.InvariantCulture, $"\\u{(int)c:X4}");
+                }
+            }
+
+            return sb.ToString();
+        }
+    }
 }

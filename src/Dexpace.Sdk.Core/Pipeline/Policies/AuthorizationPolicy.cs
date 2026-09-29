@@ -16,8 +16,8 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// invocation. If a redirect has moved the request to a different origin, the credential header is
 /// actively removed from the request before the continuation is called — providing defense-in-depth
 /// independent of <see cref="RedirectPolicy"/>. A consumer who composes an auth policy without
-/// <see cref="RedirectPolicy"/>, or who sets <c>StripSensitiveHeadersOnCrossOrigin=false</c>,
-/// cannot accidentally forward a stale credential to a foreign origin.
+/// <see cref="RedirectPolicy"/>, or with a custom redirect policy, cannot accidentally forward a
+/// stale credential to a foreign origin.
 /// </para>
 /// <para>
 /// The recorded origin is stored in <see cref="PipelineContext"/>'s property bag under the key

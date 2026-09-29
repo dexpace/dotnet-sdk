@@ -54,6 +54,19 @@ public class HeadersTests
     }
 
     [Fact]
+    public void Lookups_And_Removals_TrimTheName_AsWritesDo()
+    {
+        var headers = Headers.Empty.With(" X-A ", "v");
+
+        Assert.True(headers.Contains(" X-A "));
+        Assert.True(headers.Contains("\tx-a"));
+        Assert.Equal("v", headers.Get(" x-a\t"));
+        Assert.Equal((string[])["v"], headers.GetAll(" X-A "));
+        Assert.False(headers.Without(" X-A ").Contains("X-A"));
+        Assert.False(headers.ToBuilder().Remove("\tX-A ").Build().Contains("X-A"));
+    }
+
+    [Fact]
     public void Builder_BatchesEdits()
     {
         var headers = new Headers.Builder()
