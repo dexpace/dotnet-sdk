@@ -36,9 +36,11 @@ public member (CS1591). CI (`.github/workflows/ci.yml`) runs these steps, and ev
 dotnet restore Dexpace.Sdk.sln --locked-mode
 dotnet build   Dexpace.Sdk.sln --configuration Release --no-restore
 dotnet format  Dexpace.Sdk.sln --verify-no-changes --no-restore
+rm -rf artifacts/test-results                                              # a stale report would count too
 dotnet test    --solution Dexpace.Sdk.sln --configuration Release --no-build \
-               --results-directory artifacts/test-results --coverlet --coverlet-output-format cobertura
+               --results-directory artifacts/test-results --report-trx --coverlet --coverlet-output-format cobertura
 dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80         # 80% line coverage over src/
+scripts/ci/coverage-gate-selftest.sh artifacts/test-results                # the gate fails closed
 dotnet pack    Dexpace.Sdk.sln --configuration Release --no-build --output artifacts/packages
 dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages      # core's dependency rule
 scripts/ci/reproducible-pack.sh                                            # two packs, byte-identical
@@ -53,6 +55,9 @@ scripts/knowledge verify-structure
 Tests are xUnit v3 on Microsoft.Testing.Platform, so `dotnet test` takes the platform's options:
 `--project tests/Dexpace.Sdk.Core.Tests`, `--filter-class "*RetryPolicyTests"`,
 `--filter-trait "Category=Security"`. CI runs the build job on Linux, Windows and macOS.
+Run the suites through `dotnet test`, not `dotnet run`: `Directory.Build.targets` supplies
+`--coverlet-file-prefix <TestProject>` to every project that references coverlet.MTP, which xUnit's own runner
+rejects and which you must not pass again yourself.
 
 If your change touches documentation (`docs/`, `CLAUDE.md`, a README), also run the drift probe and
 fix what it reports:

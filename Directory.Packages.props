@@ -32,7 +32,7 @@
          carries the MTP v2 integration. Test-only: nothing here reaches a library's closure. -->
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <!-- NFR-5's collector on the platform: coverlet's MTP extension writes the same Cobertura report that
-         scripts/ci/coverage-gate.cs merges. -->
+         scripts/ci/coverage-gate.cs merges, one per test project, named by Directory.Build.targets. -->
     <PackageVersion Include="coverlet.MTP" Version="10.1.0" />
     <!-- The TRX report (report-trx option), for the per-OS test-results artifact CI uploads. -->
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
