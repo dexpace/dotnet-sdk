@@ -263,7 +263,7 @@ ID in the clause is stated in that chapter.
 |---|---|---|---|---|
 | 0 | Scaffold, Quality Gates and Repository Hygiene | repository root, `.github/`, `tools/Dexpace.Tools.sln`, all three existing `src/` projects, the new `tests/Dexpace.Sdk.Http.SystemNet.Tests` and `tests/Dexpace.Sdk.AotSmoke` (NativeAOT-published, non-packable), plus a new non-packable `tests/Dexpace.Sdk.TestSupport` for shared fakes | ch.20 — `NFR-1`–`NFR-17` stood up as machinery; none is closed here (phase 10 dispositions them) | §2.3, §2.4, §9, §9.1–§9.4 |
 | 1 | Security and Robustness Fixes (P0) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` | The nine defects S1–S9 below: `HTTP-17`, `HTTP-18`, `HTTP-26`, `XCUT-18`, `TRANSPORT-1`, `TRANSPORT-11`, `TRANSPORT-12`, `TRANSPORT-22`, `TRANSPORT-27`, `REDIR-7`, `REDIR-8`, `REDIR-9`, `REDIR-12`, `XCUT-17`, `AUTH-28`, `XCUT-16`, `OBS-11`–`OBS-15`, `XCUT-19`, `RETRY-44`, `PIPE-16`, `RETRY-18`, `RECOV-26`, `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | §3.2, §4.1, §4.2, §5.1, §6.1–§6.3, §8.1 |
-| 2 | Domain Model and Seam Foundations (2a domain model · 2b seams) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for the SPI signature change only | ch.04 — `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (41 IDs); ch.03 and ch.02 — `SEAM-1`–`SEAM-30` (30); the IDs for `SEAM-5`/`SEAM-6`'s DI half travel to phase 9 | §3.4, §3.5, §3.6, §4, §4.1–§4.4 |
+| 2 | Domain Model and Seam Foundations (2a domain model · 2b seams) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for 2a's `Response` construction, public header predicate and wire casing and 2b's SPI signature change (corrected 2026-09-29, per the lead's ruling of 2026-09-29 on open question 3 of the [phase 2 segmentation design](phase2/2026-09-29-phase2-segmentation-design.md): this cell read "for the SPI signature change only", but 2a also edits the adapter) | ch.02 and ch.04 — `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (41 IDs; corrected 2026-09-29, per the same ruling: this cell read "ch.04", but `HTTP-1` and `HTTP-2` are stated in ch.02); ch.03 and ch.02 — `SEAM-1`–`SEAM-30` (30); the IDs for `SEAM-5`/`SEAM-6`'s DI half travel to phase 9 | §3.4, §3.5, §3.6, §4, §4.1–§4.4, and §1, §3.1–§3.3, §3.7 (corrected 2026-09-29, per the same ruling: this cell omitted the sections that argue `SEAM-3`/`SEAM-4`, `SEAM-11`–`SEAM-18`, `SEAM-24`, `SEAM-25` and `SEAM-30`); segmentation design: [`phase2/2026-09-29-phase2-segmentation-design.md`](phase2/2026-09-29-phase2-segmentation-design.md) |
 | 3 | I/O and Body Lifecycle (3a I/O · 3b bodies) | `Dexpace.Sdk.Core` | ch.05 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` (12), which are numbered jointly into that chapter; the work for `HTTP-44`/`HTTP-45` lands in 7a | §3.1, §3.7, §4.5 |
 | 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4 |
 | 5 | Configuration Model and Observability (5a configuration · 5b logging and redaction · 5c tracing and metrics) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for `traceparent` handling | ch.16 — `CFG-8`, `CFG-9`, `CFG-12`, `CFG-13`, `CFG-15`–`CFG-36` (the binding tier travels to phase 9); ch.15 — `OBS-1`–`OBS-40` (40) | §3.8, §8.1–§8.3 |
@@ -592,21 +592,32 @@ request bytes. A handler stub cannot see what reached the socket.
 
 **Scope.**
 
-- **HTTP** (43 MUSTs): 12 met, 15 partial, 15 missing.
+- **HTTP** (43 MUSTs across the whole prefix, 32 of them in phase 2's scope and 11 in phase 3's): 12 met, 15 partial,
+  15 missing (corrected 2026-09-29, per the lead's ruling of 2026-09-29 on open question 3 of the [phase 2 segmentation design](phase2/2026-09-29-phase2-segmentation-design.md): this cell read "HTTP (43 MUSTs)" as if every one were in scope; the
+  breakdown sums to 42, not 43, and the per-ID classification behind it is not in the tree).
   - **2a** does the following:
     - rebuilds `Headers`: insertion-ordered, value equality, original casing kept, the lenient inbound path, and
       `Set(name, null)` removes;
     - gives `Request` get-only properties and a validating constructor that enforces `HTTP-7`, with
       `With*` helpers;
     - converts `Method` and `HttpHeaderName` to `sealed record`s;
-    - drops TRACE from `Method.IsIdempotent`;
+    - replaces the public `IsSafe`/`IsIdempotent` with one internal idempotent set that excludes TRACE (`HTTP-9`;
+      corrected 2026-09-29, per the same ruling: this cell read "drops TRACE from `Method.IsIdempotent`", which implied
+      the public property survives);
     - adds `Status.TryGetKnown` and `IsError`, and gives `Response` its `Request` and `ReasonPhrase`;
     - adds `Query`, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` (§4.1–§4.4).
-- **SEAM** (23 MUSTs): 7 met, 4 partial, 2 missing, 9 N/A candidates.
+- **SEAM** (23 MUSTs): 7 met, 4 partial, 2 missing, 9 N/A candidates (corrected 2026-09-29, per the same ruling: the
+  breakdown sums to 22, not 23).
   - **2b** does the following:
     - changes `IHttpClient`/`IAsyncHttpClient` to `(Request, RequestOptions, CancellationToken)` (§3.2, §3.3);
     - adds `DelegateHttpClient`;
-    - adds the serde profiles and the unsealed `SerdeException` root (§3.4);
+    - adds the serde profiles and the unsealed `SerdeException` root, and re-parents `SerializationException` and
+      `DeserializationException` under it (§3.4; the re-parenting corrected 2026-09-29, per the lead's ruling of that
+      date on open question 2 of the phase 2 segmentation design: it was listed under 7a);
+    - rewrites the sync/async bridges in `HttpClientExtensions`: a caller-supplied `TaskScheduler` with no default,
+      the token and options threaded through, and no dispose of the wrapped client (§3.3, §5.3; corrected 2026-09-29,
+      per the lead's ruling of that date on open question 1 of the phase 2 segmentation design: it was listed under
+      4c);
     - adds the operation projection (`OperationDescriptor`, `BuildRequest`) and wires `BaseAddress` (§3.5);
     - bans `Uri.ToString()` for wire use (`RS0030`);
     - retires the byte-stream provider seam, as the design topic `byte-stream-provider-retired` records.
@@ -694,7 +705,9 @@ request bytes. A handler stub cannot see what reached the socket.
   - a real synchronous `Process`/`Run`;
   - `HttpPipeline` implementing the transport interfaces;
   - `SendAsync<T>(request, handler)`;
-  - bridges that take a `TaskScheduler` and a token.
+  - the pipeline's own sync/async surfaces; the client bridges are 2b's, and 4c's `PIPE-33`/`PIPE-34` rows cite 2b's
+    tests (corrected 2026-09-29, per the lead's ruling of that date on open question 1 of the phase 2 segmentation
+    design: this cell read "bridges that take a `TaskScheduler` and a token").
 - The idempotency and client-identity policy defaults (`RECOV-32`, `RECOV-33`) land here.
 
 **Entry.** 2b and 3b have exited: 4c needs the new SPI signature and the dispose latches.
@@ -825,7 +838,9 @@ request bytes. A handler stub cannot see what reached the socket.
     `T`, factory helpers, pattern matching; RFC 7386 documents stay out of scope). Its **name does not**: design
     §7.3 overturns `Optional<T>` for `Tristate<T>`, so 7a's design records that ruling on the issue before
     building;
-  - `SerdeException` re-parenting;
+  - the `SERDE-9`/`SERDE-10` rows cite 2b's `SerdeException` hierarchy (corrected 2026-09-29, per the lead's ruling of
+    that date on open question 2 of the phase 2 segmentation design: this cell read "`SerdeException` re-parenting",
+    which 2b now does);
   - root-`null` rejection naming `T`;
   - a `CreateDefaultOptions()` that never mutates the caller's options (`SERDE-26`);
   - source-generated `JsonTypeInfo<T>` as the only trim-safe path;
