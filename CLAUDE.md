@@ -32,7 +32,8 @@ Tests are xUnit v3 on **Microsoft.Testing.Platform**: `global.json`'s `"test": {
 The rest of CI (`.github/workflows/ci.yml`) is runnable locally, and should be before a push:
 
 ```bash
-dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80     # after `dotnet test … --coverlet --coverlet-output-format cobertura --results-directory artifacts/test-results`
+dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80     # after a clean `dotnet test … --coverlet --coverlet-output-format cobertura --results-directory artifacts/test-results`
+scripts/ci/coverage-gate-selftest.sh artifacts/test-results            # the gate fails closed on a missing report (#33)
 dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages  # constraint 2, over deps.json and nuspecs
 scripts/ci/reproducible-pack.sh                                        # pack twice, byte-compare (NFR-12)
 dotnet publish tests/Dexpace.Sdk.AotSmoke --configuration Release --output artifacts/aot-smoke && ./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke
@@ -134,7 +135,7 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
 ├── scripts/
-│   ├── ci/                          # coverage-gate.cs, dependency-audit.cs, reproducible-pack.sh
+│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs, reproducible-pack.sh
 │   └── knowledge                    # the knowledge-lookup CLI
 ├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/housekeeping/{src,tests}
 ├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates

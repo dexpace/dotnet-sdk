@@ -69,7 +69,10 @@ jobs:
       - name: Format
         run: dotnet format Dexpace.Sdk.sln --verify-no-changes --no-restore
 
-      # coverlet.MTP writes one Cobertura report per test project into the results directory.
+      # coverlet.MTP writes one Cobertura report per test project into the results directory. Its own name is a
+      # millisecond timestamp two test hosts can share, so Directory.Build.targets prefixes every test project's
+      # report with the project name (<TestProject>.coverage.cobertura.<timestamp>.xml); no report can overwrite
+      # another's, and a new test project needs no edit here (issue #33).
       - name: Test
         run: >-
           dotnet test --solution Dexpace.Sdk.sln --configuration Release --no-build
@@ -78,9 +81,15 @@ jobs:
           --coverlet --coverlet-output-format cobertura
 
       # NFR-5: aggregate line coverage over the src/ assemblies, merged across every test project. Measured at
-      # 88.38% when the gate was wired, so the floor is the design's 80% from the start.
+      # 88.38% when the gate was wired, so the floor is the design's 80% from the start. It fails closed (exit 3)
+      # when a test project under tests/ left no report or a library under src/ has no coverage data in any.
       - name: Coverage floor
         run: dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80
+
+      # The gate's own regression check, over altered copies of this run's reports: one report missing, a library
+      # unmeasured, the floor above the measurement, and an empty directory must each fail with their exit code.
+      - name: Coverage floor - self-test
+        run: scripts/ci/coverage-gate-selftest.sh artifacts/test-results
 
       # EnablePackageValidation runs inside pack for every library (Directory.Build.props).
       - name: Pack

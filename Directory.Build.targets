@@ -14,6 +14,27 @@
     <None Update="$(PackageReadmeFile)" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!-- NFR-5's coverage reports (issue #33): coverlet.MTP names each Cobertura file
+       coverage.cobertura.<ddMMyyHHmmssfff>.xml, so two test hosts of one solution-wide `dotnet test` run that finish
+       in the same millisecond write the same file into the shared results directory, and the second silently
+       replaces the first. Every project that references coverlet.MTP, wherever it lives and whenever it is added,
+       therefore passes coverlet its project name as the report prefix, making each report
+       <TestProject>.coverage.cobertura.<timestamp>.xml, distinct by construction. A project without coverlet.MTP (the
+       tools solution's suites) gets nothing: its runner would reject the unknown option. Items are not visible to a
+       property condition, so this is a target, appending to the run arguments before ComputeRunArguments hands them to
+       `dotnet test` (as Microsoft.Testing.Platform's own TestingPlatformCommandLineArguments does). The option is inert
+       unless coverage collection is switched on. `dotnet run` gets it too, where xUnit's own runner rejects it: run the
+       suites with `dotnet test`. scripts/ci/coverage-gate.cs relies on the prefix to require one report per test
+       project. -->
+  <Target Name="DexpaceCoverletFilePrefix" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestProject)' == 'true'">
+    <ItemGroup>
+      <_DexpaceCoverletReference Include="@(PackageReference)" Condition="'%(Identity)' == 'coverlet.MTP'" />
+    </ItemGroup>
+    <PropertyGroup Condition="'@(_DexpaceCoverletReference)' != ''">
+      <RunArguments>$(RunArguments) --coverlet-file-prefix $(MSBuildProjectName)</RunArguments>
+    </PropertyGroup>
+  </Target>
+
   <Target Name="DexpacePinToolchainPacks" BeforeTargets="ProcessFrameworkReferences">
     <ItemGroup>
       <KnownILLinkPack Condition="'%(KnownILLinkPack.TargetFramework)' == '$(TargetFramework)'"
