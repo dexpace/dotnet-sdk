@@ -23,7 +23,7 @@
   <ItemGroup Label="Build-only analyzers (PrivateAssets=all)">
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.290" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
   <ItemGroup Label="Tests">
