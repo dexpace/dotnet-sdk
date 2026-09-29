@@ -8,6 +8,13 @@ The reference, Ruby and Node ports each had to define a facade and hope the ecos
 adopts the ecosystem's types directly (P14) and spends its argument on the MUSTs those types were not designed to
 satisfy. Behaviour marked verified was run on .NET SDK 10.0.401 (runtime 10.0.12).
 
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
+
 ### 8.1 The instrumentation seam
 
 **There is no SDK-defined listener, and the P2 test splits the three primitives.** `ActivitySource`, `Activity` and
@@ -22,7 +29,8 @@ would need an adapter for each — and it is recorded against the letter of **SE
 beyond its language's standard library plus a logging facade") and **NFR-1** ("a compile-time-only logging facade"):
 the package is a *runtime* dependency, its assembly must be present when core loads. Recorded as §10 entry 1. The
 as-built `Dexpace.Sdk.Core.csproj` already references it (pinned at 9.0.5, which supports `net8.0`), so `CLAUDE.md`'s
-"BCL-only" rule has been stale since the options slice; the platform design's D2 anticipated the correction.
+"BCL-only" rule has been stale since PR #6 added the reference; the pre-roadmap platform decision that core may take
+the standard abstraction packages (Porting Method) anticipated the correction.
 
 **The structured log event object does not exist, and that reverses Ruby's central conclusion.** Ruby built
 `Dexpace::Instrumentation::Event` because **OBS-1** says "The facade MUST decide enabled/disabled once, at
@@ -197,9 +205,10 @@ preview, header redaction.
 ### 8.2 Configuration
 
 **CFG-1** fixes four tiers: explicit override, environment by exact key, a system-property source by normalised key,
-then the caller default. The as-built and the options slice took a position before this document existed — "plain
-POCOs in `Core`", "a bespoke env/override reader (the siblings hand-rolled one — `IConfiguration` covers it)" out of
-scope — and the position is adopted, but it must be argued against **CFG-1**, not asserted. .NET's convergence for
+then the caller default. The options PR #4 built took a position before this document existed — plain
+options types in core, and no bespoke environment/override reader, because the siblings hand-rolled one and
+`IConfiguration` covers it — and the position is adopted, but it must be argued against **CFG-1**, not asserted. .NET's
+convergence for
 layered configuration is `Microsoft.Extensions.Configuration`: an ordered stack of providers where the later one wins,
 consumed through `IOptions<T>` binding. It is installed from NuGet, so P2 does not retire the concern — it moves it
 out of core, into the `Dexpace.Sdk.Extensions.DependencyInjection` package, as a separately installable unit
@@ -258,10 +267,12 @@ source generator binds `init` accessors is to be verified when the DI package is
 package binds into a private mutable staging type and snapshots it into the record — Ruby's staging-object pattern,
 for a different reason. **CFG-37**'s null guards are `ArgumentNullException.ThrowIfNull` under nullable reference
 types; **CFG-38** is satisfied by construction, since typed values only ever arrive through the one binding path.
-Validation is an `IValidateOptions<DexpaceClientOptions>` with `ValidateOnStart`, per the options slice.
+Validation is an `IValidateOptions<DexpaceClientOptions>` with `ValidateOnStart`, in the DI package (roadmap
+phase 9).
 
-**The proxy model** (**CFG-22**–**CFG-28**). The options slice ruled proxies out of scope because "`HttpClient`
-honors `HTTP(S)_PROXY`/`NO_PROXY` natively". It does, and its semantics diverge from four MUSTs (all verified on
+**The proxy model** (**CFG-22**–**CFG-28**). The options design behind PR #4 ruled proxies out of scope because
+`HttpClient`
+honours `HTTP(S)_PROXY`/`NO_PROXY` natively. It does, and its semantics diverge from four MUSTs (all verified on
 10.0.401). `NO_PROXY=*` does **not** bypass: `HttpClient.DefaultProxy.IsBypassed` returned `false` for every host,
 against **CFG-27**. A proxy URL with no port is accepted and defaulted, against **CFG-25**'s "An absent port in a
 proxy
@@ -270,7 +281,7 @@ leaks the credentials **CFG-22** requires masked. And `WebProxy.BypassList` entr
 globs: `new WebProxy(..., ["*.internal.example.com"])` throws `RegexParseException`, and a bypass entry `a.b` matches
 host `axb`, against **CFG-23**'s glob grammar. The runtime default also reads the environment implicitly when the
 first handler is built, where **CFG-28** says "the environment MUST be consulted only when a resolver is explicitly
-invoked". The slice's ruling is overturned: core owns an immutable `ProxyOptions` record (type, address, ordered glob
+invoked". That ruling is overturned: core owns an immutable `ProxyOptions` record (type, address, ordered glob
 bypass list compiled once, credentials masked in `ToString`, explicit bypass-all flag) and an explicit
 `ProxyOptions.FromEnvironment()` resolver implementing **CFG-24**–**CFG-27**; an SDK-managed `Http.SystemNet`
 transport

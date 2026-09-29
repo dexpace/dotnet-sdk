@@ -6,6 +6,13 @@ re-examine, in the same order and under the same numbers, the ambiguities the Ru
 on .NET, three reverse in whole or part, and the rest carry over with a .NET mechanism. Entries from 22 on are new to
 this port.
 
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
+
 1. **CFG-15's blocking sleep versus RETRY-26's no-carrier-pinning.** *Dissolves on .NET.* The tension exists where a
    blocking sleep might pin a lightweight carrier; .NET has no virtual threads or fibers for a sleep to pin. The
    async path waits with `Task.Delay(TimeSpan, TimeProvider, CancellationToken)`, a timer that holds no thread and
@@ -119,7 +126,8 @@ this port.
     family as `IOException`, `HttpRequestException` without a status, `SocketException` and `TimeoutException`; the
     wrapper-type clause is a deviation, §10 entry 7 (§6.1).
 24. **No clause covers a second retry engine below the transport**. The specification
-    assumes the SDK's retry is the only one. Platform decision D3 invites an enterprise's Polly handler chain
+    assumes the SDK's retry is the only one. The connection-layer split (Porting Method) invites an enterprise's Polly
+    handler chain
     underneath, and two engines multiply sends and re-send bodies the SDK's safety gate never saw (entry 18's
     verification). *Resolved*: one retry layer per call path, the SDK's; nothing the SDK creates adds a retrying
     handler, and composing a resilience handler without its retry strategy is documented (§6.1).

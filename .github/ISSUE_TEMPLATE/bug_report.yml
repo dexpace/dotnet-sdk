@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in a dexpace package behaves differently from its documentation or a requirement.
+title: "bug: "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security vulnerabilities do not belong here** — follow SECURITY.md
+        and report them privately instead.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected package
+      multiple: true
+      options:
+        - Dexpace.Sdk.Core
+        - Dexpace.Sdk.Http.SystemNet
+        - Dexpace.Sdk.Serialization.SystemTextJson
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Nothing is published yet, so give the commit SHA you reproduced against.
+      placeholder: a910729
+    validations:
+      required: true
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET version and OS
+      description: The output of `dotnet --version`, the runtime, and the operating system. Supported is .NET 10 (`net10.0`).
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest program or test that shows it. Redact any credential.
+      render: csharp
+    validations:
+      required: true
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement IDs
+      description: >-
+        The docs/product-spec/ requirement(s) the behaviour violates, if you know them
+        (for example HTTP-7, RETRY-13). Appendix C is the index.
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Logs (redacted), the transport and HttpClient configuration in use, the package versions.

@@ -99,11 +99,11 @@ untracked and so cannot be `git mv`-ed at all — and it reports every refusal, 
 Half-applying is the one outcome that leaves an operator with no good next move; if `git mv` itself
 fails mid-batch, the tool prints exactly which moves completed.
 
-**The inbox today.** `docs/superpowers/` still holds the thirteen pre-skill documents of 2026-06-14/15
-(the platform design, ten slice designs, two plans). None names a phase, so `apply` would file every
-one directly under `docs/work/mvp/`. That is a decision about how those slices map onto the roadmap's
-phases, not a mechanical one: pick the phase for each and use `--phase` / `--rename`, in a commit
-of its own.
+**The inbox today** is empty. The thirteen pre-skill documents of 2026-06-14/15 (the platform design,
+ten slice designs, two plans) were retired on 2026-09-29 under roadmap decision D2 rather than filed:
+they were deleted with `git rm` and their citations repointed, so `apply` has nothing to move. A file
+whose name carries no phase would be filed directly under `docs/work/<delivery>/`; when that is not
+where it belongs, pick the phase and use `--phase` / `--rename`, in a commit of its own.
 
 ### What it deliberately does not do
 
@@ -207,8 +207,8 @@ not a transliteration. Every deliberate difference:
 
 The Node original ships a tenth tool, `check-fences.mjs`, which extracts every ` ```typescript `
 fence that imports from the workspace and typechecks the lot against `dist/`. It is **not** ported
-yet: this repository has no worked-example documentation for it to protect, and the package READMEs
-the `readmes` check asks for do not exist.
+yet: this repository has no worked-example documentation beyond the three package READMEs, whose
+snippets were compiled by hand when they were written.
 
 The .NET analogue, when it is worth building, is a **compiler** step, closer to Node's than to
 Ruby's executor. Extract every ` ```csharp ` fence in `README.md`, `docs/sdk-documentation/*.md` and
@@ -216,7 +216,7 @@ Ruby's executor. Extract every ` ```csharp ` fence in `README.md`, `docs/sdk-doc
 `Dexpace.Sdk.` type — the test is for the *namespace*, not for a `using` line, which is the
 single-line-import trap Node documented); write each into a generated temp project under the
 scratch directory — top-level statements, `net10.0`, `<Reference>`s to the built
-`src/*/bin/Release/net8.0/*.dll` rather than `ProjectReference`s, so the check proves the fence
+`src/*/bin/Release/net10.0/*.dll` rather than `ProjectReference`s, so the check proves the fence
 against what ships — and `dotnet build` it with warnings as errors. A fence with no `Dexpace.Sdk`
 reference is an illustrative fragment and is skipped; one that references an optional package not
 in `Directory.Packages.props` is reported, not failed. The scratch directory goes through

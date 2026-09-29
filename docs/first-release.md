@@ -29,9 +29,8 @@ release.
 | `Dexpace.Sdk.Conformance` | no | — | no | phase 8a owns the csproj and version; phase 12 publishes it |
 | `Dexpace.Sdk.Extensions.DependencyInjection` | no | — | no | phase 9 |
 
-The target frameworks change in phase 0. The roadmap's decision D1 proposes raising the floor to `net10.0`, because
-.NET 8 leaves support on 2026-11-10. The alternative is `net8.0;net10.0` until that date. Whichever is chosen is
-recorded here, with its date, when phase 0 lands.
+The target frameworks changed in phase 0. The lead approved the roadmap's decision D1 on 2026-09-28: every package
+targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .NET 8 leaves support on 2026-11-10.
 
 ## Blockers before first publish
 
@@ -74,8 +73,8 @@ recorded here, with its date, when phase 0 lands.
       - A conformance page stating what a green conformance run does **not** prove.
 
       Phase 12 assembles these pages.
-- [ ] **`CHANGELOG.md` complete.** It records only the foundation slice today. Phase 0 back-fills PRs #3–#9, and
-      every later phase adds its own `[Unreleased]` entry.
+- [ ] **`CHANGELOG.md` complete.** Phase 0 back-filled PRs #3–#9 on 2026-09-29, and every later phase adds its own
+      `[Unreleased]` entry.
 
 ## What v1 ships without
 
@@ -138,8 +137,5 @@ Not yet wired. Phase 12 owns this path:
 
 Each entry names an event that no v1 phase can produce, and the one job to do when the event fires.
 
-- **.NET 8 still in the target set at release**, which applies only if decision D1 keeps `net8.0`. The job is to
-  drop `net8.0` in the first release after 2026-11-10, retiring the per-TFM accommodations named in design §2.4,
-  §7.3 and §9.2.
 - **The first external adapter author.** The job is to confirm that `Dexpace.Sdk.Conformance` runs under a test
   framework other than xUnit, which is the claim design §9.3 makes and nothing in this repository exercises.

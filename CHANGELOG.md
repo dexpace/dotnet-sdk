@@ -77,6 +77,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `System.Diagnostics.DiagnosticSource` package from core's dependency closure.
 - Build: `global.json` pins SDK `10.0.401` with `rollForward: latestPatch`; `ImplicitUsings` is off, with a
   committed `GlobalUsings.cs` per project; every project commits a `packages.lock.json`.
+- `DexpaceClientOptions.BaseAddress` and `DexpaceClientOptions.AttemptTimeout` now document that nothing reads them
+  yet; roadmap phases 2b and 6a wire them.
 
 ### Added
 
@@ -99,5 +101,35 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - `Dexpace.Sdk.Http.SystemNet`: reference transport adapting `System.Net.Http.HttpClient` to the SPI.
 - `Dexpace.Sdk.Core.Tests`: xUnit coverage for media types, headers, methods, statuses, bodies,
   request building, and the transport.
+- Serialization (#3): the serializer-agnostic `ISerde` seam in `Dexpace.Sdk.Core`, and
+  `Dexpace.Sdk.Serialization.SystemTextJson`, a trim- and NativeAOT-safe implementation over source-generated
+  `JsonTypeInfo<T>` metadata. Serializer failures map to `SerializationException` / `DeserializationException` on
+  both the sync and async paths; cancellation propagates unwrapped. Conveniences `RequestBody.FromValue<T>`,
+  `ResponseBody.ReadValueAsync<T>` and `HttpResponseException.GetErrorAsync<T>` route through `ISerde`. Request URLs
+  must be absolute `http`/`https` URLs; anything else throws `ArgumentException`.
+- Options, diagnostics and the pipeline context (#4): `DexpaceClientOptions` with `RetryOptions` and
+  `RedirectOptions` (plain, container-agnostic option types); `DexpaceDiagnostics`, one `ActivitySource` and one
+  `Meter` named `Dexpace.Sdk`; `UrlRedactor`, a log-safe URL renderer; and `PipelineContext`, the per-call state
+  that flows through the pipeline.
+- The pipeline and its core policies (#6, which also re-lands the pipeline spine first merged as #5):
+  `HttpPipelinePolicy`, the immutable re-entrant `PipelineRunner`, the staged `PipelineBuilder`
+  (`Add` / `InsertBefore` / `InsertAfter` / `Replace` / `Remove`, pillar validation), and `HttpPipeline` with a
+  blocking `Send` bridge; `OperationPolicy` (overall timeout), `RedirectPolicy`, `RetryPolicy` (typed errors and
+  5xx, jittered backoff capped at `MaxDelay`, `Retry-After`, idempotency and body-replayability gating),
+  `IdempotencyPolicy`, `SetDatePolicy`, `ClientIdentityPolicy` and `InstrumentationPolicy` (per-attempt `Activity`
+  with W3C `traceparent` / `tracestate` propagation, duration and active-request metrics, redacted structured logs);
+  `Response.EnsureSuccessAsync`; and `DexpacePipeline.CreateDefault`. `Dexpace.Sdk.Core` takes its one runtime
+  dependency, `Microsoft.Extensions.Logging.Abstractions`.
+- Authentication (#8): `TokenCredential` with `AccessToken` and `TokenRequestContext`, `ApiKeyCredential`,
+  `BasicCredential`; `AccessTokenCache` (per-context caching, proactive refresh, per-key single flight, tolerance of
+  a refresh failure while the token is still valid, `TimeProvider`-driven); and the `ApiKeyAuthPolicy`,
+  `BasicAuthPolicy` and `BearerTokenAuthPolicy` policies over an `AuthorizationPolicy` base that withholds
+  credentials on a cross-origin hop.
+- Pagination (#9): `AsyncPageable<T>` with `AsPages`, `Page<T>`, `Pageable.Create` (typed selectors, one request
+  per page through the `HttpPipeline`, a `maxPages` cap, every response disposed on every path), and
+  `PaginationStrategies` (`Cursor`, `PageNumber`, and RFC 8288 `LinkHeader`).
+- Repository hygiene (roadmap phase 0): `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`,
+  issue and pull-request templates, and Dependabot for NuGet and GitHub Actions. Each package now ships its
+  `README.md` (`PackageReadmeFile`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

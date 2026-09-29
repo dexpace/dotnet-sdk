@@ -1,0 +1,53 @@
+name: Feature or requirement request
+description: Propose a feature, a new adapter, or a change against a spec requirement.
+title: "feat: "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The SDK is **an HTTP-client toolkit, not an HTTP client**, and its work is spec-driven:
+        every behaviour traces to a numbered requirement in `docs/product-spec/`. A request that names
+        the requirement it adds to, changes or finds missing is the easiest one to act on. The v1
+        roadmap (`docs/work/mvp/`) already schedules the unbuilt areas; check it first.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of request
+      options:
+        - A new capability within an existing package
+        - A new adapter package (transport, codec, host integration)
+        - A requirement the implementation does not satisfy (a spec gap)
+        - A change to a requirement or to a documented deviation
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      multiple: true
+      options:
+        - Dexpace.Sdk.Core
+        - Dexpace.Sdk.Http.SystemNet
+        - Dexpace.Sdk.Serialization.SystemTextJson
+        - a new package
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement IDs
+      description: The requirement(s) this touches, for example PAGE-19 or SSE-11. Leave empty if none exists yet.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are building and what the SDK makes hard or impossible today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What you would like, and the alternatives you considered.
+    validations:
+      required: true

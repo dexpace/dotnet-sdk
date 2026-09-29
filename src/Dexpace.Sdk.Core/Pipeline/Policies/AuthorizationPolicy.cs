@@ -124,14 +124,15 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
     }
 
     // Derives a canonical origin string: "<lower-scheme>://<lower-host>:<port>".
-    // Port is always included — Uri.Port returns -1 for the default scheme port,
-    // so same-origin comparisons are consistent regardless of whether the caller
-    // supplied the port explicitly.
+    // Port is always included. For a URL written without a port, Uri.Port returns the scheme's
+    // default (443 for https, 80 for http), not -1, so "https://a/" and "https://a:443/" yield
+    // the same origin whether or not the caller supplied the port explicitly. Uri.Port is -1
+    // only for a scheme with no known default port.
     private static string GetOrigin(Uri uri)
     {
         var scheme = uri.Scheme.ToLowerInvariant();
         var host = uri.Host.ToLowerInvariant();
-        var port = uri.Port; // -1 means default for scheme
+        var port = uri.Port; // the scheme default (443, 80) when the URL omits the port
         return $"{scheme}://{host}:{port}";
     }
 }

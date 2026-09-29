@@ -8,17 +8,25 @@ sync mirror of the stage pipeline and both bridges are kept, but the direction o
 the reference: here the async runtime is the one every other shape is derived from.
 
 This chapter is the one where the as-built tree and the specification disagree most, and the disagreement has a
-single root. The pipeline-spine slice design (`docs/superpowers/specs/2026-06-14-pipeline-spine-slice-design.md`,
-§2) chose "`PipelineContext` is the single mutable carrier and the runner is re-entrant from a fixed index, [so] no
-per-attempt state cloning is needed". The second half of that sentence is right and is the best idea in the
+single root. The pipeline spine PR #6 built, over PR #4's
+`PipelineContext`, made that context the single mutable carrier and the runner re-entrant from a fixed index, so
+that no per-attempt state cloning is needed. The second half of that sentence is right and is the best idea in the
 as-built pipeline; the first half is what §5.1 overturns, because a mutable carrier shared by every re-drive is
 precisely the state a fork is supposed to isolate.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this chapter cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 ### 5.1 The stage-based pipeline
 
 **The step is an abstract class, not a delegate — the ecosystem's shape, not its package (P14).** Two shapes
 dominate .NET HTTP composition. `DelegatingHandler` (request in, response out) is the runtime's own, but it lives
-*below* the transport seam on `HttpRequestMessage`, and platform decision D3 deliberately leaves it there: an
+*below* the transport seam on `HttpRequestMessage`, and the connection-layer split (Porting Method) deliberately leaves
+it there: an
 enterprise's handler chain composes *underneath* the SDK. Above the seam, the shape .NET client libraries have
 converged on is the abstract policy class with a stage, a `Process`/`ProcessAsync` pair and an explicit `next` —
 Azure.Core's `HttpPipelinePolicy` and its successor `System.ClientModel.Primitives.PipelinePolicy`. The as-built
@@ -132,8 +140,8 @@ shape, so the same class serves both layers (§5.2).
   `ClientIdentityPolicy` is Replace-only over `DexpaceClientOptions.UserAgent`.
 - **The error-mapping step** (**RECOV-15**) maps only 400..599 and returns 1xx, 2xx and 3xx unchanged, so a 304 or
   an unfollowed 3xx keeps its body (**BODY-31**); its factory rejects a non-error status (**XCUT-8**). As built
-  there is no step: the core-policies slice chose "`HttpPipeline.SendAsync` **returns** the `Response` for any
-  status" and a caller-invoked `Response.EnsureSuccessAsync`. The port keeps that as the default — it is the .NET
+  there is no step: the core policies of PR #6 chose that `HttpPipeline.SendAsync` **returns** the `Response` for
+  any status, with a caller-invoked `Response.EnsureSuccessAsync`. The port keeps that as the default — it is the .NET
   idiom, `HttpResponseMessage.EnsureSuccessStatusCode` — and ships an `ErrorMappingPolicy` at `PerCall` for callers
   who want throw-by-default, the placement **PIPE-37** requires. **P13 — the obvious tool maps the wrong range.**
   `EnsureSuccessStatusCode` throws for anything outside 200–299; verified on .NET 10.0.401, a bare 304 raises
@@ -268,7 +276,9 @@ The port adopts the Azure SDK's established idiom instead: each shipped policy i
 it with `async: false` and asserts the returned `ValueTask` is already completed before reading its result. Nothing
 blocks on an incomplete task, the retry wait is a genuine blocking wait on the sync path (§6.1), and there is exactly
 one body of retry, redirect and auth logic. `Process` has a default implementation for third-party policies, and
-*that* default is the documented blocking bridge the platform design anticipated; shipped policies override it.
+*that* default is the documented blocking bridge the pipeline-spine design that preceded PR #6 anticipated (a virtual
+`Process` that blocks on `ProcessAsync`; PR #6 built only the pipeline-level `HttpPipeline.Send`); shipped policies
+override it.
 
 **PIPE-29**/**PIPE-30** are nearly free on .NET (P7). An `async` method never throws synchronously — any exception,
 including an argument check, is captured into the returned task — so a policy written with `async` satisfies
@@ -324,10 +334,10 @@ shared pool, take no token, and dispose what they wrap; `HttpPipeline` is not a 
 
 ### 5.4 The execution context model
 
-**The platform design left one question open, and the specification answers most of it.** The platform design
-(§7) asked "ambient `AsyncLocal` context vs. an explicit context value threaded through the pipeline delegate", and
-the instrumentation-context slice answered "explicit per-call `PipelineContext`, mutable … there is no
-`ContextStore` and no ambient SDK state". The port keeps the *explicit* half of that answer, overturns the *mutable*
+**The pre-roadmap design left one question open, and the specification answers most of it.** The question was
+ambient `AsyncLocal` context versus an explicit context value threaded through the pipeline, and PR #4 answered it
+with an explicit, mutable, per-call `PipelineContext`, no `ContextStore`, and no ambient SDK state. The port keeps the
+*explicit* half of that answer, overturns the *mutable*
 half for the correlation context, and overturns "no store", because **CTX-7**–**CTX-13** and **CTX-17**–**CTX-19** are
 MUSTs and the store turns out to have real .NET substance.
 
@@ -364,8 +374,9 @@ allocated unless rendered, and — because the key participates in the context r
 default-constructed contexts are unequal unless a caller pins an explicit key (**CTX-5**/**CTX-6**).
 
 **The store, and the .NET reason to have one.** The specification never says who reads the store (§11
-item 30). On .NET there is a concrete reader: the enterprise `DelegatingHandler` chain D3
-places *underneath* the transport. Such a handler sees only an `HttpRequestMessage`; the SystemNet transport stamps
+item 30). On .NET there is a concrete reader: the enterprise `DelegatingHandler` chain the
+connection-layer split places *underneath* the transport. Such a handler sees only an `HttpRequestMessage`; the
+SystemNet transport stamps
 the `CallKey` into `HttpRequestMessage.Options` under a public `HttpRequestOptionsKey<CallKey>`, and the handler
 resolves the live call through `DexpaceCallContexts.TryGet(key, out context)` (**CTX-18**'s explicit-absent lookup).
 Carrying the key rather than the context keeps the request/response graph out of `HttpRequestMessage`, which

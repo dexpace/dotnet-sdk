@@ -6,6 +6,14 @@
        packages.lock.json files hold on any 10.0.4xx SDK that global.json's latestPatch admits (a CI runner image
        may carry a newer patch than the one setup-dotnet installs), and the trim analysis does not drift with the
        SDK patch. -->
+  <!-- The package README (roadmap phase 0, task 5): each library's .csproj names it with <PackageReadmeFile>, beside
+       its PackageId, and this packs that file at the package root. An Update, not an Include, because the SDK's
+       default None glob already holds the file (an Include would pack it twice); so it lives here, after that glob
+       is evaluated, rather than in Directory.Build.props. -->
+  <ItemGroup Condition="'$(DexpaceIsLibrary)' == 'true' and '$(PackageReadmeFile)' != ''">
+    <None Update="$(PackageReadmeFile)" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <Target Name="DexpacePinToolchainPacks" BeforeTargets="ProcessFrameworkReferences">
     <ItemGroup>
       <KnownILLinkPack Condition="'%(KnownILLinkPack.TargetFramework)' == '$(TargetFramework)'"

@@ -13,11 +13,19 @@ one was written against a partial as-built tree at `d45e64b`: HTTP models, bodie
 `System.Net.Http` transport, the `System.Text.Json` codec, options, diagnostics, the pipeline and its policies,
 authentication and pagination already exist. Each design section therefore ends with a one-line **As built
 (d45e64b):** status — `built`, `built — diverges: …`, `partial: …` or `not built` — so a reader can see, section by
-section, where the tree already matches the design, where it diverges, and what remains. The earlier .NET design
-notes in `docs/superpowers/specs/2026-06-14-*.md` (platform decisions D1–D4 and the slice designs) are treated as the
-existing decisions: adopted unless the specification or the porting method argues otherwise, and overturned
+section, where the tree already matches the design, where it diverges, and what remains. The .NET decisions
+taken before it, which PRs #3–#9 built (the four platform decisions the Porting Method names, and the per-subsystem
+choices), are treated as the existing decisions: adopted unless the specification or the porting method argues
+otherwise, and overturned
 explicitly where they are. .NET behaviour asserted as verified was checked on .NET SDK 10.0.401 (runtime 10.0.12);
 claims about the `net8.0` floor were read from the 8.0.31 reference pack.
+
+**Correction (2026-09-29): citations of the retired 2026-06 documents are repointed (roadmap decision D2).** The
+lead ruled on D2 on 2026-09-29: the thirteen pre-roadmap documents of 2026-06-14/15 (the platform design, ten slice
+designs and two plans) are replaced by the specification, this design and the roadmap rather than filed under
+`docs/work/`, and were deleted from the tree; git history keeps them. Where this index cited one of them, the
+citation was edited in place: it now names the section that owns the decision, or states the decision inline with
+the pull request (#3–#9) that built it. No decision recorded here changed.
 
 **Scope.** This is a package-and-seam-level architecture for a .NET implementation of the same product: an
 HTTP-client toolkit, not an HTTP client. It covers the solution and package layout, the idiomatic .NET mapping of
