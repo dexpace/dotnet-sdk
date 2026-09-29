@@ -86,14 +86,11 @@ public sealed class EnsureSuccessTests
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
         var first = await ex.Response.Body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
+        var second = await ex.Response.Body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
 
-        // A second read should also succeed (BytesResponseBody is single-use per contract
-        // unless we make it replayable; the buffered body IS replayable since
-        // EnsureSuccessAsync creates a fresh ResponseBody.FromBytes every time — but the
-        // SAME ResponseBody instance on the exception is single-use after one read.
-        // The important guarantee: the exception body was successfully buffered from
-        // the original stream-or-bytes body.  We verify the content is correct.
+        // The buffered copy on the exception is replayable (HTTP-52, BODY-30): the same instance reads twice.
         Assert.Equal(bodyBytes, first);
+        Assert.Equal(bodyBytes, second);
     }
 
     // -------------------------------------------------------------------------

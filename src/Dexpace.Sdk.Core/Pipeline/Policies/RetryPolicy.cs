@@ -33,7 +33,13 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <c>[0, min(BaseDelay × 2^attempt, MaxDelay)]</c> (full jitter). The
 /// <see cref="TimeProvider"/> passed to the constructor drives both the current-time lookup
 /// (for HTTP-date parsing) and the <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/>
-/// overload so tests can control delays without real sleeps.
+/// overload so tests can control delays without real sleeps. Every delay, hinted or computed, is clamped to 365
+/// days, and a delay longer than <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/> accepts is
+/// waited as successive shorter waits.
+/// </para>
+/// <para>
+/// <b>Request isolation:</b> the request held at entry is restored onto the context before each attempt, so a
+/// retry never carries what a downstream policy wrote during the previous attempt.
 /// </para>
 /// <para>
 /// <b>Response disposal:</b> when a retryable response is going to be retried, the response
@@ -43,6 +49,14 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 public sealed class RetryPolicy : HttpPipelinePolicy
 {
     private static readonly HashSet<int> s_retryableStatusCodes = [408, 429, 500, 502, 503, 504];
+
+    // RETRY-18 / RECOV-26: the ceiling every pacing delta is clamped to, whether it came from a server hint or the
+    // back-off schedule.
+    private static readonly TimeSpan s_maxPacingDelay = TimeSpan.FromDays(365);
+
+    // Task.Delay rejects anything above uint.MaxValue - 1 ms (~49.7 days) with ArgumentOutOfRangeException, so a
+    // longer wait runs as successive waits of at most this long (design §6.1; eight for the 365-day ceiling).
+    private static readonly TimeSpan s_maxSingleWait = TimeSpan.FromDays(49);
 
     private readonly TimeProvider _timeProvider;
 
@@ -70,8 +84,13 @@ public sealed class RetryPolicy : HttpPipelinePolicy
         var options = context.Options.Retry;
         var attempt = 0;
 
+        // RETRY-44 / PIPE-16: every attempt re-sends the request this policy received, never one a downstream policy
+        // rewrote (an auth stamp, a per-attempt header) during the previous attempt.
+        var request = context.Request;
+
         while (true)
         {
+            context.Request = request;
             context.AttemptNumber = attempt;
 
             Exception? caughtException = null;
@@ -85,7 +104,6 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 caughtException = ex;
             }
 
-            var request = context.Request;
             var canRetryRequest = CanRetryRequest(request, options);
 
             if (caughtException is not null)
@@ -225,9 +243,16 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             delay = TimeSpan.FromTicks((long)(cap.Ticks * Random.Shared.NextDouble()));
         }
 
-        if (delay > TimeSpan.Zero)
+        if (delay > s_maxPacingDelay)
         {
-            await Task.Delay(delay, _timeProvider, cancellationToken).ConfigureAwait(false);
+            delay = s_maxPacingDelay;
+        }
+
+        while (delay > TimeSpan.Zero)
+        {
+            var wait = delay < s_maxSingleWait ? delay : s_maxSingleWait;
+            await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
+            delay -= wait;
         }
     }
 }

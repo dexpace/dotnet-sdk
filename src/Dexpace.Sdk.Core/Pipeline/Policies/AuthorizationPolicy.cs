@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
@@ -24,6 +25,12 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// absent: the base class records the current origin and proceeds to stamp. On each subsequent
 /// invocation (redirect loop, retry) the base class compares the current origin to the recorded
 /// one before stamping.
+/// </para>
+/// <para>
+/// <b>HTTPS only.</b> Whenever a credential would be attached, a request URL whose scheme is not <c>https</c>
+/// (compared case-insensitively) is rejected with an <see cref="SdkException"/> naming the policy and the scheme,
+/// before <see cref="GetCredentialAsync"/> runs — so no token is fetched and no header is written. There is no
+/// loopback exemption. A cross-origin hop, which carries no credential, is not checked.
 /// </para>
 /// <para>
 /// Derived classes must implement <see cref="GetCredentialAsync"/> to supply the header name
@@ -50,6 +57,9 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
     protected abstract HttpHeaderName WithheldHeaderName { get; }
 
     /// <inheritdoc/>
+    /// <exception cref="SdkException">
+    /// A credential would be attached to a request whose URL scheme is not <c>https</c>.
+    /// </exception>
     public sealed override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -76,6 +86,11 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
             return;
         }
 
+        // AUTH-28 / XCUT-16: a credential is about to be attached, so refuse plaintext before any credential is
+        // resolved. The cross-origin branch above attaches none and returns first (AUTH-29). No loopback exemption
+        // (design §11 item 25).
+        EnsureHttps(context.Request.Url);
+
         var (headerName, headerValue) = await GetCredentialAsync(context).ConfigureAwait(false);
 
         context.Request = context.Request with
@@ -96,6 +111,17 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
     /// </returns>
     protected abstract ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
         PipelineContext context);
+
+    // Not ServiceRequestException, so no retry policy re-drives it: the request was refused, not failed.
+    private void EnsureHttps(Uri url)
+    {
+        if (!string.Equals(url.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SdkException(
+                $"{GetType().Name} refused to attach a credential to a request over the '{url.Scheme}' scheme; " +
+                "credentials are only sent over https.");
+        }
+    }
 
     // Derives a canonical origin string: "<lower-scheme>://<lower-host>:<port>".
     // Port is always included — Uri.Port returns -1 for the default scheme port,

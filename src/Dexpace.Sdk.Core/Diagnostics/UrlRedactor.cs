@@ -6,32 +6,34 @@ using System.Text;
 namespace Dexpace.Sdk.Core.Diagnostics;
 
 /// <summary>
-/// Produces a log-safe string form of a <see cref="Uri"/> by stripping userinfo and
-/// replacing the values of known-sensitive query parameters with <c>REDACTED</c>.
+/// Produces a log-safe string form of a URL. Redaction is <strong>default-deny</strong>: every query-parameter value
+/// is replaced with <c>***</c> unless its name is on the allow-list.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Sensitive parameter names are matched case-insensitively. The default set covers the most
-/// common credential-bearing parameters; callers may supply a custom set instead.
-/// </para>
-/// <para>
-/// <strong>Redaction boundary:</strong>
+/// <strong>Redaction boundary</strong> (OBS-11–OBS-15, XCUT-19):
 /// <list type="bullet">
 ///   <item><description>
-///     <strong>Userinfo</strong> (the <c>user:password@</c> segment of an authority) is always
-///     removed.
+///     <strong>Userinfo</strong> (the <c>user:password@</c> segment of an authority) is always replaced with
+///     <c>***:***@</c>, whatever the allow-list says.
 ///   </description></item>
 ///   <item><description>
-///     <strong>Sensitive query-parameter values</strong> are replaced with <c>REDACTED</c>;
-///     names and non-sensitive parameters are preserved verbatim.
+///     <strong>Query-parameter values</strong> become <c>***</c> unless the parameter name, percent-decoded and
+///     compared case-insensitively, is allow-listed. The default allow-list is exactly <c>{api-version}</c>; an empty
+///     allow-list redacts every value. Names, the <c>=</c> separator, value-less parameters (<c>?flag</c>) and a
+///     present-but-empty query (a trailing <c>?</c>) are kept; a trailing <c>&amp;</c> is dropped.
 ///   </description></item>
 ///   <item><description>
-///     <strong>Fragment</strong> (the <c>#…</c> portion) is always dropped — fragments are
-///     client-side only and carry no information relevant to logging.
+///     <strong>Fragment</strong> <c>key=value</c> tokens are redacted under the same allow-list; a fragment with no
+///     <c>=</c> is kept verbatim.
 ///   </description></item>
 ///   <item><description>
-///     <strong>Path segments are preserved verbatim.</strong> Callers must not embed secrets
-///     inside the URL path; this class does not inspect or redact path components.
+///     <strong>Scheme, host, port and path are preserved verbatim</strong>, and nothing kept is re-encoded. Callers
+///     must not embed secrets inside the URL path; this class does not inspect or redact path components.
+///   </description></item>
+///   <item><description>
+///     Redaction never throws on its input: a URL that cannot be parsed yields the fixed sentinel
+///     <c>[malformed url]</c>.
 ///   </description></item>
 /// </list>
 /// </para>
@@ -39,151 +41,252 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 public sealed class UrlRedactor
 {
     /// <summary>
-    /// Default set of query parameter names whose values are redacted.
+    /// The default query-parameter allow-list: exactly <c>api-version</c> (OBS-12).
     /// </summary>
-    public static readonly IReadOnlyCollection<string> DefaultSensitiveParams =
-    [
-        "access_token",
-        "token",
-        "code",
-        "sig",
-        "signature",
-        "api_key",
-        "apikey",
-        "password",
-    ];
+    public static readonly IReadOnlyCollection<string> DefaultQueryAllowList = ["api-version"];
 
-    private readonly HashSet<string> _sensitiveParams;
+    private const string RedactedValue = "***";
+    private const string RedactedUserInfo = "***:***@";
+    private const string MalformedUrl = "[malformed url]";
+
+    private readonly HashSet<string> _allowList;
 
     /// <summary>
-    /// Initializes a <see cref="UrlRedactor"/> using <see cref="DefaultSensitiveParams"/>.
+    /// Initializes a <see cref="UrlRedactor"/> using <see cref="DefaultQueryAllowList"/>.
     /// </summary>
     public UrlRedactor()
-        : this(DefaultSensitiveParams)
+        : this(DefaultQueryAllowList)
     {
     }
 
     /// <summary>
-    /// Initializes a <see cref="UrlRedactor"/> with a caller-supplied set of sensitive
-    /// parameter names (case-insensitive).
+    /// Initializes a <see cref="UrlRedactor"/> with a caller-supplied query-parameter allow-list (case-insensitive).
     /// </summary>
-    /// <param name="sensitiveParams">
-    /// The query parameter names whose values should be replaced with <c>REDACTED</c>.
+    /// <param name="queryAllowList">
+    /// The query-parameter names whose values are logged verbatim. Every other value is replaced with <c>***</c>;
+    /// an empty collection redacts every value.
     /// </param>
-    public UrlRedactor(IEnumerable<string> sensitiveParams)
+    public UrlRedactor(IEnumerable<string> queryAllowList)
     {
-        ArgumentNullException.ThrowIfNull(sensitiveParams);
-        _sensitiveParams = new HashSet<string>(sensitiveParams, StringComparer.OrdinalIgnoreCase);
+        ArgumentNullException.ThrowIfNull(queryAllowList);
+        _allowList = new HashSet<string>(queryAllowList, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Returns a log-safe representation of <paramref name="uri"/>: userinfo is always stripped;
-    /// sensitive query parameter values are replaced with <c>REDACTED</c>; the fragment is
-    /// dropped. For non-absolute URIs the method operates on <see cref="Uri.OriginalString"/>
-    /// and never throws.
+    /// Returns a log-safe representation of <paramref name="uri"/>, built from its original text. Relative and
+    /// absolute URIs are both accepted.
     /// </summary>
     /// <param name="uri">The URI to redact. May be relative or absolute.</param>
-    /// <returns>A safe string representation.</returns>
+    /// <returns>The redacted URL, or <c>[malformed url]</c> if it cannot be redacted.</returns>
     public string Redact(Uri uri)
     {
         ArgumentNullException.ThrowIfNull(uri);
 
-        if (uri.IsAbsoluteUri)
+        // OBS-15: total. Nothing below is expected to throw; this is the backstop that keeps a logging call from
+        // ever breaking the request it describes.
+#pragma warning disable CA1031 // A redaction failure must yield the sentinel, never an exception (OBS-15, XCUT-20).
+        try
         {
-            return RedactAbsolute(uri);
+            return RedactParsed(uri);
         }
-
-        return RedactRelative(uri.OriginalString);
+        catch (Exception)
+        {
+            return MalformedUrl;
+        }
+#pragma warning restore CA1031
     }
 
-    // Handles fully-qualified URIs where Uri properties are safe to access.
-    private string RedactAbsolute(Uri uri)
+    /// <summary>
+    /// Returns a log-safe representation of the URL text <paramref name="url"/>, relative or absolute.
+    /// </summary>
+    /// <param name="url">The URL text to redact.</param>
+    /// <returns>
+    /// The redacted URL, or <c>[malformed url]</c> when <paramref name="url"/> is not a well-formed URI reference
+    /// (for example, it contains whitespace or control characters, or its authority does not parse).
+    /// </returns>
+    public string Redact(string url)
     {
-        var query = uri.Query;
+        ArgumentNullException.ThrowIfNull(url);
 
-        // Build the base URL without userinfo and without the query string.
-        var builder = new UriBuilder(uri)
+        if (!IsVerbatimSafe(url) || !Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out var parsed))
         {
-            UserName = string.Empty,
-            Password = string.Empty,
-            Query = string.Empty,
-            Fragment = string.Empty,
-        };
-        var baseUrl = builder.Uri.GetLeftPart(UriPartial.Path);
-
-        if (string.IsNullOrEmpty(query))
-        {
-            return baseUrl;
+            return MalformedUrl;
         }
 
-        var redactedQuery = RedactQuery(query);
-        return redactedQuery.Length == 0 ? baseUrl : $"{baseUrl}?{redactedQuery}";
+        return Redact(parsed);
     }
 
-    // Handles relative URI references by operating on the raw string directly.
-    // Relative references have no userinfo, so only fragment dropping and query redaction apply.
-    private string RedactRelative(string originalString)
+    private string RedactParsed(Uri uri)
     {
-        // Drop the fragment first (everything from the first '#').
-        var fragmentIndex = originalString.IndexOf('#', StringComparison.Ordinal);
-        var withoutFragment = fragmentIndex >= 0
-            ? originalString[..fragmentIndex]
-            : originalString;
-
-        // Split path from query on the first '?'.
-        var queryIndex = withoutFragment.IndexOf('?', StringComparison.Ordinal);
-        if (queryIndex < 0)
+        var original = uri.OriginalString;
+        if (IsVerbatimSafe(original))
         {
-            // No query string — return path as-is (fragment already dropped).
-            return withoutFragment;
-        }
+            var redacted = RedactText(original, out var maskedUserInfo);
 
-        var path = withoutFragment[..queryIndex];
-        var query = withoutFragment[queryIndex..]; // includes the leading '?'
-
-        var redactedQuery = RedactQuery(query);
-        return redactedQuery.Length == 0 ? path : $"{path}?{redactedQuery}";
-    }
-
-    // Redacts sensitive parameter values in a raw query string (with or without a leading '?').
-    // Returns the redacted query string without the leading '?', or an empty string if there are
-    // no key=value pairs after redaction.
-    private string RedactQuery(string query)
-    {
-        var sb = new StringBuilder();
-        foreach (var (key, value) in ParseQueryParams(query))
-        {
-            if (sb.Length > 0)
+            // Defence in depth: should System.Uri ever report authority userinfo that the text scan did not find, the
+            // parsed form below decides. No input reaching this branch is known to do so.
+            if (maskedUserInfo || !HasAuthorityUserInfo(uri))
             {
-                sb.Append('&');
+                return redacted;
+            }
+        }
+
+        // System.Uri parsed something other than the original text (it trims surrounding whitespace, drops tabs and
+        // turns '\' into '/'), so the text cannot be trusted to locate the userinfo or the query. Its canonical form
+        // can; for a relative reference there is none.
+        if (!uri.IsAbsoluteUri)
+        {
+            return MalformedUrl;
+        }
+
+        // Fail closed when the text has a query but the canonical form does not: for schemes System.Uri gives no
+        // query (ftp, news, nntp, gopher, telnet, uuid) it escapes '?' to "%3F", and the value would pass unredacted.
+        var absolute = uri.AbsoluteUri;
+        if (HasQueryDelimiter(original) && !HasQueryDelimiter(absolute))
+        {
+            return MalformedUrl;
+        }
+
+        var canonical = RedactText(absolute, out var masked);
+        return masked || !HasAuthorityUserInfo(uri) ? canonical : MalformedUrl;
+    }
+
+    // A '?' before the first '#': the query delimiter. One inside the fragment is not (OBS-14).
+    private static bool HasQueryDelimiter(string text)
+    {
+        var hash = text.IndexOf('#', StringComparison.Ordinal);
+        var question = text.IndexOf('?', StringComparison.Ordinal);
+        return question >= 0 && (hash < 0 || question < hash);
+    }
+
+    // Userinfo inside a "//" authority. Uri also reports a mailto: local part as UserInfo, which is an address, not a
+    // credential, and is kept as the opaque part it is.
+    private static bool HasAuthorityUserInfo(Uri uri) =>
+        uri.IsAbsoluteUri && uri.UserInfo.Length > 0 && AuthorityStart(uri.AbsoluteUri) >= 0;
+
+    // RFC 3986 admits no whitespace, control character or backslash in a URI reference; System.Uri silently rewrites
+    // them, so text that holds one is not the text it parsed.
+    private static bool IsVerbatimSafe(string text)
+    {
+        foreach (var c in text)
+        {
+            if (c <= ' ' || c == '\u007F' || c == '\\')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Splits at the first '#', then at the first '?' before it, and rebuilds from the untouched pieces.
+    private string RedactText(string text, out bool maskedUserInfo)
+    {
+        var hash = text.IndexOf('#', StringComparison.Ordinal);
+        var head = hash < 0 ? text : text[..hash];
+        var fragment = hash < 0 ? null : text[(hash + 1)..];
+
+        var question = head.IndexOf('?', StringComparison.Ordinal);
+        var beforeQuery = question < 0 ? head : head[..question];
+        var query = question < 0 ? null : head[(question + 1)..];
+
+        var builder = new StringBuilder(text.Length + 16);
+        maskedUserInfo = AppendMaskingUserInfo(builder, beforeQuery);
+
+        if (query is not null)
+        {
+            builder.Append('?');
+            AppendRedactedPairs(builder, query);
+        }
+
+        if (fragment is not null)
+        {
+            builder.Append('#');
+            if (fragment.Contains('=', StringComparison.Ordinal))
+            {
+                AppendRedactedPairs(builder, fragment);
+            }
+            else
+            {
+                builder.Append(fragment);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    // Appends scheme, authority and path verbatim, except an authority's userinfo, which becomes "***:***@".
+    private static bool AppendMaskingUserInfo(StringBuilder builder, string beforeQuery)
+    {
+        var authorityStart = AuthorityStart(beforeQuery);
+        if (authorityStart >= 0)
+        {
+            var authorityEnd = beforeQuery.IndexOf('/', authorityStart);
+            if (authorityEnd < 0)
+            {
+                authorityEnd = beforeQuery.Length;
             }
 
-            var redactedValue = _sensitiveParams.Contains(key) ? "REDACTED" : value;
-            sb.Append(Uri.EscapeDataString(key));
-            sb.Append('=');
-            sb.Append(Uri.EscapeDataString(redactedValue));
+            // The last '@' of the authority: a stray '@' inside the userinfo hides nothing.
+            var at = beforeQuery.AsSpan(authorityStart, authorityEnd - authorityStart).LastIndexOf('@');
+            if (at >= 0)
+            {
+                builder.Append(beforeQuery, 0, authorityStart).Append(RedactedUserInfo);
+                builder.Append(beforeQuery, authorityStart + at + 1, beforeQuery.Length - authorityStart - at - 1);
+                return true;
+            }
         }
 
-        return sb.ToString();
+        builder.Append(beforeQuery);
+        return false;
     }
 
-    private static IEnumerable<(string Key, string Value)> ParseQueryParams(string query)
+    // The index just past the "//" that opens an authority ("scheme://" or a network-path "//"), or -1.
+    private static int AuthorityStart(string text)
     {
-        var raw = query.TrimStart('?');
-        foreach (var part in raw.Split('&'))
+        if (text.StartsWith("//", StringComparison.Ordinal))
         {
-            var eq = part.IndexOf('=', StringComparison.Ordinal);
+            return 2;
+        }
 
-            // Valueless params (e.g. "?flag") are intentionally skipped — a bare key
-            // carries no value that could leak a secret.
-            if (eq < 0)
+        if (text.Length == 0 || !char.IsAsciiLetter(text[0]))
+        {
+            return -1;
+        }
+
+        var i = 1;
+        while (i < text.Length && (char.IsAsciiLetterOrDigit(text[i]) || text[i] is '+' or '-' or '.'))
+        {
+            i++;
+        }
+
+        return string.CompareOrdinal(text, i, "://", 0, 3) == 0 ? i + 3 : -1;
+    }
+
+    // Rewrites each "name=value" token as "name=***" unless the name is allow-listed; bare tokens are kept. A trailing
+    // empty token (a final '&') is dropped (OBS-14).
+    private void AppendRedactedPairs(StringBuilder builder, string pairs)
+    {
+        var tokens = pairs.Split('&');
+        var count = tokens.Length > 1 && tokens[^1].Length == 0 ? tokens.Length - 1 : tokens.Length;
+
+        for (var i = 0; i < count; i++)
+        {
+            if (i > 0)
             {
-                continue;
+                builder.Append('&');
             }
 
-            yield return (
-                Uri.UnescapeDataString(part[..eq]),
-                Uri.UnescapeDataString(part[(eq + 1)..]));
+            var token = tokens[i];
+            var eq = token.IndexOf('=', StringComparison.Ordinal);
+            if (eq < 0 || _allowList.Contains(Uri.UnescapeDataString(token[..eq])))
+            {
+                builder.Append(token);
+            }
+            else
+            {
+                builder.Append(token, 0, eq + 1).Append(RedactedValue);
+            }
         }
     }
 }
