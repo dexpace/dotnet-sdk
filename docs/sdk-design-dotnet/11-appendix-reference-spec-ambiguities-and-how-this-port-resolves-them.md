@@ -204,3 +204,17 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     OpenTelemetry and the .NET runtime's own `System.Net.Http` meter (verified: same names, unit `s`). Because the
     reference transport's meter emits the same names, the documentation tells consumers to enable one meter or the
     other; the SDK keeps the names on its `Dexpace.Sdk` meter because core is transport-agnostic.
+39. **HTTP-46 says "body by value", but a single-use stream has no value.** *Added by dated correction, 2026-10-02
+    (phase 2a, P2a-1).* **HTTP-46** asks request equality to compare the body "by value", yet a stream body can only
+    be read once and reading it destroys it, and the requirement's own rationale forbids blocking work in `Equals`.
+    *Resolved* (§4.2): equality is by value where the bytes are a construction-time fact and by identity where they are
+    not. The in-memory variant behind `FromBytes`, `FromString`, `FromValue<T>` and `ToReplayableAsync()` compares
+    content type and bytes (`SequenceEqual`), and its hash covers only the content type and length, so hashing stays
+    O(1); the single-use stream variant and any unknown `RequestBody` subclass keep reference equality, and a body
+    equals itself. `RequestBody`'s remarks state the rule so later body variants inherit it. A reading of the clause,
+    not a departure from it.
+40. **HTTP-48 admits obs-text in an `ETag`, and HTTP-18 forbids it in an outbound header value.** *Added by dated
+    correction, 2026-10-02 (phase 2a, P2a-3).* `etagc` includes obs-text (`0x80`–`0xFF`), so `ETag.Strong("é")` is valid,
+    but `Headers.Set` enforces **HTTP-18**'s outbound ASCII rule. *Resolved* (§4.4): the outbound rule wins. The tag
+    parses and constructs, and `RequestConditions.ApplyTo` throws `ArgumentException` (naming the code point, never the
+    value) when asked to send it. The chapters do not address the interaction.

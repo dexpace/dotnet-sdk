@@ -101,6 +101,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `docs/sdk-documentation/http.md`; architecture tests pinning `HTTP-1`, `HTTP-2`, `HTTP-5` and `SEAM-29`.
 - `ETag`, `HttpRange` and `RequestConditions` (`HTTP-48`–`HTTP-50`).
 - `HttpHeaderSyntax` — the public header-syntax predicates transports re-check with (`HTTP-17`–`HTTP-20`); typed
   `HttpHeaderName` overloads; six `HttpHeaderName.WellKnown` names; the adapter sends custom header names in their

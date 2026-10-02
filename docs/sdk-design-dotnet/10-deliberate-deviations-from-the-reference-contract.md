@@ -257,6 +257,22 @@ two departures from it are recorded here because the `docs/styleguide/README.md`
     conformed and no longer a departure. The entry now records `CA1062` alone, whose reasoning is unchanged. The
     entry keeps its number and the text above stands as written (§9.4 carries the matching correction).
 
+**Correction (2026-10-02): phase 2a adds entries 29 and 30.** Both were ruled or recorded during the domain-model
+rework (the [phase 2a design](../work/mvp/phase2/phase2a/2026-09-29-phase2a-domain-model-design.md), rulings of 2026-09-30).
+Entries 1–28 stand as written.
+
+29. **A URL error carries the redacted input, not the verbatim one.** *Touches* **HTTP-47** (a SHOULD), **OBS-11**,
+    **XCUT-19**. *Judged* (P10): **HTTP-47** asks for an argument error "carrying the offending input", and the
+    verbatim form would put a userinfo password or a query token into an exception message that is logged and
+    surfaced. `Request.Create` and the constructor therefore pass the input through `UrlRedactor` (one shared internal
+    instance): `ftp://h/x`, `::bad` and `/rel` carry no userinfo or query and redact to themselves, so the message still
+    names them, while `https://user:secret@h:bad/` becomes `[malformed url]`. Log and secret hygiene outranks the letter
+    of a SHOULD. §4.2.
+30. **An absent response body is an empty, replayable buffered body.** *Touches* **HTTP-6** (its "optional body").
+    *Mechanism*, not a departure: the body is optional at construction and never `null` on read, so a consumer never
+    branches on a missing body, and reading it twice yields empty both times. The as-built default was already a
+    non-null empty body; phase 2a made it replayable. §4.2.
+
 Three things that are deliberately **not** deviations, recorded because a reader may expect them. The fixed-buffer
 encode profile of **SERDE-4** is met, not bent: core derives `Serialize<T>(ISerde, Span<byte>, T)` from the
 `IBufferWriter<byte>` primitive, the caller expresses the offset as `buffer.AsSpan(offset)`, the count is returned,
