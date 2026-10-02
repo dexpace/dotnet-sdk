@@ -126,7 +126,7 @@ public sealed class ReDriveRequestIsolationTests
 
         public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
         {
-            context.Request = context.Request with { Headers = context.Request.Headers.Set("X-Attempt-Marker", "set") };
+            context.Request = context.Request.WithHeaders(context.Request.Headers.Set("X-Attempt-Marker", "set"));
             return continuation.RunAsync(context);
         }
     }

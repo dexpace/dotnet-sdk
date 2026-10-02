@@ -109,6 +109,14 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             // REDIR-12: server-supplied credentials in the target are never used.
             newUrl = WithoutUserInfo(newUrl);
 
+            // A hop must be http(s): a Location such as ftp: or mailto: cannot become a Request (HTTP-47), so the 3xx
+            // is returned unfollowed, as for a malformed Location (REDIR-18), before the response is disposed.
+            if (!newUrl.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                && !newUrl.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             // HTTPS → HTTP downgrade guard.
             if (request.Url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
                 && newUrl.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
@@ -159,13 +167,9 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             await response.DisposeAsync().ConfigureAwait(false);
             context.Response = null;
 
-            request = request with
-            {
-                Url = newUrl,
-                Method = newMethod,
-                Headers = newHeaders,
-                Body = dropBody ? null : request.Body,
-            };
+            // One constructor call, never a With* chain: WithMethod(Method.Get) before the body is cleared would throw
+            // (HTTP-7) on a 303 or a 301/302-on-POST.
+            request = new Http.Request.Request(newMethod, newUrl, newHeaders, dropBody ? null : request.Body);
 
             redirectCount++;
         }

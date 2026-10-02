@@ -19,6 +19,17 @@ namespace Dexpace.Sdk.Core.Http.Request;
 /// stream-backed bodies are single-use and raise <see cref="StreamConsumedException"/> on a
 /// second write. Call <see cref="ToReplayableAsync"/> before the first send if retries are
 /// needed. Use the static factories rather than subclassing for the common cases.
+/// <para>
+/// <b>Equality contract (HTTP-46; position A).</b> <see cref="RequestBody"/> itself keeps reference equality, because
+/// it is open and a subclass the SDK knows nothing about gets the only safe default. The in-memory variant behind
+/// <see cref="FromBytes"/>, <see cref="FromString"/>, <see cref="FromValue{T}"/> and <see cref="ToReplayableAsync"/>
+/// overrides <c>Equals</c> and <c>GetHashCode</c>: two such bodies are equal when their <see cref="ContentType"/>
+/// values are equal and their bytes are equal, and the hash covers only the content type and length, so hashing stays
+/// O(1). The single-use stream variant behind <see cref="FromStream"/> keeps identity: two bodies over two streams are
+/// two values, and a body equals itself. A body whose bytes are a construction-time fact compares by value; one over a
+/// live source compares by identity. Every body variant added later (file, form-urlencoded, multipart, logging
+/// wrappers) follows the same rule.
+/// </para>
 /// </remarks>
 public abstract class RequestBody
 {
@@ -131,6 +142,18 @@ public abstract class RequestBody
             ArgumentNullException.ThrowIfNull(destination);
             return destination.WriteAsync(bytes, cancellationToken).AsTask();
         }
+
+        // HTTP-46: same variant, equal content types, equal bytes. The hash excludes the bytes (equal bytes have equal
+        // lengths), so hashing a large payload is O(1) and the O(n) comparison runs only when type and length match.
+        public override bool Equals(object? obj) =>
+            ReferenceEquals(this, obj)
+            || (obj is BytesRequestBody other
+                && Equals(ContentType, other.ContentType)
+                && bytes.AsSpan().SequenceEqual(other.Bytes));
+
+        public override int GetHashCode() => HashCode.Combine(ContentType, bytes.LongLength);
+
+        private byte[] Bytes => bytes;
     }
 
     private sealed class StreamRequestBody(Stream source, MediaType? contentType, long contentLength) : RequestBody

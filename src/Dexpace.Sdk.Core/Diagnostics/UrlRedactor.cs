@@ -52,6 +52,12 @@ public sealed class UrlRedactor
     private readonly HashSet<string> _allowList;
 
     /// <summary>
+    /// The shared default-allow-list instance the model uses for <c>Request.ToString()</c> and URL error messages
+    /// (HTTP-47). <see cref="Redact(Uri)"/> is an instance method, so one internal instance serves them all.
+    /// </summary>
+    internal static UrlRedactor Default { get; } = new();
+
+    /// <summary>
     /// Initializes a <see cref="UrlRedactor"/> using <see cref="DefaultQueryAllowList"/>.
     /// </summary>
     public UrlRedactor()

@@ -62,10 +62,8 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
                 context.SetProperty(PropertyKey, key);
             }
 
-            context.Request = context.Request with
-            {
-                Headers = context.Request.Headers.Set(HttpHeaderName.WellKnown.IdempotencyKey, key)
-            };
+            context.Request = context.Request.WithHeaders(
+                context.Request.Headers.Set(HttpHeaderName.WellKnown.IdempotencyKey, key));
         }
 
         await continuation.RunAsync(context).ConfigureAwait(false);

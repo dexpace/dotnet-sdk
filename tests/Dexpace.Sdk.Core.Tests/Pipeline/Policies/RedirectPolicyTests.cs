@@ -84,6 +84,71 @@ public sealed class RedirectPolicyTests
     }
 
     // -------------------------------------------------------------------------
+    // Phase 2a (HTTP-7): the hop is built through Request's validating constructor
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_303_on_a_POST_with_a_body_follows_as_a_bodiless_GET()
+    {
+        // Pin through the new constructor: the hop is one new Request(...), so the body is cleared with the method.
+        const string RedirectUrl = "https://api.example.com/v2/items";
+        var transport = new ScriptedTransport([TestResponses.Redirect(303, RedirectUrl), new Response(Status.Ok)]);
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
+        var post = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(new byte[] { 1, 2, 3 }));
+
+        var result = await pipeline.SendAsync(post, MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, result.Status);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Equal(Method.Get, transport.Requests[1].Method);
+        Assert.Null(transport.Requests[1].Body);
+    }
+
+    [Theory]
+    [InlineData("ftp://files.example.com/x")]
+    [InlineData("mailto:ops@example.com")]
+    [InlineData("file:///etc/passwd")]
+    public async Task A_Location_that_is_not_http_or_https_returns_the_3xx_unfollowed(string location)
+    {
+        var tracking = new DisposalTrackingBody();
+        var redirect = new Response(
+            Status.FromCode(302),
+            new Headers.Builder().Set("Location", location).Build(),
+            tracking);
+        var transport = new ScriptedTransport([redirect]);
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
+
+        var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Same(redirect, result);
+        Assert.Equal(302, result.Status.Code);
+        Assert.False(tracking.Disposed);
+    }
+
+    private sealed class DisposalTrackingBody : ResponseBody
+    {
+        public bool Disposed { get; private set; }
+
+        public override MediaType? ContentType => null;
+
+        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<Stream>(new MemoryStream());
+
+        public override void Dispose()
+        {
+            Disposed = true;
+            base.Dispose();
+        }
+
+        public override ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return base.DisposeAsync();
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 307 preserves method and body
     // -------------------------------------------------------------------------
 

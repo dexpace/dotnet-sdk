@@ -133,10 +133,7 @@ public sealed class DexpacePipelineTests
 
         public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
         {
-            context.Request = context.Request with
-            {
-                Headers = context.Request.Headers.Set(header, value),
-            };
+            context.Request = context.Request.WithHeaders(context.Request.Headers.Set(header, value));
             await continuation.RunAsync(context).ConfigureAwait(false);
         }
     }

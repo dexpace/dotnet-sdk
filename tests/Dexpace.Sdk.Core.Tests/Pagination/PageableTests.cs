@@ -39,7 +39,7 @@ public class PageableTests
 
     // nextRequest: advance to the next URL when HasNext is true.
     private static Request? NextRequest(TestPage page, Response _, Request current) =>
-        page.HasNext ? current with { Url = new Uri(current.Url + "/next") } : null;
+        page.HasNext ? current.WithUrl(new Uri(current.Url + "/next")) : null;
 
     // Convenience: create a pageable over TestPage with int items.
     private static AsyncPageable<int> MakePageable(

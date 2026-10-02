@@ -121,11 +121,7 @@ public sealed class IdempotencyPolicyTests
 
         var requestWithKey = Request.Post(
             "https://api.example.com/v1/items",
-            RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty))
-        with
-        {
-            Headers = Headers.Empty.Set("Idempotency-Key", "caller-supplied-key")
-        };
+            RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty)).WithHeaders(Headers.Empty.Set("Idempotency-Key", "caller-supplied-key"));
 
         await pipeline.SendAsync(requestWithKey, MakeOptions(), TestContext.Current.CancellationToken);
 

@@ -84,10 +84,7 @@ public sealed class BearerTokenAuthPolicyTests
     public async Task ProcessAsync_ReplacesExistingAuthorizationHeader()
     {
         var credential = new FakeTokenCredential("fresh-token");
-        var request = MakeRequest() with
-        {
-            Headers = Headers.Empty.Set("Authorization", "Bearer old-token")
-        };
+        var request = MakeRequest().WithHeaders(Headers.Empty.Set("Authorization", "Bearer old-token"));
 
         var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
@@ -174,10 +171,7 @@ public sealed class BearerTokenAuthPolicyTests
         Assert.Equal("Bearer secret-bearer", context.Request.Headers.Get("Authorization"));
 
         // Simulate cross-origin redirect.
-        context.Request = MakeRequest("https://other-service.example.org/callback") with
-        {
-            Headers = Headers.Empty
-        };
+        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty);
 
         var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
@@ -201,7 +195,7 @@ public sealed class BearerTokenAuthPolicyTests
         await policy.ProcessAsync(context, runner);
         Assert.Equal("Bearer retry-bearer", context.Request.Headers.Get("Authorization"));
 
-        context.Request = context.Request with { Headers = Headers.Empty };
+        context.Request = context.Request.WithHeaders(Headers.Empty);
 
         // Same origin retry: must stamp again.
         await policy.ProcessAsync(context, runner);
@@ -230,10 +224,7 @@ public sealed class BearerTokenAuthPolicyTests
         var callCountAfterFirstRun = credential.CallCount;
 
         // Simulate a cross-origin redirect with the stale Authorization header still in place.
-        context.Request = MakeRequest("https://other-service.example.org/callback") with
-        {
-            Headers = Headers.Empty.Set("Authorization", "Bearer secret-bearer")
-        };
+        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("Authorization", "Bearer secret-bearer"));
 
         var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);

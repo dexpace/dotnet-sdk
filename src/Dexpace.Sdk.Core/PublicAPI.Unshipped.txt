@@ -210,18 +210,18 @@ Dexpace.Sdk.Core.Http.Request.Query.ToBuilder() -> Dexpace.Sdk.Core.Http.Request
 Dexpace.Sdk.Core.Http.Request.Request
 Dexpace.Sdk.Core.Http.Request.Request.<Clone>$() -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.Request.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
-Dexpace.Sdk.Core.Http.Request.Request.Body.init -> void
 Dexpace.Sdk.Core.Http.Request.Request.Equals(Dexpace.Sdk.Core.Http.Request.Request? other) -> bool
 Dexpace.Sdk.Core.Http.Request.Request.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
-Dexpace.Sdk.Core.Http.Request.Request.Headers.init -> void
 Dexpace.Sdk.Core.Http.Request.Request.Method.get -> Dexpace.Sdk.Core.Http.Common.Method!
-Dexpace.Sdk.Core.Http.Request.Request.Method.init -> void
 Dexpace.Sdk.Core.Http.Request.Request.Request(Dexpace.Sdk.Core.Http.Common.Method! method, System.Uri! url, Dexpace.Sdk.Core.Http.Common.Headers? headers = null, Dexpace.Sdk.Core.Http.Request.RequestBody? body = null) -> void
 Dexpace.Sdk.Core.Http.Request.Request.Url.get -> System.Uri!
-Dexpace.Sdk.Core.Http.Request.Request.Url.init -> void
 Dexpace.Sdk.Core.Http.Request.Request.WithBody(Dexpace.Sdk.Core.Http.Request.RequestBody! body) -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.Request.WithHeader(Dexpace.Sdk.Core.Http.Common.HttpHeaderName! name, string! value) -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.Request.WithHeader(string! name, string! value) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Request.Request.WithHeaders(Dexpace.Sdk.Core.Http.Common.Headers! headers) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Request.Request.WithMethod(Dexpace.Sdk.Core.Http.Common.Method! method) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Request.Request.WithUrl(System.Uri! url) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Request.Request.WithoutBody() -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.RequestBody
 Dexpace.Sdk.Core.Http.Request.RequestBody.RequestBody() -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions
