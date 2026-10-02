@@ -30,7 +30,7 @@
 - Provider resolution precedence is: explicit install always wins; else auto-discover; zero discoverable candidates yields a descriptive install-hint error; more than one yields an error listing all candidates; exactly one is selected silently (SEAM-5, restated as XCUT-23).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:692-695` · high · sha:da6000c93fc5</sub>
 - Explicit install is idempotent for the same instance and a hard failure for a different one (SEAM-6); a successful auto-resolution is cached process-wide while an unresolved state stays re-evaluable (SEAM-7); replacing an already-handed-out auto-resolved provider is a warning (SEAM-8); reads see the latest install without blocking and writes are serialised (SEAM-9).
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:696-699` · high · sha:da6000c93fc5</sub>
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:695-699` · high · sha:da6000c93fc5</sub>
 - Dexpace.Sdk.Extensions.DependencyInjection validates at ValidateOnStart that each configured client resolves exactly one IAsyncHttpClient and one ISerde, failing with a message listing every registered implementation type when several exist and with an install hint naming the Use.../Add... call when there is none, because IServiceCollection accepts several registrations and GetService silently returns the last.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:714-719` · high · sha:da6000c93fc5</sub>
 - A transport or codec is never activated by mere presence, because "whatever happens to be installed silently wins" is an auditability failure.
@@ -50,7 +50,7 @@
 - SEAM-7's caching is the container's singleton lifetime and its re-evaluable clause is inapplicable because a built container gains no registrations; SEAM-8's warning is moot because an auto-resolved provider never exists; SEAM-9's single-construction guarantee is the container's singleton behaviour; SEAM-10's de-duplication across loaders is vacuous per design section 2.4.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:721-725` · high · sha:da6000c93fc5</sub>
 - The branch-by-branch SEAM-5..SEAM-10 mappings are recorded as section 10 entry 9 because SEAM-5's letter (auto-discovery from a classpath/plugin registry) names a step the port deliberately does not take.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:725-727` · high · sha:da6000c93fc5</sub>
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:724-727` · high · sha:da6000c93fc5</sub>
 
 ## Reference
 - The core depends on a small enumerated set of interfaces it never implements, namely a byte-stream provider, a synchronous transport, an asynchronous transport, a wire codec, and an operation-input projection (SEAM-2).

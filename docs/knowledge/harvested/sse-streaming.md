@@ -1,6 +1,10 @@
 # sse-streaming
 
 ## Rules
+- A port aiming for parity with the SSE subsystem MUST replicate its deliberate deviations from strict WHATWG (comment exposure, permissive dispatch, EOF partial-dispatch), or offer a strict-WHATWG mode.
+  <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:5-5` · high · sha:dd401a407f5d</sub>
+- SSE-1 (MUST) The stream MUST be parsed line by line, with a blank line as the event-dispatch boundary where accumulated fields collapse into exactly one event and fresh per-event accumulators govern the next block (e.g. `id: 1\ndata: a\n\ndata: b\n\n` yields a second event whose id is absent).
+  <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:9-9` · high · sha:dd401a407f5d</sub>
 - SSE-2 (MUST) Line termination MUST recognize LF, CR, and CRLF, treating CRLF as a single terminator with terminators stripped, and a lone CR terminates a line by itself.
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:10-10` · high · sha:dd401a407f5d</sub>
 - SSE-3 (MUST) A non-comment line MUST be split at its first colon into field name and value; with no colon the whole line is the field name with empty value, and a trailing colon yields an empty value; an unrecognized field with no colon dispatches no event.
@@ -55,8 +59,6 @@
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:48-48` · high · sha:dd401a407f5d</sub>
 - SSE-27 (MUST) After close, requesting an iterator MUST fail loudly and an in-flight iterator MUST observe the closed state and end cleanly on its next pull, with neither reading from the torn-down resource.
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:49-49` · high · sha:dd401a407f5d</sub>
-- A port aiming for parity with the SSE subsystem MUST replicate its deliberate deviations from strict WHATWG (comment exposure, permissive dispatch, EOF partial-dispatch), or offer a strict-WHATWG mode.
-  <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:5-5` · high · sha:dd401a407f5d</sub>
 - SSE-28 (MUST) `close()` MUST be idempotent, with only the first call propagating to the owned resource, and this MUST hold even after an automatic release on a terminal or failure path.
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:50-50` · high · sha:dd401a407f5d</sub>
 - SSE-29 (MUST) A mid-stream reader failure MUST release the resource before the error propagates, and if releasing itself fails while an error is in flight the release failure MUST be attached to the primary error as a suppressed/secondary throwable.
@@ -89,8 +91,6 @@
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:69-69` · high · sha:dd401a407f5d</sub>
 - SSE-41 (SHOULD) A port SHOULD apply its own runtime's fatal/non-fatal exception split and document source ownership.
   <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:69-69` · high · sha:dd401a407f5d</sub>
-- SSE-1 (MUST) The stream MUST be parsed line by line, with a blank line as the event-dispatch boundary where accumulated fields collapse into exactly one event and fresh per-event accumulators govern the next block (e.g. `id: 1\ndata: a\n\ndata: b\n\n` yields a second event whose id is absent).
-  <sub>spec · `docs/product-spec/13-server-sent-events-and-streaming.md:9-9` · high · sha:dd401a407f5d</sub>
 - SSE-1: a blank line dispatches an event and each block starts with fresh accumulators.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:20-20` · high · sha:0451cc7f3bb4</sub>
 - SSE-2: LF, CR and CRLF are all accepted as line terminators.
@@ -174,7 +174,7 @@
 - The SSE parser is non-thread-safe by contract (SSE-18) and never owns or disposes the stream it reads (SSE-17).
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:208-209` · high · sha:68af5c6bf0ea</sub>
 - ServerSentEvent overrides Equals/GetHashCode to compare Data element-wise (SSE-21).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:216-216` · high · sha:68af5c6bf0ea</sub>
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:213-216` · high · sha:68af5c6bf0ea</sub>
 - SSE-20's defensive copy lives in the Data property's init accessor, which copies into a private array, so neither the constructor argument nor a `with { Data = list }` expression can alias a mutable list, while a `with` that leaves Data alone shares the already-immutable array.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:216-219` · high · sha:68af5c6bf0ea</sub>
 - ServerSentEvent.IsEmpty (SSE-22) is true only when all five fields are null, so a comment-only keep-alive is non-empty.
@@ -228,7 +228,7 @@
 - System.IO.Pipelines is in the shared framework from .NET 9 but only a NuGet package on .NET 8 (present in the 9.0.18 and 10.0.12 runtimes, absent from the 8.0.31 reference pack), so core cannot use PipeReader before the floor rises (sections 2.4, 9.2).
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:191-193` · high · sha:68af5c6bf0ea</sub>
 - A C# record's synthesized Equals compares collection members by reference (two records wrapping equal int[] contents compare unequal), as do ImmutableArray<T> and ReadOnlyCollection<T>, so SSE-21's structural equality is not free.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:215-216` · high · sha:68af5c6bf0ea</sub>
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:213-216` · high · sha:68af5c6bf0ea</sub>
 - Because the webhook verifier takes an ISerde for its Unwrap<T> convenience, it must stay outside the SSE and paging engines' serde boundary (SSE-37).
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:409-410` · high · sha:68af5c6bf0ea</sub>
 

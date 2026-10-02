@@ -9,6 +9,14 @@
 ## Conclusions
 
 ## Reference
+- An adapter unit (pay-for-what-you-use module) is a separately installable unit supplying one concrete capability by depending on the core plus at most one third-party library, keeping its public surface minimal, so consumers compose only the units they need.
+  <sub>spec · `docs/product-spec/appendix-a-glossary.md:3-3` · high · sha:f0b3d2058626</sub>
+- The aggregate coverage floor is a minimum line-coverage percentage computed across all library units combined (not per-unit), excluding samples and test-support code, enforced by the default build.
+  <sub>spec · `docs/product-spec/appendix-a-glossary.md:5-5` · high · sha:f0b3d2058626</sub>
+- An auth challenge is a parsed RFC 7235 WWW-Authenticate / Proxy-Authenticate directive (a scheme plus a parameter map) a server returns on a 401/407 to indicate how a client may authenticate.
+  <sub>spec · `docs/product-spec/appendix-a-glossary.md:7-7` · high · sha:f0b3d2058626</sub>
+- Backpressure is flow control in which a consumer's demand governs how fast a producer is polled, and in this SDK the blocking source read is the backpressure mechanism for SSE (SSE-39).
+  <sub>spec · `docs/product-spec/appendix-a-glossary.md:9-9` · high · sha:f0b3d2058626</sub>
 - A BYO (bring-your-own) resource is a dependency (native HTTP client, executor, connection pool) the caller constructs and hands to the SDK, whose lifecycle the caller owns and the SDK never closes, in contrast to an SDK-managed resource the SDK created and must release on close.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:11-11` · high · sha:f0b3d2058626</sub>
 - The canonical completion future is the single dependency-free async value type carrying exactly one success value or one failure, serving as the interop pivot every ecosystem adapter bridges to and from (JVM reference: CompletableFuture).
@@ -29,8 +37,6 @@
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:27-27` · high · sha:f0b3d2058626</sub>
 - A drain-to-cap bounded map is a concurrent map whose caller/server-influenced keys are capped, drained in a loop after each insert back under a hard bound so it converges even under concurrent insert bursts, with an arbitrary eviction victim.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:29-29` · high · sha:f0b3d2058626</sub>
-- An adapter unit (pay-for-what-you-use module) is a separately installable unit supplying one concrete capability by depending on the core plus at most one third-party library, keeping its public surface minimal, so consumers compose only the units they need.
-  <sub>spec · `docs/product-spec/appendix-a-glossary.md:3-3` · high · sha:f0b3d2058626</sub>
 - An idempotent method is an HTTP method whose repetition has the same effect as a single invocation, and the SDK's idempotent set is {GET, HEAD, OPTIONS, PUT, DELETE}, used as the retry-safety gate for body-less requests.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:31-31` · high · sha:f0b3d2058626</sub>
 - The live tail is, on the SSE / body-preview exceeds-cap path, the still-open delegate source retained after the prefix was captured, carrying the un-buffered remainder and readable exactly once.
@@ -51,8 +57,6 @@
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:47-47` · high · sha:f0b3d2058626</sub>
 - A provider / seam is a narrow abstraction (SPI) the core depends on but never implements, behind which a concrete capability (I/O, transport, serde) plugs in.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:49-49` · high · sha:f0b3d2058626</sub>
-- The aggregate coverage floor is a minimum line-coverage percentage computed across all library units combined (not per-unit), excluding samples and test-support code, enforced by the default build.
-  <sub>spec · `docs/product-spec/appendix-a-glossary.md:5-5` · high · sha:f0b3d2058626</sub>
 - A quality gate is an automated, build-blocking check that fails the standard build when its condition is not met (coverage floor, API-snapshot drift, warnings, lint/static-analysis, shrink-survival, runtime-floor).
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:51-51` · high · sha:f0b3d2058626</sub>
 - The redaction policy is centralized scrubbing of secrets from anything logged, where URL userinfo is always removed, query/fragment values are removed unless allow-listed, header values are gated by an allow-list, and credential objects never reveal their secret.
@@ -73,12 +77,8 @@
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:67-67` · high · sha:f0b3d2058626</sub>
 - A TypeRef / type witness is an explicit runtime carrier of a target type (a raw class token or a full generic capture) passed into deserialization so a language with type erasure recovers the intended type.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:69-69` · high · sha:f0b3d2058626</sub>
-- An auth challenge is a parsed RFC 7235 WWW-Authenticate / Proxy-Authenticate directive (a scheme plus a parameter map) a server returns on a 401/407 to indicate how a client may authenticate.
-  <sub>spec · `docs/product-spec/appendix-a-glossary.md:7-7` · high · sha:f0b3d2058626</sub>
 - W3C Trace Context is the interoperable trace-correlation format the instrumentation context complies with, comprising trace id, span id, trace flags and trace state, with reserved all-zero invalid sentinels.
   <sub>spec · `docs/product-spec/appendix-a-glossary.md:71-71` · high · sha:f0b3d2058626</sub>
-- Backpressure is flow control in which a consumer's demand governs how fast a producer is polled, and in this SDK the blocking source read is the backpressure mechanism for SSE (SSE-39).
-  <sub>spec · `docs/product-spec/appendix-a-glossary.md:9-9` · high · sha:f0b3d2058626</sub>
 
 ## Conflicts
 

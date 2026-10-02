@@ -27,32 +27,6 @@
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:40-40` · high · sha:d6123be82c9e</sub>
 - A deep-equality helper comparing doubles through BitConverter.DoubleToInt64Bits ships when a model first carries an array.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:307-308` · high · sha:ddf8f695ff61</sub>
-- Construction-time completeness is forced with required and init members, not with multi-step setters.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:114-114` · high · sha:5b533a9851b7</sub>
-- required is paired with init-only accessors so members can be set in an object initializer but never reassigned, giving immutability and mandatory initialization without a hand-written constructor per field.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:118-118` · high · sha:5b533a9851b7</sub>
-- Small immutable values use readonly struct or readonly record struct; never a large mutable struct and never a public mutable struct field.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:132-132` · high · sha:5b533a9851b7</sub>
-- Structs are kept small and readonly; a large or mutable value is made a record class, and struct data is exposed through init-only properties rather than public mutable fields.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:136-136` · high · sha:5b533a9851b7</sub>
-- Code is reused by composing injected interfaces, never by inheriting a base class.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:149-149` · high · sha:5b533a9851b7</sub>
-- Reuse depends on a small interface named for its role, receives an implementation through the constructor, and delegates to it.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:152-152` · high · sha:5b533a9851b7</sub>
-- The only abstract or virtual members written belong to the closed hierarchy, which models a choice between cases and not a sharing of code.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:153-153` · high · sha:5b533a9851b7</sub>
-- Every enum has an explicit underlying type such as byte or int, so a serialized or interop value has a defined width that a reorder cannot shift.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:165-168` · high · sha:5b533a9851b7</sub>
-- A non-flags enum takes a singular noun name, such as OrderState or LogLevel.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
-- A [Flags] enum takes a plural noun name, such as FileAccessRights, and assigns explicit power-of-two values.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
-- Enum types and every enum member are named in PascalCase.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
-- When behaviour attaches to enum cases, such as scattered switches computing fees, handlers or labels, the enum is promoted to a closed hierarchy where each case carries its own data and behaviour lives with it or in one exhaustive switch.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:169-169` · high · sha:5b533a9851b7</sub>
-- Enums are reserved for a plain, behaviour-free tag.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:169-169` · high · sha:5b533a9851b7</sub>
 - Domain models are expressed as data and functions rather than an object hierarchy with behaviour woven through inheritance, so that illegal states are unrepresentable and the type checker rejects bad values before a test runs.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:3-3` · high · sha:5b533a9851b7</sub>
 - The only base class written is an abstract base that backs a closed discriminated-union hierarchy; records carry immutable data and closed hierarchies carry choice.
@@ -89,6 +63,32 @@
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:97-97` · high · sha:5b533a9851b7</sub>
 - When an invalid input is a caller bug, the parsing factory throws.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:97-97` · high · sha:5b533a9851b7</sub>
+- Construction-time completeness is forced with required and init members, not with multi-step setters.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:114-114` · high · sha:5b533a9851b7</sub>
+- required is paired with init-only accessors so members can be set in an object initializer but never reassigned, giving immutability and mandatory initialization without a hand-written constructor per field.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:118-118` · high · sha:5b533a9851b7</sub>
+- Small immutable values use readonly struct or readonly record struct; never a large mutable struct and never a public mutable struct field.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:132-132` · high · sha:5b533a9851b7</sub>
+- Structs are kept small and readonly; a large or mutable value is made a record class, and struct data is exposed through init-only properties rather than public mutable fields.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:136-136` · high · sha:5b533a9851b7</sub>
+- Code is reused by composing injected interfaces, never by inheriting a base class.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:149-149` · high · sha:5b533a9851b7</sub>
+- Reuse depends on a small interface named for its role, receives an implementation through the constructor, and delegates to it.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:152-152` · high · sha:5b533a9851b7</sub>
+- The only abstract or virtual members written belong to the closed hierarchy, which models a choice between cases and not a sharing of code.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:153-153` · high · sha:5b533a9851b7</sub>
+- Every enum has an explicit underlying type such as byte or int, so a serialized or interop value has a defined width that a reorder cannot shift.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:165-168` · high · sha:5b533a9851b7</sub>
+- A non-flags enum takes a singular noun name, such as OrderState or LogLevel.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
+- A [Flags] enum takes a plural noun name, such as FileAccessRights, and assigns explicit power-of-two values.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
+- Enum types and every enum member are named in PascalCase.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:168-168` · high · sha:5b533a9851b7</sub>
+- When behaviour attaches to enum cases, such as scattered switches computing fees, handlers or labels, the enum is promoted to a closed hierarchy where each case carries its own data and behaviour lives with it or in one exhaustive switch.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:169-169` · high · sha:5b533a9851b7</sub>
+- Enums are reserved for a plain, behaviour-free tag.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:169-169` · high · sha:5b533a9851b7</sub>
 - Model state as record types and readonly structs, group behaviour into static classes of pure methods and small interfaces, and reserve a stateful class for lifecycle resources that are opened and closed.
   <sub>styleguide · `docs/styleguide/csharp/README.md:59-59` · high · sha:1e6ba36fc337</sub>
 - Never use inheritance for code reuse: sealed is the default and the only base type written is an abstract closed hierarchy for a discriminated union.
@@ -107,28 +107,28 @@
   <sub>spec · `docs/product-spec/02-architectural-principles.md:12-12` · high · sha:8014d2ec2c9d</sub>
 - .NET's defaults are wrong for CFG-33 and CFG-34: records compare array members by reference (verified), and double.Equals (used by SequenceEqual) treats 0.0 and -0.0 as equal (verified) where CFG-34 requires them distinct, while its NaN-equals-NaN behaviour happens to match.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:304-308` · high · sha:ddf8f695ff61</sub>
-- A mutable struct copies on every assignment, argument pass and collection access, so a mutation lands on a copy and is lost, and a large struct copies many bytes on each of those, erasing the allocation win.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:136-136` · high · sha:5b533a9851b7</sub>
 - C# 14 does not prove a record or class hierarchy exhaustive because a record's implicit copy constructor means the compiler never treats the set as closed, so a switch with no _ arm raises CS8509; the closed modifier that fixes this natively is a C# 15 feature.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:75-75` · high · sha:5b533a9851b7</sub>
+- A mutable struct copies on every assignment, argument pass and collection access, so a mutation lands on a copy and is lost, and a large struct copies many bytes on each of those, erasing the allocation win.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:136-136` · high · sha:5b533a9851b7</sub>
 
 ## Conclusions
 - CFG-32's identifier is Guid.NewGuid(), a version-4 UUID (verified) drawn from the OS cryptographic generator, stronger than the non-cryptographic generator the requirement permits; XCUT-21's CSPRNG path is RandomNumberGenerator, kept separate as the specification insists.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:301-303` · high · sha:ddf8f695ff61</sub>
 - CFG-35 is satisfied by section 6.1's classifier; CFG-36's descriptor is SdkVersion plus RuntimeInformation.FrameworkDescription, with fallback "0.0.0" where the requirement says a non-blank "unknown".
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:308-310` · high · sha:ddf8f695ff61</sub>
-- required is used because a type built by new followed by setters is half-formed and invariant-violating between construction and the last setter, whereas the compiler refuses a construction expression that omits a required member.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:117-117` · high · sha:5b533a9851b7</sub>
-- The readonly modifier on a struct is preferred because it guarantees no member mutates this, lets the JIT skip defensive copies when passed by in, and signals the value is frozen.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:135-135` · high · sha:5b533a9851b7</sub>
-- Composition is chosen over inheritance because inheriting binds the subclass to the base's internals, protected surface and construction order, and that coupling tightens as the base grows.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:152-152` · high · sha:5b533a9851b7</sub>
 - Records are chosen for immutable data because they provide value equality, a readable ToString and with-expression copying for free, and because a value that cannot change cannot be altered by another thread or method.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:48-48` · high · sha:5b533a9851b7</sub>
 - Classes are sealed by default because an unsealed class invites inheritance for code reuse, which the guide rejects, and because sealing marks a leaf type and lets the JIT devirtualize calls.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:61-61` · high · sha:5b533a9851b7</sub>
 - A factory that consumes raw input and returns the proven domain type is preferred over a bool Validate because possessing the type is the proof of validity and the check lives in one place.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:96-97` · high · sha:5b533a9851b7</sub>
+- required is used because a type built by new followed by setters is half-formed and invariant-violating between construction and the last setter, whereas the compiler refuses a construction expression that omits a required member.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:117-117` · high · sha:5b533a9851b7</sub>
+- The readonly modifier on a struct is preferred because it guarantees no member mutates this, lets the JIT skip defensive copies when passed by in, and signals the value is frozen.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:135-135` · high · sha:5b533a9851b7</sub>
+- Composition is chosen over inheritance because inheriting binds the subclass to the base's internals, protected surface and construction order, and that coupling tightens as the base grows.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:152-152` · high · sha:5b533a9851b7</sub>
 
 ## Reference
 - HTTP-1 rationale is that the model is the shared boundary handed to concurrent transports and pipelines, and a mutable metadata surface would race; conformance is to mutate the originating builder after construction and assert the built instance is unchanged, from multiple threads.
@@ -139,14 +139,6 @@
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:49-49` · high · sha:0adae2d6a47f</sub>
 - A closed hierarchy is written as an abstract record with a private constructor whose cases are nested sealed records, with the abstract base being the only base class.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:10-18` · high · sha:5b533a9851b7</sub>
-- Required-member enforcement is by the compiler (IDE0250 and required), and review prefers required plus init over post-construction setters.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:130-130` · high · sha:5b533a9851b7</sub>
-- Struct design is enforced by CA1815 (override equality on value types) and CA1051 (no visible instance fields), and review rejects large or mutable structs.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:147-147` · high · sha:5b533a9851b7</sub>
-- Reuse is delegation and polymorphism is a sealed hierarchy matched with a switch; review rejects inheritance for code reuse, and abstract/virtual are permitted only for a closed hierarchy.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:153-163` · high · sha:5b533a9851b7</sub>
-- Enum conventions are enforced by CA1714 (flags enums plural), CA1717 (non-flags singular), CA1027 and CA2217 (flags values), and review promotes behaviour-bearing enums to hierarchies.
-  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:177-177` · high · sha:5b533a9851b7</sub>
 - A closed-hierarchy switch expression with no discard arm fails the build when a new case is added without an arm once CTH001 is enabled.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:20-29` · high · sha:5b533a9851b7</sub>
 - An immutable record type uses required plus init properties, a collection-expression default of [] for list members, and a With* method that returns this with { ... } to update.
@@ -161,6 +153,14 @@
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:91-91` · high · sha:5b533a9851b7</sub>
 - The dependency-free alternative to the CTH001 suppressor is a _ => throw new UnreachableException() arm combined with a per-case test.
   <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:91-91` · high · sha:5b533a9851b7</sub>
+- Required-member enforcement is by the compiler (IDE0250 and required), and review prefers required plus init over post-construction setters.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:130-130` · high · sha:5b533a9851b7</sub>
+- Struct design is enforced by CA1815 (override equality on value types) and CA1051 (no visible instance fields), and review rejects large or mutable structs.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:147-147` · high · sha:5b533a9851b7</sub>
+- Reuse is delegation and polymorphism is a sealed hierarchy matched with a switch; review rejects inheritance for code reuse, and abstract/virtual are permitted only for a closed hierarchy.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:153-163` · high · sha:5b533a9851b7</sub>
+- Enum conventions are enforced by CA1714 (flags enums plural), CA1717 (non-flags singular), CA1027 and CA2217 (flags values), and review promotes behaviour-bearing enums to hierarchies.
+  <sub>styleguide · `docs/styleguide/csharp/06-types-and-data-modeling.md:177-177` · high · sha:5b533a9851b7</sub>
 - Chapter 06 covers records for data, sealed by default, illegal states made unrepresentable via closed hierarchies and pattern matching, readonly struct for small values, init-only, and no inheritance for reuse.
   <sub>styleguide · `docs/styleguide/csharp/README.md:38-38` · medium · sha:1e6ba36fc337</sub>
 

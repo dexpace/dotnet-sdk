@@ -1,6 +1,14 @@
 # observability
 
 ## Rules
+- A port MUST either honour the contract that tracer and metrics callbacks never throw or add its own guards.
+  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:3-3` · high · sha:1b678eca176d</sub>
+- OBS-1 (MUST) When the requested level is disabled, obtaining a log event and calling its builder methods and terminal emit MUST allocate nothing and produce no output, and the facade MUST decide enabled/disabled once at event-creation time and return a shared inert event for the disabled case.
+  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:7-7` · high · sha:1b678eca176d</sub>
+- OBS-2 (MUST) The logging facade MUST expose exactly four severity levels, ERROR, WARNING, INFO and VERBOSE, mapped onto the backend's ERROR, WARN, INFO and most-verbose/DEBUG levels.
+  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:8-8` · high · sha:1b678eca176d</sub>
+- OBS-3 (MUST) A log field key MUST be rejected when empty, and a null field value MUST NOT be dropped but MUST be emitted as the literal string `null`.
+  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:9-9` · high · sha:1b678eca176d</sub>
 - OBS-4 (MUST) `event(name)` MUST set an authoritative categorisation tag under the reserved key `event`, an empty name MUST clear the tag, and when a non-empty tag is set any `event` key from the global context, folded diagnostic context or a per-event field MUST be suppressed so the emitted event carries `event` exactly once (otherwise JSON appenders produce invalid duplicate-key output).
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:10-10` · high · sha:1b678eca176d</sub>
 - OBS-5 (MUST) When the same field key is contributed by more than one source, precedence MUST be per-event field over global context over folded diagnostic context, and a key MUST appear at most once.
@@ -17,8 +25,6 @@
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:16-16` · high · sha:1b678eca176d</sub>
 - OBS-10 (MUST) When folding thread-local diagnostic context into an event only allow-listed keys MUST be folded, the default allow-list MUST be exactly `{trace.id, span.id}`, a null (absent) allow-list MUST fold every present key (opt-in unfiltered mode), and keys with null values MUST be skipped.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:20-20` · high · sha:1b678eca176d</sub>
-- A port MUST either honour the contract that tracer and metrics callbacks never throw or add its own guards.
-  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:3-3` · high · sha:1b678eca176d</sub>
 - OBS-21 (MUST) A Span MUST expose a recording flag, when non-recording all mutators MUST be inert and `end()` a no-op, and `end()` (success and error variants) MUST be idempotent.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:40-40` · high · sha:1b678eca176d</sub>
 - OBS-22 (MUST) Activating a span as current MUST return a scope handle that restores the previously-active span when closed, is closeable from a try/using construct, and restores even when the guarded code throws.
@@ -59,16 +65,10 @@
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:69-69` · high · sha:1b678eca176d</sub>
 - OBS-38 (MUST) Body-preview decoding MUST NOT throw, malformed or truncated input yields replacement characters, and empty input yields an empty preview.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:69-69` · high · sha:1b678eca176d</sub>
-- OBS-1 (MUST) When the requested level is disabled, obtaining a log event and calling its builder methods and terminal emit MUST allocate nothing and produce no output, and the facade MUST decide enabled/disabled once at event-creation time and return a shared inert event for the disabled case.
-  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:7-7` · high · sha:1b678eca176d</sub>
 - OBS-39 (MUST) Emitted structured event names and field keys MUST be stable, with at minimum events `http.request` and `http.response` carrying `http.request.method`, `url.full` (redacted), `http.response.status_code`, `http.response.duration_ms` and content-length/header fields.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:70-70` · high · sha:1b678eca176d</sub>
 - A failed request emits an `http.response` event with `error.type` and the throwable cause, and the logged `url.full` MUST always be the redacted URL.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:70-70` · high · sha:1b678eca176d</sub>
-- OBS-2 (MUST) The logging facade MUST expose exactly four severity levels, ERROR, WARNING, INFO and VERBOSE, mapped onto the backend's ERROR, WARN, INFO and most-verbose/DEBUG levels.
-  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:8-8` · high · sha:1b678eca176d</sub>
-- OBS-3 (MUST) A log field key MUST be rejected when empty, and a null field value MUST NOT be dropped but MUST be emitted as the literal string `null`.
-  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:9-9` · high · sha:1b678eca176d</sub>
 - XCUT-24 (SHOULD) Diagnostic/preview reads of caller- or server-controlled payloads (error-body snapshots, request/response body log previews) MUST be byte-capped, so a preview MUST NOT materialize an unbounded payload into memory.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:53-53` · high · sha:d6123be82c9e</sub>
 - XCUT-24 (SHOULD) Diagnostic/preview reads SHOULD be non-consuming, so a preview does not disturb the primary read path the consumer will use.
@@ -185,14 +185,6 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:233-234` · high · sha:da6000c93fc5</sub>
 - Both logging wrappers engage only when body-level logging is enabled and share one preview-size setting (BODY-34).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:236-236` · high · sha:da6000c93fc5</sub>
-- Under OBS-29's ordering there is one operation start, exactly one operation end whose status is Ok or Error, repeating attempt spans, and retries-exhausted recorded as an ActivityEvent on the operation span immediately before it ends in Error with the same exception.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:126-129` · high · sha:ddf8f695ff61</sub>
-- One operation Activity corresponds to exactly one logical operation, and an ActivityListener ordering test asserts it.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:129-130` · high · sha:ddf8f695ff61</sub>
-- The body preview wraps the body in a tee stream that copies the first 8 KiB into a pooled buffer while the caller reads everything (OBS-36, XCUT-24).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:190-192` · high · sha:ddf8f695ff61</sub>
-- The body preview is skipped for unknown-length bodies on the async path (OBS-37), and decodes with the media type's charset or writes "[binary N bytes captured]" (OBS-38).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:192-193` · high · sha:ddf8f695ff61</sub>
 - Under OBS-2 the SDK emits exactly four log levels (Error, Warning, Information, Debug) out of ILogger's six, with VERBOSE mapped to Debug.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:48-49` · high · sha:ddf8f695ff61</sub>
 - To meet OBS-20 ("every log-emission site MUST catch any exception"), each log emission is wrapped in a catch that excludes OperationCanceledException, attempts one http.instrumentation.error event, and swallows a second failure; the as-built code lacks this guard.
@@ -203,6 +195,14 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:73-80` · high · sha:ddf8f695ff61</sub>
 - OBS-2's mapping puts request/response log events at Debug and failures at Warning, as built.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:84-84` · high · sha:ddf8f695ff61</sub>
+- Under OBS-29's ordering there is one operation start, exactly one operation end whose status is Ok or Error, repeating attempt spans, and retries-exhausted recorded as an ActivityEvent on the operation span immediately before it ends in Error with the same exception.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:126-129` · high · sha:ddf8f695ff61</sub>
+- One operation Activity corresponds to exactly one logical operation, and an ActivityListener ordering test asserts it.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:129-130` · high · sha:ddf8f695ff61</sub>
+- The body preview wraps the body in a tee stream that copies the first 8 KiB into a pooled buffer while the caller reads everything (OBS-36, XCUT-24).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:190-192` · high · sha:ddf8f695ff61</sub>
+- The body preview is skipped for unknown-length bodies on the async path (OBS-37), and decodes with the media type's charset or writes "[binary N bytes captured]" (OBS-38).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:192-193` · high · sha:ddf8f695ff61</sub>
 
 ## Constraints
 - The never-break-the-caller guarantee is asymmetric because log-emission failures are caught and swallowed whereas tracing and metrics calls are not defensively wrapped and rely on the SPI contract that callbacks never throw (OBS-30).
@@ -215,48 +215,28 @@
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:65-65` · high · sha:1b678eca176d</sub>
 - new MemoryStream().TryGetBuffer(out _) returns true and exposes the backing array, while a stream built with publiclyVisible: false makes TryGetBuffer false and GetBuffer throw UnauthorizedAccessException.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:212-215` · high · sha:da6000c93fc5</sub>
-- The runtime's propagator does not overwrite a traceparent header already present, so the policy's unconditional traceparent stamping puts the SDK span's id on the wire and makes the runtime's child span invisible to the server, whereas with no pre-set header the wire carries the runtime child's id, which is correct.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:143-147` · high · sha:ddf8f695ff61</sub>
-- A consumer enabling both the SDK's and System.Net.Http's meters sees each attempt measured twice under one instrument name, which collides in an exporter that flattens meter names (Prometheus).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:148-150` · high · sha:ddf8f695ff61</sub>
 - ActivitySource, Activity and Meter live in System.Diagnostics.DiagnosticSource, which ships in the shared framework (verified in Microsoft.NETCore.App 10.0.12 and the 8.0.31 reference pack), so by principle P2 core owes no SDK-defined listener seam for tracing or metrics.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:20-24` · high · sha:ddf8f695ff61</sub>
 - The [LoggerMessage] generator cannot express OBS-39's dotted keys because placeholders must bind to C# parameter names, so a placeholder such as {http.request.method} is rejected with SYSLIB1014 "Template ... is not provided as argument".
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:73-78` · high · sha:ddf8f695ff61</sub>
 - OBS-27 is not met because Activity generates W3C identifiers only; Activity.TraceIdGenerator is a settable hook that can supply ids, but a Datadog flavour (64-bit, decimal) is a propagation format the runtime does not model and Datadog's own .NET tracer handles it; recorded as section 10 entry 24.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:95-98` · high · sha:ddf8f695ff61</sub>
+- The runtime's propagator does not overwrite a traceparent header already present, so the policy's unconditional traceparent stamping puts the SDK span's id on the wire and makes the runtime's child span invisible to the server, whereas with no pre-set header the wire carries the runtime child's id, which is correct.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:143-147` · high · sha:ddf8f695ff61</sub>
+- A consumer enabling both the SDK's and System.Net.Http's meters sees each attempt measured twice under one instrument name, which collides in an exporter that flattens meter names (Prometheus).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:148-150` · high · sha:ddf8f695ff61</sub>
 
 ## Conclusions
-- The diagnostic-context allow-list exists to prevent arbitrary application context from leaking into SDK-owned events.
-  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:20-20` · high · sha:1b678eca176d</sub>
 - Observability is designed to be always safe (never leaks secrets), always cheap when disabled (no hot-path allocation), and never breaking the caller.
   <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:3-3` · high · sha:1b678eca176d</sub>
+- The diagnostic-context allow-list exists to prevent arbitrary application context from leaking into SDK-owned events.
+  <sub>spec · `docs/product-spec/15-instrumentation-and-observability.md:20-20` · high · sha:1b678eca176d</sub>
 - The response-logging drain latch is a SemaphoreSlim(1, 1) awaited with WaitAsync, because C# forbids await inside lock (CS1996) and a SemaphoreSlim wait parks no thread, which is the .NET reading of "does not pin the carrier thread".
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:220-222` · high · sha:da6000c93fc5</sub>
 - Presence-gated activation survives for instrumentation only, via the platform: core always emits to its ActivitySource and Meter, which cost nothing with no listener, and an OpenTelemetry SDK or any ActivityListener activates them by subscribing by name.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:729-732` · high · sha:da6000c93fc5</sub>
 - Four of the five reference facades (tracing, metrics, time, and the others with runtime convergence points) retire under P2 because .NET ships a convergence point for them, and the fifth, logging, takes the one recorded dependency (P14 over P2).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:807-814` · medium · sha:da6000c93fc5</sub>
-- OBS-23 and OBS-10 log correlation is host configuration, not SDK code: LoggerFactoryOptions.ActivityTrackingOptions folds the current Activity's TraceId/SpanId into every log scope.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:106-108` · high · sha:ddf8f695ff61</sub>
-- The OBS-28/OBS-29 HTTP-tracer vocabulary maps to span structure rather than a listener object: an operation Activity opened at the Operation stage, one client-kind attempt Activity per attempt (as built, InstrumentationPolicy at the Diagnostics stage), and ActivityEvents for in-between milestones.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:123-126` · high · sha:ddf8f695ff61</sub>
-- OBS-28's transport milestones (connection acquired, request sent, headers received) are emitted by the runtime itself on the reference transport, since System.Net.Http has its own ActivitySource (verified) with experimental connection-setup and DNS sources from .NET 9.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:130-133` · high · sha:ddf8f695ff61</sub>
-- The traceparent fix belongs in the adapter, not the SPI: Http.SystemNet strips a traceparent/tracestate equal to the current activity's before dispatch and lets the runtime propagate, while transports that do not propagate keep the policy's stamping.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:145-147` · high · sha:ddf8f695ff61</sub>
-- The SDK keeps the semantic-convention metric names on its own meter because core is transport-agnostic and a non-HttpClient transport emits nothing, and the reference transport's documentation tells users to enable one meter or the other.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:149-152` · high · sha:ddf8f695ff61</sub>
-- OBS-32's naming conflict (it names http.client.request.count with unit {request} and http.client.request.duration with unit ms while saying names SHOULD follow OpenTelemetry semantic conventions) is resolved as section 11 item 38: duration in seconds and no separate count instrument, matching the runtime and OpenTelemetry.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:152-157` · high · sha:ddf8f695ff61</sub>
-- Metrics (OBS-31 to OBS-33) use Meter with Counter<long> and Histogram<double>; with no listener an instrument's Record is a cheap no-op and the static instruments are shared, which is OBS-31's default without a no-op class.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:163-165` · high · sha:ddf8f695ff61</sub>
-- Log granularity is modelled as a core HttpLoggingOptions record copying the shape of Microsoft.Extensions.Http.Diagnostics' LoggingOptions (a body flag, a body size limit, header allow-lists) without taking that package as a dependency, since it brings the compliance and redaction packages with it.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:187-190` · high · sha:ddf8f695ff61</sub>
-- OBS-35's layered log-level lookup is satisfied by IConfiguration binding (section 8.2).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:193-193` · high · sha:ddf8f695ff61</sub>
-- CTX-14's correlation bundle (trace id, span id, flags, state, flavour, validity, remoteness, active span, per-operation tracer factory) is ActivityContext plus PipelineContext.Activity plus the static ActivitySource, and CTX-15's shared untraced sentinel is default(ActivityContext); the context chain itself is section 5.4's.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:195-198` · high · sha:ddf8f695ff61</sub>
 - The port adopts the .NET ecosystem's own observability types directly (ILogger, ActivitySource/Activity, Meter, IConfiguration/IOptions<T>, TimeProvider) instead of defining a facade, per principle P14, and spends its argument on the MUSTs those types were not designed to satisfy.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:3-9` · high · sha:ddf8f695ff61</sub>
 - The port deliberately builds no structured log event object, reversing Ruby's central conclusion, because a [LoggerMessage]-generated method or cached LoggerMessage.Define delegate performs the logger.IsEnabled(level) check once at the call, passes arguments in a generated state struct, and never invokes the formatter when disabled.
@@ -277,6 +257,26 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:86-88` · high · sha:ddf8f695ff61</sub>
 - OBS-30's contract that callbacks never throw is left as a contract, because .NET does not guard it either: a throwing ActivityListener.ActivityStarted propagates out of StartActivity (verified).
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:98-99` · high · sha:ddf8f695ff61</sub>
+- OBS-23 and OBS-10 log correlation is host configuration, not SDK code: LoggerFactoryOptions.ActivityTrackingOptions folds the current Activity's TraceId/SpanId into every log scope.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:106-108` · high · sha:ddf8f695ff61</sub>
+- The OBS-28/OBS-29 HTTP-tracer vocabulary maps to span structure rather than a listener object: an operation Activity opened at the Operation stage, one client-kind attempt Activity per attempt (as built, InstrumentationPolicy at the Diagnostics stage), and ActivityEvents for in-between milestones.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:123-126` · high · sha:ddf8f695ff61</sub>
+- OBS-28's transport milestones (connection acquired, request sent, headers received) are emitted by the runtime itself on the reference transport, since System.Net.Http has its own ActivitySource (verified) with experimental connection-setup and DNS sources from .NET 9.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:130-133` · high · sha:ddf8f695ff61</sub>
+- The traceparent fix belongs in the adapter, not the SPI: Http.SystemNet strips a traceparent/tracestate equal to the current activity's before dispatch and lets the runtime propagate, while transports that do not propagate keep the policy's stamping.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:145-147` · high · sha:ddf8f695ff61</sub>
+- The SDK keeps the semantic-convention metric names on its own meter because core is transport-agnostic and a non-HttpClient transport emits nothing, and the reference transport's documentation tells users to enable one meter or the other.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:149-152` · high · sha:ddf8f695ff61</sub>
+- OBS-32's naming conflict (it names http.client.request.count with unit {request} and http.client.request.duration with unit ms while saying names SHOULD follow OpenTelemetry semantic conventions) is resolved as section 11 item 38: duration in seconds and no separate count instrument, matching the runtime and OpenTelemetry.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:152-157` · high · sha:ddf8f695ff61</sub>
+- Metrics (OBS-31 to OBS-33) use Meter with Counter<long> and Histogram<double>; with no listener an instrument's Record is a cheap no-op and the static instruments are shared, which is OBS-31's default without a no-op class.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:163-165` · high · sha:ddf8f695ff61</sub>
+- Log granularity is modelled as a core HttpLoggingOptions record copying the shape of Microsoft.Extensions.Http.Diagnostics' LoggingOptions (a body flag, a body size limit, header allow-lists) without taking that package as a dependency, since it brings the compliance and redaction packages with it.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:187-190` · high · sha:ddf8f695ff61</sub>
+- OBS-35's layered log-level lookup is satisfied by IConfiguration binding (section 8.2).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:193-193` · high · sha:ddf8f695ff61</sub>
+- CTX-14's correlation bundle (trace id, span id, flags, state, flavour, validity, remoteness, active span, per-operation tracer factory) is ActivityContext plus PipelineContext.Activity plus the static ActivitySource, and CTX-15's shared untraced sentinel is default(ActivityContext); the context chain itself is section 5.4's.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:195-198` · high · sha:ddf8f695ff61</sub>
 
 ## Reference
 - The reserved invalid trace-context sentinels are a trace id of 32 hex zeros, a span id of 16 hex zeros, trace flags `00` and an empty trace-state, and an all-zero trace or span id MUST be treated as invalid.
@@ -287,6 +287,22 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:812-818` · high · sha:da6000c93fc5</sub>
 - As built (d45e64b), ILogger, ActivitySource, Meter, TimeProvider and plain options types are all in use as tabulated, and the DI-side configuration binding is not built.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:832-833` · high · sha:da6000c93fc5</sub>
+- Verified against a disabled logger, the formatter ran zero times and Log was never called.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:40-42` · high · sha:ddf8f695ff61</sub>
+- A null log value is carried as null in the structured state so a JSON sink writes null, but the rendered message text says "(null)", which is not the literal string "null" that OBS-3 states; this residual is named under P6.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:50-54` · high · sha:ddf8f695ff61</sub>
+- SDK-owned log events carry only strings and integers, so a value whose ToString throws is unreachable from them, but a throwing provider or formatter is reachable: a throwing ToString on a logged value was verified to propagate out of the log call into the caller.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:61-63` · high · sha:ddf8f695ff61</sub>
+- The as-built InstrumentationPolicy uses the generator with {Method}/{Url}/{StatusCode} placeholders and event names defaulted from method names (LogSendingRequest), and is to move to Define delegates with the semconv keys.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:81-83` · high · sha:ddf8f695ff61</sub>
+- OBS-25's allocation-free no-op holds because ActivitySource.StartActivity returns null when there is no listener (verified), so the untraced path allocates nothing and there is no shared no-op span.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:87-90` · high · sha:ddf8f695ff61</sub>
+- OBS-21's recording flag is Activity.IsAllDataRequested/Recorded, and Activity.Stop is idempotent (verified: two Stop calls and a Dispose produced one stop callback).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:90-91` · high · sha:ddf8f695ff61</sub>
+- OBS-22's scope restoration is Activity.Current, an AsyncLocal that Stop resets to the parent (verified).
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:91-92` · high · sha:ddf8f695ff61</sub>
+- OBS-26's reserved sentinels are default(ActivityTraceId) and default(ActivitySpanId), which render as 32 and 16 hex zeros (verified), with ActivityTraceFlags, a trace-state string and ActivityContext.IsRemote covering flags, state and remoteness.
+  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:92-95` · high · sha:ddf8f695ff61</sub>
 - The ActivityTrackingOptions flags enum is an allow-list with members TraceId, SpanId, ParentId, TraceState, TraceFlags, Tags and Baggage, matching OBS-10's shape.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:108-110` · high · sha:ddf8f695ff61</sub>
 - Log correlation differs from the OBS letter in two ways: the keys are TraceId/SpanId rather than trace.id/span.id, and the generic host's default also folds ParentId.
@@ -303,22 +319,6 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:185-187` · high · sha:ddf8f695ff61</sub>
 - As built (d45e64b) for instrumentation: DexpaceDiagnostics (source and meter), per-attempt spans, metrics and generator-based logs are built; default-allow redaction (OBS-12), non-semconv log keys (OBS-39), unconditional traceparent stamping and no emission guard (OBS-20) diverge; the operation span, granularity/body preview and header redaction are missing.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:200-203` · high · sha:ddf8f695ff61</sub>
-- Verified against a disabled logger, the formatter ran zero times and Log was never called.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:40-42` · high · sha:ddf8f695ff61</sub>
-- A null log value is carried as null in the structured state so a JSON sink writes null, but the rendered message text says "(null)", which is not the literal string "null" that OBS-3 states; this residual is named under P6.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:53-54` · high · sha:ddf8f695ff61</sub>
-- SDK-owned log events carry only strings and integers, so a value whose ToString throws is unreachable from them, but a throwing provider or formatter is reachable: a throwing ToString on a logged value was verified to propagate out of the log call into the caller.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:61-63` · high · sha:ddf8f695ff61</sub>
-- The as-built InstrumentationPolicy uses the generator with {Method}/{Url}/{StatusCode} placeholders and event names defaulted from method names (LogSendingRequest), and is to move to Define delegates with the semconv keys.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:81-83` · high · sha:ddf8f695ff61</sub>
-- OBS-25's allocation-free no-op holds because ActivitySource.StartActivity returns null when there is no listener (verified), so the untraced path allocates nothing and there is no shared no-op span.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:88-90` · high · sha:ddf8f695ff61</sub>
-- OBS-21's recording flag is Activity.IsAllDataRequested/Recorded, and Activity.Stop is idempotent (verified: two Stop calls and a Dispose produced one stop callback).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:90-91` · high · sha:ddf8f695ff61</sub>
-- OBS-22's scope restoration is Activity.Current, an AsyncLocal that Stop resets to the parent (verified).
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:91-92` · high · sha:ddf8f695ff61</sub>
-- OBS-26's reserved sentinels are default(ActivityTraceId) and default(ActivitySpanId), which render as 32 and 16 hex zeros (verified), with ActivityTraceFlags, a trace-state string and ActivityContext.IsRemote covering flags, state and remoteness.
-  <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:92-95` · high · sha:ddf8f695ff61</sub>
 
 ## Conflicts
 

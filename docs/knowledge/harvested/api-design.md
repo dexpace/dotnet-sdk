@@ -13,24 +13,6 @@
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:124-126` · high · sha:c9a7834ab04d</sub>
 - Adapters are built against core's public surface exactly as an outside author would be; if an adapter needs something, that something becomes public and reviewed.
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:131-133` · high · sha:c9a7834ab04d</sub>
-- Every public async or long-running method that does I/O or runs unbounded accepts a `CancellationToken`, and the token is the last parameter.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:103-106` · high · sha:fb3523c956a0</sub>
-- The `CancellationToken` is a required parameter on a genuinely cancellable operation and is not defaulted to `default`, so the caller must decide what to pass; an overload without a token is the explicit way to declare an operation non-cancellable.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:107-107` · high · sha:fb3523c956a0</sub>
-- The `CancellationToken` is threaded unchanged to the innermost call and never swallowed, so cancellation propagates all the way down; a method with no other arguments still takes the token.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:107-113` · high · sha:fb3523c956a0</sub>
-- A shipped public member is removed or changed only through deprecation, marked `[Obsolete("Use NewMethod; removed in vN.")]` with a message naming the replacement and removal version, given a release to migrate, and removed only in a major version.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:117-120` · high · sha:fb3523c956a0</sub>
-- Versioning follows semver: additive backward-compatible changes are a minor bump, and a removal or signature change after the deprecation window is a major bump.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:121-121` · high · sha:fb3523c956a0</sub>
-- `[Obsolete(error: true)]` is applied for the final release before removal so the warning becomes a build error and no caller reaches the cutover unaware.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:121-121` · high · sha:fb3523c956a0</sub>
-- The public surface is tracked with `Microsoft.CodeAnalysis.PublicApiAnalyzers`, so every public member is listed in `PublicAPI.Shipped.txt` (committed) or `PublicAPI.Unshipped.txt` (staged for the next release).
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:130-133` · high · sha:fb3523c956a0</sub>
-- Named static factory methods such as `FromJson`, `ForTenant` or `Parse` are preferred to overloaded constructors, and the constructor is reserved for the one canonical, fully-specified way to build the value.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:143-146` · high · sha:fb3523c956a0</sub>
-- Paired public operations are designed symmetrically so each has a discoverable inverse, for example Open/Close, Subscribe/Unsubscribe, Acquire/Release, Parse/ToString.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:147-147` · high · sha:fb3523c956a0</sub>
 - Every type and member defaults to `internal` and is widened to `public` only when a named caller across the assembly boundary needs it.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:40-44` · high · sha:fb3523c956a0</sub>
 - Test projects do not justify making a type `public`; they access internals through `[assembly: InternalsVisibleTo("<TestAssembly>")]`, which grants exactly one assembly access without widening the surface.
@@ -53,6 +35,24 @@
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:90-90` · high · sha:fb3523c956a0</sub>
 - Non-nullable reference parameters on public methods are validated at the boundary with `ArgumentNullException.ThrowIfNull`, and a possible null is never papered over with the `!` operator.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:90-98` · high · sha:fb3523c956a0</sub>
+- Every public async or long-running method that does I/O or runs unbounded accepts a `CancellationToken`, and the token is the last parameter.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:103-106` · high · sha:fb3523c956a0</sub>
+- The `CancellationToken` is a required parameter on a genuinely cancellable operation and is not defaulted to `default`, so the caller must decide what to pass; an overload without a token is the explicit way to declare an operation non-cancellable.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:107-107` · high · sha:fb3523c956a0</sub>
+- The `CancellationToken` is threaded unchanged to the innermost call and never swallowed, so cancellation propagates all the way down; a method with no other arguments still takes the token.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:107-113` · high · sha:fb3523c956a0</sub>
+- A shipped public member is removed or changed only through deprecation, marked `[Obsolete("Use NewMethod; removed in vN.")]` with a message naming the replacement and removal version, given a release to migrate, and removed only in a major version.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:117-120` · high · sha:fb3523c956a0</sub>
+- Versioning follows semver: additive backward-compatible changes are a minor bump, and a removal or signature change after the deprecation window is a major bump.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:121-121` · high · sha:fb3523c956a0</sub>
+- `[Obsolete(error: true)]` is applied for the final release before removal so the warning becomes a build error and no caller reaches the cutover unaware.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:121-121` · high · sha:fb3523c956a0</sub>
+- The public surface is tracked with `Microsoft.CodeAnalysis.PublicApiAnalyzers`, so every public member is listed in `PublicAPI.Shipped.txt` (committed) or `PublicAPI.Unshipped.txt` (staged for the next release).
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:130-133` · high · sha:fb3523c956a0</sub>
+- Named static factory methods such as `FromJson`, `ForTenant` or `Parse` are preferred to overloaded constructors, and the constructor is reserved for the one canonical, fully-specified way to build the value.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:143-146` · high · sha:fb3523c956a0</sub>
+- Paired public operations are designed symmetrically so each has a discoverable inverse, for example Open/Close, Subscribe/Unsubscribe, Acquire/Release, Parse/ToString.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:147-147` · high · sha:fb3523c956a0</sub>
 - Make `internal` the default visibility for every type and widen to `public` only when another assembly must call it as a deliberate API boundary (styleguide 12.5).
   <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:95-108` · high · sha:a44b6f9eaba9</sub>
 
@@ -73,6 +73,12 @@
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:156-157` · high · sha:c9a7834ab04d</sub>
 - Ruby's registration-time version assertion has no .NET counterpart because it would be a runtime check duplicating what the package graph already enforces (P11 applies).
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:157-159` · high · sha:c9a7834ab04d</sub>
+- Accessibility is treated as the boundary between what can be changed freely and what is owed forever, because a public type becomes a contract that other assemblies depend on and changing it is an invisible breaking change.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:43-43` · high · sha:fb3523c956a0</sub>
+- A value handed to or accepted from a caller is data without identity or lifecycle, so it is a `record` with value equality, frozen on both sides so neither party can mutate the other's instance.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:58-58` · high · sha:fb3523c956a0</sub>
+- Returning `List<T>`, `T[]`, or a settable collection property is rejected because it hands the caller a live handle to internal state that they can mutate undetected.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:76-76` · high · sha:fb3523c956a0</sub>
 - The token is placed last because that is the framework-wide convention across the BCL, ASP.NET Core and EF Core, so callers find it where expected and tooling that appends a token slots it correctly.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:106-106` · high · sha:fb3523c956a0</sub>
 - Public API growth is made an explicit reviewed diff in PublicAPI.Unshipped.txt because public members otherwise grow by accident, such as a helper bumped to `public` or a field exposed in passing.
@@ -81,12 +87,6 @@
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:146-146` · high · sha:fb3523c956a0</sub>
 - API symmetry is required because a caller who finds one half can guess the other and a leak such as a Subscribe without Unsubscribe shows up as a missing member.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:147-147` · high · sha:fb3523c956a0</sub>
-- Accessibility is treated as the boundary between what can be changed freely and what is owed forever, because a public type becomes a contract that other assemblies depend on and changing it is an invisible breaking change.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:43-43` · high · sha:fb3523c956a0</sub>
-- A value handed to or accepted from a caller is data without identity or lifecycle, so it is a `record` with value equality, frozen on both sides so neither party can mutate the other's instance.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:58-58` · high · sha:fb3523c956a0</sub>
-- Returning `List<T>`, `T[]`, or a settable collection property is rejected because it hands the caller a live handle to internal state that they can mutate undetected.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:76-76` · high · sha:fb3523c956a0</sub>
 - Internal-by-default is chosen because each public type is a promise of stability to every other assembly and widens the surface to keep stable and analyze, while internal costs nothing within the assembly and keeps the cross-assembly contract intentional.
   <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:97-99` · high · sha:a44b6f9eaba9</sub>
 
@@ -97,6 +97,14 @@
   <sub>spec · `docs/product-spec/20-non-functional-requirements-and-quality-bar.md:13-13` · high · sha:5f4684bf7123</sub>
 - At d45e64b the InternalsVisibleTo grant from core to the transport was unused (no internal core member was referenced from the transport), and the transport's own grant named Dexpace.Sdk.Http.SystemNet.Tests, a project that did not yet exist because its tests lived in Dexpace.Sdk.Core.Tests/Transport/.
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:131-134` · high · sha:c9a7834ab04d</sub>
+- The chapter's model example shows an immutable record DTO with required init members and a read-only list defaulting to an empty collection expression, a catalog type taking a CancellationToken last and returning IReadOnlyList via ConfigureAwait(false), and a named factory.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:7-34` · medium · sha:fb3523c956a0</sub>
+- Rule 10.1 is enforced by analyzer CA1515 (consider making public types internal), by review requiring a named cross-assembly caller to justify `public`, and by `InternalsVisibleTo` for test access.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:53-53` · high · sha:fb3523c956a0</sub>
+- Rule 10.2 is enforced by review of the DTO type kind, by the compiler checking `required`, and by `init`-only making a stray `set` a compile error.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:70-70` · high · sha:fb3523c956a0</sub>
+- Rule 10.3 is enforced by CA1002 (do not expose generic List<T>), CA1819 (properties should not return arrays), CA2227 (collection properties read-only), and review of public signatures.
+  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:84-84` · high · sha:fb3523c956a0</sub>
 - Rule 10.4 is enforced by `<Nullable>enable</Nullable>` with `<TreatWarningsAsErrors>`, by CA1062 (validate public arguments), and by review treating annotation changes as contract changes.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:101-101` · high · sha:fb3523c956a0</sub>
 - Rule 10.5 is enforced by CA1068 (CancellationToken parameters must come last) and by review requiring a token on public async and I/O methods.
@@ -109,18 +117,10 @@
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:141-141` · high · sha:fb3523c956a0</sub>
 - Rule 10.8 is enforced by CA1707 (no underscores in identifiers) on factory names and by review preferring a named factory over a fourth constructor overload and rejecting asymmetric pairs.
   <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:158-158` · high · sha:fb3523c956a0</sub>
-- Rule 10.1 is enforced by analyzer CA1515 (consider making public types internal), by review requiring a named cross-assembly caller to justify `public`, and by `InternalsVisibleTo` for test access.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:53-53` · high · sha:fb3523c956a0</sub>
-- The chapter's model example shows an immutable record DTO with required init members and a read-only list defaulting to an empty collection expression, a catalog type taking a CancellationToken last and returning IReadOnlyList via ConfigureAwait(false), and a named factory.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:7-34` · medium · sha:fb3523c956a0</sub>
-- Rule 10.2 is enforced by review of the DTO type kind, by the compiler checking `required`, and by `init`-only making a stray `set` a compile error.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:70-70` · high · sha:fb3523c956a0</sub>
-- Rule 10.3 is enforced by CA1002 (do not expose generic List<T>), CA1819 (properties should not return arrays), CA2227 (collection properties read-only), and review of public signatures.
-  <sub>styleguide · `docs/styleguide/csharp/10-api-design.md:84-84` · high · sha:fb3523c956a0</sub>
-- Rule 12.5 is enforced by review of `public` on new types and by the public-API analyzer of chapter 10, which tracks the exported surface.
-  <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:108-108` · high · sha:a44b6f9eaba9</sub>
 - InternalsVisibleTo opens internal types to a test assembly without making them public.
   <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:99-99` · high · sha:a44b6f9eaba9</sub>
+- Rule 12.5 is enforced by review of `public` on new types and by the public-API analyzer of chapter 10, which tracks the exported surface.
+  <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:108-108` · high · sha:a44b6f9eaba9</sub>
 - Chapter 10 covers minimal public surface, immutable record DTOs, IReadOnlyList returns, nullable annotations as contract, required plus init, [Obsolete] with semver, the public-API analyzer, and internal by default.
   <sub>styleguide · `docs/styleguide/csharp/README.md:42-42` · medium · sha:1e6ba36fc337</sub>
 

@@ -1,6 +1,14 @@
 # execution-context
 
 ## Rules
+- CTX-1 (MUST): The model MUST provide three context flavors forming a one-way promotion chain mirroring the call lifecycle: a dispatch stage (before any request), a request stage (an outgoing request assembled), and an exchange stage (a response arrived).
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:7-7` · high · sha:5a9eacfb1c53</sub>
+- CTX-2 (MUST): Each context promotion MUST be additive and non-mutating, producing a NEW instance and never modifying the source.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:8-8` · high · sha:5a9eacfb1c53</sub>
+- CTX-2 (MUST): Each promotion MUST carry forward the same instrumentation bundle reference and the same call key (and, for request-to-exchange, the request and operation name), and add exactly one artifact: the request when promoting dispatch to request, the response when promoting request to exchange.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:8-8` · high · sha:5a9eacfb1c53</sub>
+- CTX-3 (MUST): The whole context chain MUST share ONE call key, with each promotion carrying the source's call key forward verbatim, so all three flavors register under the identical store slot and successive promotions overwrite one entry.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:9-9` · high · sha:5a9eacfb1c53</sub>
 - CTX-4 (MUST): Each call's store key MUST be unique per call and MUST NOT be derived from the trace identifier, or the trace-plus-span pair, alone, so two concurrent calls sharing a trace id (and even a span id) receive distinct keys and never evict each other.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:13-13` · high · sha:5a9eacfb1c53</sub>
 - CTX-5 / CTX-6 (MUST): A directly-constructed (off-chain) context without an explicit key MUST receive a fresh call-unique key with the same uniqueness guarantee, and default construction MUST mint globally distinct keys across the whole process and all three flavors.
@@ -53,14 +61,6 @@
   <sub>spec · `docs/product-spec/07-execution-context-model.md:32-32` · high · sha:5a9eacfb1c53</sub>
 - CTX-20 (MUST): The per-operation tracer factory's factory method MUST be safe to invoke concurrently.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:32-32` · high · sha:5a9eacfb1c53</sub>
-- CTX-1 (MUST): The model MUST provide three context flavors forming a one-way promotion chain mirroring the call lifecycle: a dispatch stage (before any request), a request stage (an outgoing request assembled), and an exchange stage (a response arrived).
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:7-7` · high · sha:5a9eacfb1c53</sub>
-- CTX-2 (MUST): Each context promotion MUST be additive and non-mutating, producing a NEW instance and never modifying the source.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:8-8` · high · sha:5a9eacfb1c53</sub>
-- CTX-2 (MUST): Each promotion MUST carry forward the same instrumentation bundle reference and the same call key (and, for request-to-exchange, the request and operation name), and add exactly one artifact: the request when promoting dispatch to request, the response when promoting request to exchange.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:8-8` · high · sha:5a9eacfb1c53</sub>
-- CTX-3 (MUST): The whole context chain MUST share ONE call key, with each promotion carrying the source's call key forward verbatim, so all three flavors register under the identical store slot and successive promotions overwrite one entry.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:9-9` · high · sha:5a9eacfb1c53</sub>
 - The port treats ambient state as read-mostly and threads per-call state explicitly (§5).
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:89-90` · high · sha:d7cea7b15cf3</sub>
 - The correlation context travels explicitly on PipelineContext, and Activity.Current is the only ambient value because it is the runtime's own and every OpenTelemetry collector reads it.
@@ -85,14 +85,14 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:398-400` · high · sha:1608fcd4b329</sub>
 
 ## Constraints
+- CTX-1 (MUST): Context promotion advances dispatch to request to exchange only; there is no reverse promotion and the exchange stage is terminal.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:7-7` · high · sha:5a9eacfb1c53</sub>
 - Because the call key participates in value-equality, two default-constructed contexts with otherwise identical fields are NOT equal.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:14-14` · high · sha:5a9eacfb1c53</sub>
 - The first context-store entry is installed by the first promotion, so a dispatch context that is never promoted leaves no store entry and its close is a harmless no-op.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:15-15` · high · sha:5a9eacfb1c53</sub>
 - The only context-store retention guarantee is that after inserts quiesce the live set is at or below the cap, and a port MUST NOT rely on any specific entry surviving.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:27-27` · high · sha:5a9eacfb1c53</sub>
-- CTX-1 (MUST): Context promotion advances dispatch to request to exchange only; there is no reverse promotion and the exchange stage is terminal.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:7-7` · high · sha:5a9eacfb1c53</sub>
 - Ambient ExecutionContext state leaks into places that outlive the call (timers, cached tasks), and a context the SDK sets is visible to the caller's continuation only if set before the first await.
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:88-90` · high · sha:d7cea7b15cf3</sub>
 - Because the call key participates in the context records' equality, two default-constructed contexts are unequal unless a caller pins an explicit key (CTX-5, CTX-6).
@@ -101,14 +101,14 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:388-393` · high · sha:1608fcd4b329</sub>
 
 ## Conclusions
+- A single in-flight call's correlation state is modeled as a one-way promotion chain of three immutable context flavors, each carrying a shared instrumentation bundle and a single call-unique key, and each registered in a bounded process-wide store keyed by that call key.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:3-3` · high · sha:5a9eacfb1c53</sub>
 - Call keys are not derived from trace ids because trace ids are not call-unique: a disabled-tracing context shares one constant trace id across every untraced call, an inbound distributed trace shares one across many spans, and a tracer may reuse a span id.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:13-13` · high · sha:5a9eacfb1c53</sub>
 - Context-store eviction uses reference identity because contexts are value-equal, so a value-equality remove could let a stale context evict a structurally-identical live sibling.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:21-21` · high · sha:5a9eacfb1c53</sub>
 - The context store is bounded because a registered context strongly pins the full request-plus-response graph, possibly an unread body holding a connection.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:26-26` · high · sha:5a9eacfb1c53</sub>
-- A single in-flight call's correlation state is modeled as a one-way promotion chain of three immutable context flavors, each carrying a shared instrumentation bundle and a single call-unique key, and each registered in a bounded process-wide store keyed by that call key.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:3-3` · high · sha:5a9eacfb1c53</sub>
 - The ambient-execution-context constraint is NEW on .NET and cuts both ways, because ExecutionContext carries every AsyncLocal<T> (including Activity.Current) across await, Task.Run and thread-pool hand-offs automatically, making SEAM-24/ASYNC-8 through ASYNC-12's diagnostic-context propagation largely free (§8.1).
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:85-88` · high · sha:d7cea7b15cf3</sub>
 - The execution context keeps the explicit-context half of the earlier PR #4 answer (a context value threaded through the pipeline, no ambient SDK state) but overturns its mutability for the correlation context and overturns its "no ContextStore" decision, because CTX-7 to CTX-13 and CTX-17 to CTX-19 are MUSTs and the store has real .NET substance.
@@ -135,12 +135,12 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:401-402` · high · sha:1608fcd4b329</sub>
 
 ## Reference
-- Conformance for CTX-4: two contexts with identical trace and span id have differing keys and both register; the reference implementation's default key appends a process-wide monotonic counter to a traceId:spanId rendering.
-  <sub>spec · `docs/product-spec/07-execution-context-model.md:13-13` · high · sha:5a9eacfb1c53</sub>
 - Conformance for CTX-1: each stage exposes exactly its expected artifacts, and the exchange type exposes no method promoting back.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:7-7` · high · sha:5a9eacfb1c53</sub>
 - The operation name is introduced at the request stage as an argument to the dispatch-to-request promotion; conformance: promote and assert the carried-forward fields are identical instances and each source is unchanged.
   <sub>spec · `docs/product-spec/07-execution-context-model.md:8-8` · high · sha:5a9eacfb1c53</sub>
+- Conformance for CTX-4: two contexts with identical trace and span id have differing keys and both register; the reference implementation's default key appends a process-wide monotonic counter to a traceId:spanId rendering.
+  <sub>spec · `docs/product-spec/07-execution-context-model.md:13-13` · high · sha:5a9eacfb1c53</sub>
 - The AsyncLocal flow findings (copy-on-write per async method, capture-by-default) were verified on .NET 10.0.401.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:346-348` · high · sha:1608fcd4b329</sub>
 - CTX-15's reserved sentinels are default(ActivityContext), whose trace id is 32 zeros, span id 16 zeros, flags None, state empty and IsRemote false (verified).

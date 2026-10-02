@@ -1,6 +1,10 @@
 # pagination
 
 ## Rules
+- A pagination port MUST preserve the two-view model, the page-lazy fetch discipline, deterministic response-lifecycle management, and the strategy contract.
+  <sub>spec · `docs/product-spec/12-pagination.md:3-3` · high · sha:ba759edd34ec</sub>
+- PAGE-1 (MUST) - Both the item view and the page view MUST be available over the same walk, and items MUST be delivered in server-defined order across page boundaries.
+  <sub>spec · `docs/product-spec/12-pagination.md:9-9` · high · sha:ba759edd34ec</sub>
 - PAGE-6 (MUST) - Iteration MUST be page-lazy, with exactly one HTTP exchange per page actually yielded.
   <sub>spec · `docs/product-spec/12-pagination.md:10-10` · high · sha:ba759edd34ec</sub>
 - PAGE-6 (MUST) - For the blocking engine, constructing the paginator, obtaining the iterable/stream, and obtaining the item iterator MUST trigger zero exchanges; the first exchange happens only when the consumer first probes for data.
@@ -29,8 +33,6 @@
   <sub>spec · `docs/product-spec/12-pagination.md:27-27` · high · sha:ba759edd34ec</sub>
 - PAGE-5 (MUST) - Strategies MUST be immutable and safe to share concurrently.
   <sub>spec · `docs/product-spec/12-pagination.md:27-27` · high · sha:ba759edd34ec</sub>
-- A pagination port MUST preserve the two-view model, the page-lazy fetch discipline, deterministic response-lifecycle management, and the strategy contract.
-  <sub>spec · `docs/product-spec/12-pagination.md:3-3` · high · sha:ba759edd34ec</sub>
 - PAGE-9 (MUST) - The engine MUST accept a page cap (maximum exchanges) bounding a server that never advances its cursor.
   <sub>spec · `docs/product-spec/12-pagination.md:31-31` · high · sha:ba759edd34ec</sub>
 - PAGE-9 (MUST) - The page cap counts exchanges/pages, not items, and once reached the engine MUST stop fetching even if the strategy still reports a next-request.
@@ -141,8 +143,22 @@
   <sub>spec · `docs/product-spec/12-pagination.md:82-82` · high · sha:ba759edd34ec</sub>
 - PAGE-35 (SHOULD) - If a mutable paging-options object is offered to fetchers, the same instance SHOULD be threaded through every fetcher call so a custom retriever can stash cursor/state between pages, and this cross-call mutation visibility SHOULD be documented.
   <sub>spec · `docs/product-spec/12-pagination.md:83-83` · high · sha:ba759edd34ec</sub>
-- PAGE-1 (MUST) - Both the item view and the page view MUST be available over the same walk, and items MUST be delivered in server-defined order across page boundaries.
-  <sub>spec · `docs/product-spec/12-pagination.md:9-9` · high · sha:ba759edd34ec</sub>
+- PAGE-1: an item view and a page view over one 3-page walk yield the concatenated server-order items and three page objects respectively.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
+- PAGE-2: page metadata survives closing the page.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
+- PAGE-3: a page closes its response exactly once and a fetcher does not close it.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
+- PAGE-6: blocking iteration triggers zero exchanges until the first probe and then one exchange per page consumed, while async iteration begins fetching on invocation.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
+- PAGE-7: no fetch happens past the terminal page and end-probes are idempotent.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
+- PAGE-8: two iterations over the same pageable each drive a full sequence.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
+- PAGE-9: a page cap less than or equal to zero throws at construction, and a non-advancing server stops the walk at exactly N exchanges.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:9-9` · high · sha:0451cc7f3bb4</sub>
+- PAGE-10: the default page cap is effectively unbounded.
+  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:9-9` · high · sha:0451cc7f3bb4</sub>
 - PAGE-11: the item view eagerly closes each page before yielding its items on partial consumption.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:10-10` · high · sha:0451cc7f3bb4</sub>
 - PAGE-12: the page view releases the held page and buffered pages on early break or probe-then-close.
@@ -193,26 +209,6 @@
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:15-15` · high · sha:0451cc7f3bb4</sub>
 - PAGE-36: per-call options reach every page exchange.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:16-16` · high · sha:0451cc7f3bb4</sub>
-- PAGE-1: an item view and a page view over one 3-page walk yield the concatenated server-order items and three page objects respectively.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
-- PAGE-2: page metadata survives closing the page.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
-- PAGE-3: a page closes its response exactly once and a fetcher does not close it.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:7-7` · high · sha:0451cc7f3bb4</sub>
-- PAGE-6: blocking iteration triggers zero exchanges until the first probe and then one exchange per page consumed, while async iteration begins fetching on invocation.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
-- PAGE-7: no fetch happens past the terminal page and end-probes are idempotent.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
-- PAGE-8: two iterations over the same pageable each drive a full sequence.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:8-8` · high · sha:0451cc7f3bb4</sub>
-- PAGE-9: a page cap less than or equal to zero throws at construction, and a non-advancing server stops the walk at exactly N exchanges.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:9-9` · high · sha:0451cc7f3bb4</sub>
-- PAGE-10: the default page cap is effectively unbounded.
-  <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:9-9` · high · sha:0451cc7f3bb4</sub>
-- The Link resolver must reject a target containing characters RFC 3986 forbids unescaped (space, <, >, ") before resolution.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:108-109` · high · sha:68af5c6bf0ea</sub>
-- Query keys are case-sensitive, so the PAGE-21 query splice must match keys ordinally rather than with StringComparison.OrdinalIgnoreCase, which as built rewrote ?Page=1 to page=2 when setting page.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:114-118` · high · sha:68af5c6bf0ea</sub>
 - On the net8.0 target the async LINQ operators come from a NuGet package that core does not take (NFR-1), so callers on .NET 8 bring it themselves and nothing in core's surface depends on it.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:25-27` · high · sha:68af5c6bf0ea</sub>
 - AsPages() returns a thin wrapper sequence whose GetAsyncEnumerator latches an Interlocked flag and throws InvalidOperationException on the second call, while each call to AsPages() is still a fresh walk because the single-use rule binds the returned object.
@@ -227,12 +223,12 @@
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:89-90` · high · sha:68af5c6bf0ea</sub>
 - ArgumentOutOfRangeException.ThrowIfNegativeOrZero in Pageable.Create closes the maxPages validation gap.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:93-93` · high · sha:68af5c6bf0ea</sub>
+- The Link resolver must reject a target containing characters RFC 3986 forbids unescaped (space, <, >, ") before resolution.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:108-109` · high · sha:68af5c6bf0ea</sub>
+- Query keys are case-sensitive, so the PAGE-21 query splice must match keys ordinally rather than with StringComparison.OrdinalIgnoreCase, which as built rewrote ?Page=1 to page=2 when setting page.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:114-118` · high · sha:68af5c6bf0ea</sub>
 
 ## Constraints
-- Uri.TryCreate(base, "not a url", out _) succeeds, producing https://h/repo/not%20a%20url, so PAGE-19's conformance fixture (`<not a url>; rel=next` meaning end of stream) is followed as a relative path under the lenient parser.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:106-109` · high · sha:68af5c6bf0ea</sub>
-- System.Uri canonicalizes the query before any splice sees it (for ?x=%7E%41&page=1, Uri.Query returns ?x=~A&page=1), and a UriBuilder round trip writes an explicit default port into OriginalString (https://h:443/p?...), so byte-for-byte preservation of untargeted query parameters is unattainable while Request.Url is a System.Uri.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:119-123` · high · sha:68af5c6bf0ea</sub>
 - System.Linq.AsyncEnumerable operators (FirstAsync, Take, Where over IAsyncEnumerable<T>) are in the shared framework from .NET 10 only, being present in Microsoft.NETCore.App 10.0.12 and absent from the 8.0.31 reference pack.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:22-25` · high · sha:68af5c6bf0ea</sub>
 - Calling GetAsyncEnumerator twice on one compiler-generated async-iterator object starts a second independent walk rather than failing (two await foreach passes over a five-item generator yielded ten items), which suits PAGE-8's fresh restart per iteration on the item view but violates PAGE-14's single-use requirement on the page view.
@@ -243,32 +239,20 @@
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:48-50` · high · sha:68af5c6bf0ea</sub>
 - A finally block that throws replaces the exception already in flight in C# (a thrown IOException in finally surfaces alone with no inner exception over an InvalidOperationException), so a bare finally cannot satisfy PAGE-13.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:73-76` · high · sha:68af5c6bf0ea</sub>
+- Uri.TryCreate(base, "not a url", out _) succeeds, producing https://h/repo/not%20a%20url, so PAGE-19's conformance fixture (`<not a url>; rel=next` meaning end of stream) is followed as a relative path under the lenient parser.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:105-109` · high · sha:68af5c6bf0ea</sub>
+- System.Uri canonicalizes the query before any splice sees it (for ?x=%7E%41&page=1, Uri.Query returns ?x=~A&page=1), and a UriBuilder round trip writes an explicit default port into OriginalString (https://h:443/p?...), so byte-for-byte preservation of untargeted query parameters is unattainable while Request.Url is a System.Uri.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:119-123` · high · sha:68af5c6bf0ea</sub>
 
 ## Conclusions
-- The existing scheme guard, under which only http/https Link targets survive, is a good addition beyond the specification and stays.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:109-110` · high · sha:68af5c6bf0ea</sub>
-- The accepted residual of the System.Uri limitation is RFC 3986 section 6.2.2.2 percent-encoding normalization of unreserved characters, which is equivalent and unobservable to a conforming server, while reserved characters, value-less flags (?flag), order and + are preserved (recorded as section 10 entry 18).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:123-128` · high · sha:68af5c6bf0ea</sub>
-- The async engine (PAGE-25 to PAGE-33) is not a second engine, because .NET has one iteration protocol that is already non-blocking (P4).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:130-132` · high · sha:68af5c6bf0ea</sub>
-- PAGE-31 is satisfied by construction because the walk is a while loop in a state machine and a synchronously completing ValueTask continues inline without growing the stack, using the specification's latitude that a port MAY use its native loop model but MUST NOT recurse per page.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:137-140` · high · sha:68af5c6bf0ea</sub>
-- PAGE-33's race, a response delivered to a send that was already cancelled, is documented as the transport's responsibility (TRANSPORT-9, section 3.3).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:141-142` · high · sha:68af5c6bf0ea</sub>
-- PAGE-29 and PAGE-30 (push delivery, optional caller-supplied executor, rejected re-dispatch) have nothing to configure on .NET because a pull-based IAsyncEnumerable never invokes the consumer, the consumer's own await foreach decides its context, and serial in-order delivery is the protocol's definition (recorded as section 10 entry 19).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:142-146` · high · sha:68af5c6bf0ea</sub>
-- The PAGE-34/PAGE-35 fetcher front-end is not built; its .NET shape is a factory taking Func<string?, CancellationToken, ValueTask<Page<T>>> keyed by a continuation token, which needs Page<T> to carry ContinuationToken/NextLink (PR #9 deferred ContinuationToken and token-based resumption).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:148-151` · high · sha:68af5c6bf0ea</sub>
-- The blocking pager view is a Pageable<T> : IEnumerable<T> beside the async one (permitted beside the static Pageable factory because the arities differ) and waits on a genuinely synchronous pipeline path, since HttpPipeline.Send is sync-over-async today (section 5.3) and a sync pager built on it would inherit the thread-pool starvation hazard.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:151-154` · high · sha:68af5c6bf0ea</sub>
+- Pagination, SSE and serialization share one shape on .NET, a lazy pull-based sequence over a single-use HTTP body, using the runtime's IAsyncEnumerable<T>, await foreach and [EnumeratorCancellation] rather than a custom iteration protocol.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:3-6` · high · sha:68af5c6bf0ea</sub>
 - PAGE-1's two consumption views over one lazy walk are AsyncPageable<T> : IAsyncEnumerable<T> for items and AsPages() for pages, the shape Azure.Core established.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:19-21` · high · sha:68af5c6bf0ea</sub>
 - Both the item view and the page view are C# async iterators over one private PagesCore routine, so the item view is the page view flattened and the two cannot drift.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:21-22` · high · sha:68af5c6bf0ea</sub>
 - PAGE-6's "construction triggers zero exchanges" is satisfied for free because an async iterator body does not run until the first MoveNextAsync and Pageable.Create only captures delegates.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:29-30` · high · sha:68af5c6bf0ea</sub>
-- Pagination, SSE and serialization share one shape on .NET, a lazy pull-based sequence over a single-use HTTP body, using the runtime's IAsyncEnumerable<T>, await foreach and [EnumeratorCancellation] rather than a custom iteration protocol.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:3-6` · high · sha:68af5c6bf0ea</sub>
 - .NET does not need the specification's carve-out for the non-blocking engine ("invoking a walk method is itself the consumption trigger") because its single engine is lazy on both paths, the stronger reading.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:30-32` · high · sha:68af5c6bf0ea</sub>
 - Because the iterator holds no resource at any suspension point, a consumer that abandons the enumerator by hand strands nothing.
@@ -287,8 +271,28 @@
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:87-89` · high · sha:68af5c6bf0ea</sub>
 - PAGE-36 holds because the same DexpaceClientOptions and cancellation token reach every page's HttpPipeline.SendAsync and each page is an independent pipeline invocation with a fresh PipelineContext, so retry, auth and telemetry govern pages 2..N.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:94-96` · high · sha:68af5c6bf0ea</sub>
+- The existing scheme guard, under which only http/https Link targets survive, is a good addition beyond the specification and stays.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:109-110` · high · sha:68af5c6bf0ea</sub>
+- The accepted residual of the System.Uri limitation is RFC 3986 section 6.2.2.2 percent-encoding normalization of unreserved characters, which is equivalent and unobservable to a conforming server, while reserved characters, value-less flags (?flag), order and + are preserved (recorded as section 10 entry 18).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:123-128` · high · sha:68af5c6bf0ea</sub>
+- The async engine (PAGE-25 to PAGE-33) is not a second engine, because .NET has one iteration protocol that is already non-blocking (P4).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:130-132` · high · sha:68af5c6bf0ea</sub>
+- PAGE-31 is satisfied by construction because the walk is a while loop in a state machine and a synchronously completing ValueTask continues inline without growing the stack, using the specification's latitude that a port MAY use its native loop model but MUST NOT recurse per page.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:137-140` · high · sha:68af5c6bf0ea</sub>
+- PAGE-33's race, a response delivered to a send that was already cancelled, is documented as the transport's responsibility (TRANSPORT-9, section 3.3).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:141-142` · high · sha:68af5c6bf0ea</sub>
+- PAGE-29 and PAGE-30 (push delivery, optional caller-supplied executor, rejected re-dispatch) have nothing to configure on .NET because a pull-based IAsyncEnumerable never invokes the consumer, the consumer's own await foreach decides its context, and serial in-order delivery is the protocol's definition (recorded as section 10 entry 19).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:142-146` · high · sha:68af5c6bf0ea</sub>
+- The PAGE-34/PAGE-35 fetcher front-end is not built; its .NET shape is a factory taking Func<string?, CancellationToken, ValueTask<Page<T>>> keyed by a continuation token, which needs Page<T> to carry ContinuationToken/NextLink (PR #9 deferred ContinuationToken and token-based resumption).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:148-151` · high · sha:68af5c6bf0ea</sub>
+- The blocking pager view is a Pageable<T> : IEnumerable<T> beside the async one (permitted beside the static Pageable factory because the arities differ) and waits on a genuinely synchronous pipeline path, since HttpPipeline.Send is sync-over-async today (section 5.3) and a sync pager built on it would inherit the thread-pool starvation hazard.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:151-154` · high · sha:68af5c6bf0ea</sub>
 
 ## Reference
+- The pagination engine is transport-agnostic and serde-agnostic; a single stateless strategy parses each response into the page's items plus the fully-formed next-page request (or an end-of-stream signal), and the engine drives iteration, owns each page's live HTTP response, and bounds a misbehaving server with a page cap.
+  <sub>spec · `docs/product-spec/12-pagination.md:3-3` · high · sha:ba759edd34ec</sub>
+- The engine exposes an item-level view that flattens each page's items into one ordered sequence and a page-level view that yields whole pages exposing raw per-page status, headers, originating request, and the live response.
+  <sub>spec · `docs/product-spec/12-pagination.md:7-7` · high · sha:ba759edd34ec</sub>
 - The non-blocking engine has no separate lazy obtain step; invoking a walk method is itself the consumption trigger and begins fetching immediately, but the one-exchange-per-page-consumed guarantee still holds.
   <sub>spec · `docs/product-spec/12-pagination.md:10-10` · high · sha:ba759edd34ec</sub>
 - An empty page carrying a non-null next-request still counts as one consumed exchange.
@@ -297,46 +301,16 @@
   <sub>spec · `docs/product-spec/12-pagination.md:24-24` · high · sha:ba759edd34ec</sub>
 - An empty items list paired with a non-null next-request is a valid non-terminal page.
   <sub>spec · `docs/product-spec/12-pagination.md:26-26` · high · sha:ba759edd34ec</sub>
-- The pagination engine is transport-agnostic and serde-agnostic; a single stateless strategy parses each response into the page's items plus the fully-formed next-page request (or an end-of-stream signal), and the engine drives iteration, owns each page's live HTTP response, and bounds a misbehaving server with a page cap.
-  <sub>spec · `docs/product-spec/12-pagination.md:3-3` · high · sha:ba759edd34ec</sub>
 - The next-page request is built by splicing the query string, not by re-rendering the whole URL.
   <sub>spec · `docs/product-spec/12-pagination.md:57-57` · high · sha:ba759edd34ec</sub>
 - The async engine drives the walk inside a future/completion graph without blocking a thread per page.
   <sub>spec · `docs/product-spec/12-pagination.md:66-66` · high · sha:ba759edd34ec</sub>
-- The engine exposes an item-level view that flattens each page's items into one ordered sequence and a page-level view that yields whole pages exposing raw per-page status, headers, originating request, and the live response.
-  <sub>spec · `docs/product-spec/12-pagination.md:7-7` · high · sha:ba759edd34ec</sub>
 - By default the async consumer runs inline on the page-completion thread.
   <sub>spec · `docs/product-spec/12-pagination.md:72-72` · high · sha:ba759edd34ec</sub>
 - An alternative fetcher-based front-end lets the caller supply a first-page fetcher and a next-page fetcher instead of a strategy.
   <sub>spec · `docs/product-spec/12-pagination.md:80-80` · high · sha:ba759edd34ec</sub>
 - PAGE-35 - A mutable paging-options object offered to fetchers is single-consumer and need not be thread-safe.
   <sub>spec · `docs/product-spec/12-pagination.md:83-83` · high · sha:ba759edd34ec</sub>
-- The built-in PageNumber strategy (PAGE-17) ends on a caller predicate rather than on an empty item list, parses the current page with culture-sensitive int.TryParse(string, out int) rather than invariant base-10, and hard-codes the start page to 1 rather than making it configurable.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:100-102` · high · sha:68af5c6bf0ea</sub>
-- The built-in LinkHeader strategy (PAGE-18) reads only the first Link header instance (losing links a server splits across instances, PAGE-20), splits rel tokens on space but not tab, does not handle quoted-pair escapes, and hard-codes the header name.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:102-104` · high · sha:68af5c6bf0ea</sub>
-- PAGE-19's query-only reference is correct because new Uri(base, "?page=2") keeps /repo/issues and replaces only the query.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:104-106` · high · sha:68af5c6bf0ea</sub>
-- PAGE-19 says the base is the originating page's response URL, but the as-built code resolves against the current request URL, which differs after a redirect.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:110-112` · high · sha:68af5c6bf0ea</sub>
-- The as-built query splice keeps duplicates after the first match where PAGE-23 says to replace the first occurrence in place and drop further duplicates, and it has no remove-on-null path.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:118-119` · high · sha:68af5c6bf0ea</sub>
-- PAGE-22 holds because Uri.EscapeDataString encodes space as %20 and + as %2B, and Uri.UnescapeDataString("a+b") returns a+b.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:126-127` · high · sha:68af5c6bf0ea</sub>
-- PAGE-24 holds for userinfo, port, path and fragment through the as-built splice.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:127-128` · high · sha:68af5c6bf0ea</sub>
-- PAGE-25 holds because no thread blocks per page and the [EnumeratorCancellation] token flows into SendAsync, so cancelling aborts the in-flight exchange.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:131-132` · high · sha:68af5c6bf0ea</sub>
-- PAGE-26's page-granular cancellation holds because the token is observed at the top of each page iteration and inside the send, never inside the inner item loop, so items of an already-fetched page still reach the consumer.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:132-134` · high · sha:68af5c6bf0ea</sub>
-- PAGE-27's exactly-once close is provided by the engine's finally block.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:134-135` · high · sha:68af5c6bf0ea</sub>
-- PAGE-28's surfacing of the original underlying cause is free on the await path, which never wraps in AggregateException (only .Result/.Wait() do, which section 5.3 keeps off every path).
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:135-137` · high · sha:68af5c6bf0ea</sub>
-- PAGE-32 holds because a disposal failure on the success path propagates from MoveNextAsync.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:140-140` · high · sha:68af5c6bf0ea</sub>
-- As built (d45e64b), pagination is partial: AsyncPageable/AsPages/Page/strategies are built, while the page-view single-use guard, construction-time cap validation, suppressed-close helper, Page.Request, case-sensitive single-value splice, strategy defaults, multi-instance Link headers, invalid-target rejection, fetcher front-end and blocking view are missing.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:155-157` · high · sha:68af5c6bf0ea</sub>
 - Behaviour marked verified in design chapter 7 was run as file-based apps on .NET SDK 10.0.401 (runtime 10.0.12), and net8.0-floor claims were checked against the Microsoft.NETCore.App.Ref 8.0.31 reference pack because no .NET 8 runtime was available.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:3-8` · high · sha:68af5c6bf0ea</sub>
 - On .NET 10.0.401, await foreach with break runs the iterator's finally, and so does System.Linq.AsyncEnumerable's FirstAsync.
@@ -357,6 +331,32 @@
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:93-94` · high · sha:68af5c6bf0ea</sub>
 - The built-in Cursor strategy (PAGE-16) requires the query-parameter name rather than defaulting to "cursor".
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:98-100` · high · sha:68af5c6bf0ea</sub>
+- The built-in PageNumber strategy (PAGE-17) ends on a caller predicate rather than on an empty item list, parses the current page with culture-sensitive int.TryParse(string, out int) rather than invariant base-10, and hard-codes the start page to 1 rather than making it configurable.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:100-102` · high · sha:68af5c6bf0ea</sub>
+- The built-in LinkHeader strategy (PAGE-18) reads only the first Link header instance (losing links a server splits across instances, PAGE-20), splits rel tokens on space but not tab, does not handle quoted-pair escapes, and hard-codes the header name.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:102-104` · high · sha:68af5c6bf0ea</sub>
+- PAGE-19's query-only reference is correct because new Uri(base, "?page=2") keeps /repo/issues and replaces only the query.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:104-106` · high · sha:68af5c6bf0ea</sub>
+- PAGE-19 says the base is the originating page's response URL, but the as-built code resolves against the current request URL, which differs after a redirect.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:110-112` · high · sha:68af5c6bf0ea</sub>
+- The as-built query splice keeps duplicates after the first match where PAGE-23 says to replace the first occurrence in place and drop further duplicates, and it has no remove-on-null path.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:117-119` · high · sha:68af5c6bf0ea</sub>
+- PAGE-22 holds because Uri.EscapeDataString encodes space as %20 and + as %2B, and Uri.UnescapeDataString("a+b") returns a+b.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:126-127` · high · sha:68af5c6bf0ea</sub>
+- PAGE-24 holds for userinfo, port, path and fragment through the as-built splice.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:127-128` · high · sha:68af5c6bf0ea</sub>
+- PAGE-25 holds because no thread blocks per page and the [EnumeratorCancellation] token flows into SendAsync, so cancelling aborts the in-flight exchange.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:131-132` · high · sha:68af5c6bf0ea</sub>
+- PAGE-26's page-granular cancellation holds because the token is observed at the top of each page iteration and inside the send, never inside the inner item loop, so items of an already-fetched page still reach the consumer.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:132-134` · high · sha:68af5c6bf0ea</sub>
+- PAGE-27's exactly-once close is provided by the engine's finally block.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:134-135` · high · sha:68af5c6bf0ea</sub>
+- PAGE-28's surfacing of the original underlying cause is free on the await path, which never wraps in AggregateException (only .Result/.Wait() do, which section 5.3 keeps off every path).
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:135-137` · high · sha:68af5c6bf0ea</sub>
+- PAGE-32 holds because a disposal failure on the success path propagates from MoveNextAsync.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:140-140` · high · sha:68af5c6bf0ea</sub>
+- As built (d45e64b), pagination is partial: AsyncPageable/AsPages/Page/strategies are built, while the page-view single-use guard, construction-time cap validation, suppressed-close helper, Page.Request, case-sensitive single-value splice, strategy defaults, multi-instance Link headers, invalid-target rejection, fetcher front-end and blocking view are missing.
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:155-157` · high · sha:68af5c6bf0ea</sub>
 
 ## Conflicts
 

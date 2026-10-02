@@ -27,30 +27,6 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:250-252` · high · sha:1608fcd4b329</sub>
 - EnumerateCauses is bounded as well as cycle-safe with a depth cap of 64, because rule 9 of the house style bounds every loop.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:258-259` · high · sha:1608fcd4b329</sub>
-- Custom exceptions derive directly from Exception, are sealed, carry strongly typed context properties set in the constructor instead of data concatenated into the message, and drop [Serializable] (rule 8.6).
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:112-115` · high · sha:75ca031bcddf</sub>
-- Custom exceptions provide the standard constructors, including a message overload and a (message, innerException) overload so cause chaining works.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:115-115` · high · sha:75ca031bcddf</sub>
-- Custom exceptions must not be marked [Serializable] and must not implement the (SerializationInfo, StreamingContext) constructor, because binary serialization of exceptions is obsolete and BinaryFormatter is removed from .NET.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:116-116` · high · sha:75ca031bcddf</sub>
-- A custom exception type is justified only when callers will catch that failure distinctly; otherwise a BCL exception type suffices.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:116-116` · high · sha:75ca031bcddf</sub>
-- Return a Result or use the Try-pattern for expected, routine failures, and never throw for control flow (rule 8.7).
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:131-131` · high · sha:75ca031bcddf</sub>
-- The Result type is an opt-in Result<T, TError> modelled as a closed record hierarchy that the caller must pattern-match.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-134` · high · sha:75ca031bcddf</sub>
-- The Try-pattern is exposed as bool TryX(out T value) with [NotNullWhen(true)] so the analyzer proves the out value non-null on success.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-134` · high · sha:75ca031bcddf</sub>
-- Never throw to unwind a loop or signal an ordinary branch; exceptions are expensive to throw and invisible in the type.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-135` · high · sha:75ca031bcddf</sub>
-- Choose one error dialect per module and hold it: a module that returns Result does not also throw for the same class of failure.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:135-135` · high · sha:75ca031bcddf</sub>
-- Treat OperationCanceledException (and its TaskCanceledException subtype) as cooperative cancellation, not an error to log, alarm on or wrap (rule 8.8).
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:153-156` · high · sha:75ca031bcddf</sub>
-- Let OperationCanceledException propagate to the owner of the token, or catch it specifically only to perform cleanup and then rethrow.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:157-157` · high · sha:75ca031bcddf</sub>
-- When a broad catch is necessary, exclude cancellation with a filter such as catch (Exception ex) when (ex is not OperationCanceledException).
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:157-157` · high · sha:75ca031bcddf</sub>
 - Exceptions are reserved for the unexpected, such as a violated caller precondition or a disk that vanished mid-write, and carry a type and a chained cause so the failure is diagnosable from the throw site.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:3-3` · high · sha:75ca031bcddf</sub>
 - Routine, expected outcomes such as a parse that misses or a lookup that finds nothing are returned as values the signature admits, not thrown as exceptions for control flow.
@@ -81,6 +57,30 @@
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:95-98` · high · sha:75ca031bcddf</sub>
 - Wrapping work in try/catch to turn a NullReferenceException into a message is forbidden because it catches your own bug after the fact.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:98-98` · medium · sha:75ca031bcddf</sub>
+- Custom exceptions derive directly from Exception, are sealed, carry strongly typed context properties set in the constructor instead of data concatenated into the message, and drop [Serializable] (rule 8.6).
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:112-115` · high · sha:75ca031bcddf</sub>
+- Custom exceptions provide the standard constructors, including a message overload and a (message, innerException) overload so cause chaining works.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:115-115` · high · sha:75ca031bcddf</sub>
+- Custom exceptions must not be marked [Serializable] and must not implement the (SerializationInfo, StreamingContext) constructor, because binary serialization of exceptions is obsolete and BinaryFormatter is removed from .NET.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:116-116` · high · sha:75ca031bcddf</sub>
+- A custom exception type is justified only when callers will catch that failure distinctly; otherwise a BCL exception type suffices.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:116-116` · high · sha:75ca031bcddf</sub>
+- Return a Result or use the Try-pattern for expected, routine failures, and never throw for control flow (rule 8.7).
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:131-131` · high · sha:75ca031bcddf</sub>
+- The Result type is an opt-in Result<T, TError> modelled as a closed record hierarchy that the caller must pattern-match.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-134` · high · sha:75ca031bcddf</sub>
+- The Try-pattern is exposed as bool TryX(out T value) with [NotNullWhen(true)] so the analyzer proves the out value non-null on success.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-134` · high · sha:75ca031bcddf</sub>
+- Never throw to unwind a loop or signal an ordinary branch; exceptions are expensive to throw and invisible in the type.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:134-135` · high · sha:75ca031bcddf</sub>
+- Choose one error dialect per module and hold it: a module that returns Result does not also throw for the same class of failure.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:135-135` · high · sha:75ca031bcddf</sub>
+- Treat OperationCanceledException (and its TaskCanceledException subtype) as cooperative cancellation, not an error to log, alarm on or wrap (rule 8.8).
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:153-156` · high · sha:75ca031bcddf</sub>
+- Let OperationCanceledException propagate to the owner of the token, or catch it specifically only to perform cleanup and then rethrow.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:157-157` · high · sha:75ca031bcddf</sub>
+- When a broad catch is necessary, exclude cancellation with a filter such as catch (Exception ex) when (ex is not OperationCanceledException).
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:157-157` · high · sha:75ca031bcddf</sub>
 - Use specific exception types per domain, chain the original cause as InnerException, and attach context on rethrow.
   <sub>styleguide · `docs/styleguide/csharp/README.md:62-62` · high · sha:1e6ba36fc337</sub>
 - Catch only what can be handled, never catch bare Exception without a when filter, and never write an empty catch.
@@ -122,15 +122,15 @@
 - SERDE-10 (both serde exceptions share a common root) has a structural gap because SerializationException and DeserializationException both derive directly from SdkException, leaving the root of every SDK failure as their only catchable common root.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:306-309` · high · sha:68af5c6bf0ea</sub>
 - An abstract SerdeException : SdkException between SdkException and the two serde exceptions restores SERDE-10 at no cost while the package is pre-1.0.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:309-310` · high · sha:68af5c6bf0ea</sub>
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:306-310` · high · sha:68af5c6bf0ea</sub>
 - The tension between OBS-20 ("The runtime does NOT defensively wrap tracer ... or metrics ... calls") and XCUT-20 (observability paths MUST NEVER throw into the caller's request path) is resolved by making the SDK's own recording code (tag computation, redaction) total while listener callbacks are the OBS-30 contract party and are not wrapped; this is section 11 item 37.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:99-104` · high · sha:ddf8f695ff61</sub>
+- A precondition violation is treated as a bug in the caller rather than a runtime condition to recover from, so it is asserted at the top of the method with a ThrowIf helper that captures the parameter name via CallerArgumentExpression.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:98-99` · high · sha:75ca031bcddf</sub>
 - Custom exceptions derive directly from Exception rather than SystemException or ApplicationException because the framework guidelines retired the three-deep SystemException/ApplicationException split.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:115-115` · high · sha:75ca031bcddf</sub>
 - Result suits failures whose error carries structured detail the caller acts on, while the Try-pattern suits a plain present/absent answer on a hot path with no allocation.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:135-135` · high · sha:75ca031bcddf</sub>
-- A precondition violation is treated as a bug in the caller rather than a runtime condition to recover from, so it is asserted at the top of the method with a ThrowIf helper that captures the parameter name via CallerArgumentExpression.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:98-99` · high · sha:75ca031bcddf</sub>
 
 ## Reference
 - A convenience form of the status-to-exception mapper MAY return an absent/null value for non-error statuses instead of raising.
@@ -139,14 +139,6 @@
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:36-39` · high · sha:d7cea7b15cf3</sub>
 - The as-built adapter wraps only exceptions matching the filter catch ... when (ex is JsonException or NotSupportedException), which lets stream IOException propagate.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:593-595` · high · sha:da6000c93fc5</sub>
-- Rule 8.5 is enforced by CA1062 (validate public arguments), and review prefers ThrowIf over a defensive catch.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:110-110` · high · sha:75ca031bcddf</sub>
-- Rule 8.6 is enforced by CA1032 (provide standard constructors) and CA1064 (exceptions should be public); CA2229 and CA2237 are no longer required since [Serializable] is dropped.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:129-129` · high · sha:75ca031bcddf</sub>
-- Rule 8.7 is enforced by review, which forbids exceptions for expected failures and forbids mixing Result and throwing in one module, with [NotNullWhen] required on every Try method.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:151-151` · high · sha:75ca031bcddf</sub>
-- Rule 8.8 is enforced by review, and a CA1031 broad-catch justification must exclude OperationCanceledException.
-  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:169-169` · high · sha:75ca031bcddf</sub>
 - ApplicationException is a historical artifact that the framework guidelines advise against deriving from.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:40-40` · high · sha:75ca031bcddf</sub>
 - Rule 8.1 is enforced by analyzer CA2201 (do not raise reserved exception types), and review rejects bare Exception and ApplicationException.
@@ -159,6 +151,14 @@
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:93-93` · high · sha:75ca031bcddf</sub>
 - The ThrowIf helpers run in every build, including release, because they are preconditions rather than Debug.Assert invariants.
   <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:99-99` · high · sha:75ca031bcddf</sub>
+- Rule 8.5 is enforced by CA1062 (validate public arguments), and review prefers ThrowIf over a defensive catch.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:110-110` · high · sha:75ca031bcddf</sub>
+- Rule 8.6 is enforced by CA1032 (provide standard constructors) and CA1064 (exceptions should be public); CA2229 and CA2237 are no longer required since [Serializable] is dropped.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:129-129` · high · sha:75ca031bcddf</sub>
+- Rule 8.7 is enforced by review, which forbids exceptions for expected failures and forbids mixing Result and throwing in one module, with [NotNullWhen] required on every Try method.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:151-151` · high · sha:75ca031bcddf</sub>
+- Rule 8.8 is enforced by review, and a CA1031 broad-catch justification must exclude OperationCanceledException.
+  <sub>styleguide · `docs/styleguide/csharp/08-error-handling.md:169-169` · high · sha:75ca031bcddf</sub>
 - Chapter 08 covers specific exception types, no bare catch (Exception) without a filter, mandatory throw; and inner-exception chaining, ThrowIf helpers, opt-in Result for expected failures, and no control-flow exceptions.
   <sub>styleguide · `docs/styleguide/csharp/README.md:40-40` · medium · sha:1e6ba36fc337</sub>
 

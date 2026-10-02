@@ -1,6 +1,30 @@
 # message-bodies
 
 ## Rules
+- Body handling must never silently emit zero bytes or truncate, never double-consume or double-close, never let logging alter the wire bytes, and always bound in-memory capture.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:3-3` · high · sha:c2bf15dc8a06</sub>
+- HTTP-36 / BODY-1 (MUST): A request body MUST produce bytes on demand via a single write-to-sink operation, report its media type (nullable) and its content length (with -1 meaning unknown).
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
+- HTTP-36 / BODY-1 (MUST): A request body MUST expose a boolean replayability property that defaults to false (single-use), and replayability MUST be true only when writing more than once yields byte-for-byte identical output.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
+- BODY-2 (MUST): A composite body such as multipart MUST report replayable if and only if every part is replayable.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
+- BODY-2 (MUST): A composite body's declared content length MUST collapse to unknown if any part's length is unknown.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
+- HTTP-51 (SHOULD): A multipart body SHOULD derive its declared length and its written bytes from one shared framing routine so that length cannot drift from bytes written.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
+- HTTP-51 (SHOULD): A multipart body SHOULD generate a spec-valid random boundary and reject a caller-supplied boundary that violates the RFC 2046 grammar.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
+- HTTP-51 (MUST): A multipart body MUST quote or escape part-header parameter values so that CR/LF or a quote character cannot break the framing.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
+- BODY-3 / HTTP-37 (MUST): A materialize-once operation MUST return the same body unchanged when it is already replayable.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
+- BODY-3 / HTTP-37 (MUST): When the body is not replayable, the materialize-once operation MUST drain the body's write output exactly once into an in-memory buffer and return a replayable buffer-backed body, after which the original MUST be treated as consumed.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
+- BODY-3 / HTTP-37 (MUST): A single-use body MUST fail loudly on a second write and never silently emit zero bytes.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
+- BODY-3 / HTTP-37 (MUST): The consume-once guard of a single-use body MUST be race-safe so that under concurrent writes at most one proceeds and the losers observe a clear error.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
 - BODY-8 (MUST): A single-use body that owns a closeable source MUST release that source as part of its single write, so that skipping materialization does not leak it.
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:10-10` · high · sha:c2bf15dc8a06</sub>
 - BODY-8 (MUST): A port MUST decide its stream-ownership rule deliberately rather than assume every single-use body closes its input.
@@ -55,8 +79,6 @@
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:25-25` · high · sha:c2bf15dc8a06</sub>
 - HTTP-42 (MUST): Reading a response body as text MUST default its charset to the media type's declared charset, falling back to UTF-8 when none is declared or the declared charset is unknown.
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:26-26` · high · sha:c2bf15dc8a06</sub>
-- Body handling must never silently emit zero bytes or truncate, never double-consume or double-close, never let logging alter the wire bytes, and always bound in-memory capture.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:3-3` · high · sha:c2bf15dc8a06</sub>
 - HTTP-44 (MUST): A lazy typed-response wrapper MUST expose raw status, headers, protocol, reason and request without consuming the body.
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:30-30` · high · sha:c2bf15dc8a06</sub>
 - HTTP-44 (MUST): A lazy typed-response wrapper MUST parse the typed value at most once on first access and memoize the outcome, so every later access returns the same value or re-throws the same failure without re-running the handler or re-reading the single-use body.
@@ -133,28 +155,6 @@
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:48-48` · high · sha:c2bf15dc8a06</sub>
 - BODY-34 (MUST): The consumer MUST still receive every byte of an over-preview body; only the logged preview and size fields are bounded.
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:48-48` · high · sha:c2bf15dc8a06</sub>
-- HTTP-36 / BODY-1 (MUST): A request body MUST produce bytes on demand via a single write-to-sink operation, report its media type (nullable) and its content length (with -1 meaning unknown).
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
-- HTTP-36 / BODY-1 (MUST): A request body MUST expose a boolean replayability property that defaults to false (single-use), and replayability MUST be true only when writing more than once yields byte-for-byte identical output.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
-- BODY-2 (MUST): A composite body such as multipart MUST report replayable if and only if every part is replayable.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
-- BODY-2 (MUST): A composite body's declared content length MUST collapse to unknown if any part's length is unknown.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
-- HTTP-51 (SHOULD): A multipart body SHOULD derive its declared length and its written bytes from one shared framing routine so that length cannot drift from bytes written.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
-- HTTP-51 (SHOULD): A multipart body SHOULD generate a spec-valid random boundary and reject a caller-supplied boundary that violates the RFC 2046 grammar.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
-- HTTP-51 (MUST): A multipart body MUST quote or escape part-header parameter values so that CR/LF or a quote character cannot break the framing.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:8-8` · high · sha:c2bf15dc8a06</sub>
-- BODY-3 / HTTP-37 (MUST): A materialize-once operation MUST return the same body unchanged when it is already replayable.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
-- BODY-3 / HTTP-37 (MUST): When the body is not replayable, the materialize-once operation MUST drain the body's write output exactly once into an in-memory buffer and return a replayable buffer-backed body, after which the original MUST be treated as consumed.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
-- BODY-3 / HTTP-37 (MUST): A single-use body MUST fail loudly on a second write and never silently emit zero bytes.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
-- BODY-3 / HTTP-37 (MUST): The consume-once guard of a single-use body MUST be race-safe so that under concurrent writes at most one proceeds and the losers observe a clear error.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
 - A composite (multipart or aggregate) body reports IsReplayable as the conjunction over its parts and ContentLength -1 if any part's length is unknown (BODY-2).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:167-169` · high · sha:da6000c93fc5</sub>
 - Declared length and written bytes of a composite body come from one framing routine (HTTP-51), and part-header parameter values are quoted and escaped so a CR/LF or quote cannot break the framing.
@@ -217,6 +217,10 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:199-202` · high · sha:da6000c93fc5</sub>
 
 ## Reference
+- Conformance for BODY-1: a byte-array body is replayable with exact length, a stream-backed body is single-use, and an unknown-length body reports -1; retry, redirect and auth-replay query replayability before deciding whether to buffer or re-send.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
+- In the reference implementation the single-use consume-once guard is an atomic compare-and-set; conformance: writing a stream body twice makes the second throw, materializing then writing twice yields identical output, and a concurrent double-write lets exactly one succeed.
+  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
 - In the reference implementation the buffered-source-backed body drains and closes its source on write, while raw byte-stream-backed bodies do not close their stream during write (the rewindable variant keeps it open to replay; the one-shot variant leaves the caller-supplied stream unclosed per its documented ownership).
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:10-10` · high · sha:c2bf15dc8a06</sub>
 - The three re-send paths decline differently and a port need not unify the decline behavior: the retry path stops and surfaces the last outcome, the auth path returns the original challenge response unchanged and does NOT close it, and the redirect path fails loudly.
@@ -225,10 +229,6 @@
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:18-18` · high · sha:c2bf15dc8a06</sub>
 - Conformance for BODY-5: retrying a body-less POST versus a body-less GET against a retryable status re-sends only the GET.
   <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:19-19` · high · sha:c2bf15dc8a06</sub>
-- Conformance for BODY-1: a byte-array body is replayable with exact length, a stream-backed body is single-use, and an unknown-length body reports -1; retry, redirect and auth-replay query replayability before deciding whether to buffer or re-send.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:7-7` · high · sha:c2bf15dc8a06</sub>
-- In the reference implementation the single-use consume-once guard is an atomic compare-and-set; conformance: writing a stream body twice makes the second throw, materializing then writing twice yields identical output, and a concurrent double-write lets exactly one succeed.
-  <sub>spec · `docs/product-spec/06-request-and-response-body-lifecycle.md:9-9` · high · sha:c2bf15dc8a06</sub>
 - FromString encodes with GetBytes, which emits no BOM (UTF-8 "a" is the single byte 61).
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:295-296` · high · sha:3aa554d9287d</sub>
 

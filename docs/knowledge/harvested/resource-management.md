@@ -55,6 +55,18 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:795-798` · high · sha:da6000c93fc5</sub>
 - The TaskCompletionSource losers, CFG-21's discard close, TRANSPORT-22's adaptation-failure close, the superseded-response closes of PIPE-40 and REDIR-22, RETRY-35's pre-wait release, and the drop paths of PAGE-12 and PAGE-27 all go through DisposeQuietly.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:798-800` · high · sha:da6000c93fc5</sub>
+- Implement IDisposable for any type owning disposables and IAsyncDisposable when cleanup is itself asynchronous, and prefer `using` / `await using` to hand-written try/finally (styleguide 13.1).
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:38-50` · high · sha:ce7621949da8</sub>
+- Drop to explicit try/finally for disposal only when the lifetime genuinely cannot match a lexical scope, and state why.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:42-42` · high · sha:ce7621949da8</sub>
+- Scope a disposable with a `using` declaration (`using var x = ...;`) when it lives to the end of the method, and use the explicit `using` statement block when the lifetime must end earlier or several disposables nest (styleguide 13.2).
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:52-69` · high · sha:ce7621949da8</sub>
+- Implement the full dispose pattern (protected virtual Dispose(bool), a finalizer, GC.SuppressFinalize) only when a type directly holds a raw unmanaged resource, preferring SafeHandle (styleguide 13.3).
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:71-85` · high · sha:ce7621949da8</sub>
+- A sealed class owning only managed disposables writes a plain public Dispose() or DisposeAsync() that disposes its fields, with no finalizer, no Dispose(bool) and no SuppressFinalize.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:75-84` · high · sha:ce7621949da8</sub>
+- Dispose what you create and never dispose a dependency injected into you; a field or local your code constructs is yours to dispose, a constructor-injected one is owned by its creator (styleguide 13.4).
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:87-104` · high · sha:ce7621949da8</sub>
 - Never block in Dispose; expose IAsyncDisposable and implement DisposeAsync when cleanup is asynchronous, so callers use `await using` (styleguide 13.5).
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:106-123` · high · sha:ce7621949da8</sub>
 - A type implementing both IDisposable and IAsyncDisposable must have its synchronous Dispose avoid the async work rather than smuggle it in behind a blocking .Result or .Wait().
@@ -71,18 +83,6 @@
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:163-171` · high · sha:ce7621949da8</sub>
 - Dispose every CancellationTokenSource, scoping it with `using`, because a long-running or timeout-created source holds timer and linked-token callback registrations until disposed.
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:167-167` · high · sha:ce7621949da8</sub>
-- Implement IDisposable for any type owning disposables and IAsyncDisposable when cleanup is itself asynchronous, and prefer `using` / `await using` to hand-written try/finally (styleguide 13.1).
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:38-50` · high · sha:ce7621949da8</sub>
-- Drop to explicit try/finally for disposal only when the lifetime genuinely cannot match a lexical scope, and state why.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:42-42` · high · sha:ce7621949da8</sub>
-- Scope a disposable with a `using` declaration (`using var x = ...;`) when it lives to the end of the method, and use the explicit `using` statement block when the lifetime must end earlier or several disposables nest (styleguide 13.2).
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:52-69` · high · sha:ce7621949da8</sub>
-- Implement the full dispose pattern (protected virtual Dispose(bool), a finalizer, GC.SuppressFinalize) only when a type directly holds a raw unmanaged resource, preferring SafeHandle (styleguide 13.3).
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:71-85` · high · sha:ce7621949da8</sub>
-- A sealed class owning only managed disposables writes a plain public Dispose() or DisposeAsync() that disposes its fields, with no finalizer, no Dispose(bool) and no SuppressFinalize.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:75-84` · high · sha:ce7621949da8</sub>
-- Dispose what you create and never dispose a dependency injected into you; a field or local your code constructs is yours to dispose, a constructor-injected one is owned by its creator (styleguide 13.4).
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:87-104` · high · sha:ce7621949da8</sub>
 
 ## Constraints
 - new StreamReader(stream) closes the caller's stream when the reader is disposed, and only new StreamReader(stream, leaveOpen: true) does not (verified; the P13 trap).
@@ -109,14 +109,14 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:786-790` · high · sha:da6000c93fc5</sub>
 - The context store shares one BoundedMap helper with the Digest nonce counter (design section 6.3) and every other caller- or server-keyed map (XCUT-14).
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:400-400` · high · sha:1608fcd4b329</sub>
-- Bounding is mandated because an unbounded Channel<T> or cache grows until the process dies, and an explicit cap forces an early decision (block the producer, drop the oldest, evict the least-used) instead of deferring it to the out-of-memory killer; bounding is the difference between backpressure and a crash.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:150-151` · high · sha:ce7621949da8</sub>
-- Per-call HttpClient construction is rejected because each instance holds its own connection pool and disposing it leaves sockets in TIME_WAIT, exhausting the ephemeral port range under load, whereas IHttpClientFactory pools and rotates handlers for connection reuse and periodic DNS refresh.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:166-166` · high · sha:ce7621949da8</sub>
 - The full dispose pattern is rejected by default because adding it by reflex pays the finalization cost (slower allocation, a trip through the finalizer queue) for a guarantee that managed-only types do not need.
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:75-75` · high · sha:ce7621949da8</sub>
 - Disposal follows ownership and ownership follows creation, so disposing an injected dependency closes a resource still in use elsewhere and turns a shared singleton into a use-after-dispose bug, while the DI container disposes registered services at the end of their scope.
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:90-91` · high · sha:ce7621949da8</sub>
+- Bounding is mandated because an unbounded Channel<T> or cache grows until the process dies, and an explicit cap forces an early decision (block the producer, drop the oldest, evict the least-used) instead of deferring it to the out-of-memory killer; bounding is the difference between backpressure and a crash.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:150-151` · high · sha:ce7621949da8</sub>
+- Per-call HttpClient construction is rejected because each instance holds its own connection pool and disposing it leaves sockets in TIME_WAIT, exhausting the ephemeral port range under load, whereas IHttpClientFactory pools and rotates handlers for connection reuse and periodic DNS refresh.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:166-166` · high · sha:ce7621949da8</sub>
 
 ## Reference
 - SEAM-14 rationale is that closing a caller's shared client would break the rest of their application; conformance is that closing a transport over a BYO client leaves the BYO object usable, and closing an SDK-managed transport releases the owned pool/executor.
@@ -133,6 +133,14 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:780-781` · high · sha:da6000c93fc5</sub>
 - As built (d45e64b), lifecycle is partial: ownership-aware transport disposal is built, but there is no dispose latch on Response/bodies/transport, no ObjectDisposedException after dispose, and no quiet-dispose helper.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:802-803` · high · sha:da6000c93fc5</sub>
+- A managed runtime collects memory but not handles, so files, sockets, connections and rented buffers are released only when code does so explicitly; unbounded pools and caches are leaks that load exposes (root rule 9).
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:3-3` · high · sha:ce7621949da8</sub>
+- Rule 13.1 is enforced by CA2000 (dispose before losing scope) and review that an owning type implements the right disposable interface.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:50-50` · high · sha:ce7621949da8</sub>
+- Rule 13.2 is enforced by IDE0063 (use simple using) and review of nesting depth.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:69-69` · high · sha:ce7621949da8</sub>
+- Rule 13.3 is enforced by CA1816 (call GC.SuppressFinalize correctly), and review rejects a finalizer on a type holding only managed state.
+  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:85-85` · high · sha:ce7621949da8</sub>
 - Rule 13.4 is enforced by CA2213 (dispose owned fields), and review rejects disposing an injected dependency.
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:104-104` · high · sha:ce7621949da8</sub>
 - Rule 13.5 is enforced by CA2215 and review rejecting .Result or .Wait() inside Dispose.
@@ -143,14 +151,6 @@
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:161-161` · high · sha:ce7621949da8</sub>
 - Rule 13.8 is enforced by review rejecting `new HttpClient()` in application code, with CA2000 and CA2213 flagging an undisposed CancellationTokenSource.
   <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:182-182` · high · sha:ce7621949da8</sub>
-- A managed runtime collects memory but not handles, so files, sockets, connections and rented buffers are released only when code does so explicitly; unbounded pools and caches are leaks that load exposes (root rule 9).
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:3-3` · high · sha:ce7621949da8</sub>
-- Rule 13.1 is enforced by CA2000 (dispose before losing scope) and review that an owning type implements the right disposable interface.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:50-50` · high · sha:ce7621949da8</sub>
-- Rule 13.2 is enforced by IDE0063 (use simple using) and review of nesting depth.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:69-69` · high · sha:ce7621949da8</sub>
-- Rule 13.3 is enforced by CA1816 (call GC.SuppressFinalize correctly), and review rejects a finalizer on a type holding only managed state.
-  <sub>styleguide · `docs/styleguide/csharp/13-resource-management.md:85-85` · high · sha:ce7621949da8</sub>
 - Chapter 13 covers IDisposable/IAsyncDisposable, using declarations, the dispose pattern only when owning, ArrayPool/MemoryPool, bounded pools/channels/caches, and CancellationTokenSource disposal.
   <sub>styleguide · `docs/styleguide/csharp/README.md:45-45` · medium · sha:1e6ba36fc337</sub>
 

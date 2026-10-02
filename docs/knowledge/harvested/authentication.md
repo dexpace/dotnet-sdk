@@ -1,6 +1,20 @@
 # authentication
 
 ## Rules
+- AUTH-1 (MUST) The recognized scheme set is exactly {OAUTH2, API_KEY, BASIC, DIGEST, NO_AUTH}, where NO_AUTH is a distinct sentinel meaning may run anonymously / skip credential stamping rather than a wire scheme.
+  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
+- AUTH-2 (MUST) A requirement binds exactly one scheme to its own OAuth scopes and params (meaningful only for OAUTH2, never inspected by resolution but preserved), is immutable against later mutation of input collections, and has value-based equality over scheme + scopes + params.
+  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
+- AUTH-3 (MUST) A descriptor is a non-empty ordered list of requirements in preference order, rejects an empty list at construction, is immutable, and reports allows-anonymous true iff any requirement's scheme is NO_AUTH.
+  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
+- AUTH-4 (MUST) Tier resolution selects the single most-specific descriptor present in strict order per-call > operation > client and resolves only against it, and a higher tier that is present but unsatisfiable fails rather than falling through to a lower tier because the caller asked for that override explicitly.
+  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
+- AUTH-5 (MUST) Within the selected descriptor resolution returns the first requirement in declared order whose scheme is satisfiable, where satisfiable means NO_AUTH (always) or membership in the supplied set of available schemes, without inspecting any concrete credential.
+  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
+- AUTH-6 (MUST) Resolution fails with an argument error when all tiers are absent, and with a distinct auth-resolution error carrying the required schemes in preference order and the available schemes when the selected descriptor lists no satisfiable scheme.
+  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
+- AUTH-7 (MUST) The auth resolver is stateless, concurrency-safe, and a deterministic pure function of its inputs.
+  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
 - AUTH-8 (MUST) Every credential type redacts its secret in any string/diagnostic representation without mutating or corrupting the real fields, MAY leave non-secret fields visible, and preserves its variant-specific equality.
   <sub>spec · `docs/product-spec/11-authentication.md:12-12` · high · sha:efba58233dd1</sub>
 - AUTH-8 The bearer token credential has value-based equality over its real token and expiry (the redacted string form does not affect it), while the API-key and name-key credentials use reference identity so two instances with identical fields are not equal.
@@ -71,20 +85,6 @@
   <sub>spec · `docs/product-spec/11-authentication.md:27-27` · high · sha:efba58233dd1</sub>
 - AUTH-38 (SHOULD) In the async path the HTTPS-guard failure and any hook error SHOULD be delivered through the asynchronous channel (a failed future) rather than synchronously thrown.
   <sub>spec · `docs/product-spec/11-authentication.md:27-27` · high · sha:efba58233dd1</sub>
-- AUTH-1 (MUST) The recognized scheme set is exactly {OAUTH2, API_KEY, BASIC, DIGEST, NO_AUTH}, where NO_AUTH is a distinct sentinel meaning may run anonymously / skip credential stamping rather than a wire scheme.
-  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
-- AUTH-2 (MUST) A requirement binds exactly one scheme to its own OAuth scopes and params (meaningful only for OAUTH2, never inspected by resolution but preserved), is immutable against later mutation of input collections, and has value-based equality over scheme + scopes + params.
-  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
-- AUTH-3 (MUST) A descriptor is a non-empty ordered list of requirements in preference order, rejects an empty list at construction, is immutable, and reports allows-anonymous true iff any requirement's scheme is NO_AUTH.
-  <sub>spec · `docs/product-spec/11-authentication.md:7-7` · high · sha:efba58233dd1</sub>
-- AUTH-4 (MUST) Tier resolution selects the single most-specific descriptor present in strict order per-call > operation > client and resolves only against it, and a higher tier that is present but unsatisfiable fails rather than falling through to a lower tier because the caller asked for that override explicitly.
-  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
-- AUTH-5 (MUST) Within the selected descriptor resolution returns the first requirement in declared order whose scheme is satisfiable, where satisfiable means NO_AUTH (always) or membership in the supplied set of available schemes, without inspecting any concrete credential.
-  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
-- AUTH-6 (MUST) Resolution fails with an argument error when all tiers are absent, and with a distinct auth-resolution error carrying the required schemes in preference order and the available schemes when the selected descriptor lists no satisfiable scheme.
-  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
-- AUTH-7 (MUST) The auth resolver is stateless, concurrency-safe, and a deterministic pure function of its inputs.
-  <sub>spec · `docs/product-spec/11-authentication.md:8-8` · high · sha:efba58233dd1</sub>
 - XCUT-12 (SHOULD) Hot-path reads of a credential/token cache SHOULD be wait-free (for example a volatile-published read taking no lock while valid).
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:29-29` · high · sha:d6123be82c9e</sub>
 - XCUT-12 (SHOULD) Token refresh SHOULD be single-flight, so only one concurrent caller fetches an expiring token while the others reuse the result.
@@ -181,14 +181,14 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:388-389` · high · sha:27a0a46f35a8</sub>
 
 ## Reference
+- Authentication has two largely independent halves: a scheme-agnostic descriptor/resolver model that decides which auth alternative an operation requires, and a stamping/challenge half that puts credentials on the wire and reacts to server challenges.
+  <sub>spec · `docs/product-spec/11-authentication.md:3-3` · high · sha:efba58233dd1</sub>
 - 401 eviction and refresh matching is done on the stamped header string rather than credential equality, so value equality is not required for the key credentials.
   <sub>spec · `docs/product-spec/11-authentication.md:12-12` · high · sha:efba58233dd1</sub>
 - The default challenge hook yields no replacement request.
   <sub>spec · `docs/product-spec/11-authentication.md:25-25` · high · sha:efba58233dd1</sub>
 - The reference implementation enforces the replayability gate only on the synchronous auth step; the async auth step applies no gate and closes the original 401 before re-driving unconditionally, and a faithful port SHOULD apply the same gate on both paths.
   <sub>spec · `docs/product-spec/11-authentication.md:26-26` · high · sha:efba58233dd1</sub>
-- Authentication has two largely independent halves: a scheme-agnostic descriptor/resolver model that decides which auth alternative an operation requires, and a stamping/challenge half that puts credentials on the wire and reacts to server challenges.
-  <sub>spec · `docs/product-spec/11-authentication.md:3-3` · high · sha:efba58233dd1</sub>
 - The synchronization primitive used for token-cache reads and refresh is non-normative.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:29-29` · high · sha:d6123be82c9e</sub>
 - The AUTH-1 to AUTH-7 descriptor/resolver model is not built and is pure data, consisting of an AuthScheme enum, an AuthRequirement record, an AuthDescriptor of requirements in preference order, and a stateless static resolver.

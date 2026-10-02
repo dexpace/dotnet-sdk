@@ -37,6 +37,10 @@
   <sub>spec · `docs/product-spec/16-configuration.md:37-37` · high · sha:367e27ec6481</sub>
 - CFG-21 (MUST): When an interruptible-task future has already been cancelled and the task nonetheless produced a closeable result, that result is closed on the discard path (best-effort, swallowing close failures), and the close helper is null-safe.
   <sub>spec · `docs/product-spec/16-configuration.md:38-38` · high · sha:367e27ec6481</sub>
+- ASYNC-1 (MUST) An async transport implementation that has no response MUST complete via the failure channel rather than deliver a null or absent value.
+  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:7-7` · high · sha:f1bf00174456</sub>
+- ASYNC-2 (MUST) Every failure detectable while constructing the async operation, such as request-adaptation errors or worker-pool rejection, MUST be delivered through the future's failure channel and never thrown synchronously.
+  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:8-8` · high · sha:f1bf00174456</sub>
 - ASYNC-3 (MUST) When an async operation is backed by a blocking task on a worker thread, cancellation MUST distinguish cancel-with-interrupt (interrupts the worker running the in-flight task) from cancel-without-interrupt (cancels the logical operation without interrupting).
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:12-12` · high · sha:f1bf00174456</sub>
 - ASYNC-3 (MUST) A task that is still queued or already finished MUST NOT be interrupted by cancellation.
@@ -93,10 +97,6 @@
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:42-42` · high · sha:f1bf00174456</sub>
 - ASYNC-21 (MUST) A reactive-stream adapter over a streaming source MUST NOT close the caller-owned source on any termination, and MUST treat the source as single-subscriber (a fresh source per subscription).
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:42-42` · high · sha:f1bf00174456</sub>
-- ASYNC-1 (MUST) An async transport implementation that has no response MUST complete via the failure channel rather than deliver a null or absent value.
-  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:7-7` · high · sha:f1bf00174456</sub>
-- ASYNC-2 (MUST) Every failure detectable while constructing the async operation, such as request-adaptation errors or worker-pool rejection, MUST be delivered through the future's failure channel and never thrown synchronously.
-  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:8-8` · high · sha:f1bf00174456</sub>
 - XCUT-11 (MUST) Components documented as shared or reusable across concurrent requests (pipeline steps, auth handlers, redactors, factories) MUST be safe for concurrent invocation.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:28-28` · high · sha:d6123be82c9e</sub>
 - XCUT-11 (MUST) Per-call mutable state (attempt counters, deadlines, seen-URI sets) MUST live on the call's stack/local state rather than the shared instance, and any shared mutable state MUST be synchronized.
@@ -203,6 +203,32 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:111-112` · high · sha:27a0a46f35a8</sub>
 - ExecutionContext.SuppressFlow and ThreadPool.UnsafeQueueUserWorkItem are banned in SDK code by section 9.1's banned-API gate.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:116-118` · high · sha:ddf8f695ff61</sub>
+- Concurrency is a resource that must be bounded: every fan-out is capped so concurrency never becomes an unbounded resource (root rule 9).
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:3-3` · high · sha:7a7bb42c6872</sub>
+- Async all the way down: never block on async work with .Result, .Wait() or GetAwaiter().GetResult() (rule 9.1).
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:38-38` · high · sha:7a7bb42c6872</sub>
+- Any synchronous API that truly must call async code is a documented, reviewed exception, never a casual .Result.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:42-42` · high · sha:7a7bb42c6872</sub>
+- Ban async void: async methods return Task, Task<T> or ValueTask (rule 9.2).
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:51-51` · high · sha:7a7bb42c6872</sub>
+- The single sanctioned async void is a top-level event handler whose signature the framework fixes, and its body must be a thin try/catch delegating to an awaitable method so no exception escapes.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:55-55` · high · sha:7a7bb42c6872</sub>
+- Every async method takes a CancellationToken as its last parameter (after any optional defaults) and forwards it into every awaited call (rule 9.3).
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:68-71` · high · sha:7a7bb42c6872</sub>
+- In tight CPU loops with no awaitable to carry the token, call cancellationToken.ThrowIfCancellationRequested() periodically.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:71-71` · high · sha:7a7bb42c6872</sub>
+- A method that accepts a CancellationToken must honour it, because accepting and ignoring it is worse than omitting it.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:71-71` · high · sha:7a7bb42c6872</sub>
+- External I/O gets a mandatory timeout, implemented by linking the caller's token with new CancellationTokenSource(TimeSpan.FromSeconds(n)) via CancellationTokenSource.CreateLinkedTokenSource so a hung socket cannot block forever.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:72-72` · high · sha:7a7bb42c6872</sub>
+- Link the caller's token with the timeout token rather than replacing it, so both caller cancellation and the timeout fire.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:72-72` · high · sha:7a7bb42c6872</sub>
+- Call ConfigureAwait(false) on every await in library code (rule 9.4).
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:86-86` · high · sha:7a7bb42c6872</sub>
+- The ConfigureAwait split is by layer: library and shared infrastructure code applies it on every await, while application and host code omits it.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:90-90` · high · sha:7a7bb42c6872</sub>
+- Apply ConfigureAwait(false) uniformly within a library so the rule is mechanical rather than judged await by await.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:90-90` · high · sha:7a7bb42c6872</sub>
 - Use ValueTask/ValueTask<T> only for hot, often-synchronous paths where allocation shows up in a profile, and await it exactly once (rule 9.5).
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:101-104` · high · sha:7a7bb42c6872</sub>
 - Task/Task<T> is the default return type for async methods because it is simpler and freely composable.
@@ -233,42 +259,16 @@
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:157-157` · high · sha:7a7bb42c6872</sub>
 - Keep every lock scope to the few statements that must be atomic, take locks in a consistent order to avoid deadlock, and document every remaining race with a why-comment explaining why it is benign.
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:158-158` · high · sha:7a7bb42c6872</sub>
-- Concurrency is a resource that must be bounded: every fan-out is capped so concurrency never becomes an unbounded resource (root rule 9).
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:3-3` · high · sha:7a7bb42c6872</sub>
-- Async all the way down: never block on async work with .Result, .Wait() or GetAwaiter().GetResult() (rule 9.1).
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:38-38` · high · sha:7a7bb42c6872</sub>
-- Any synchronous API that truly must call async code is a documented, reviewed exception, never a casual .Result.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:42-42` · high · sha:7a7bb42c6872</sub>
-- Ban async void: async methods return Task, Task<T> or ValueTask (rule 9.2).
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:51-51` · high · sha:7a7bb42c6872</sub>
-- The single sanctioned async void is a top-level event handler whose signature the framework fixes, and its body must be a thin try/catch delegating to an awaitable method so no exception escapes.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:55-55` · high · sha:7a7bb42c6872</sub>
-- Every async method takes a CancellationToken as its last parameter (after any optional defaults) and forwards it into every awaited call (rule 9.3).
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:68-71` · high · sha:7a7bb42c6872</sub>
-- In tight CPU loops with no awaitable to carry the token, call cancellationToken.ThrowIfCancellationRequested() periodically.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:71-71` · high · sha:7a7bb42c6872</sub>
-- A method that accepts a CancellationToken must honour it, because accepting and ignoring it is worse than omitting it.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:71-71` · high · sha:7a7bb42c6872</sub>
-- External I/O gets a mandatory timeout, implemented by linking the caller's token with new CancellationTokenSource(TimeSpan.FromSeconds(n)) via CancellationTokenSource.CreateLinkedTokenSource so a hung socket cannot block forever.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:72-72` · high · sha:7a7bb42c6872</sub>
-- Link the caller's token with the timeout token rather than replacing it, so both caller cancellation and the timeout fire.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:72-72` · high · sha:7a7bb42c6872</sub>
-- Call ConfigureAwait(false) on every await in library code (rule 9.4).
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:86-86` · high · sha:7a7bb42c6872</sub>
-- The ConfigureAwait split is by layer: library and shared infrastructure code applies it on every await, while application and host code omits it.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:90-90` · high · sha:7a7bb42c6872</sub>
-- Apply ConfigureAwait(false) uniformly within a library so the rule is mechanical rather than judged await by await.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:90-90` · high · sha:7a7bb42c6872</sub>
 - Timeouts are mandatory on external I/O via a CancellationToken from CancellationTokenSource(TimeSpan).
   <sub>styleguide · `docs/styleguide/csharp/README.md:67-67` · high · sha:1e6ba36fc337</sub>
 
 ## Constraints
 - Cancelling an already-completed success future does NOT close the delivered response body, so the caller MUST still close it (SEAM-16).
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:17-17` · high · sha:0adae2d6a47f</sub>
-- ASYNC-22 (MUST) Async transport implementations MUST be safe for concurrent calls from multiple threads, with all per-call mutable state confined to the returned future's completion graph.
-  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:43-43` · high · sha:f1bf00174456</sub>
 - ASYNC-1 (MUST) The async transport contract is a single-value completion future that yields exactly one Response on success or completes with exactly one failure, and on success it MUST deliver a non-null Response.
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:7-7` · high · sha:f1bf00174456</sub>
+- ASYNC-22 (MUST) Async transport implementations MUST be safe for concurrent calls from multiple threads, with all per-call mutable state confined to the returned future's completion graph.
+  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:43-43` · high · sha:f1bf00174456</sub>
 - Under a single-threaded SynchronizationContext (WinForms, WPF, legacy ASP.NET, some test hosts), blocking on a task whose continuation wants that context deadlocks.
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:91-93` · high · sha:d7cea7b15cf3</sub>
 - HttpClient.Send with a custom HttpContent that overrides only the async serialization method throws NotSupportedException telling the caller to override SerializeToStream (verified).
@@ -286,7 +286,7 @@
 - Verified that .Result on a faulted task throws AggregateException while await and GetAwaiter().GetResult() throw the original exception.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:294-295` · high · sha:1608fcd4b329</sub>
 - Thread.Abort throws PlatformNotSupportedException on .NET Core and Thread.Interrupt only wakes a thread in a managed wait, so PIPE-33's interruption clause maps onto CancellationToken: cancelling with interruption passes the call's token into the worker's IHttpClient.Execute (where HttpClient.Send aborts the in-flight socket operation), and cancelling without interruption is the caller awaiting task.WaitAsync(token), which completes as cancelled while the worker runs on.
-  <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:313-317` · high · sha:1608fcd4b329</sub>
+  <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:312-317` · high · sha:1608fcd4b329</sub>
 - ExecutionContext.SuppressFlow() and ThreadPool.UnsafeQueueUserWorkItem each delivered null for a set AsyncLocal (verified), so context propagation depends on SDK code not using them (precondition P7).
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:115-117` · high · sha:ddf8f695ff61</sub>
 - Awaiting inside a lock is a compile error (CS1996) because the Monitor a lock lowers to is thread-affine and the continuation could resume on another thread.
@@ -337,16 +337,16 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:111-115` · high · sha:ddf8f695ff61</sub>
 - One sanctioned exception to the SuppressFlow ban is the internal helper that launches SDK-owned background work (the token cache's refresh), which suppresses flow on purpose so that the work does not pin the triggering call's context.
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:117-119` · high · sha:ddf8f695ff61</sub>
-- The single-await rule exists because it makes ValueTask safe to pool internally; breaking it reads a recycled or torn result.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:105-105` · high · sha:7a7bb42c6872</sub>
-- A bounded channel is used because WriteAsync awaits when it is full, throttling the producer to the consumer's rate by construction and avoiding an unbounded queue.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:138-138` · high · sha:7a7bb42c6872</sub>
 - Blocking on an incomplete Task deadlocks under a synchronization context and, even without one, starves the thread pool, so the fix is making callers async and propagating await up to the entry point.
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:41-42` · high · sha:7a7bb42c6872</sub>
 - async void is banned because it cannot be awaited, composed, timed out or cancelled, and an exception escaping it is posted to the synchronization context and crashes the process.
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:54-54` · high · sha:7a7bb42c6872</sub>
 - Library code uses ConfigureAwait(false) because it must not care which synchronization context its caller runs on, and recapturing the context costs a context switch and risks deadlock if the caller later blocks.
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:89-89` · high · sha:7a7bb42c6872</sub>
+- The single-await rule exists because it makes ValueTask safe to pool internally; breaking it reads a recycled or torn result.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:105-105` · high · sha:7a7bb42c6872</sub>
+- A bounded channel is used because WriteAsync awaits when it is full, throttling the producer to the consumer's rate by construction and avoiding an unbounded queue.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:138-138` · high · sha:7a7bb42c6872</sub>
 
 ## Reference
 - SEAM-11 rationale is that keeping the seam to "send one, get one" is what lets pipelines, retry, auth and logging be built above it; conformance is that a bare send lambda works as a transport and passing options to an options-ignoring transport matches omitting them.
@@ -365,10 +365,10 @@
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:20-20` · high · sha:0adae2d6a47f</sub>
 - SEAM-24 conformance is to set a diagnostic value, run an async request through the adapter, assert a worker log carries it, and cancel from each side asserting the other observes it.
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:45-45` · high · sha:0adae2d6a47f</sub>
-- Logging-context propagation across threads is an observability guarantee rather than a functional one, so an adapter that omits it still executes exchanges correctly.
-  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:20-20` · high · sha:f1bf00174456</sub>
 - The async-runtime adapter contract defines what an adapter must honor when bridging the SDK's async HTTP transport SPI to a host runtime's concurrency primitives, with a single canonical completion future (SEAM-17) carrying exactly one success value or one failure as the interchange point that every ecosystem facade (coroutines, reactive Mono/Flux, event-loop futures, virtual threads) bridges to and from.
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:3-3` · high · sha:f1bf00174456</sub>
+- Logging-context propagation across threads is an observability guarantee rather than a functional one, so an adapter that omits it still executes exchanges correctly.
+  <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:20-20` · high · sha:f1bf00174456</sub>
 - Callers that need eager abort of an in-flight request use the interrupt or structured-cancellation path rather than adapter close.
   <sub>spec · `docs/product-spec/18-asynchronous-runtime-adapter-contract.md:34-34` · high · sha:f1bf00174456</sub>
 - The behavior of executeAsync after the async transport is closed is undefined.
@@ -388,7 +388,7 @@
 - SEAM-16 requires the async transport's future to complete with a non-null response (caller owns closing it) or exceptionally with the transport failure, never with a null success, and cancelling an already-succeeded future must not close the delivered response.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:405-408` · high · sha:da6000c93fc5</sub>
 - SEAM-17 (a SHOULD) wants the async contract expressed through one canonical dependency-free future pivot with per-ecosystem facades as separate bridging adapters.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:408-410` · high · sha:da6000c93fc5</sub>
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:407-410` · high · sha:da6000c93fc5</sub>
 - SEAM-30 and ASYNC-5 require the producer to close an orphaned response when the future is already settled; ASYNC-1/ASYNC-2 restate single-value completion and the failure channel; ASYNC-6 requires bidirectional cancellation; ASYNC-20 requires that cancelling a future whose response was already delivered not close it.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:409-412` · high · sha:da6000c93fc5</sub>
 - IAsyncHttpClient : IAsyncDisposable declares Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken).
@@ -403,14 +403,6 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:309-311` · high · sha:1608fcd4b329</sub>
 - As built for section 5.3: partial, with async runtime only, a sync path that is double sync-over-async, bridges that default to the shared pool, take no token and dispose what they wrap, HttpPipeline not a transport, and no flatten/nest.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:332-333` · high · sha:1608fcd4b329</sub>
-- Rule 9.5 is enforced by CA2012 (use ValueTasks correctly), and review limits ValueTask to measured hot paths.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:117-117` · high · sha:7a7bb42c6872</sub>
-- Rule 9.6 is enforced by CS4014 (unawaited task) promoted to an error, and review requires a bound on every fan-out.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:133-133` · high · sha:7a7bb42c6872</sub>
-- Rule 9.7 is enforced by review, which requires bounded channels and token-carrying await foreach and rejects unbounded channels.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:152-152` · high · sha:7a7bb42c6872</sub>
-- Rule 9.8 is enforced by CS1996 and by review, which requires tiny lock scopes, consistent lock ordering and a why-comment on every documented race.
-  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:167-167` · high · sha:7a7bb42c6872</sub>
 - Rule 9.1 is enforced by VSTHRD002/VSTHRD103 where Microsoft.VisualStudio.Threading.Analyzers is referenced, and review rejects .Result, .Wait() and .GetAwaiter().GetResult().
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:49-49` · high · sha:7a7bb42c6872</sub>
 - Rule 9.2 is enforced by review and by VSTHRD100 (avoid async void) where the threading analyzer is referenced.
@@ -419,6 +411,14 @@
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:84-84` · high · sha:7a7bb42c6872</sub>
 - Rule 9.4 is enforced by CA2007 enabled in library projects and suppressed in app/host projects, plus review.
   <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:99-99` · high · sha:7a7bb42c6872</sub>
+- Rule 9.5 is enforced by CA2012 (use ValueTasks correctly), and review limits ValueTask to measured hot paths.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:117-117` · high · sha:7a7bb42c6872</sub>
+- Rule 9.6 is enforced by CS4014 (unawaited task) promoted to an error, and review requires a bound on every fan-out.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:133-133` · high · sha:7a7bb42c6872</sub>
+- Rule 9.7 is enforced by review, which requires bounded channels and token-carrying await foreach and rejects unbounded channels.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:152-152` · high · sha:7a7bb42c6872</sub>
+- Rule 9.8 is enforced by CS1996 and by review, which requires tiny lock scopes, consistent lock ordering and a why-comment on every documented race.
+  <sub>styleguide · `docs/styleguide/csharp/09-concurrency.md:167-167` · high · sha:7a7bb42c6872</sub>
 - Chapter 09 covers async/await throughout, async void banned, CancellationToken plus timeout everywhere, ConfigureAwait(false) in libraries, no .Result/.Wait(), Channel<T>, and bounded parallelism.
   <sub>styleguide · `docs/styleguide/csharp/README.md:41-41` · medium · sha:1e6ba36fc337</sub>
 

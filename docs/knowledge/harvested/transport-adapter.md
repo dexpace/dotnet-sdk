@@ -1,6 +1,12 @@
 # transport-adapter
 
 ## Rules
+- Where a transport behavior exists in only one reference transport (OkHttp, java.net.http), the requirement is scoped to that transport accordingly.
+  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:3-3` · medium · sha:2d5843c58993</sub>
+- TRANSPORT-1 (MUST): An SDK-managed (builder-constructed) transport disables the native client's automatic redirect following, and the follow-redirects knob's default is off.
+  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:7-7` · high · sha:2d5843c58993</sub>
+- TRANSPORT-2 (MUST): Where the native client has a built-in connection-failure or automatic retry feature, an SDK-managed transport disables it.
+  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:8-8` · high · sha:2d5843c58993</sub>
 - TRANSPORT-3 (MUST): On the sync path a caller-initiated cancellation surfaces as a terminal, non-retryable interrupt-shaped I/O exception with the runtime's cancellation signal preserved, is never repackaged as the retryable transport-failure exception, and is discriminated out-of-band via the runtime's cancellation state rather than by matching messages.
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:12-12` · high · sha:2d5843c58993</sub>
 - TRANSPORT-4 (MUST): A read or response timeout is classified as a retryable transport failure (the canonical NetworkException) and does not set the caller's cancellation flag, even when the runtime represents a timeout with the same exception family as an interrupt.
@@ -25,8 +31,6 @@
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:25-25` · high · sha:2d5843c58993</sub>
 - TRANSPORT-14 (MUST): Inbound response headers are copied leniently so one malformed header does not fail the whole response: a control byte in a value, or a control or non-ASCII byte in a name, drops only that header (logged at verbose) while the body and remaining headers are still delivered, and a transport SHOULD preserve a non-ASCII obs-text byte in a value rather than stripping it.
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:26-26` · high · sha:2d5843c58993</sub>
-- Where a transport behavior exists in only one reference transport (OkHttp, java.net.http), the requirement is scoped to that transport accordingly.
-  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:3-3` · medium · sha:2d5843c58993</sub>
 - TRANSPORT-15 (MUST): Transport close() is ownership-aware and releases only resources the transport itself created (native client, dispatcher or executor, pool, cache, any SDK-created executor), while a BYO native client and its resources are never shut down or mutated so the caller may keep using it after the transport is closed.
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:30-30` · high · sha:2d5843c58993</sub>
 - TRANSPORT-16 (MUST): Transport close() is idempotent and does not block on native shutdown in a way that discards the caller's cancellation or interrupt state, using non-blocking shutdown with no unbounded await.
@@ -61,10 +65,6 @@
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:48-48` · high · sha:2d5843c58993</sub>
 - TRANSPORT-30 (MUST NOT leak): Proxy credentials MUST NOT be logged and MUST NOT be answered to an origin-server (401) challenge, only to a matching proxy (407).
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:48-48` · high · sha:2d5843c58993</sub>
-- TRANSPORT-1 (MUST): An SDK-managed (builder-constructed) transport disables the native client's automatic redirect following, and the follow-redirects knob's default is off.
-  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:7-7` · high · sha:2d5843c58993</sub>
-- TRANSPORT-2 (MUST): Where the native client has a built-in connection-failure or automatic retry feature, an SDK-managed transport disables it.
-  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:8-8` · high · sha:2d5843c58993</sub>
 - TRANSPORT-1 and TRANSPORT-2: native redirects and native auto-retry are disabled on SDK-managed transports.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:59-59` · high · sha:0451cc7f3bb4</sub>
 - TRANSPORT-3: synchronous cancellation yields the terminal interrupt exception type with the interrupt flag preserved, not the retryable type.
@@ -149,14 +149,14 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:282-285` · high · sha:da6000c93fc5</sub>
 
 ## Reference
-- TRANSPORT-10 conformance: body media type X with explicit Content-Type Y sends Y on the wire, and the same body with no explicit header sends X.
-  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:22-22` · high · sha:2d5843c58993</sub>
 - A conforming transport disables the native client's own redirect and retry, maps faithfully between SDK and native models, classifies cancellation, timeout and no-response failures into the SDK's canonical exception contract, propagates cancellation bidirectionally, keeps the caller's Content-Type authoritative, drops headers the native client cannot encode instead of failing the send, never touches a BYO client's lifecycle, and writes request bodies replay-safely.
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:3-3` · high · sha:2d5843c58993</sub>
-- TRANSPORT-26 conformance: a body-less POST/PUT/PATCH dispatches with an empty body and Content-Length: 0, and a body-less GET dispatches with no body.
-  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:44-44` · high · sha:2d5843c58993</sub>
 - TRANSPORT-1 conformance: enqueue a 302 with Location and assert the returned response is the raw 302, not the redirected target.
   <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:7-7` · high · sha:2d5843c58993</sub>
+- TRANSPORT-10 conformance: body media type X with explicit Content-Type Y sends Y on the wire, and the same body with no explicit header sends X.
+  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:22-22` · high · sha:2d5843c58993</sub>
+- TRANSPORT-26 conformance: a body-less POST/PUT/PATCH dispatches with an empty body and Content-Length: 0, and a body-less GET dispatches with no body.
+  <sub>spec · `docs/product-spec/17-transport-adapter-conformance-contract.md:44-44` · high · sha:2d5843c58993</sub>
 - IHttpClient : IDisposable declares the single abstract member Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken), threading per-call options through it (SEAM-11, TRANSPORT-5, ASYNC-19).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:266-273` · high · sha:da6000c93fc5</sub>
 - HttpClientExtensions provides the option-less convenience Execute(this IHttpClient client, Request request, CancellationToken cancellationToken = default), which passes RequestOptions.Empty.

@@ -32,7 +32,7 @@
 - NFR-16 (SHOULD) Published artifacts SHOULD be cryptographically signed for provenance, with signing enforced on the release/CI path and made gracefully optional in local builds lacking signing keys.
   <sub>spec · `docs/product-spec/20-non-functional-requirements-and-quality-bar.md:41-41` · high · sha:5f4684bf7123</sub>
 - The .NET form of NFR-8's "keep configuration" is annotation rather than a rules file, namely IsTrimmable/IsAotCompatible on every library, the trim/AOT/single-file analyzers promoted to errors, and [DynamicallyAccessedMembers] where reflection is unavoidable (§9).
-  <sub>design · `docs/sdk-design-dotnet/01-overview.md:82-84` · high · sha:d7cea7b15cf3</sub>
+  <sub>design · `docs/sdk-design-dotnet/01-overview.md:81-84` · high · sha:d7cea7b15cf3</sub>
 - A published NativeAOT smoke consumer serves as NFR-9's regression guard.
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:83-84` · high · sha:d7cea7b15cf3</sub>
 - Central build configuration is the single source of truth (NFR-14), and Directory.Build.props carries the compiler switches every project shares (LangVersion latest, Nullable, TreatWarningsAsErrors, AnalysisLevel latest-recommended, EnforceCodeStyleInBuild, GenerateDocumentationFile, Deterministic) and the package metadata (VersionPrefix, VersionSuffix, authors, license expression, repository URLs).
@@ -47,40 +47,20 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:402-405` · high · sha:1608fcd4b329</sub>
 - The NativeAOT smoke test (section 9.2) is what keeps the Tristate factory's IL2067 suppression honest (NFR-9).
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:359-359` · high · sha:68af5c6bf0ea</sub>
-- NFR-9's regression guard is a NativeAOT smoke consumer, a console project in tests/ referencing the packages, published with PublishAot=true and trim warnings as errors, whose Main performs a live round trip against an in-process loopback server and exits non-zero on any mismatch.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:103-107` · high · sha:27bc3ba15ac4</sub>
-- The smoke consumer's round trip covers a JSON request through the pipeline with a source-generated context, a Tristate<T> PATCH body (§7.3), a paged walk and an SSE stream.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:105-107` · high · sha:27bc3ba15ac4</sub>
-- NFR-9's "assert every shipped rule file is present" becomes asserting that the IsTrimmable/IsAotCompatible properties are set in each packable project.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:111-112` · high · sha:27bc3ba15ac4</sub>
-- A packaging test reads each .nuspec produced by dotnet pack and asserts that Dexpace.Sdk.Core lists exactly Microsoft.Extensions.Logging.Abstractions (the recorded exception, §8.1 and §10 entry 1) and each adapter lists Dexpace.Sdk.Core plus at most one other package.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:114-118` · high · sha:27bc3ba15ac4</sub>
-- Architecture tests use reflection over type references in a test (no NetArchTest dependency) to assert nothing in Dexpace.Sdk.Core references a transport or serializer assembly (SEAM-2), and that Dexpace.Sdk.Core.ServerSentEvents and the paging engine reference nothing in Dexpace.Sdk.Core.Serialization (SSE-37).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:119-123` · high · sha:27bc3ba15ac4</sub>
 - NFR-6 warnings-as-errors is implemented as TreatWarningsAsErrors in Directory.Build.props, covering compiler, analyzer, deprecation (CS0618) and NuGet audit warnings.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:12-12` · high · sha:27bc3ba15ac4</sub>
 - NFR-7 static-analysis findings are made fatal with AnalysisLevel=latest-recommended, EnforceCodeStyleInBuild and .editorconfig severities, plus dotnet format --verify-no-changes.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:13-13` · high · sha:27bc3ba15ac4</sub>
 - NFR-3 explicit public API is implemented with GenerateDocumentationFile plus CS1591 as error, internal by default, and Microsoft.CodeAnalysis.PublicApiAnalyzers.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:14-14` · high · sha:27bc3ba15ac4</sub>
-- TargetFrameworks is moved into Directory.Build.props, which fixes the target-framework inconsistency (styleguide 01-formatting-and-tooling 1.1).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:144-145` · high · sha:27bc3ba15ac4</sub>
 - NFR-4 API-surface snapshot is implemented with PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt per project (RS0016, RS0017) plus EnablePackageValidation with PackageValidationBaselineVersion for binary compatibility.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:15-15` · high · sha:27bc3ba15ac4</sub>
 - NFR-5 aggregate line-coverage floor is a coverlet threshold (Threshold=80, ThresholdType=line, ThresholdStat=total) on the library assemblies.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:16-16` · high · sha:27bc3ba15ac4</sub>
-- Roadmap constraint 2 holds adapters to the same dependency rule as core plus at most one third-party library, allowing the logging facade, and neither adapter lists a third-party library.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:167-169` · high · sha:27bc3ba15ac4</sub>
-- scripts/ci/dependency-audit.cs accepts the logging facade in an adapter's nuspec and in no other extra dependency.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:169-170` · high · sha:27bc3ba15ac4</sub>
 - The zero-dependency audit (SEAM-1, NFR-1, NFR-2) is a nuspec dependency assertion per package plus architecture tests over assembly references.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:17-17` · high · sha:27bc3ba15ac4</sub>
-- NFR-11's mechanical form is a test over PublicAPI.Shipped.txt asserting every type named in a public signature is from System.*, Microsoft.Extensions.Logging.* or Dexpace.*, which also catches a transport's HttpRequestMessage escaping into a core signature.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:172-176` · high · sha:27bc3ba15ac4</sub>
 - Shrink-survival (NFR-8, NFR-9) is gated by IsTrimmable/IsAotCompatible on every library (trim, single-file and AOT analyzers as errors) plus a NativeAOT-published smoke consumer run against a loopback server.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:18-18` · high · sha:27bc3ba15ac4</sub>
-- NFR-12's gate is a CI job that packs twice with SOURCE_DATE_EPOCH set to the commit time and compares digests.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:183-184` · high · sha:27bc3ba15ac4</sub>
 - The NFR-10 runtime floor is gated by per-TFM reference packs, tests executed on each TFM's runtime, and higher-floor capability isolated by TFM or package (later superseded by the net10.0-only ruling D1).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:19-19` · high · sha:27bc3ba15ac4</sub>
 - NFR-11 concurrency-model agnosticism is gated by a test scanning PublicAPI.Shipped.txt for types outside System.*, Microsoft.Extensions.Logging.* and Dexpace.*.
@@ -91,40 +71,20 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:22-22` · high · sha:27bc3ba15ac4</sub>
 - NFR-13 license headers are enforced by file_header_template plus IDE0073 at error severity under EnforceCodeStyleInBuild.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:23-23` · high · sha:27bc3ba15ac4</sub>
-- NFR-5's floor is 80% aggregate line coverage over the library assemblies, enforced by a coverlet threshold on the default test run, with the conformance kit, the smoke consumer and test support excluded.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:234-236` · high · sha:27bc3ba15ac4</sub>
 - NFR-15 runtime version metadata reads AssemblyInformationalVersion through SdkVersion for the User-Agent, with fallback 0.0.0.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:24-24` · high · sha:27bc3ba15ac4</sub>
-- The CI is one blocking workflow per pull request on ubuntu-latest, windows-latest and macos-latest, each with the .NET 8 and .NET 10 runtimes installed and the SDK from global.json (the runtime list later corrected by D1 to the global.json SDK only).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:247-249` · high · sha:27bc3ba15ac4</sub>
-- The CI steps are locked restore; build (warnings as errors, analyzers, IDE0073, RS0016/RS0017, RS0030); dotnet format --verify-no-changes; tests with the coverage threshold; dotnet pack with package validation and nuspec dependency assertions; and, on Linux only, the NativeAOT smoke job and the pack-twice reproducibility job.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:249-254` · high · sha:27bc3ba15ac4</sub>
 - NFR-16 signed publications use strong naming (SignAssembly, committed key) and NuGet author signing on the release job only.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:25-25` · high · sha:27bc3ba15ac4</sub>
 - Dependency CVE scanning uses NuGet audit (NuGetAudit, on by default) under warnings-as-errors.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:26-26` · high · sha:27bc3ba15ac4</sub>
 - Formatting and lock-file gates are dotnet format --verify-no-changes and RestorePackagesWithLockFile plus dotnet restore --locked-mode.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:27-27` · high · sha:27bc3ba15ac4</sub>
-- The vendored styleguide under docs/styleguide/ is binding for every .cs file in the repository, and it is only as real as its enforcement.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:279-280` · high · sha:27bc3ba15ac4</sub>
 - Banned APIs are enforced with Microsoft.CodeAnalysis.BannedApiAnalyzers (RS0030) and a committed BannedSymbols.txt.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:28-28` · high · sha:27bc3ba15ac4</sub>
 - SSE-37 serde independence of streaming and paging is gated by an architecture test over type references.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:29-29` · high · sha:27bc3ba15ac4</sub>
 - SEAM-2 is gated by an architecture test asserting no Dexpace.Sdk.Core type references a Dexpace.Sdk.Http.* or Dexpace.Sdk.Serialization.* assembly.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:30-30` · high · sha:27bc3ba15ac4</sub>
-- For Dexpace.Sdk.Extensions.DependencyInjection, styleguide csharp-aspnetcore 01-host-and-configuration 1.3-1.5 (typed options, ValidateOnStart, accessor by lifetime) and 02-dependency-injection 2.3-2.6 (deliberate lifetimes, no captive dependencies, keyed services for multiple clients) are enforced by a test that builds a ServiceProvider with ValidateScopes and ValidateOnBuild on and resolves every registration.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:309-314` · high · sha:27bc3ba15ac4</sub>
-- For the serializer, styleguide csharp-aspnetcore 05-serialization-and-validation 5.2 is enforced by SYSLIB1030-SYSLIB1039 source-generator diagnostics as errors plus the AOT analyzers, 5.3 by CA1869, and 5.6 (absent versus null) by section 7.3's Tristate<T> and its tests.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:314-318` · high · sha:27bc3ba15ac4</sub>
-- For instrumentation, styleguide csharp-aspnetcore 06-logging-and-observability 6.1 is enforced by CA2254, 6.2 by CA1848 (satisfied by both the generator and LoggerMessage.Define, design section 8.1), and 6.7 by section 8.1's redaction tests.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:318-319` · high · sha:27bc3ba15ac4</sub>
-- Styleguide csharp-aspnetcore 08-build-and-deployment 8.2 (trim/AOT warnings as errors, publish-and-run smoke test) is enforced by section 9.2's gate verbatim, and 8.7/8.8 (reproducible, locked, gated) by section 9.2 and the CI matrix.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:320-321` · high · sha:27bc3ba15ac4</sub>
-- CA2007 is set to warning (an error under TreatWarningsAsErrors) for everything under src/, and to none for tests, repository tools and the AOT smoke consumer via the [{tests,tools,.claude}/**/*.cs] section in .editorconfig, which is the split styleguide 9.4 itself makes (enabled in libraries, suppressed in app and host projects).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:346-350` · high · sha:27bc3ba15ac4</sub>
-- Library code satisfies CA2007 on await using with await using var x = y.ConfigureAwait(false) and on await foreach with .ConfigureAwait(false) on the sequence, accepting the ergonomic cost.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:350-352` · high · sha:27bc3ba15ac4</sub>
 - NFR-4 requires every public member to appear in PublicAPI.Shipped.txt or PublicAPI.Unshipped.txt, with RS0016 failing the build on an undeclared addition and RS0017 on a removal the file still lists, so additions show in the pull-request diff where a reviewer can refuse them.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:52-56` · high · sha:27bc3ba15ac4</sub>
 - Regeneration of the public-API files is deliberate: the code fix writes the file and review decides whether to keep it.
@@ -147,22 +107,52 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:82-83` · high · sha:27bc3ba15ac4</sub>
 - A justified exception to a banned API is a scoped #pragma warning disable RS0030 with a why-comment, which is the house rule for every waiver (styleguide 01-formatting-and-tooling 1.2).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:83-85` · high · sha:27bc3ba15ac4</sub>
-- Pin the SDK with a global.json, set Deterministic to true, and restore with dotnet restore --locked-mode against a committed packages.lock.json.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:106-116` · high · sha:2598baa9074f</sub>
-- The language version is named explicitly (14.0), never latest, so an upgrade is a reviewed diff.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:110-110` · high · sha:2598baa9074f</sub>
-- Cap method length at 70 lines via an analyzer rule that fails the build.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:118-122` · high · sha:2598baa9074f</sub>
-- Enforce the method-length cap with a Roslyn analyzer (Roslynator RCS1213-class or csharp-extensions method-length) rather than relying on review to count lines.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:122-122` · high · sha:2598baa9074f</sub>
-- Configure Meziantou.Analyzer MA0051 (or equivalent) with severity error and maximum_lines = 70.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:124-130` · high · sha:2598baa9074f</sub>
+- NFR-9's regression guard is a NativeAOT smoke consumer, a console project in tests/ referencing the packages, published with PublishAot=true and trim warnings as errors, whose Main performs a live round trip against an in-process loopback server and exits non-zero on any mismatch.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:103-107` · high · sha:27bc3ba15ac4</sub>
+- The smoke consumer's round trip covers a JSON request through the pipeline with a source-generated context, a Tristate<T> PATCH body (§7.3), a paged walk and an SSE stream.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:105-107` · high · sha:27bc3ba15ac4</sub>
+- NFR-9's "assert every shipped rule file is present" becomes asserting that the IsTrimmable/IsAotCompatible properties are set in each packable project.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:111-112` · high · sha:27bc3ba15ac4</sub>
+- A packaging test reads each .nuspec produced by dotnet pack and asserts that Dexpace.Sdk.Core lists exactly Microsoft.Extensions.Logging.Abstractions (the recorded exception, §8.1 and §10 entry 1) and each adapter lists Dexpace.Sdk.Core plus at most one other package.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:114-118` · high · sha:27bc3ba15ac4</sub>
+- Architecture tests use reflection over type references in a test (no NetArchTest dependency) to assert nothing in Dexpace.Sdk.Core references a transport or serializer assembly (SEAM-2), and that Dexpace.Sdk.Core.ServerSentEvents and the paging engine reference nothing in Dexpace.Sdk.Core.Serialization (SSE-37).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:119-123` · high · sha:27bc3ba15ac4</sub>
+- TargetFrameworks is moved into Directory.Build.props, which fixes the target-framework inconsistency (styleguide 01-formatting-and-tooling 1.1).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:144-145` · high · sha:27bc3ba15ac4</sub>
+- Roadmap constraint 2 holds adapters to the same dependency rule as core plus at most one third-party library, allowing the logging facade, and neither adapter lists a third-party library.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:167-169` · high · sha:27bc3ba15ac4</sub>
+- scripts/ci/dependency-audit.cs accepts the logging facade in an adapter's nuspec and in no other extra dependency.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:169-170` · high · sha:27bc3ba15ac4</sub>
+- NFR-11's mechanical form is a test over PublicAPI.Shipped.txt asserting every type named in a public signature is from System.*, Microsoft.Extensions.Logging.* or Dexpace.*, which also catches a transport's HttpRequestMessage escaping into a core signature.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:172-176` · high · sha:27bc3ba15ac4</sub>
+- NFR-12's gate is a CI job that packs twice with SOURCE_DATE_EPOCH set to the commit time and compares digests.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:183-184` · high · sha:27bc3ba15ac4</sub>
+- NFR-5's floor is 80% aggregate line coverage over the library assemblies, enforced by a coverlet threshold on the default test run, with the conformance kit, the smoke consumer and test support excluded.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:234-236` · high · sha:27bc3ba15ac4</sub>
+- The CI is one blocking workflow per pull request on ubuntu-latest, windows-latest and macos-latest, each with the .NET 8 and .NET 10 runtimes installed and the SDK from global.json (the runtime list later corrected by D1 to the global.json SDK only).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:247-249` · high · sha:27bc3ba15ac4</sub>
+- The CI steps are locked restore; build (warnings as errors, analyzers, IDE0073, RS0016/RS0017, RS0030); dotnet format --verify-no-changes; tests with the coverage threshold; dotnet pack with package validation and nuspec dependency assertions; and, on Linux only, the NativeAOT smoke job and the pack-twice reproducibility job.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:249-254` · high · sha:27bc3ba15ac4</sub>
+- The vendored styleguide under docs/styleguide/ is binding for every .cs file in the repository, and it is only as real as its enforcement.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:279-280` · high · sha:27bc3ba15ac4</sub>
+- For Dexpace.Sdk.Extensions.DependencyInjection, styleguide csharp-aspnetcore 01-host-and-configuration 1.3-1.5 (typed options, ValidateOnStart, accessor by lifetime) and 02-dependency-injection 2.3-2.6 (deliberate lifetimes, no captive dependencies, keyed services for multiple clients) are enforced by a test that builds a ServiceProvider with ValidateScopes and ValidateOnBuild on and resolves every registration.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:309-314` · high · sha:27bc3ba15ac4</sub>
+- For the serializer, styleguide csharp-aspnetcore 05-serialization-and-validation 5.2 is enforced by SYSLIB1030-SYSLIB1039 source-generator diagnostics as errors plus the AOT analyzers, 5.3 by CA1869, and 5.6 (absent versus null) by section 7.3's Tristate<T> and its tests.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:314-318` · high · sha:27bc3ba15ac4</sub>
+- For instrumentation, styleguide csharp-aspnetcore 06-logging-and-observability 6.1 is enforced by CA2254, 6.2 by CA1848 (satisfied by both the generator and LoggerMessage.Define, design section 8.1), and 6.7 by section 8.1's redaction tests.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:318-319` · high · sha:27bc3ba15ac4</sub>
+- Styleguide csharp-aspnetcore 08-build-and-deployment 8.2 (trim/AOT warnings as errors, publish-and-run smoke test) is enforced by section 9.2's gate verbatim, and 8.7/8.8 (reproducible, locked, gated) by section 9.2 and the CI matrix.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:320-321` · high · sha:27bc3ba15ac4</sub>
+- CA2007 is set to warning (an error under TreatWarningsAsErrors) for everything under src/, and to none for tests, repository tools and the AOT smoke consumer via the [{tests,tools,.claude}/**/*.cs] section in .editorconfig, which is the split styleguide 9.4 itself makes (enabled in libraries, suppressed in app and host projects).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:346-350` · high · sha:27bc3ba15ac4</sub>
+- Library code satisfies CA2007 on await using with await using var x = y.ConfigureAwait(false) and on await foreach with .ConfigureAwait(false) on the sequence, accepting the ergonomic cost.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:350-352` · high · sha:27bc3ba15ac4</sub>
+- Formatting is enforced as a build artifact through one .editorconfig, one dotnet format and one analyzer baseline applied identically on every machine and in CI.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:3-3` · high · sha:2598baa9074f</sub>
 - Build configuration (target framework, language version, nullable, analyzer gates) is centralized in a single Directory.Build.props at the repository root, and no .csproj restates those properties.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:24-24` · high · sha:2598baa9074f</sub>
 - Centralize build configuration in Directory.Build.props and keep .csproj files thin, carrying only their own PackageReferences and ProjectReferences.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:28-32` · high · sha:2598baa9074f</sub>
-- Formatting is enforced as a build artifact through one .editorconfig, one dotnet format and one analyzer baseline applied identically on every machine and in CI.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:3-3` · high · sha:2598baa9074f</sub>
 - A TargetFramework or Nullable element inside a leaf .csproj is a review finding.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:43-43` · high · sha:2598baa9074f</sub>
 - Treat every warning as an error by setting TreatWarningsAsErrors to true.
@@ -185,6 +175,16 @@
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:90-90` · high · sha:2598baa9074f</sub>
 - Place using directives outside the namespace, with System.* first and the rest alphabetical.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:90-90` · high · sha:2598baa9074f</sub>
+- Pin the SDK with a global.json, set Deterministic to true, and restore with dotnet restore --locked-mode against a committed packages.lock.json.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:106-116` · high · sha:2598baa9074f</sub>
+- The language version is named explicitly (14.0), never latest, so an upgrade is a reviewed diff.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:110-110` · high · sha:2598baa9074f</sub>
+- Cap method length at 70 lines via an analyzer rule that fails the build.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:118-122` · high · sha:2598baa9074f</sub>
+- Enforce the method-length cap with a Roslyn analyzer (Roslynator RCS1213-class or csharp-extensions method-length) rather than relying on review to count lines.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:122-122` · high · sha:2598baa9074f</sub>
+- Configure Meziantou.Analyzer MA0051 (or equivalent) with severity error and maximum_lines = 70.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:124-130` · high · sha:2598baa9074f</sub>
 - The analyzer baseline (AnalysisLevel latest-Recommended, TreatWarningsAsErrors true) and the formatter are final, and formatting is a non-discussion.
   <sub>styleguide · `docs/styleguide/csharp/README.md:13-13` · high · sha:1e6ba36fc337</sub>
 - Zero technical debt: what exists must meet the design goals, and the work is done right the first time because debt never gets paid.
@@ -199,10 +199,10 @@
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:350-352` · high · sha:68af5c6bf0ea</sub>
 - The conventional MakeGenericType plus Activator.CreateInstance converter factory raises IL3050 (verified), and under NativeAOT a value-type instantiation not seen statically cannot be created.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:353-354` · high · sha:68af5c6bf0ea</sub>
-- System.IO.Pipelines, System.Net.ServerSentEvents and System.Linq.AsyncEnumerable are in the shared framework on .NET 10 and absent from the .NET 8 reference pack (verified), so reaching for one on the net8.0 target silently acquires a NuGet dependency, which the nuspec assertion catches per target framework group.
+- Before roadmap decision D1 (superseded 2026-09-28: the floor is now net10.0 only), System.IO.Pipelines, System.Net.ServerSentEvents and System.Linq.AsyncEnumerable are in the shared framework on .NET 10 and absent from the .NET 8 reference pack (verified), so reaching for one on the net8.0 target silently acquires a NuGet dependency, which the nuspec assertion catches per target framework group.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:123-128` · high · sha:27bc3ba15ac4</sub>
-- The NFR-10 trap reopens through packages whose net8.0 asset differs from their net10.0 one and through #if NET10_0_OR_GREATER sections, both of which only running the tests on each runtime catches.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:133-135` · high · sha:27bc3ba15ac4</sub>
+- Before roadmap decision D1 (superseded 2026-09-28: the floor is now net10.0 only), the NFR-10 trap reopens through packages whose net8.0 asset differs from their net10.0 one and through #if NET10_0_OR_GREATER sections, both of which only running the tests on each runtime catches.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:130-135` · high · sha:27bc3ba15ac4</sub>
 - A class library under latest-recommended does not raise CA1031 (bare catch (Exception)) or CA2000 (undisposed MemoryStream), so the styleguide rules that depend on them need explicit severities before they are gates (verified).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:287-289` · high · sha:27bc3ba15ac4</sub>
 - With Nullable enabled, a single #nullable disable file lets null flow untyped into code that trusts annotations, with failures surfacing far from the disabled file.
@@ -223,6 +223,26 @@
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:165-171` · high · sha:c9a7834ab04d</sub>
 - The Microsoft.SourceLink.GitHub 8.0.0 reference fails restore with NU1902 under TreatWarningsAsErrors, and because the .NET 8+ SDK embeds Source Link for GitHub repositories itself the reference can be removed rather than bumped (phase 0 confirms by inspecting the produced PDB).
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:178-181` · medium · sha:c9a7834ab04d</sub>
+- Every gate the reference build enforces has a .NET counterpart that is mostly shipped in the SDK (compiler, analyzers, formatter, trimmer, NativeAOT compiler, deterministic compilation, SourceLink, package validation), so the work is wiring them so a single dotnet build plus dotnet test blocks CI on all of them together (NFR-17).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:3-6` · high · sha:27bc3ba15ac4</sub>
+- The Microsoft.SourceLink.GitHub reference is deleted because the .NET 8+ SDK ships SourceLink in-box; with the three PackageReferences and the Directory.Packages.props row removed the solution builds clean and the Core PDB still carries the raw.githubusercontent.com/dexpace/dotnet-sdk/<commit> source-link mapping (verified).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:34-38` · high · sha:27bc3ba15ac4</sub>
+- A package whose only job duplicates something the SDK ships is retired (principle P2 applied to tooling), and the baseline break fix is scheduled as roadmap phase 0.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:37-39` · high · sha:27bc3ba15ac4</sub>
+- The NU1902 failure is the warnings-as-errors gate working as intended, since NuGet audit is exactly the CVE check the gate table asks for.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:39-41` · high · sha:27bc3ba15ac4</sub>
+- Package validation (EnablePackageValidation with PackageValidationBaselineVersion) is the second half of NFR-4 because it runs API compatibility against the previously published package and catches binary breaks a source listing hides, such as a parameter gaining a default value, a method moving to a base class, or readonly removed from a struct.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:55-62` · high · sha:27bc3ba15ac4</sub>
+- CA1515 ("consider making public types internal") is not relied on because it targets applications, not libraries whose public surface is the product.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:69-70` · high · sha:27bc3ba15ac4</sub>
+- The banned-API gate is new and is this port's counterpart of Ruby's Dexpace/NoThreadInterrupt cop; BannedApiAnalyzers fails the build with RS0030 on any symbol listed in a committed BannedSymbols.txt.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:72-74` · high · sha:27bc3ba15ac4</sub>
+- NFR-8 applies literally on .NET because ILLink trimming and NativeAOT both remove what they cannot see referenced statically, reversing the Ruby conclusion (which retargeted the gate) and the Node conclusion (which scoped it down because bundlers see a static graph).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:89-93` · high · sha:27bc3ba15ac4</sub>
+- Instead of shipping keep-rules a downstream shrinker must honour, a library declares IsTrimmable and IsAotCompatible, which turn on the trim (IL2xxx), single-file (IL3000-range) and AOT (IL3050-range) analyzers at the library's own build, so reflection the trimmer would break is a compile error rather than a consumer runtime failure.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:93-96` · high · sha:27bc3ba15ac4</sub>
+- NFR-8's keep/retain configuration becomes annotations ([DynamicallyAccessedMembers], [RequiresUnreferencedCode]) on the few members that need them, carried inside the assembly where no consumer can lose them.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:96-98` · high · sha:27bc3ba15ac4</sub>
 - The AOT smoke test is the only gate that can catch the class of failure the Tristate converter factory suppresses a warning for: the analyzer proves the code is annotated, the smoke test proves the annotation is true.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:107-109` · high · sha:27bc3ba15ac4</sub>
 - The in-box-versus-package split is .NET's version of Ruby's default-gem trap and the one audit gate with no reference counterpart.
@@ -253,16 +273,12 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:284-285` · high · sha:27bc3ba15ac4</sub>
 - Which CA rules latest-recommended enables was established by probing rather than assuming.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:285-289` · high · sha:27bc3ba15ac4</sub>
-- Every gate the reference build enforces has a .NET counterpart that is mostly shipped in the SDK (compiler, analyzers, formatter, trimmer, NativeAOT compiler, deterministic compilation, SourceLink, package validation), so the work is wiring them so a single dotnet build plus dotnet test blocks CI on all of them together (NFR-17).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:3-6` · high · sha:27bc3ba15ac4</sub>
 - CA1308 and CA1054-CA1056 are dialled to none without colliding with any styleguide rule.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:326-327` · high · sha:27bc3ba15ac4</sub>
 - CA1062 is dialled to none and recorded as a departure rather than conformed, because nullable reference types make a non-nullable parameter a compile-time contract and ThrowIfNull still guards the public entry points.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:329-330` · high · sha:27bc3ba15ac4</sub>
 - The original recorded rationale for disabling CA2007 (await using and await foreach emit implicit awaits the rule cannot see) is factually wrong, as verified on SDK 10.0.401 where CA2007 at warning reports on both await using var m = new MemoryStream() and await foreach (var i in Gen()).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:331-335` · high · sha:27bc3ba15ac4</sub>
-- The Microsoft.SourceLink.GitHub reference is deleted because the .NET 8+ SDK ships SourceLink in-box; with the three PackageReferences and the Directory.Packages.props row removed the solution builds clean and the Core PDB still carries the raw.githubusercontent.com/dexpace/dotnet-sdk/<commit> source-link mapping (verified).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:34-38` · high · sha:27bc3ba15ac4</sub>
 - ImplicitUsings=enable departs from styleguide 1.5 and 12.7 and is not in the overlay, so the port conforms (committed GlobalUsings.cs, ImplicitUsings off) rather than recording a departure, because the guide's reason - every dependency visible at the top of the file - applies with full force to a library whose dependency surface is under audit (design section 9.2).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:340-343` · high · sha:27bc3ba15ac4</sub>
 - The rollForward and lock-file departures are conformed rather than recorded (design section 9.3), and MA0051 is the overlay's own roadmap row.
@@ -273,34 +289,16 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:353-356` · high · sha:27bc3ba15ac4</sub>
 - The CA1062 reasoning is unchanged by the correction, and the original text stands as written with the correction paragraph as the authority.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:355-356` · high · sha:27bc3ba15ac4</sub>
-- A package whose only job duplicates something the SDK ships is retired (principle P2 applied to tooling), and the baseline break fix is scheduled as roadmap phase 0.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:37-39` · high · sha:27bc3ba15ac4</sub>
-- The NU1902 failure is the warnings-as-errors gate working as intended, since NuGet audit is exactly the CVE check the gate table asks for.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:39-41` · high · sha:27bc3ba15ac4</sub>
-- Roadmap decision D2 (ruled 2026-09-29) replaces the thirteen pre-roadmap documents of 2026-06-14/15 (platform design, ten slice designs, two plans) with the specification, this design and the roadmap, deleting them from the tree with git history keeping them, and citations of them were repointed to the owning section or stated inline with the pull request (#3-#9) that built the decision.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:43-48` · high · sha:27bc3ba15ac4</sub>
-- Package validation (EnablePackageValidation with PackageValidationBaselineVersion) is the second half of NFR-4 because it runs API compatibility against the previously published package and catches binary breaks a source listing hides, such as a parameter gaining a default value, a method moving to a base class, or readonly removed from a struct.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:58-62` · high · sha:27bc3ba15ac4</sub>
-- CA1515 ("consider making public types internal") is not relied on because it targets applications, not libraries whose public surface is the product.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:69-70` · high · sha:27bc3ba15ac4</sub>
-- The banned-API gate is new and is this port's counterpart of Ruby's Dexpace/NoThreadInterrupt cop; BannedApiAnalyzers fails the build with RS0030 on any symbol listed in a committed BannedSymbols.txt.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:72-74` · high · sha:27bc3ba15ac4</sub>
-- NFR-8 applies literally on .NET because ILLink trimming and NativeAOT both remove what they cannot see referenced statically, reversing the Ruby conclusion (which retargeted the gate) and the Node conclusion (which scoped it down because bundlers see a static graph).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:89-93` · high · sha:27bc3ba15ac4</sub>
-- Instead of shipping keep-rules a downstream shrinker must honour, a library declares IsTrimmable and IsAotCompatible, which turn on the trim (IL2xxx), single-file (IL3000-range) and AOT (IL3050-range) analyzers at the library's own build, so reflection the trimmer would break is a compile error rather than a consumer runtime failure.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:93-96` · high · sha:27bc3ba15ac4</sub>
-- NFR-8's keep/retain configuration becomes annotations ([DynamicallyAccessedMembers], [RequiresUnreferencedCode]) on the few members that need them, carried inside the assembly where no consumer can lose them.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:96-98` · high · sha:27bc3ba15ac4</sub>
+- Configuration that must be identical everywhere lives in exactly one file because a property repeated in every .csproj drifts, leaving the gate uneven across the solution.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:31-31` · high · sha:2598baa9074f</sub>
+- Nullable enable is chosen over annotations because annotations alone records intent without enforcing it, while enable turns on both the annotation context and the warning context.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:78-78` · high · sha:2598baa9074f</sub>
 - Language version and analyzer behaviour track the SDK, so an unpinned SDK makes builds differ between laptops and CI.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:109-109` · high · sha:2598baa9074f</sub>
 - A method over 70 lines is treated as doing more than one thing, so the cap is a forcing function that turns a vague feeling into a build failure.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:121-121` · high · sha:2598baa9074f</sub>
 - The 70-line cap is the deliberate dexpace value, set at Go's level and not scaled down for C#, and is an addition the runtime style does not make, recorded in the README ledger.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:122-122` · high · sha:2598baa9074f</sub>
-- Configuration that must be identical everywhere lives in exactly one file because a property repeated in every .csproj drifts, leaving the gate uneven across the solution.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:31-31` · high · sha:2598baa9074f</sub>
-- Nullable enable is chosen over annotations because annotations alone records intent without enforcing it, while enable turns on both the annotation context and the warning context.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:78-78` · high · sha:2598baa9074f</sub>
 
 ## Reference
 - NFR-5 excludes sample/example code, test-only guards and test fixtures from the aggregate coverage, and its conformance is that deleting tests so aggregate line coverage drops below the floor fails the default build.
@@ -329,26 +327,38 @@
   <sub>design · `docs/sdk-design-dotnet/02-project-and-solution-layout.md:171-172` · high · sha:c9a7834ab04d</sub>
 - Both converter-factory shapes ran correctly under a NativeAOT publish for a value-type argument on SDK 10.0.401, but only the interface shape is correct by construction.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:357-359` · high · sha:68af5c6bf0ea</sub>
-- NativeAOT smoke publishing is feasible in CI because the scratchpad toolchain published and ran NativeAOT binaries on Linux with only the cached Microsoft.DotNet.ILCompiler package and the system clang (verified).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:109-111` · high · sha:27bc3ba15ac4</sub>
-- As originally written, Dexpace.Sdk.Serialization.SystemTextJson was to list only Core because System.Text.Json is in the shared framework on both targets, so the adapter's one third-party library is the runtime's own.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:118-119` · high · sha:27bc3ba15ac4</sub>
 - At d45e64b the analyzers were wired and dotnet format passed (verified) but was not a CI step.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:13-13` · high · sha:27bc3ba15ac4</sub>
-- .NET 8 leaves support on 2026-11-10, so the floor was to rise to net10.0 in the roadmap, which retires §7.2's hand-written line-reader justification for PipeReader, the net8.0 STJ gap for RespectNullableAnnotations (§7.3) and the System.Linq.AsyncEnumerable caveat (§7.1).
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:136-139` · high · sha:27bc3ba15ac4</sub>
-- At d45e64b Core and Http.SystemNet targeted net8.0 only while the STJ package and both test projects multi-targeted, so the net10.0 test run exercised Core's net8.0 binary, contradicting the net8.0;net10.0 decision and the styleguide overlay.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:139-144` · high · sha:27bc3ba15ac4</sub>
 - At d45e64b the docs gate was wired while PublicApiAnalyzers was pinned in Directory.Packages.props and referenced by no project.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:14-14` · high · sha:27bc3ba15ac4</sub>
 - At d45e64b coverage was collected in CI with no threshold.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:16-16` · high · sha:27bc3ba15ac4</sub>
+- At d45e64b IsAotCompatible was set on the System.Text.Json package only.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:18-18` · high · sha:27bc3ba15ac4</sub>
+- At d45e64b dotnet build of Dexpace.Sdk.sln failed with error NU1902 (Warning As Error) because Microsoft.Build.Tasks.Git 8.0.0 has a known moderate severity vulnerability.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:32-33` · high · sha:27bc3ba15ac4</sub>
+- Microsoft.Build.Tasks.Git arrived transitively through the explicit Microsoft.SourceLink.GitHub 8.0.0 reference that each src project carried.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:33-35` · high · sha:27bc3ba15ac4</sub>
+- PublicApiAnalyzers is pinned in Directory.Packages.props at version 3.3.4 and was referenced by no project at d45e64b.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:57-58` · high · sha:27bc3ba15ac4</sub>
+- Package validation also checks that every target framework in one package exposes a compatible surface.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:61-62` · high · sha:27bc3ba15ac4</sub>
+- dotnet pack -p:EnablePackageValidation=true ran clean on the scratch copy with no baseline (verified), and the baseline is set at the first published version.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:62-64` · high · sha:27bc3ba15ac4</sub>
+- At d45e64b only Dexpace.Sdk.Serialization.SystemTextJson declared IsAotCompatible; Core did not although building Core with -p:IsAotCompatible=true produced no IL warnings (verified), so the property costs nothing to add to every library and the STJ package's analyzers cannot see into Core.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:98-101` · high · sha:27bc3ba15ac4</sub>
+- NativeAOT smoke publishing is feasible in CI because the scratchpad toolchain published and ran NativeAOT binaries on Linux with only the cached Microsoft.DotNet.ILCompiler package and the system clang (verified).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:109-111` · high · sha:27bc3ba15ac4</sub>
+- As originally written, Dexpace.Sdk.Serialization.SystemTextJson was to list only Core because System.Text.Json is in the shared framework on both targets, so the adapter's one third-party library is the runtime's own.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:118-119` · high · sha:27bc3ba15ac4</sub>
+- .NET 8 leaves support on 2026-11-10, so the floor was to rise to net10.0 in the roadmap, which retires §7.2's hand-written line-reader justification for PipeReader, the net8.0 STJ gap for RespectNullableAnnotations (§7.3) and the System.Linq.AsyncEnumerable caveat (§7.1).
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:136-139` · high · sha:27bc3ba15ac4</sub>
+- At d45e64b Core and Http.SystemNet targeted net8.0 only while the STJ package and both test projects multi-targeted, so the net10.0 test run exercised Core's net8.0 binary, contradicting the net8.0;net10.0 decision and the styleguide overlay.
+  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:139-144` · high · sha:27bc3ba15ac4</sub>
 - As packed, both adapter nuspecs (Dexpace.Sdk.Http.SystemNet and Dexpace.Sdk.Serialization.SystemTextJson) have a single net10.0 group listing Dexpace.Sdk.Core 0.0.1-alpha.1 and Microsoft.Extensions.Logging.Abstractions 10.0.12, while Dexpace.Sdk.Core lists the facade alone.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:164-167` · high · sha:27bc3ba15ac4</sub>
 - Compiler output is deterministic (Deterministic on, ContinuousIntegrationBuild normalising paths in CI) and two packs of the same tree produced byte-identical DLLs (verified).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:179-181` · high · sha:27bc3ba15ac4</sub>
-- At d45e64b IsAotCompatible was set on the System.Text.Json package only.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:18-18` · high · sha:27bc3ba15ac4</sub>
 - The .nupkg containers differed only by zip-entry timestamps, and with SOURCE_DATE_EPOCH set two packs a minute apart produced byte-identical .nupkg files (verified).
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:181-183` · high · sha:27bc3ba15ac4</sub>
 - The section 9.4 table maps each styleguide chapter's enforceable rules to the gate that enforces them (an analyzer ID wired through .editorconfig and TreatWarningsAsErrors, dotnet format, a build property, a test, or review), and is the design-level half of the overlay in docs/styleguide/README.md, which remains the index of departures.
@@ -415,16 +425,12 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:307-307` · high · sha:27bc3ba15ac4</sub>
 - The hosting companion styleguide bears on two surfaces only (per the overlay): the DI package and the serializer/instrumentation surfaces.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:309-310` · medium · sha:27bc3ba15ac4</sub>
-- At d45e64b dotnet build of Dexpace.Sdk.sln failed with error NU1902 (Warning As Error) because Microsoft.Build.Tasks.Git 8.0.0 has a known moderate severity vulnerability.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:32-33` · high · sha:27bc3ba15ac4</sub>
 - The styleguide overlay records six departure rows, but the build configuration carries more departures, each of which is either conformed or recorded.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:323-324` · high · sha:27bc3ba15ac4</sub>
 - As originally written, .editorconfig dials five analyzers to none, each with a rationale - CA1308 (lower-casing is correct for HTTP tokens), CA1054-CA1056 (string URLs at ergonomic entry points), CA1062, CA2007, and CA1707 for test names.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:324-326` · high · sha:27bc3ba15ac4</sub>
 - CA1062 and CA2007 collide with the styleguide: the guide's own .editorconfig example (csharp/01-formatting-and-tooling 1.3) sets both to error, and styleguide rules 3.2, 5.3, 8.5 and 9.4 name them as their enforcement.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:327-329` · high · sha:27bc3ba15ac4</sub>
-- Microsoft.Build.Tasks.Git arrived transitively through the explicit Microsoft.SourceLink.GitHub 8.0.0 reference that each src project carried.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:33-35` · high · sha:27bc3ba15ac4</sub>
 - Satisfying CA2007 on await using requires await using var x = y.ConfigureAwait(false), which changes the local's type to ConfiguredAsyncDisposable, and on await foreach requires .ConfigureAwait(false) on the sequence; this ergonomic cost is the real cost of the rule.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:335-338` · high · sha:27bc3ba15ac4</sub>
 - Roadmap phase 0 (PR #21, 2026-09-28) set CA2007 to warning for src/.
@@ -435,30 +441,24 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:358-360` · high · sha:27bc3ba15ac4</sub>
 - As built at d45e64b, the following were missing - public-API files, package validation baseline, coverage threshold, dotnet format and locked restore in CI, trim/AOT properties on Core and Http.SystemNet, AOT smoke consumer, nuspec and architecture tests, IDE0073, banned-API list, strong naming, signing, conformance kit, and cross-OS matrix.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:360-363` · high · sha:27bc3ba15ac4</sub>
-- PublicApiAnalyzers is pinned in Directory.Packages.props at version 3.3.4 and was referenced by no project at d45e64b.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:57-58` · high · sha:27bc3ba15ac4</sub>
-- Package validation also checks that every target framework in one package exposes a compatible surface.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:61-62` · high · sha:27bc3ba15ac4</sub>
-- dotnet pack -p:EnablePackageValidation=true ran clean on the scratch copy with no baseline (verified), and the baseline is set at the first published version.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:62-64` · high · sha:27bc3ba15ac4</sub>
-- At d45e64b only Dexpace.Sdk.Serialization.SystemTextJson declared IsAotCompatible; Core did not although building Core with -p:IsAotCompatible=true produced no IL warnings (verified), so the property costs nothing to add to every library and the STJ package's analyzers cannot see into Core.
-  <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:98-101` · high · sha:27bc3ba15ac4</sub>
-- Formatting is enforced through .editorconfig settings csharp_style_namespace_declarations = file_scoped and dotnet_sort_system_directives_first = true.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:104-104` · high · sha:2598baa9074f</sub>
-- The guide promotes CA2007 (ConfigureAwait in libraries), CA1062 (validate public arguments) and IDE0005 (remove unnecessary usings) to error severity in .editorconfig.
-  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:66-71` · high · sha:2598baa9074f</sub>
 - The reference Directory.Build.props sets TargetFramework net10.0, LangVersion 14.0, Nullable enable, ImplicitUsings disable, TreatWarningsAsErrors true, AnalysisLevel latest-Recommended, EnforceCodeStyleInBuild true, GenerateDocumentationFile true and Deterministic true.
   <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:7-22` · high · sha:2598baa9074f</sub>
+- The guide promotes CA2007 (ConfigureAwait in libraries), CA1062 (validate public arguments) and IDE0005 (remove unnecessary usings) to error severity in .editorconfig.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:66-71` · high · sha:2598baa9074f</sub>
+- Formatting is enforced through .editorconfig settings csharp_style_namespace_declarations = file_scoped and dotnet_sort_system_directives_first = true.
+  <sub>styleguide · `docs/styleguide/csharp/01-formatting-and-tooling.md:104-104` · high · sha:2598baa9074f</sub>
 - Chapter 01 covers dotnet format and .editorconfig, Allman braces, four spaces, file-scoped namespaces, Nullable enable, TreatWarningsAsErrors, AnalysisLevel, C# 14 / .NET 10 and the 70-line cap.
   <sub>styleguide · `docs/styleguide/csharp/README.md:33-33` · medium · sha:1e6ba36fc337</sub>
 
 ## Conflicts
-- **Target framework (1.1) vs the net8.0;net10.0 floor (design §2.3, §9.2)** — The styleguide targets .NET 10 and the design first planned libraries on net8.0 and net10.0, but roadmap decision D1, approved 2026-09-28, raised the floor so every library, test project and tool targets net10.0 only, set once in Directory.Build.props; the port CONFORMS to the styleguide and no note is owed.
+- **Target framework (1.1) vs the net8.0;net10.0 floor (design §2.3, §9.2)** — The styleguide targets .NET 10 and the design first planned libraries on net8.0 and net10.0, but roadmap decision D1, approved 2026-09-28, raised the floor so every library, test project and tool targets net10.0 only, set once in Directory.Build.props; the port CONFORMS to the styleguide on the target framework and no note is owed (the C# language version is a separate, kept departure).
   <sub>styleguide `docs/styleguide/csharp/01-formatting-and-tooling.md:11-11` · design `docs/sdk-design-dotnet/02-project-and-solution-layout.md:165-170` · conformed 2026-10-02</sub>
 - **Curated explicit global usings (1.5, 12.7) vs ImplicitUsings enabled (design §9.4)** — The styleguide requires curated, explicit global usings and disables ImplicitUsings, while the repository had ImplicitUsings enabled as an undocumented departure; ImplicitUsings is now disabled in Directory.Build.props with a committed GlobalUsings.cs per project, so the port CONFORMS and no note is owed.
   <sub>styleguide `docs/styleguide/csharp/12-project-organization.md:127-138` · design `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:340-343` · conformed 2026-10-02</sub>
 - **70-line method cap (1.7) vs a review-only cap (design §9.4)** — The styleguide requires the 70-line method cap to be analyzer-enforced as a build error, while the repository first enforced it by review only; Meziantou.Analyzer MA0051 is now wired at 70 lines as a build error for libraries, so the port CONFORMS and no note is owed.
   <sub>styleguide `docs/styleguide/csharp/01-formatting-and-tooling.md:118-130` · design `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:343-344` · conformed 2026-10-02</sub>
+- **LangVersion latest vs the named 14.0 (1.6, design §2.3)** — The styleguide says to name the C# language version explicitly (14.0), never latest, so that an upgrade is a reviewed diff, but the SDK sets LangVersion to latest in Directory.Build.props, a recorded unchanged row of the SDK overlay; the port KEEPS this departure and records it in a note.
+  <sub>styleguide `docs/styleguide/csharp/01-formatting-and-tooling.md:105-110` · design `docs/sdk-design-dotnet/02-project-and-solution-layout.md:165-170` · kept 2026-10-02</sub>
 
 ## Superseded
 

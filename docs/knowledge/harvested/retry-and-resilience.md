@@ -45,6 +45,10 @@
   <sub>spec · `docs/product-spec/08-execution-pipelines.md:53-53` · high · sha:33e9443472ce</sub>
 - A port unifying retry entry points MUST make the total-timeout budget explicitly opt-in.
   <sub>spec · `docs/product-spec/08-execution-pipelines.md:59-59` · high · sha:33e9443472ce</sub>
+- A port should preserve the single-sourcing, the two-axis eligibility model, interrupt-safe backoff, and the non-blocking async trampoline.
+  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:3-3` · high · sha:9efbe276001e</sub>
+- RETRY-1 (MUST): The retryable-status classifier MUST be single-sourced and treat exactly 408, 429, and all of 500-599 EXCEPT 501 and 505 as retryable.
+  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:9-9` · high · sha:9efbe276001e</sub>
 - RETRY-2 (MUST): The retryable-throwable set MUST be defined in exactly one place: any throwable that is, or has anywhere in its cause chain, an I/O error or a timeout error.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:10-10` · high · sha:9efbe276001e</sub>
 - RETRY-2 (MUST): The cause-chain walk MUST be iterative and identity-tracking and MUST terminate on a cyclic chain.
@@ -117,8 +121,6 @@
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:29-29` · high · sha:9efbe276001e</sub>
 - RETRY-36 (MUST): A re-sent response whose error status is in the configured retryable set MUST be re-mapped into a typed failure (with its body buffered per RETRY-35/RECOV-16) so the loop keeps evaluating the budget (a 503,503,200 sequence reaches the 200), and all other re-sent responses pass through as Success.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:29-29` · high · sha:9efbe276001e</sub>
-- A port should preserve the single-sourcing, the two-axis eligibility model, interrupt-safe backoff, and the non-blocking async trampoline.
-  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:3-3` · high · sha:9efbe276001e</sub>
 - RETRY-35 (MUST): A retryable response's body/connection MUST be released before the backoff wait so a socket is not pinned across the delay.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:30-30` · high · sha:9efbe276001e</sub>
 - RETRY-35 (MUST): The pacing delay is computed from the still-open response first, and if the retry decision or delay computation throws, the response MUST still be closed before propagating.
@@ -155,8 +157,6 @@
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:35-35` · high · sha:9efbe276001e</sub>
 - RETRY-38 (SHOULD): An optional per-attempt request header MAY stamp the 1-based attempt ordinal on a fresh per-attempt copy, never mutating the captured template, preserving any idempotency key, and allocating nothing when disabled.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:35-35` · high · sha:9efbe276001e</sub>
-- RETRY-1 (MUST): The retryable-status classifier MUST be single-sourced and treat exactly 408, 429, and all of 500-599 EXCEPT 501 and 505 as retryable.
-  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:9-9` · high · sha:9efbe276001e</sub>
 - CFG-35 (SHOULD): A shared retryability classifier treats status 408, 429 and all 5xx except 501 and 505 as retryable, and treats a throwable as retryable iff it or any cause in its chain is an IO or timeout error with cycle-safe cause-chain traversal; where implemented, this exact status set is a hard contract.
   <sub>spec · `docs/product-spec/16-configuration.md:58-58` · high · sha:367e27ec6481</sub>
 - XCUT-5 (MUST) The baked retryability flag of a protocol error MUST be computed once at construction from a single shared status classifier and never hardcoded per subclass.
@@ -193,6 +193,28 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:228-231` · high · sha:1608fcd4b329</sub>
 - The pipeline closes the response held by a step that throws, while a step that returns a different outcome owns the response it dropped (RECOV-12/RECOV-13); this asymmetry lives in one internal helper so it cannot be implemented twice.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:231-233` · high · sha:1608fcd4b329</sub>
+- A test asserts that a configured status set containing 501 retries a 501 whose baked retryable flag is false.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:34-35` · high · sha:27a0a46f35a8</sub>
+- Per XCUT-2 the timeout branch must be checked before the cancellation branch even when the timeout type is a subtype of the cancellation type.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:58-59` · high · sha:27a0a46f35a8</sub>
+- Cancellation is never caught by the retry filter (XCUT-1, RETRY-23), and restoring the cancellation flag is free because a cancelled token cannot be un-cancelled.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:65-66` · high · sha:27a0a46f35a8</sub>
+- ThreadInterruptedException is treated as cancellation.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:67-67` · high · sha:27a0a46f35a8</sub>
+- OperationPolicy must catch the cancellation when its own source fired and the caller's token did not, and throw a non-retryable timeout SdkException carrying it as InnerException; nothing retries it because the policy is outermost.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:71-73` · high · sha:27a0a46f35a8</sub>
+- A request is re-sendable if and only if it has no body and an idempotent method, or has a replayable body (XCUT-10, RETRY-5, RETRY-7).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:77-78` · high · sha:27a0a46f35a8</sub>
+- A bare POST MUST NOT be retried even when the failure is a transport error that never reached the server (XCUT-10(a)).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:80-82` · high · sha:27a0a46f35a8</sub>
+- Retry configuration validates at construction (RECOV-34, appendix C only), against the specification's bound explicitly rather than the one inherited from TimeSpan, since TimeSpan.MaxValue (~29,000 years) replaces the reference's ~292-year nanosecond ceiling.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:84-87` · high · sha:27a0a46f35a8</sub>
+- Retry configuration requires a multiplier of at least 1.0, a jitter fraction in [0, 1], and non-negative retries with 0 disabling retry (RETRY-41).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:87-88` · high · sha:27a0a46f35a8</sub>
+- Retry status and method sets are copied into FrozenSet<T> when the pipeline is built so that a caller mutating the configured collection cannot change a running client.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:88-89` · high · sha:27a0a46f35a8</sub>
+- Overflow saturation of backoff (RETRY-11) is done in ticks before any TimeSpan is constructed.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:99-100` · high · sha:27a0a46f35a8</sub>
 - Tests inject a seeded random generator wrapped in a lock behind a Func<double> rather than passing new Random(42) into a shared policy, which would yield flat zero jitter under load.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:104-106` · high · sha:27a0a46f35a8</sub>
 - The synchronous wait blocks the caller using a TimeProvider.CreateTimer that sets a ManualResetEventSlim waited with the call's token, never Thread.Sleep and never Task.Delay(...).Wait().
@@ -231,28 +253,6 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:189-190` · high · sha:27a0a46f35a8</sub>
 - TimeProvider is never disposed by the SDK (RETRY-45).
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:190-190` · high · sha:27a0a46f35a8</sub>
-- A test asserts that a configured status set containing 501 retries a 501 whose baked retryable flag is false.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:34-35` · high · sha:27a0a46f35a8</sub>
-- Per XCUT-2 the timeout branch must be checked before the cancellation branch even when the timeout type is a subtype of the cancellation type.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:58-59` · high · sha:27a0a46f35a8</sub>
-- Cancellation is never caught by the retry filter (XCUT-1, RETRY-23), and restoring the cancellation flag is free because a cancelled token cannot be un-cancelled.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:65-66` · high · sha:27a0a46f35a8</sub>
-- ThreadInterruptedException is treated as cancellation.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:67-67` · high · sha:27a0a46f35a8</sub>
-- OperationPolicy must catch the cancellation when its own source fired and the caller's token did not, and throw a non-retryable timeout SdkException carrying it as InnerException; nothing retries it because the policy is outermost.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:71-73` · high · sha:27a0a46f35a8</sub>
-- A request is re-sendable if and only if it has no body and an idempotent method, or has a replayable body (XCUT-10, RETRY-5, RETRY-7).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:77-78` · high · sha:27a0a46f35a8</sub>
-- A bare POST MUST NOT be retried even when the failure is a transport error that never reached the server (XCUT-10(a)).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:80-82` · high · sha:27a0a46f35a8</sub>
-- Retry configuration validates at construction (RECOV-34, appendix C only), against the specification's bound explicitly rather than the one inherited from TimeSpan, since TimeSpan.MaxValue (~29,000 years) replaces the reference's ~292-year nanosecond ceiling.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:84-87` · high · sha:27a0a46f35a8</sub>
-- Retry configuration requires a multiplier of at least 1.0, a jitter fraction in [0, 1], and non-negative retries with 0 disabling retry (RETRY-41).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:87-88` · high · sha:27a0a46f35a8</sub>
-- Retry status and method sets are copied into FrozenSet<T> when the pipeline is built so that a caller mutating the configured collection cannot change a running client.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:88-89` · high · sha:27a0a46f35a8</sub>
-- Overflow saturation of backoff (RETRY-11) is done in ticks before any TimeSpan is constructed.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:99-100` · high · sha:27a0a46f35a8</sub>
 
 ## Constraints
 - RECOV-15 / RECOV-16: The 1 MiB error-body buffering bound is shared across all buffering paths and the cap is a hard truncation with no marker.
@@ -267,6 +267,10 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:321-323` · medium · sha:da6000c93fc5</sub>
 - The Outcome hierarchy is genuinely closed because no type outside Outcome can call its private constructor, so mutual exclusion and joint exhaustiveness hold by construction, but C# 14 does not prove switch exhaustiveness over it and reports CS8509 on a switch expression lacking a discard arm, which TreatWarningsAsErrors turns into a build break.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:189-192` · high · sha:1608fcd4b329</sub>
+- On .NET 10.0.401 neither HttpRequestException nor SocketException derives from IOException, and the runtime reports connection refused, DNS failure and peer reset as HttpRequestException over a SocketException.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:43-46` · high · sha:27a0a46f35a8</sub>
+- OperationPolicy implements OverallTimeout with a linked CancellationTokenSource, so when it fires the transport rethrows OperationCanceledException and a caller who never cancelled sees TaskCanceledException, a timeout reported as cancellation that XCUT-1 forbids.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:67-71` · high · sha:27a0a46f35a8</sub>
 - System.Random is not thread-safe and fails silently: one seeded Random shared across Parallel.For returned 0 on 1,995,605 of 2,000,000 calls once corrupted, while Random.Shared returned no zeros in a million concurrent draws.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:102-104` · high · sha:27a0a46f35a8</sub>
 - Task.Delay accepts 49 days and throws ArgumentOutOfRangeException for 50 days, with or without a TimeProvider, because the timer limit is uint.MaxValue - 1 milliseconds (~49.7 days), while RETRY-18 clamps pacing deltas to 365 days.
@@ -283,10 +287,6 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:166-173` · high · sha:27a0a46f35a8</sub>
 - The transport cannot inspect a caller-supplied HttpClient's handler chain because HttpMessageInvoker keeps it private, so the one-retry-layer rule is enforced by construction and documentation.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:174-176` · high · sha:27a0a46f35a8</sub>
-- On .NET 10.0.401 neither HttpRequestException nor SocketException derives from IOException, and the runtime reports connection refused, DNS failure and peer reset as HttpRequestException over a SocketException.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:43-46` · high · sha:27a0a46f35a8</sub>
-- OperationPolicy implements OverallTimeout with a linked CancellationTokenSource, so when it fires the transport rethrows OperationCanceledException and a caller who never cancelled sees TaskCanceledException, a timeout reported as cancellation that XCUT-1 forbids.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:67-71` · high · sha:27a0a46f35a8</sub>
 
 ## Conclusions
 - A closed two-variant outcome is used because it lets one code path handle a throwable and a response identically.
@@ -301,6 +301,34 @@
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:194-194` · high · sha:1608fcd4b329</sub>
 - The four reference drifts the specification pushes onto porters (RECOV-14, BODY-8, RETRY-34, AUTH-31) are resolved as Ruby resolved them (section 11 item 12), and each is additionally unable to drift between sync and async because section 5.3 gives every policy one implementation for both.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:233-236` · high · sha:1608fcd4b329</sub>
+- The .NET port designs retry, redirect and authentication from platform idioms rather than from the specification, with the siblings informing what to build and not how.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:3-5` · high · sha:27a0a46f35a8</sub>
+- Because the SDK pipeline sits above an HttpClient whose handler chain can already retry and follow redirects, the port decides which layer owns each behaviour and makes the other layer stand down.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:6-9` · high · sha:27a0a46f35a8</sub>
+- The idempotent method set {GET, HEAD, OPTIONS, PUT, DELETE} (HTTP-9/RETRY-6), the RETRY-1 classifier (408, 429, and 500-599 except 501 and 505), the XCUT-7 default configurable set {408, 429, 500, 502, 503, 504} and the RETRY-13 backoff calculator live in one internal static class, RetryFacts, as FrozenSet constants and pure functions so that nothing can drift.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:20-25` · high · sha:27a0a46f35a8</sub>
+- Method.IsIdempotent is IsSafe || PUT || DELETE and IsSafe includes TRACE, so the model's idempotent set has six members where RETRY-6 requires a set equal to five; the port follows the specification's set everywhere and Method keeps no public RFC-meaning accessor beside it.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:25-29` · high · sha:27a0a46f35a8</sub>
+- The baked retryable flag on a protocol error (XCUT-5, HttpResponseException.IsRetryable, not yet built) is computed once from the classifier, while the retry step consults only the configured RetryOptions.RetryableStatusCodes, authoritative in both directions (RETRY-37).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:32-35` · high · sha:27a0a46f35a8</sub>
+- XCUT-6's open retryable capability is the interface IRetryableError { bool IsRetryable { get; } } because .NET cannot duck-type a property; SdkException implements it virtually (ServiceRequestException returns true, XCUT-4) and a third-party transport exception can implement it without touching core.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:37-41` · high · sha:27a0a46f35a8</sub>
+- The non-capability branch of the classifier looks for an I/O error or timeout error anywhere in the cause chain (RETRY-2), walked with the cycle-safe enumerator of section 5.2, and classification consults the capability first as RECOV-17 (stated in appendix C only) requires.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:41-48` · high · sha:27a0a46f35a8</sub>
+- The port's I/O family for retry classification is IOException, HttpRequestException without a status code, SocketException and TimeoutException, rejecting an is-IOException test that would call the most common transient failures non-retryable, so every pre-response failure listed in RETRY-4 is retryable at the condition level.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:46-49` · high · sha:27a0a46f35a8</sub>
+- XCUT-4(b)'s requirement that the wrapper belong to the runtime's I/O-error family is not met, because ServiceRequestException derives from SdkException and cannot also be an HttpRequestException, so an existing catch (HttpRequestException) site does not match it; the original exception is preserved as InnerException and the classifier walks it (section 10 entry 7, section 11 item 23).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:49-55` · high · sha:27a0a46f35a8</sub>
+- The SystemNet transport distinguishes timeout from cancellation by the caller token's state, not the exception type, and maps a timeout to ServiceRequestTimeoutException, which the retry policy retries (a 200 ms HttpClient.Timeout against a 3 s handler produced three server hits for two configured retries).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:61-65` · high · sha:27a0a46f35a8</sub>
+- DexpaceClientOptions.AttemptTimeout, declared but read by nothing, belongs in the retry policy as a per-attempt linked source, classified like the overall timeout but retryable (XCUT-2).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:73-75` · high · sha:27a0a46f35a8</sub>
+- The as-built predicate (body is null || body.IsReplayable) && (method.IsIdempotent || RetryNonIdempotentWhenReplayable) is wrong in both directions, not retrying a POST with a replayable body by default and retrying a bodyless POST when the option is on; the port drops the option and implements the rule as written.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:78-82` · high · sha:27a0a46f35a8</sub>
+- Backoff follows the specification: the as-built full-jitter formula, uniform over [0, min(base x 2^attempt, max)], violates RETRY-9 (initialDelay x multiplier^(attempt-1)) and RETRY-10 (symmetric jitter over [d(1-j/2), d(1+j/2)]).
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:92-95` · high · sha:27a0a46f35a8</sub>
+- The port keeps Polly's option name MaxRetryAttempts, which counts retries not sends (P14), and sets it to 2 so that three sends hold, preserving RETRY-14's equivalence of three sends across the two stacks.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:96-98` · high · sha:27a0a46f35a8</sub>
 - The random source for jitter is an injectable Func<double> defaulting to Random.Shared.NextDouble, beside an injectable TimeProvider, which together make backoff tests deterministic.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:100-102` · high · sha:27a0a46f35a8</sub>
 - On the async path the inter-attempt wait is a Task.Delay over TimeProvider, which is a timer pinning no thread and which on cancellation disposes its timer and faults with TaskCanceledException (an hour-long delay cancelled after 50 ms completed in 53 ms) (RETRY-26, XCUT-3, P7).
@@ -317,34 +345,6 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:156-157` · high · sha:27a0a46f35a8</sub>
 - The connection-layer split routes connection-level resilience into the transport's HttpClient so that an enterprise's DelegatingHandler/Polly chain composes underneath the SDK, though the specification has no clause for a second retry engine below the transport and composing two unchanged produces two failures (section 11 item 24).
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:160-164` · high · sha:27a0a46f35a8</sub>
-- The idempotent method set {GET, HEAD, OPTIONS, PUT, DELETE} (HTTP-9/RETRY-6), the RETRY-1 classifier (408, 429, and 500-599 except 501 and 505), the XCUT-7 default configurable set {408, 429, 500, 502, 503, 504} and the RETRY-13 backoff calculator live in one internal static class, RetryFacts, as FrozenSet constants and pure functions so that nothing can drift.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:20-25` · high · sha:27a0a46f35a8</sub>
-- Method.IsIdempotent is IsSafe || PUT || DELETE and IsSafe includes TRACE, so the model's idempotent set has six members where RETRY-6 requires a set equal to five; the port follows the specification's set everywhere and Method keeps no public RFC-meaning accessor beside it.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:25-29` · high · sha:27a0a46f35a8</sub>
-- The .NET port designs retry, redirect and authentication from platform idioms rather than from the specification, with the siblings informing what to build and not how.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:3-5` · high · sha:27a0a46f35a8</sub>
-- The baked retryable flag on a protocol error (XCUT-5, HttpResponseException.IsRetryable, not yet built) is computed once from the classifier, while the retry step consults only the configured RetryOptions.RetryableStatusCodes, authoritative in both directions (RETRY-37).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:32-35` · high · sha:27a0a46f35a8</sub>
-- XCUT-6's open retryable capability is the interface IRetryableError { bool IsRetryable { get; } } because .NET cannot duck-type a property; SdkException implements it virtually (ServiceRequestException returns true, XCUT-4) and a third-party transport exception can implement it without touching core.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:37-41` · high · sha:27a0a46f35a8</sub>
-- The non-capability branch of the classifier looks for an I/O error or timeout error anywhere in the cause chain (RETRY-2), walked with the cycle-safe enumerator of section 5.2, and classification consults the capability first as RECOV-17 (stated in appendix C only) requires.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:41-42` · high · sha:27a0a46f35a8</sub>
-- The port's I/O family for retry classification is IOException, HttpRequestException without a status code, SocketException and TimeoutException, rejecting an is-IOException test that would call the most common transient failures non-retryable, so every pre-response failure listed in RETRY-4 is retryable at the condition level.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:46-49` · high · sha:27a0a46f35a8</sub>
-- XCUT-4(b)'s requirement that the wrapper belong to the runtime's I/O-error family is not met, because ServiceRequestException derives from SdkException and cannot also be an HttpRequestException, so an existing catch (HttpRequestException) site does not match it; the original exception is preserved as InnerException and the classifier walks it (section 10 entry 7, section 11 item 23).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:49-55` · high · sha:27a0a46f35a8</sub>
-- Because the SDK pipeline sits above an HttpClient whose handler chain can already retry and follow redirects, the port decides which layer owns each behaviour and makes the other layer stand down.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:6-9` · high · sha:27a0a46f35a8</sub>
-- The SystemNet transport distinguishes timeout from cancellation by the caller token's state, not the exception type, and maps a timeout to ServiceRequestTimeoutException, which the retry policy retries (a 200 ms HttpClient.Timeout against a 3 s handler produced three server hits for two configured retries).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:61-65` · high · sha:27a0a46f35a8</sub>
-- DexpaceClientOptions.AttemptTimeout, declared but read by nothing, belongs in the retry policy as a per-attempt linked source, classified like the overall timeout but retryable (XCUT-2).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:73-75` · high · sha:27a0a46f35a8</sub>
-- The as-built predicate (body is null || body.IsReplayable) && (method.IsIdempotent || RetryNonIdempotentWhenReplayable) is wrong in both directions, not retrying a POST with a replayable body by default and retrying a bodyless POST when the option is on; the port drops the option and implements the rule as written.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:78-82` · high · sha:27a0a46f35a8</sub>
-- Backoff follows the specification: the as-built full-jitter formula, uniform over [0, min(base x 2^attempt, max)], violates RETRY-9 (initialDelay x multiplier^(attempt-1)) and RETRY-10 (symmetric jitter over [d(1-j/2), d(1+j/2)]).
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:92-95` · high · sha:27a0a46f35a8</sub>
-- The port keeps Polly's option name MaxRetryAttempts, which counts retries not sends (P14), and sets it to 2 so that three sends hold, preserving RETRY-14's equivalence of three sends across the two stacks.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:96-98` · high · sha:27a0a46f35a8</sub>
 
 ## Reference
 - The idempotent-method set is {GET, HEAD, OPTIONS, PUT, DELETE}.
@@ -365,6 +365,10 @@
   <sub>spec · `docs/product-spec/08-execution-pipelines.md:53-53` · high · sha:33e9443472ce</sub>
 - The recovery-aware retry stack enforces a total-timeout budget that the stage-based retry step omits (see RETRY-27, RETRY-28).
   <sub>spec · `docs/product-spec/08-execution-pipelines.md:59-59` · high · sha:33e9443472ce</sub>
+- Retry is automatic, safety-gated re-execution of a failed exchange, and the SDK ships two cooperating stacks (the recovery-chain retry with a total-timeout budget and the stage-based retry step).
+  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:3-3` · high · sha:9efbe276001e</sub>
+- The single retryable-status classifier is the definition from which the response-carrying exception flag and the stage stack's default predicate derive, and the recovery stack layers its own configurable status allow-list on top (RETRY-37).
+  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:9-9` · high · sha:9efbe276001e</sub>
 - RETRY-12 (SHOULD): Retry defaults SHOULD be initial delay 200 ms, multiplier 2.0, max delay 8 s, jitter 0.2, and a budget of 3 sends.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:16-16` · high · sha:9efbe276001e</sub>
 - The recovery stack scans the whole header map with fixed pacing precedence (Retry-After numeric then date, then retry-after-ms, then x-ms-retry-after-ms, then X-RateLimit-Reset), whereas the stage stack walks a caller-configurable ordered header list.
@@ -375,10 +379,8 @@
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:28-28` · high · sha:9efbe276001e</sub>
 - The reference code for RETRY-37 is authoritative-contains, not an intersection with the baked flag, and a port should follow that.
   <sub>spec · `docs/product-spec/09-retry-and-resilience.md:29-29` · high · sha:9efbe276001e</sub>
-- Retry is automatic, safety-gated re-execution of a failed exchange, and the SDK ships two cooperating stacks (the recovery-chain retry with a total-timeout budget and the stage-based retry step).
-  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:3-3` · high · sha:9efbe276001e</sub>
-- The single retryable-status classifier is the definition from which the response-carrying exception flag and the stage stack's default predicate derive, and the recovery stack layers its own configurable status allow-list on top (RETRY-37).
-  <sub>spec · `docs/product-spec/09-retry-and-resilience.md:9-9` · high · sha:9efbe276001e</sub>
+- A protocol error carries a baked retryability flag while the retry step gates protocol errors on a separate configurable status set; the configured set is what the retry step actually consults, and the two are distinct notions with distinct default membership (XCUT-5 versus XCUT-7).
+  <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:5-5` · high · sha:d6123be82c9e</sub>
 - The shared status classifier treats 408, 429, and all 5xx except 501 and 505 as retryable and everything else as not retryable, so a 5xx outside the tested list such as 507 bakes retryable true.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:16-16` · high · sha:d6123be82c9e</sub>
 - The baked retryability flag is a queryable property, while the retry step's actual eligibility gate for a protocol error is the configured retryable-status set (XCUT-7).
@@ -389,16 +391,8 @@
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:18-18` · high · sha:d6123be82c9e</sub>
 - Ensuring that a re-sent body-bearing request on a non-idempotent method is safe, for example via an idempotency key, is the caller's responsibility.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:24-24` · high · sha:d6123be82c9e</sub>
-- A protocol error carries a baked retryability flag while the retry step gates protocol errors on a separate configurable status set; the configured set is what the retry step actually consults, and the two are distinct notions with distinct default membership (XCUT-5 versus XCUT-7).
-  <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:5-5` · high · sha:d6123be82c9e</sub>
 - As built for section 5.2: not built, with no Outcome, no recovery chain, no suppressed trail and no shared cause walker, and the fatal filter and dispatch-info rethrow appear only inside RetryPolicy.
   <sub>design · `docs/sdk-design-dotnet/05-pipeline-architecture.md:261-262` · high · sha:1608fcd4b329</sub>
-- The thirteen pre-roadmap documents of 2026-06-14/15 were replaced by the specification, the design and the roadmap under decision D2 (ruled 2026-09-29) and deleted from the tree, with git history keeping them, and citations of them were repointed without changing any recorded decision.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:11-16` · high · sha:27a0a46f35a8</sub>
-- Microsoft.Extensions.Http.Resilience is not in the offline NuGet cache of the authoring machine, so its default strategy composition is cited from documentation and not verified.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:179-180` · high · sha:27a0a46f35a8</sub>
-- As built at d45e64b, retry diverges: full-jitter formula and non-spec defaults (four sends), hardcoded status set, no classifier or IsRetryable, safety predicate wrong both ways, case-sensitive integer-only unclamped Retry-After parser (a 60-day hint throws), no -ms or rate-limit headers, no suppressed trail, overall deadline surfacing as cancellation, unused AttemptTimeout, and no recovery-chain stack.
-  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:192-195` · high · sha:27a0a46f35a8</sub>
 - A static in one assembly is one copy per load context, so a host loading Dexpace.Sdk.Core into two AssemblyLoadContexts gets two copies of identical constants.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:23-25` · high · sha:27a0a46f35a8</sub>
 - As built, RetryPolicy hardcodes its status set in a private field, so XCUT-7's configurable set and RETRY-1's classifier do not yet exist as separate things.
@@ -409,6 +403,10 @@
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:89-90` · high · sha:27a0a46f35a8</sub>
 - RETRY-12 defaults are 200 ms initial delay, multiplier 2.0, 8 s maximum delay, jitter 0.2 and three sends, whereas as built MaxDelay is 30 s and MaxRetryAttempts is 3, which is four sends.
   <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:95-97` · high · sha:27a0a46f35a8</sub>
+- Microsoft.Extensions.Http.Resilience is not in the offline NuGet cache of the authoring machine, so its default strategy composition is cited from documentation and not verified.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:179-180` · high · sha:27a0a46f35a8</sub>
+- As built at d45e64b, retry diverges: full-jitter formula and non-spec defaults (four sends), hardcoded status set, no classifier or IsRetryable, safety predicate wrong both ways, case-sensitive integer-only unclamped Retry-After parser (a 60-day hint throws), no -ms or rate-limit headers, no suppressed trail, overall deadline surfacing as cancellation, unused AttemptTimeout, and no recovery-chain stack.
+  <sub>design · `docs/sdk-design-dotnet/06-retry-redirect-and-authentication.md:192-195` · high · sha:27a0a46f35a8</sub>
 
 ## Conflicts
 

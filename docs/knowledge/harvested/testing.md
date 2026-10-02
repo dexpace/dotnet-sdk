@@ -15,32 +15,6 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:240-243` · high · sha:27bc3ba15ac4</sub>
 - Allocation guarantees (OBS-1's disabled path, OBS-25's untraced path) are unit tests asserting a zero delta in GC.GetAllocatedBytesForCurrentThread() around the call, not benchmarks, because a guarantee belongs in the blocking gate.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:243-245` · high · sha:27bc3ba15ac4</sub>
-- Assert with xUnit's built-in Assert plus Shouldly, and do not adopt FluentAssertions v8 or later.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:109-113` · high · sha:7aad1d7b7110</sub>
-- The Shouldly version is pinned in Directory.Build.props so that no one drifts onto the paid FluentAssertions line by accident, and review rejects new FluentAssertions usage.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:113-121` · medium · sha:7aad1d7b7110</sub>
-- Every test is deterministic, injecting TimeProvider wherever time is read and substituting FakeTimeProvider in tests, which sets and advances the clock explicitly instead of waiting.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:123-126` · high · sha:7aad1d7b7110</sub>
-- Any Random used in a test is seeded with a fixed value so a generated case is reproducible from the log.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:126-126` · high · sha:7aad1d7b7110</sub>
-- Tests never use Thread.Sleep to synchronize; they await actual completion or advance the fake clock.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:127-127` · high · sha:7aad1d7b7110</sub>
-- Tests use no real network or live service (fake the boundary or use a container), and make no assumption about the order parallel tests run or the order a dictionary enumerates.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:127-127` · high · sha:7aad1d7b7110</sub>
-- Review rejects Thread.Sleep, DateTime.Now, real network access, and order-dependence in tests.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:136-136` · high · sha:7aad1d7b7110</sub>
-- Integration tests exercise the real thing, using WebApplicationFactory<TEntryPoint> to boot the real ASP.NET Core host pipeline in-process and Testcontainers for the database.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:138-142` · high · sha:7aad1d7b7110</sub>
-- Integration tests back the host with a real datastore (an actual Postgres or Redis started by Testcontainers per test run), and review rejects in-memory database substitutes such as the EF in-memory provider or a fake Redis.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:142-152` · high · sha:7aad1d7b7110</sub>
-- Cover the negative space (invalid input, cancellation, boundaries) as deliberately as the happy path, testing the empty list, maximum value, negative amount, duplicate key, and cancelled token.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:154-157` · high · sha:7aad1d7b7110</sub>
-- Tests assert that invalid input throws the specific exception, that a cancelled CancellationToken aborts promptly with OperationCanceledException, and that boundary values (0, int.MaxValue, empty, one element) behave.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:157-157` · high · sha:7aad1d7b7110</sub>
-- Where it pays, gate coverage of the negative space with Stryker.NET mutation testing, since surviving mutants with high line coverage mean tests execute code without checking it.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:158-158` · high · sha:7aad1d7b7110</sub>
-- Review requires negative-space and boundary cases per behaviour, a coverage threshold applies in CI, and an optional Stryker.NET mutation gate applies on critical modules.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:170-170` · high · sha:7aad1d7b7110</sub>
 - Tests run on xUnit v3 over Microsoft.Testing.Platform, with one version pinned across the solution through Directory.Build.props.
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:40-43` · high · sha:7aad1d7b7110</sub>
 - Each production assembly is mirrored by exactly one test project (Dexpace.Billing maps to Dexpace.Billing.Tests), so a failure points at one assembly and InternalsVisibleTo grants that one project access to internals.
@@ -71,6 +45,32 @@
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:96-107` · high · sha:7aad1d7b7110</sub>
 - NSubstitute is the sanctioned mocking framework and is used only when an interface is wide or stubbing it by hand is genuinely impractical.
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:96-96` · high · sha:7aad1d7b7110</sub>
+- Assert with xUnit's built-in Assert plus Shouldly, and do not adopt FluentAssertions v8 or later.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:109-113` · high · sha:7aad1d7b7110</sub>
+- The Shouldly version is pinned in Directory.Build.props so that no one drifts onto the paid FluentAssertions line by accident, and review rejects new FluentAssertions usage.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:113-121` · medium · sha:7aad1d7b7110</sub>
+- Every test is deterministic, injecting TimeProvider wherever time is read and substituting FakeTimeProvider in tests, which sets and advances the clock explicitly instead of waiting.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:123-126` · high · sha:7aad1d7b7110</sub>
+- Any Random used in a test is seeded with a fixed value so a generated case is reproducible from the log.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:126-126` · high · sha:7aad1d7b7110</sub>
+- Tests never use Thread.Sleep to synchronize; they await actual completion or advance the fake clock.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:127-127` · high · sha:7aad1d7b7110</sub>
+- Tests use no real network or live service (fake the boundary or use a container), and make no assumption about the order parallel tests run or the order a dictionary enumerates.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:127-127` · high · sha:7aad1d7b7110</sub>
+- Review rejects Thread.Sleep, DateTime.Now, real network access, and order-dependence in tests.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:136-136` · high · sha:7aad1d7b7110</sub>
+- Integration tests exercise the real thing, using WebApplicationFactory<TEntryPoint> to boot the real ASP.NET Core host pipeline in-process and Testcontainers for the database.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:138-142` · high · sha:7aad1d7b7110</sub>
+- Integration tests back the host with a real datastore (an actual Postgres or Redis started by Testcontainers per test run), and review rejects in-memory database substitutes such as the EF in-memory provider or a fake Redis.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:142-152` · high · sha:7aad1d7b7110</sub>
+- Cover the negative space (invalid input, cancellation, boundaries) as deliberately as the happy path, testing the empty list, maximum value, negative amount, duplicate key, and cancelled token.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:154-157` · high · sha:7aad1d7b7110</sub>
+- Tests assert that invalid input throws the specific exception, that a cancelled CancellationToken aborts promptly with OperationCanceledException, and that boundary values (0, int.MaxValue, empty, one element) behave.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:157-157` · high · sha:7aad1d7b7110</sub>
+- Where it pays, gate coverage of the negative space with Stryker.NET mutation testing, since surviving mutants with high line coverage mean tests execute code without checking it.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:158-158` · high · sha:7aad1d7b7110</sub>
+- Review requires negative-space and boundary cases per behaviour, a coverage threshold applies in CI, and an optional Stryker.NET mutation gate applies on critical modules.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:170-170` · high · sha:7aad1d7b7110</sub>
 - Enforce the dependency direction (acyclic, inward-pointing graph and layered seams) with an executable architecture test, using NetArchTest or an equivalent, run in CI with the suite (styleguide 12.9).
   <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:156-173` · high · sha:a44b6f9eaba9</sub>
 - Architecture tests assert that the domain depends on nothing of ours, that no context references a sibling it should not, and that the host owns no domain types.
@@ -101,6 +101,12 @@
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:236-239` · high · sha:27bc3ba15ac4</sub>
 - Mutation testing is not a per-PR gate because its cost scales with the suite, and NFR-17 binds the NFR gates, which mutation testing is not.
   <sub>design · `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:239-240` · high · sha:27bc3ba15ac4</sub>
+- Test tool choices (runner, assertion library, mocking framework) are constrained by supply-chain reality, because a test tool that becomes a license trap or injects ads is not fit for an enterprise codebase.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:3-3` · high · sha:7aad1d7b7110</sub>
+- Fakes are preferred over mocks because they test behaviour rather than call sequences, whereas a mock verifying that Save was called once with given arguments couples the test to the implementation and makes harmless refactors redden the suite.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:95-95` · high · sha:7aad1d7b7110</sub>
+- Moq is banned because its 4.20 release bundled the SponsorLink dependency, which harvested developers' email addresses at build time, making it unfit for an enterprise supply chain regardless of later reversals.
+  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:96-96` · high · sha:7aad1d7b7110</sub>
 - Shouldly is chosen because it is MIT-licensed and free for commercial use, with readable failure messages that quote the expression and both values.
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:112-112` · high · sha:7aad1d7b7110</sub>
 - FluentAssertions v8 (Xceed, January 2025) is rejected because it moved to a paid commercial license of roughly $130 per developer per year, with only the v7 line remaining free, which is an unacceptable supply-chain and budget risk.
@@ -109,12 +115,6 @@
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:141-141` · high · sha:7aad1d7b7110</sub>
 - In-memory datastore substitutes are rejected because they ignore constraints, transactions, and concurrency that the real engine enforces, so a passing test can ship a bug the real database would catch.
   <sub>styleguide · `docs/styleguide/csharp/11-testing.md:142-142` · high · sha:7aad1d7b7110</sub>
-- Test tool choices (runner, assertion library, mocking framework) are constrained by supply-chain reality, because a test tool that becomes a license trap or injects ads is not fit for an enterprise codebase.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:3-3` · high · sha:7aad1d7b7110</sub>
-- Fakes are preferred over mocks because they test behaviour rather than call sequences, whereas a mock verifying that Save was called once with given arguments couples the test to the implementation and makes harmless refactors redden the suite.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:95-95` · high · sha:7aad1d7b7110</sub>
-- Moq is banned because its 4.20 release bundled the SponsorLink dependency, which harvested developers' email addresses at build time, making it unfit for an enterprise supply chain regardless of later reversals.
-  <sub>styleguide · `docs/styleguide/csharp/11-testing.md:96-96` · high · sha:7aad1d7b7110</sub>
 - Dependency-direction invariants are made executable rather than left to review because an invariant guarded only by review erodes the first time a hurried reference points the wrong way.
   <sub>styleguide · `docs/styleguide/csharp/12-project-organization.md:159-159` · high · sha:a44b6f9eaba9</sub>
 
@@ -135,8 +135,10 @@
   <sub>styleguide · `docs/styleguide/csharp/README.md:43-43` · medium · sha:1e6ba36fc337</sub>
 
 ## Conflicts
-- **xUnit v3 on Microsoft.Testing.Platform with Shouldly (11.1, 11.5) vs xUnit v2 (design §9.3)** — The styleguide requires xUnit v3 on Microsoft.Testing.Platform and Shouldly assertions, while the design recorded xUnit v2 at the time of the as-built audit; the port has migrated to xUnit v3 on Microsoft.Testing.Platform and CONFORMS, so no note is owed.
+- **xUnit v3 on Microsoft.Testing.Platform (11.1) vs xUnit v2 (design §9.3)** — The styleguide requires xUnit v3 on Microsoft.Testing.Platform, while the design recorded xUnit v2 at the time of the as-built audit; the port has migrated to xUnit v3 on Microsoft.Testing.Platform and CONFORMS on the runner, so no note is owed (assertion style is a separate, kept departure).
   <sub>styleguide `docs/styleguide/csharp/11-testing.md:40-54` · design `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:199-201` · conformed 2026-10-02</sub>
+- **Shouldly assertions (11.5) vs xUnit Assert only (design §9.3)** — The styleguide says to assert with xUnit's Assert plus Shouldly, but the repository's tests assert with xUnit's Assert alone and reference no Shouldly package, which the overlay folded into its xUnit migration row; the port KEEPS xUnit Assert as its assertion style for now and records it in a note.
+  <sub>styleguide `docs/styleguide/csharp/11-testing.md:109-122` · design `docs/sdk-design-dotnet/09-toolchain-and-quality-gates.md:199-202` · kept 2026-10-02</sub>
 
 ## Superseded
 

@@ -7,6 +7,8 @@
   <sub>spec · `docs/product-spec/02-architectural-principles.md:26-26` · high · sha:8014d2ec2c9d</sub>
 - Cancellation is terminal and non-retryable, and MUST be told apart from a retryable timeout out-of-band, never by matching an error message (see section 9, RETRY-23, RETRY-24).
   <sub>spec · `docs/product-spec/02-architectural-principles.md:27-27` · high · sha:8014d2ec2c9d</sub>
+- XCUT-1 (MUST) A thread or task cancellation MUST be surfaced as a distinct, terminal, NON-retryable signal kept separate from a timeout, propagating cancellation without losing the ambient cancellation flag and never letting a cancelled operation be automatically retried.
+  <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:9-9` · high · sha:d6123be82c9e</sub>
 - XCUT-2 (MUST) A read, response or connect TIMEOUT MUST be classified as a RETRYABLE transport failure and MUST NOT set the cancellation flag.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:10-10` · high · sha:d6123be82c9e</sub>
 - XCUT-2 (MUST) Timeout and cancellation MUST be told apart by the ambient cancellation state rather than by matching a message string, even when the runtime uses the same exception type for both, and when the timeout type is a subtype of the cancellation type the timeout branch must be checked first.
@@ -15,8 +17,6 @@
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:11-11` · high · sha:d6123be82c9e</sub>
 - XCUT-3 states that a port SHOULD preserve the reference's non-pinning wait property (a scheduled timer completing an awaitable future so a virtual-thread carrier can unmount and no shared pool thread is monopolized) where its runtime has an equivalent concern, but the normative requirement is prompt cancellation, not the mechanism.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:11-11` · high · sha:d6123be82c9e</sub>
-- XCUT-1 (MUST) A thread or task cancellation MUST be surfaced as a distinct, terminal, NON-retryable signal kept separate from a timeout, propagating cancellation without losing the ambient cancellation flag and never letting a cancelled operation be automatically retried.
-  <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:9-9` · high · sha:d6123be82c9e</sub>
 - A timeout is discriminated from caller cancellation by the caller's token: catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) is a timeout.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:330-331` · high · sha:da6000c93fc5</sub>
 - RequestOptions.Timeout is enforced with a separate CancellationTokenSource whose own state is inspected.

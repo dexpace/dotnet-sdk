@@ -1,6 +1,16 @@
 # http-domain-model
 
 ## Rules
+- HTTP-3 (MUST): Each builder-based model (request, response, headers, query params, request options, request conditions, multipart body) MUST expose a newBuilder()-style derivation returning a builder pre-populated from the instance that does not alias the original's internal collections, with each value list copied.
+  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:7-7` · high · sha:22d100d5bc94</sub>
+- HTTP-3 (MUST): Value-based types with no builder (media type, status, typed header name, ETag, HTTP range, method, protocol) are derived by re-constructing through their factories.
+  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:7-7` · high · sha:22d100d5bc94</sub>
+- HTTP-4 (MUST): build() MUST validate required fields and fail with a field-named error when one is missing (a request requires its URL; a response requires request, protocol and status), never silently substituting defaults except where explicitly specified.
+  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:8-8` · high · sha:22d100d5bc94</sub>
+- HTTP-5 (MUST): Accessors returning collections of header or query names, values or entries MUST NOT let a caller mutate the model through the returned value and MUST NOT surface later mutations of a live builder.
+  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:9-9` · high · sha:22d100d5bc94</sub>
+- HTTP-5: Isolation from a builder is guaranteed by a build-time deep copy of every value list, and isolation from mutation-through-the-collection is guaranteed by returning read-only-typed collections; a port in a language without read-only views MUST use unmodifiable wrappers or per-call defensive copies.
+  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:9-9` · high · sha:22d100d5bc94</sub>
 - HTTP-6 (MUST): A request MUST carry exactly method, target URL, headers (non-null, possibly empty) and an optional body.
   <sub>spec · `docs/product-spec/04-core-http-domain-model.md:13-13` · high · sha:22d100d5bc94</sub>
 - HTTP-6 (MUST): A response MUST carry the originating request, negotiated protocol, status, an optional reason phrase, headers (non-null, possibly empty) and an optional body.
@@ -113,16 +123,6 @@
   <sub>spec · `docs/product-spec/04-core-http-domain-model.md:54-54` · high · sha:22d100d5bc94</sub>
 - HTTP-50 (SHOULD): The conditional-requests aggregator SHOULD be idempotent when applied (using set, not add) and enforce that the any-tag (*) is mutually exclusive with concrete entity-tags, collapsing repeated * to one.
   <sub>spec · `docs/product-spec/04-core-http-domain-model.md:54-54` · high · sha:22d100d5bc94</sub>
-- HTTP-3 (MUST): Each builder-based model (request, response, headers, query params, request options, request conditions, multipart body) MUST expose a newBuilder()-style derivation returning a builder pre-populated from the instance that does not alias the original's internal collections, with each value list copied.
-  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:7-7` · high · sha:22d100d5bc94</sub>
-- HTTP-3 (MUST): Value-based types with no builder (media type, status, typed header name, ETag, HTTP range, method, protocol) are derived by re-constructing through their factories.
-  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:7-7` · high · sha:22d100d5bc94</sub>
-- HTTP-4 (MUST): build() MUST validate required fields and fail with a field-named error when one is missing (a request requires its URL; a response requires request, protocol and status), never silently substituting defaults except where explicitly specified.
-  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:8-8` · high · sha:22d100d5bc94</sub>
-- HTTP-5 (MUST): Accessors returning collections of header or query names, values or entries MUST NOT let a caller mutate the model through the returned value and MUST NOT surface later mutations of a live builder.
-  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:9-9` · high · sha:22d100d5bc94</sub>
-- HTTP-5: Isolation from a builder is guaranteed by a build-time deep copy of every value list, and isolation from mutation-through-the-collection is guaranteed by returning read-only-typed collections; a port in a language without read-only views MUST use unmodifiable wrappers or per-call defensive copies.
-  <sub>spec · `docs/product-spec/04-core-http-domain-model.md:9-9` · high · sha:22d100d5bc94</sub>
 - XCUT-18 (MUST) Header names and outbound header values MUST be validated at the transport-agnostic model layer before reaching any transport.
   <sub>spec · `docs/product-spec/19-cross-cutting-invariants-and-policies.md:46-46` · high · sha:d6123be82c9e</sub>
 - XCUT-18 (MUST) Header names MUST reject all C0 control bytes (0x00-0x1F, including CR, LF, NUL and HTAB) and DEL (0x7F).
@@ -146,7 +146,19 @@
 - Original header-name casing from the model is emitted on HTTP/1.1 (HTTP-21).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:362-362` · high · sha:da6000c93fc5</sub>
 - The model rejects a GET with a body at construction, so the adapter never sees the combination (HTTP-7).
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:364-365` · high · sha:da6000c93fc5</sub>
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:363-365` · high · sha:da6000c93fc5</sub>
+- Every core domain type is immutable and safe to share after construction, built only through an immutable value plus a builder or factory, with no public field-wise constructor and no unchecked copy that bypasses validation (HTTP-1, HTTP-2, SEAM-29, XCUT-15).
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:3-5` · high · sha:3aa554d9287d</sub>
+- HTTP-3 requires a pre-filled, non-aliasing derivation; HTTP-4 requires build() to validate required fields and fail with a field-named error; HTTP-5 requires accessors to isolate the caller from both the model's internals and a still-live builder.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:5-8` · high · sha:3aa554d9287d</sub>
+- Per-member invariants live in the init accessor using C# 14's field keyword (for example `public TimeSpan? Timeout { get; init => field = RequireNullOrPositive(value); }`) so the check runs on every assignment path: constructor, object initializer and with.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:23-25` · high · sha:3aa554d9287d</sub>
+- A type with a cross-member invariant exposes no public init accessor, because an init accessor cannot check a relationship between members and with assigns one member at a time.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:28-31` · high · sha:3aa554d9287d</sub>
+- A model is a readonly record struct only when its default value is a legitimate instance; otherwise it is a sealed record class, whose default is null and which nullable reference types already police.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:36-44` · high · sha:3aa554d9287d</sub>
+- Public members never return a List<T> typed as IReadOnlyList<T>, because a caller can cast it back and mutate it (styleguide csharp/10-api-design.md rule 10.3, CA1002).
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:88-90` · high · sha:3aa554d9287d</sub>
 - Every transport adapter re-checks exploitable invariants at the model-to-wire boundary immediately before dispatch: header name and outbound value validation (HTTP-17, HTTP-18, XCUT-18) and the method token, so a forged model cannot smuggle CR/LF into a header.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:104-108` · high · sha:3aa554d9287d</sub>
 - Headers equality is over the ordered sequence of (folded name, values) entries and original casing does not participate, satisfying HTTP-13 and HTTP-46.
@@ -190,7 +202,7 @@
 - Status (HTTP-10 to HTTP-12) is a readonly record struct whose identity is its code, with the canonical name looked up from a static table.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:205-206` · high · sha:3aa554d9287d</sub>
 - Status construction is total over any int (HTTP-10; 599 and -1 yield nameless statuses without throwing), and the recognised-code lookup is Status.TryGetKnown(int, out Status).
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:211-212` · high · sha:3aa554d9287d</sub>
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:210-212` · high · sha:3aa554d9287d</sub>
 - Status range classification is derived rather than stored (HTTP-11).
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:212-213` · high · sha:3aa554d9287d</sub>
 - Method (HTTP-9) is classified by one idempotent set, exactly {GET, HEAD, OPTIONS, PUT, DELETE}, from which both the retry allow-list and the replay gate derive.
@@ -203,8 +215,6 @@
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:225-226` · high · sha:3aa554d9287d</sub>
 - Protocol (HTTP-33) is an enum with a lower-case wire form (http/1.0, http/1.1, http/2) and a case-insensitive, culture-invariant parse that accepts the canonical forms plus HTTP/2 and HTTP/2.0 and throws on anything else.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:228-230` · high · sha:3aa554d9287d</sub>
-- Per-member invariants live in the init accessor using C# 14's field keyword (for example `public TimeSpan? Timeout { get; init => field = RequireNullOrPositive(value); }`) so the check runs on every assignment path: constructor, object initializer and with.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:23-25` · high · sha:3aa554d9287d</sub>
 - MediaType (HTTP-23 to HTTP-27, HTTP-53) uses a hand-written parser that splits parameters respecting quoted strings, splits each parameter on the first `=` only, strips quotes, unescapes quoted pairs, and renders so that parse(render(x)) == x.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:239-242` · high · sha:3aa554d9287d</sub>
 - If a regular expression is ever introduced into the media-type parser it must be [GeneratedRegex] with a timeout, for AOT and for ReDoS.
@@ -223,16 +233,6 @@
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:270-271` · high · sha:3aa554d9287d</sub>
 - RequestConditions applies itself with Set, not With, so applying it twice is idempotent (HTTP-50), and it emits dates through the RFC 1123 formatter of section 8.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:279-280` · high · sha:3aa554d9287d</sub>
-- A type with a cross-member invariant exposes no public init accessor, because an init accessor cannot check a relationship between members and with assigns one member at a time.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:28-31` · high · sha:3aa554d9287d</sub>
-- Every core domain type is immutable and safe to share after construction, built only through an immutable value plus a builder or factory, with no public field-wise constructor and no unchecked copy that bypasses validation (HTTP-1, HTTP-2, SEAM-29, XCUT-15).
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:3-5` · high · sha:3aa554d9287d</sub>
-- A model is a readonly record struct only when its default value is a legitimate instance; otherwise it is a sealed record class, whose default is null and which nullable reference types already police.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:36-44` · high · sha:3aa554d9287d</sub>
-- HTTP-3 requires a pre-filled, non-aliasing derivation; HTTP-4 requires build() to validate required fields and fail with a field-named error; HTTP-5 requires accessors to isolate the caller from both the model's internals and a still-live builder.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:5-8` · high · sha:3aa554d9287d</sub>
-- Public members never return a List<T> typed as IReadOnlyList<T>, because a caller can cast it back and mutate it (styleguide csharp/10-api-design.md rule 10.3, CA1002).
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:88-90` · high · sha:3aa554d9287d</sub>
 
 ## Constraints
 - HTTP-29: Query encoding is NOT application/x-www-form-urlencoded.
@@ -245,24 +245,24 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:353-355` · high · sha:da6000c93fc5</sub>
 - HttpClient sends a body on GET (verified: a GET with StringContent reached the server with a 3-byte body), a divergence HTTP-7's rationale names.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:363-364` · high · sha:da6000c93fc5</sub>
-- Under the tr-TR culture, "TITLE".ToLower() returns "tıtle" and CurrentCultureIgnoreCase says title differs from TITLE, whereas ToLowerInvariant() and OrdinalIgnoreCase behave correctly.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:136-139` · high · sha:3aa554d9287d</sub>
-- ToLowerInvariant is Unicode-aware and folds U+212A KELVIN SIGN to ASCII `k`, so a header named with the Kelvin sign would be treated as the same header as `key`.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:139-141` · high · sha:3aa554d9287d</sub>
 - A with-expression and object initializers run init accessors and not constructors, so validation written only in a constructor is skipped by every derived copy.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:15-16` · high · sha:3aa554d9287d</sub>
-- On Linux, `Uri.TryCreate("/rel", UriKind.Absolute, ...)` succeeds as a file: URI, so checking absoluteness alone never validates a request URL.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:177-178` · high · sha:3aa554d9287d</sub>
-- Uri.Equals treats `https://a@h/` and `https://b@h/` as equal and ignores the fragment, so record-generated equality over Url would make requests with different userinfo credentials equal.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:178-181` · high · sha:3aa554d9287d</sub>
-- HTTP-12 requires Status equality over the code only, and a naive `record struct Status(int Code, string? Name)` would generate equality over both members and violate it.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:206-209` · high · sha:3aa554d9287d</sub>
 - Every C# struct has a parameterless construction path the author cannot remove: `new Method()` compiles and yields a Method whose Name is null, and `default(HttpHeaderName).GetHashCode()` throws NullReferenceException.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:39-42` · high · sha:3aa554d9287d</sub>
 - Reflection, RuntimeHelpers.GetUninitializedObject (yielding an instance with all-null fields) and Unsafe.As bypass constructors and readonly fields, and no library can prevent this.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:95-99` · high · sha:3aa554d9287d</sub>
 - The body hierarchy is open by design, so a subclass of RequestBody can report IsReplayable for a body that writes different bytes each time, and the replay gate of section 3.1 trusts that property.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:99-101` · high · sha:3aa554d9287d</sub>
+- Under the tr-TR culture, "TITLE".ToLower() returns "tıtle" and CurrentCultureIgnoreCase says title differs from TITLE, whereas ToLowerInvariant() and OrdinalIgnoreCase behave correctly.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:136-139` · high · sha:3aa554d9287d</sub>
+- ToLowerInvariant is Unicode-aware and folds U+212A KELVIN SIGN to ASCII `k`, so a header named with the Kelvin sign would be treated as the same header as `key`.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:139-141` · high · sha:3aa554d9287d</sub>
+- On Linux, `Uri.TryCreate("/rel", UriKind.Absolute, ...)` succeeds as a file: URI, so checking absoluteness alone never validates a request URL.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:177-178` · high · sha:3aa554d9287d</sub>
+- Uri.Equals treats `https://a@h/` and `https://b@h/` as equal and ignores the fragment, so record-generated equality over Url would make requests with different userinfo credentials equal.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:178-181` · high · sha:3aa554d9287d</sub>
+- HTTP-12 requires Status equality over the code only, and a naive `record struct Status(int Code, string? Name)` would generate equality over both members and violate it.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:206-209` · high · sha:3aa554d9287d</sub>
 
 ## Conclusions
 - Rejecting a body on body-forbidding methods once at construction yields one portable behavior because reference transports diverge, with one throwing and one silently dropping the body.
@@ -285,28 +285,8 @@
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:39-42` · high · sha:d7cea7b15cf3</sub>
 - For a body-less POST/PUT/PATCH the adapter relies on HttpClient's own verified behaviour of sending Content-Length: 0 for null content (TRANSPORT-26).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:360-362` · high · sha:da6000c93fc5</sub>
-- The encapsulation gap is mitigated by closed official construction paths, concrete sealed public types, and not by a fake proof; a caller using reflection or a lying subclass knowingly opts out.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:101-104` · high · sha:3aa554d9287d</sub>
-- The residual encapsulation gap is a correctness-of-shape gap rather than a request-splitting gap, recorded as section 10 entry 11; the re-check is not optional on .NET because of the wire-level behaviour of TryAddWithoutValidation (section 3.2).
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:106-109` · high · sha:3aa554d9287d</sub>
-- Headers uses an ordered entry array with an ordinal index built alongside it, because ImmutableDictionary is a hash map (names added as z, a, m enumerate as a, z, m) and so does not meet HTTP-16's insertion-order requirement; the index keeps lookups constant-time.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:123-126` · high · sha:3aa554d9287d</sub>
-- The port folds header names with System.Text.Ascii.ToLower (in-box on net8.0), which returns OperationStatus.InvalidData on non-ASCII input, so the fold and HTTP-17's non-ASCII rejection are one operation and relaxing HTTP-17 cannot silently break HTTP-13.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:141-144` · high · sha:3aa554d9287d</sub>
-- Header names are held to the RFC 9110 token grammar, stricter than HTTP-17's floor (also rejecting separators such as space, `(` and `:`), because HttpClient refuses exactly those names anyway (TryAddWithoutValidation("a b", ...) returns false) and accepting them in the model would only move the failure to a silent transport drop; recorded as section 11 item 36.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:149-154` · high · sha:3aa554d9287d</sub>
-- HTTP-22's optional header-name interning (a MAY) is not implemented, because the observable contract is value equality by folded name and well-known names are already cached statics on HttpHeaderName.WellKnown.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:160-162` · high · sha:3aa554d9287d</sub>
-- HTTP-8's "no method set" case is unrepresentable rather than defaulted because Method is not optional in any Request constructor.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:175-175` · high · sha:3aa554d9287d</sub>
-- The port drops TRACE from the idempotent set and removes both public IsSafe and IsIdempotent before 1.0, rather than keep an RFC-meaning accessor beside the SDK's specified set (section 11 item 22), even though RFC 9110 would agree TRACE is idempotent.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:221-223` · high · sha:3aa554d9287d</sub>
-- System.Net.Http.Headers.MediaTypeHeaderValue is rejected as the model because it is mutable (CharSet is settable after parse) and lenient where HTTP-53 is strict (it accepts `text/plain; foo`, a parameter with no `=`).
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:241-243` · high · sha:3aa554d9287d</sub>
-- RequestOptions Timeout is a TimeSpan matching every .NET timeout API, where the Ruby port used float seconds for the same reason.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:271-272` · high · sha:3aa554d9287d</sub>
-- ETag, HttpRange and RequestConditions (HTTP-48 to HTTP-50) are sealed records with validating factories, and the BCL EntityTagHeaderValue and RangeHeaderValue are unsuitable as model types because RangeHeaderValue.Ranges is a mutable collection that accepts a second range, whereas HTTP-49 supports only a single range.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:275-278` · high · sha:3aa554d9287d</sub>
+- The port uses record (or readonly record struct) as the base, with init accessors and with-expressions as the builder, and uses required members so an omitted member is a compile error (CS9035), which is stronger than HTTP-4's runtime "<name> is required".
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:9-14` · high · sha:3aa554d9287d</sub>
 - Request, whose HTTP-7/HTTP-8 rules relate method and body, has get-only properties (a with-expression assigning one is compile error CS0200), a validating constructor, and With* methods (WithMethod, WithUrl, WithHeaders, WithHeader, WithBody, WithoutBody) that route every derivation back through that constructor.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:31-34` · high · sha:3aa554d9287d</sub>
 - Status is a readonly record struct because its default (code 0) is admitted by HTTP-10's total mapping as an unrecognised status, and its equality is overridden to the code.
@@ -339,8 +319,28 @@
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:76-80` · high · sha:3aa554d9287d</sub>
 - Collections are stored as System.Collections.Immutable types built once at construction and the same instance is returned from every accessor, so HTTP-5 needs no per-access wrapper.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:82-85` · high · sha:3aa554d9287d</sub>
-- The port uses record (or readonly record struct) as the base, with init accessors and with-expressions as the builder, and uses required members so an omitted member is a compile error (CS9035), which is stronger than HTTP-4's runtime "<name> is required".
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:9-14` · high · sha:3aa554d9287d</sub>
+- The encapsulation gap is mitigated by closed official construction paths, concrete sealed public types, and not by a fake proof; a caller using reflection or a lying subclass knowingly opts out.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:101-104` · high · sha:3aa554d9287d</sub>
+- The residual encapsulation gap is a correctness-of-shape gap rather than a request-splitting gap, recorded as section 10 entry 11; the re-check is not optional on .NET because of the wire-level behaviour of TryAddWithoutValidation (section 3.2).
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:106-109` · high · sha:3aa554d9287d</sub>
+- Headers uses an ordered entry array with an ordinal index built alongside it, because ImmutableDictionary is a hash map (names added as z, a, m enumerate as a, z, m) and so does not meet HTTP-16's insertion-order requirement; the index keeps lookups constant-time.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:123-126` · high · sha:3aa554d9287d</sub>
+- The port folds header names with System.Text.Ascii.ToLower (in-box on net8.0), which returns OperationStatus.InvalidData on non-ASCII input, so the fold and HTTP-17's non-ASCII rejection are one operation and relaxing HTTP-17 cannot silently break HTTP-13.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:141-144` · high · sha:3aa554d9287d</sub>
+- Header names are held to the RFC 9110 token grammar, stricter than HTTP-17's floor (also rejecting separators such as space, `(` and `:`), because HttpClient refuses exactly those names anyway (TryAddWithoutValidation("a b", ...) returns false) and accepting them in the model would only move the failure to a silent transport drop; recorded as section 11 item 36.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:149-154` · high · sha:3aa554d9287d</sub>
+- HTTP-22's optional header-name interning (a MAY) is not implemented, because the observable contract is value equality by folded name and well-known names are already cached statics on HttpHeaderName.WellKnown.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:160-162` · high · sha:3aa554d9287d</sub>
+- HTTP-8's "no method set" case is unrepresentable rather than defaulted because Method is not optional in any Request constructor.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:174-175` · high · sha:3aa554d9287d</sub>
+- The port drops TRACE from the idempotent set and removes both public IsSafe and IsIdempotent before 1.0, rather than keep an RFC-meaning accessor beside the SDK's specified set (section 11 item 22), even though RFC 9110 would agree TRACE is idempotent.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:221-223` · high · sha:3aa554d9287d</sub>
+- System.Net.Http.Headers.MediaTypeHeaderValue is rejected as the model because it is mutable (CharSet is settable after parse) and lenient where HTTP-53 is strict (it accepts `text/plain; foo`, a parameter with no `=`).
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:241-243` · high · sha:3aa554d9287d</sub>
+- RequestOptions Timeout is a TimeSpan matching every .NET timeout API, where the Ruby port used float seconds for the same reason.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:271-272` · high · sha:3aa554d9287d</sub>
+- ETag, HttpRange and RequestConditions (HTTP-48 to HTTP-50) are sealed records with validating factories, and the BCL EntityTagHeaderValue and RangeHeaderValue are unsuitable as model types because RangeHeaderValue.Ranges is a mutable collection that accepts a second range, whereas HTTP-49 supports only a single range.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:275-278` · high · sha:3aa554d9287d</sub>
 
 ## Reference
 - The core HTTP domain model is the immutable, transport-agnostic, security-critical boundary between application code and the wire, fixing case-insensitivity, multi-value semantics, ordering, header-injection defenses, method/body legality and total status handling once so every transport behaves identically.
@@ -353,6 +353,18 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:345-348` · high · sha:da6000c93fc5</sub>
 - The as-built adapter tries request headers first and falls back to content headers only when content exists, so a Content-Type on a body-less request vanishes (verified on the wire) and the model's Content-Type is skipped whenever a body is present in favor of the body-derived media type, opposite to TRANSPORT-10.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:355-358` · high · sha:da6000c93fc5</sub>
+- At commit d45e64b, `Request.Post(url, body) with { Method = Method.Get }` yields a GET carrying a body (forbidden by HTTP-7), `with { Url = new Uri("rel", UriKind.Relative) }` yields a request with a relative URL, and `with { Url = new Uri("ftp://h/x") }` yields an FTP request.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:16-21` · high · sha:3aa554d9287d</sub>
+- The field-keyword init idiom compiles for a net8.0 target under the 10.0.401 SDK with LangVersion latest, so it does not wait for the target-framework floor to rise.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:25-27` · high · sha:3aa554d9287d</sub>
+- The styleguide rule 3.8 (csharp/03-nullability-and-the-type-system.md) says to choose record, record struct or class by value semantics, and rule 6.6 of 06-types-and-data-modeling.md prefers readonly struct for small immutable values.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:36-38` · high · sha:3aa554d9287d</sub>
+- Making Method and HttpHeaderName reference types costs an allocation only for an unrecognised verb or header name, because the well-known instances are cached statics.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:58-59` · high · sha:3aa554d9287d</sub>
+- HTTP-3 distinguishes builder-based models (request, response, headers, query params, request options, request conditions, multipart body) from value-based types with no builder (media type, status, typed header name, ETag, HTTP range, method, protocol), which are derived by re-constructing through their factories.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:61-64` · high · sha:3aa554d9287d</sub>
+- HTTP-5's conformance probe (a returned value list cannot be downcast-and-mutated) passes because downcasting the IReadOnlyList<string> returned by Headers.GetAll yields an ImmutableArray<string>, which has no mutating members and is immutable all the way down.
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:85-91` · high · sha:3aa554d9287d</sub>
 - Section 4 as built at d45e64b is partial: records, With* helpers and immutable collections exist; Request exposes public init properties that bypass its constructor, Method and HttpHeaderName are structs with invalid defaults, and there is no Query or RequestOptions type.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:111-113` · high · sha:3aa554d9287d</sub>
 - Headers (HTTP-13 to HTTP-22) are an insertion-ordered immutable multimap with one entry per distinct name, holding the folded name (for lookup, containment, mutation, removal, equality and hashing), the original casing of the first insertion (for wire emission, HTTP-21), and an ImmutableArray<string> of values in insertion order (HTTP-14).
@@ -365,8 +377,6 @@
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:131-132` · high · sha:3aa554d9287d</sub>
 - In the as-built code, HttpHeaderName.Of("a\rb") throws "Invalid header-name character '\r'" with the raw carriage return in the message.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:154-156` · high · sha:3aa554d9287d</sub>
-- At commit d45e64b, `Request.Post(url, body) with { Method = Method.Get }` yields a GET carrying a body (forbidden by HTTP-7), `with { Url = new Uri("rel", UriKind.Relative) }` yields a request with a relative URL, and `with { Url = new Uri("ftp://h/x") }` yields an FTP request.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:16-21` · high · sha:3aa554d9287d</sub>
 - Headers as built at d45e64b diverges: no validation, non-ASCII-aware fold, enumeration not in insertion order, no value equality, original casing lost, no inbound lenient path; HttpHeaderName rejects surrounding whitespace instead of trimming, echoes raw control characters in its message, and is a struct.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:165-167` · high · sha:3aa554d9287d</sub>
 - The as-built Request constructor does not check HTTP-7 at all: `new Request(Method.Get, url, null, body)` succeeds.
@@ -374,7 +384,7 @@
 - The as-built message "Request URL must be an absolute URI." omits the offending input.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:176-177` · high · sha:3aa554d9287d</sub>
 - System.Uri never resolves DNS, so the JVM URL hazard that HTTP-46's textual comparison guards against does not exist on .NET.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:182-184` · high · sha:3aa554d9287d</sub>
+  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:181-184` · high · sha:3aa554d9287d</sub>
 - As built, `Method.Of("GET\r\nX: y")` is accepted and only `new HttpMethod(...)` in the transport rejects it with a FormatException that escapes the transport unmapped.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:185-186` · high · sha:3aa554d9287d</sub>
 - The as-built EnsureSuccessAsync throws HttpResponseException for any non-2xx including a 304, contradicting BODY-31 and XCUT-8.
@@ -395,22 +405,12 @@
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:233-235` · high · sha:3aa554d9287d</sub>
 - The as-built media-type parser is a character scanner with no regular expression, so the Ruby port's regex-timeout hardening has no counterpart, and it is correct on quoting, first-`=` splitting and case normalisation (`Application/JSON;Charset=UTF-8` becomes `application/json`, key `charset`, value `UTF-8`).
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:243-247` · high · sha:3aa554d9287d</sub>
-- The field-keyword init idiom compiles for a net8.0 target under the 10.0.401 SDK with LangVersion latest, so it does not wait for the target-framework floor to rise.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:25-27` · high · sha:3aa554d9287d</sub>
 - The as-built MediaType accepts a parameter value containing CR/LF and renders it inside quotes, so it can carry a line break into a Content-Type header.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:250-252` · high · sha:3aa554d9287d</sub>
 - RequestOptions are the per-call options threaded through both transport interfaces (sections 3.2, 3.3) and are distinct from DexpaceClientOptions, which is client-level configuration (section 8.2).
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:272-273` · high · sha:3aa554d9287d</sub>
 - Section 4.4 as built at d45e64b is partial: MediaType accepts empty parameter values and control characters in values and has no TryParse; Query, RequestOptions, ETag, HttpRange and RequestConditions are not built.
   <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:282-283` · high · sha:3aa554d9287d</sub>
-- The styleguide rule 3.8 (csharp/03-nullability-and-the-type-system.md) says to choose record, record struct or class by value semantics, and rule 6.6 of 06-types-and-data-modeling.md prefers readonly struct for small immutable values.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:36-38` · high · sha:3aa554d9287d</sub>
-- Making Method and HttpHeaderName reference types costs an allocation only for an unrecognised verb or header name, because the well-known instances are cached statics.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:58-59` · high · sha:3aa554d9287d</sub>
-- HTTP-3 distinguishes builder-based models (request, response, headers, query params, request options, request conditions, multipart body) from value-based types with no builder (media type, status, typed header name, ETag, HTTP range, method, protocol), which are derived by re-constructing through their factories.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:61-64` · high · sha:3aa554d9287d</sub>
-- HTTP-5's conformance probe (a returned value list cannot be downcast-and-mutated) passes because downcasting the IReadOnlyList<string> returned by Headers.GetAll yields an ImmutableArray<string>, which has no mutating members and is immutable all the way down.
-  <sub>design · `docs/sdk-design-dotnet/04-domain-model-construction.md:85-91` · high · sha:3aa554d9287d</sub>
 
 ## Conflicts
 

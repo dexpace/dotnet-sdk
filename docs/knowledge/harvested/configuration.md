@@ -1,6 +1,12 @@
 # configuration
 
 ## Rules
+- CFG-1 (MUST): A configuration value lookup resolves in strict order: an explicit override for the exact key, then the environment source queried by the exact key name, then the system-property source queried by the normalized key name, then the caller-supplied default, which MAY be absent.
+  <sub>spec · `docs/product-spec/16-configuration.md:7-7` · high · sha:367e27ec6481</sub>
+- CFG-2 (MUST): An environment value that is present but empty is treated as absent, so the lookup falls through to the property layer.
+  <sub>spec · `docs/product-spec/16-configuration.md:8-8` · high · sha:367e27ec6481</sub>
+- CFG-3 (MUST): The property layer is queried under a normalized key derived by lowercasing and replacing every underscore with a dot (MAX_RETRY_ATTEMPTS becomes max.retry.attempts), while the override and environment layers use the original name.
+  <sub>spec · `docs/product-spec/16-configuration.md:9-9` · high · sha:367e27ec6481</sub>
 - CFG-4 (MUST): A separate raw property accessor looks up by the exact name without the env-to-property normalization, so camelCase property-only keys such as https.proxyHost resolve with casing preserved.
   <sub>spec · `docs/product-spec/16-configuration.md:10-10` · high · sha:367e27ec6481</sub>
 - CFG-38 (MUST): The typed accessors (integer, boolean, duration) resolve the raw value through the same layered lookup as the string accessor before parsing, and never read only the override map or skip the env/property layers; the typed default applies only when the layered lookup yields no value.
@@ -43,12 +49,6 @@
   <sub>spec · `docs/product-spec/16-configuration.md:48-48` · high · sha:367e27ec6481</sub>
 - CFG-36 (SHOULD): A static build/runtime descriptor exposes the SDK version and host runtime identity resolved once at load time, each falling back to a non-blank unknown when unavailable, and provides a default ordered identity-token list (SDK token then runtime token) in which every token is non-blank.
   <sub>spec · `docs/product-spec/16-configuration.md:59-59` · high · sha:367e27ec6481</sub>
-- CFG-1 (MUST): A configuration value lookup resolves in strict order: an explicit override for the exact key, then the environment source queried by the exact key name, then the system-property source queried by the normalized key name, then the caller-supplied default, which MAY be absent.
-  <sub>spec · `docs/product-spec/16-configuration.md:7-7` · high · sha:367e27ec6481</sub>
-- CFG-2 (MUST): An environment value that is present but empty is treated as absent, so the lookup falls through to the property layer.
-  <sub>spec · `docs/product-spec/16-configuration.md:8-8` · high · sha:367e27ec6481</sub>
-- CFG-3 (MUST): The property layer is queried under a normalized key derived by lowercasing and replacing every underscore with a dot (MAX_RETRY_ATTEMPTS becomes max.retry.attempts), while the override and environment layers use the original name.
-  <sub>spec · `docs/product-spec/16-configuration.md:9-9` · high · sha:367e27ec6481</sub>
 - CFG-1: configuration precedence is override, then environment, then normalized property, then default.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:50-50` · high · sha:0451cc7f3bb4</sub>
 - CFG-2: an empty environment value is treated as absent.
@@ -191,20 +191,20 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:290-292` · high · sha:ddf8f695ff61</sub>
 
 ## Reference
+- The configuration subsystem comprises layered string-keyed lookup with copy-on-write derivation plus utility primitives: injectable clock, non-blocking delay/cancellation helpers, environment-driven proxy model, RFC 1123 dates, non-blocking UUID generator, shared retryability classifier, build/runtime identity descriptor, and deep value equality.
+  <sub>spec · `docs/product-spec/16-configuration.md:3-3` · high · sha:367e27ec6481</sub>
+- Conformance for layered lookup: register an override, distinct env and distinct property values and assert override wins, then env, then property, then default as each higher layer is removed.
+  <sub>spec · `docs/product-spec/16-configuration.md:7-7` · high · sha:367e27ec6481</sub>
 - Conformance for never-throw accessors: getInt on "not-a-number" returns the default and on "-5" returns -5.
   <sub>spec · `docs/product-spec/16-configuration.md:15-15` · high · sha:367e27ec6481</sub>
 - Conformance for the strict boolean accessor: getBoolean("TRUE") parses, while getBoolean("1"), "yes" and "on" return the supplied default.
   <sub>spec · `docs/product-spec/16-configuration.md:16-16` · high · sha:367e27ec6481</sub>
 - Duration accessor conformance examples: PT5S yields 5s, 500ms yields 500ms, 1000 yields 1s, PT-5S yields the default, and 5x yields the default.
   <sub>spec · `docs/product-spec/16-configuration.md:17-17` · high · sha:367e27ec6481</sub>
-- The configuration subsystem comprises layered string-keyed lookup with copy-on-write derivation plus utility primitives: injectable clock, non-blocking delay/cancellation helpers, environment-driven proxy model, RFC 1123 dates, non-blocking UUID generator, shared retryability classifier, build/runtime identity descriptor, and deep value equality.
-  <sub>spec · `docs/product-spec/16-configuration.md:3-3` · high · sha:367e27ec6481</sub>
 - Glob conformance example: *.internal.example.com matches subdomains case-insensitively but not the apex, and a . in a pattern matches literally.
   <sub>spec · `docs/product-spec/16-configuration.md:43-43` · high · sha:367e27ec6481</sub>
 - Non-proxy list conformance examples: a\|b|c yields [a|b, c], and a\,b,c yields [a,b, c].
   <sub>spec · `docs/product-spec/16-configuration.md:46-46` · high · sha:367e27ec6481</sub>
-- Conformance for layered lookup: register an override, distinct env and distinct property values and assert override wins, then env, then property, then default as each higher layer is removed.
-  <sub>spec · `docs/product-spec/16-configuration.md:7-7` · high · sha:367e27ec6481</sub>
 - The binder's BCL TypeConverters fail loudly: BooleanConverter rejects "1" with FormatException (and accepts " TRUE "), and Int32Converter parses "010" as 10 but also accepts "0x10" as 16 (all verified).
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:240-243` · high · sha:ddf8f695ff61</sub>
 - As built (d45e64b) for configuration: options are mutable classes shared by reference (CFG-8), proxy is delegated to HttpClient defaults (CFG-22 to CFG-28), the version fallback is 0.0.0 (CFG-36); not built are the DI package's binding, validation and duration/integer converters, ProxyOptions, and the date parser as a shared utility.

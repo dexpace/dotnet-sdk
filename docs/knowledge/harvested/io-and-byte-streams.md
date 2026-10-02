@@ -7,6 +7,14 @@
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:7-7` · high · sha:0adae2d6a47f</sub>
 - SEAM-4 (MUST) - Provider factory operations MUST be safe to invoke concurrently from many threads, while the buffer/reader/writer instances they return are NOT required to be thread-safe and are confined to a single logical operation.
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:8-8` · high · sha:0adae2d6a47f</sub>
+- IO-1 (MUST): A source read MUST append bytes to the tail of a caller-provided destination buffer without overwriting existing content and return the number transferred.
+  <sub>spec · `docs/product-spec/05-i-o-contracts.md:7-7` · high · sha:33e67b0b29cd</sub>
+- IO-1 (MUST): A source read returns at least 1 when the requested count is positive and the source is not exhausted, exactly 0 when the requested count is 0, -1 at end-of-stream, and never more than requested.
+  <sub>spec · `docs/product-spec/05-i-o-contracts.md:7-7` · high · sha:33e67b0b29cd</sub>
+- IO-2 (MUST): A read of count 0 MUST return 0 and MUST NOT report end-of-stream, even on an exhausted source.
+  <sub>spec · `docs/product-spec/05-i-o-contracts.md:8-8` · high · sha:33e67b0b29cd</sub>
+- IO-3 (MUST): A negative count passed to any size-taking read, write or copy MUST be rejected as an argument-validation error before any I/O, and a port MAY use whichever argument-error type is idiomatic.
+  <sub>spec · `docs/product-spec/05-i-o-contracts.md:9-9` · high · sha:33e67b0b29cd</sub>
 - IO-4 (MUST): A sink write MUST remove exactly the requested number of bytes from the head of the source buffer and push them downstream.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:10-10` · high · sha:33e67b0b29cd</sub>
 - IO-4 (MUST): If the source buffer holds fewer bytes than requested, the sink write MUST fail with an I/O error rather than write a partial amount.
@@ -97,22 +105,6 @@
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:50-50` · high · sha:33e67b0b29cd</sub>
 - IO-40 (MUST): A mirroring or wrapping sink MUST NOT swallow or duplicate the wrapped stream's cancellation handling.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:50-50` · high · sha:33e67b0b29cd</sub>
-- IO-1 (MUST): A source read MUST append bytes to the tail of a caller-provided destination buffer without overwriting existing content and return the number transferred.
-  <sub>spec · `docs/product-spec/05-i-o-contracts.md:7-7` · high · sha:33e67b0b29cd</sub>
-- IO-1 (MUST): A source read returns at least 1 when the requested count is positive and the source is not exhausted, exactly 0 when the requested count is 0, -1 at end-of-stream, and never more than requested.
-  <sub>spec · `docs/product-spec/05-i-o-contracts.md:7-7` · high · sha:33e67b0b29cd</sub>
-- IO-2 (MUST): A read of count 0 MUST return 0 and MUST NOT report end-of-stream, even on an exhausted source.
-  <sub>spec · `docs/product-spec/05-i-o-contracts.md:8-8` · high · sha:33e67b0b29cd</sub>
-- IO-3 (MUST): A negative count passed to any size-taking read, write or copy MUST be rejected as an argument-validation error before any I/O, and a port MAY use whichever argument-error type is idiomatic.
-  <sub>spec · `docs/product-spec/05-i-o-contracts.md:9-9` · high · sha:33e67b0b29cd</sub>
-- There is exactly one decode boundary, ResponseBody.ReadAsStringAsync, which resolves the charset through MediaType.Charset and falls back to UTF-8 when it is absent or unknown (HTTP-42).
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:125-127` · high · sha:da6000c93fc5</sub>
-- Core encodes text with Encoding.GetBytes or new UTF8Encoding(false), never with a StreamWriter over Encoding.UTF8, so a request body does not start with an unrequested BOM.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:131-134` · high · sha:da6000c93fc5</sub>
-- The MediaType.Charset lookup catches both ArgumentException and NotSupportedException and treats UTF-7 as unknown, so HTTP-24's "return null (not throw) when absent or unknown" holds even for a hostile server sending charset=utf-7.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:142-145` · high · sha:da6000c93fc5</sub>
-- Core never calls Encoding.RegisterProvider, so charset=windows-1252 resolves to null and decodes as UTF-8 unless the host application registered the provider itself, which is HTTP-24's fall-back behaviour and is documented as such.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:148-150` · high · sha:da6000c93fc5</sub>
 - Every public byte surface in the SDK is a Stream or a ReadOnlyMemory<byte>; a parallel buffered-source type is forbidden as the parallel vocabulary P14 prohibits and a fabricated tier in P11's sense.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:27-29` · high · sha:da6000c93fc5</sub>
 - For IO-40 (no own timeout), core never sets ReadTimeout or WriteTimeout on a stream, and deadlines are CancellationTokens owned by the transport.
@@ -127,20 +119,20 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:96-98` · high · sha:da6000c93fc5</sub>
 - If a later optimisation pools a capture buffer, its views must check a shared Volatile-read closed flag, which is IO-38's cross-thread visibility on .NET.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:98-99` · high · sha:da6000c93fc5</sub>
+- There is exactly one decode boundary, ResponseBody.ReadAsStringAsync, which resolves the charset through MediaType.Charset and falls back to UTF-8 when it is absent or unknown (HTTP-42).
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:125-127` · high · sha:da6000c93fc5</sub>
+- Core encodes text with Encoding.GetBytes or new UTF8Encoding(false), never with a StreamWriter over Encoding.UTF8, so a request body does not start with an unrequested BOM.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:131-134` · high · sha:da6000c93fc5</sub>
+- The MediaType.Charset lookup catches both ArgumentException and NotSupportedException and treats UTF-7 as unknown, so HTTP-24's "return null (not throw) when absent or unknown" holds even for a hostile server sending charset=utf-7.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:142-145` · high · sha:da6000c93fc5</sub>
+- Core never calls Encoding.RegisterProvider, so charset=windows-1252 resolves to null and decodes as UTF-8 unless the host application registered the provider itself, which is HTTP-24's fall-back behaviour and is documented as such.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:148-150` · high · sha:da6000c93fc5</sub>
 
 ## Constraints
 - IO-37 (MUST): All streaming instances (source, sink, buffered source/sink, buffer, tee) are single-threaded contracts, are not required to be safe for concurrent use, and callers serialize external access.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:48-48` · high · sha:33e67b0b29cd</sub>
 - System.IO.Pipelines (PipeReader/PipeWriter) is in Microsoft.NETCore.App only from .NET 9, verified absent from the 8.0.31 reference pack, so on the net8.0 target it is a NuGet dependency and core does not use it.
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:69-71` · high · sha:d7cea7b15cf3</sub>
-- Encoding.UTF8.GetPreamble() and Encoding.GetEncoding("utf-8").GetPreamble() return EF BB BF, GetBytes("a") writes no BOM, new StreamWriter(stream, Encoding.UTF8) writes EF BB BF 61, and new StreamWriter(stream) writes 61.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:129-133` · high · sha:da6000c93fc5</sub>
-- Encoding.UTF8.GetString over EF BB BF 68 69 returns three characters with the first being U+FEFF, while StreamReader over the same bytes returns two, so decoding does not strip a BOM.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:135-137` · high · sha:da6000c93fc5</sub>
-- Encoding.GetEncoding("bogus") throws ArgumentException but Encoding.GetEncoding("utf-7") throws NotSupportedException (SYSLIB0001, UTF-7 disabled).
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:140-142` · high · sha:da6000c93fc5</sub>
-- Code-page encodings such as windows-1252 throw ArgumentException until Encoding.RegisterProvider(CodePagesEncodingProvider.Instance) is called, and registration is process-global.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:146-148` · high · sha:da6000c93fc5</sub>
 - Stream.Read returns 0 both at end of stream and for a zero-count request (verified for MemoryStream and a live HttpClient response stream), so the end-of-stream sentinel is 0 rather than -1, collapsing the distinction IO-2 exists to protect.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:57-61` · high · sha:da6000c93fc5</sub>
 - A source that returns 0 early on an unknown-length body cannot be detected, since no host can distinguish it from a genuine end.
@@ -153,8 +145,18 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:77-78` · high · sha:da6000c93fc5</sub>
 - The CLR has a maximum single-array length, Array.MaxLength (2,147,483,591), so IO-9's host bound is literal on .NET.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:81-83` · high · sha:da6000c93fc5</sub>
+- Encoding.UTF8.GetPreamble() and Encoding.GetEncoding("utf-8").GetPreamble() return EF BB BF, GetBytes("a") writes no BOM, new StreamWriter(stream, Encoding.UTF8) writes EF BB BF 61, and new StreamWriter(stream) writes 61.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:129-133` · high · sha:da6000c93fc5</sub>
+- Encoding.UTF8.GetString over EF BB BF 68 69 returns three characters with the first being U+FEFF, while StreamReader over the same bytes returns two, so decoding does not strip a BOM.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:135-137` · high · sha:da6000c93fc5</sub>
+- Encoding.GetEncoding("bogus") throws ArgumentException but Encoding.GetEncoding("utf-7") throws NotSupportedException (SYSLIB0001, UTF-7 disabled).
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:140-142` · high · sha:da6000c93fc5</sub>
+- Code-page encodings such as windows-1252 throw ArgumentException until Encoding.RegisterProvider(CodePagesEncodingProvider.Instance) is called, and registration is process-global.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:146-148` · high · sha:da6000c93fc5</sub>
 
 ## Conclusions
+- A zero-count read returns 0 rather than -1 because underlying libraries often collapse a zero-byte read against an exhausted stream to -1, making callers falsely conclude EOF.
+  <sub>spec · `docs/product-spec/05-i-o-contracts.md:8-8` · high · sha:33e67b0b29cd</sub>
 - Oversized single-array materialization is refused with a streaming pointer because multi-GB bodies must stream.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:17-17` · high · sha:33e67b0b29cd</sub>
 - The after-close rule is split between stream-backed and in-memory buffers because porters commonly err in one of two directions: leaving a closed stream-backed sink writable (a resource-safety hole) or making an in-memory buffer throw after close (breaking snapshot-after-close body logging).
@@ -173,16 +175,10 @@
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:43-43` · high · sha:33e67b0b29cd</sub>
 - Prompt cancellation of blocked I/O belongs to the transport that owns the real socket, not to the in-memory I/O layer.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:50-50` · high · sha:33e67b0b29cd</sub>
-- A zero-count read returns 0 rather than -1 because underlying libraries often collapse a zero-byte read against an exhausted stream to -1, making callers falsely conclude EOF.
-  <sub>spec · `docs/product-spec/05-i-o-contracts.md:8-8` · high · sha:33e67b0b29cd</sub>
 - The "no standard byte-stream type good enough" constraint DOES NOT HOLD on .NET because Stream (with ReadExactly/ReadAtLeast since .NET 7), Memory<byte>/Span<byte>, IBufferWriter<byte>, MemoryStream and ArrayPool<byte> ship with the runtime.
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:65-68` · high · sha:d7cea7b15cf3</sub>
 - The byte-stream provider seam retires on .NET but its behavioural contract does not, and is mapped onto the Stream contract with its differences named (§3.1).
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:67-69` · high · sha:d7cea7b15cf3</sub>
-- The inverse adapter (presenting an #each-shaped body as a buffered source) retires on .NET because the response body already is a Stream and every consumer (JsonSerializer.DeserializeAsync, the line reader, the capped drain) takes a Stream directly.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:114-118` · high · sha:da6000c93fc5</sub>
-- The design strips a leading BOM when, and only when, it matches the resolved charset's preamble, because HTTP-42 is silent on the point; recorded as section 11 item 34.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:137-139` · high · sha:da6000c93fc5</sub>
 - The .NET port retires the byte-stream provider seam while keeping its behavioural contract, because Stream, Memory<byte>/Span<byte>, IBufferWriter<byte>/ArrayBufferWriter<byte>, MemoryStream, ArrayPool<byte> and Encoding ship in the Microsoft.NETCore.App shared framework, so choosing them is choosing the platform rather than taking a dependency (P2).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:15-18` · high · sha:da6000c93fc5</sub>
 - The retirement argument rests only on types in the net8.0 reference pack and does not lean on System.IO.Pipelines, which is a NuGet package on that floor; the logging facade does not weaken it because each package is its own SEAM-1 cost and a stream library would be a second one.
@@ -200,13 +196,17 @@
 - Because a zero-length read on .NET is EOF by contract, a misbehaving source cannot make core spin (the loop terminates on 0) nor silently truncate a known-length body, since the exact-length copy compares delivered against declared and throws EndOfStreamException naming delivered-of-total.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:63-67` · high · sha:da6000c93fc5</sub>
 - The anti-spin and anti-truncation invariants (IO-17, BODY-10, BODY-25) are satisfied differently on .NET but still satisfied (P6); the letter of the sentinel requirements is recorded as design section 10 entry 4.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:68-70` · high · sha:da6000c93fc5</sub>
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:63-70` · high · sha:da6000c93fc5</sub>
 - Core ships one internal UTF-8 line reader over a Stream with its own buffer instead of using StreamReader.ReadLine.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:78-79` · high · sha:da6000c93fc5</sub>
 - On .NET a non-consuming view is new MemoryStream(array, index, count, writable: false, publiclyVisible: false) over bytes core already captured, giving each view an independent cursor and budget (IO-23), making a view of a view an offset calculation, and making reads of a disposed view throw ObjectDisposedException distinct from EOF (IO-24).
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:91-93` · high · sha:da6000c93fc5</sub>
 - Parent-close invalidation (P1) exists in the reference because its segment pool can recycle a segment so a stale slice reads someone else's bytes; a captured byte[] never returned to a pool cannot be recycled, so a stale read is impossible by construction on .NET.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:93-96` · high · sha:da6000c93fc5</sub>
+- The inverse adapter (presenting an #each-shaped body as a buffered source) retires on .NET because the response body already is a Stream and every consumer (JsonSerializer.DeserializeAsync, the line reader, the capped drain) takes a Stream directly.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:114-118` · high · sha:da6000c93fc5</sub>
+- The design strips a leading BOM when, and only when, it matches the resolved charset's preamble, because HTTP-42 is silent on the point; recorded as section 11 item 34.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:137-139` · high · sha:da6000c93fc5</sub>
 
 ## Reference
 - SEAM-3 rationale is that the provider is the single seam between core and a concrete streams library and ownership-on-wrap lets pipeline code close one object and know the descriptor is released; conformance is to wrap a spy stream, close the returned reader/writer, and assert the spy closed exactly once.
@@ -217,14 +217,12 @@
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:3-3` · high · sha:33e67b0b29cd</sub>
 - Provider resolution follows IO-31 through IO-36, which carry the same precedence, idempotence, caching, warning and de-dup rules as SEAM-5 through SEAM-10.
   <sub>spec · `docs/product-spec/05-i-o-contracts.md:47-47` · high · sha:33e67b0b29cd</sub>
-- Bytes on the wire are byte[]/ReadOnlyMemory<byte> and carry no encoding.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:124-125` · high · sha:da6000c93fc5</sub>
-- The as-built MediaType.Charset catches only ArgumentException, so MediaType.Parse("text/plain; charset=utf-7").Charset throws instead of returning null, violating HTTP-24.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:142-145` · high · sha:da6000c93fc5</sub>
-- As built at d45e64b the body seam is partial: bodies are Stream-based with byte, string, value and single-use stream factories and a race-safe consumed flag, while the synchronous WriteTo/OpenRead, file, form, multipart and seekable-stream bodies, the exact-length copy, the line reader, the tee and both logging wrappers are missing.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:241-244` · high · sha:da6000c93fc5</sub>
-- As built at d45e64b, MediaType.Charset throws on utf-7 and ReadAsStringAsync keeps a leading BOM.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:243-244` · high · sha:da6000c93fc5</sub>
+- SEAM-3 demands a pluggable factory producing an empty buffer, buffered readers over a raw stream and a byte array, buffered writers, and wrappers adding a buffered surface to a primitive source or sink, with ownership transferring on wrap.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:5-7` · high · sha:da6000c93fc5</sub>
+- SEAM-4 requires the byte-stream factory to be concurrency-safe while the instances it returns need not be.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:7-8` · high · sha:da6000c93fc5</sub>
+- The byte-stream provider seam is pluggable in the reference platform only because that platform's adequate stream library is third-party and SEAM-1 bars core from depending on one.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:8-9` · high · sha:da6000c93fc5</sub>
 - IO-3 (negative count rejected before I/O) is carried for free by Stream.Read(buf, 0, -1) throwing ArgumentOutOfRangeException.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:39-39` · high · sha:da6000c93fc5</sub>
 - IO-4 (a write transfers exactly the requested bytes or fails) is carried for free because Stream.Write has no partial-write result and writes all or throws.
@@ -243,22 +241,24 @@
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:48-48` · high · sha:da6000c93fc5</sub>
 - IO-14 (line read where \n and \r\n terminate and a lone \r is content) is met by a hand-written internal line reader, because StreamReader.ReadLine is the wrong tool.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:49-49` · high · sha:da6000c93fc5</sub>
-- SEAM-3 demands a pluggable factory producing an empty buffer, buffered readers over a raw stream and a byte array, buffered writers, and wrappers adding a buffered surface to a primitive source or sink, with ownership transferring on wrap.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:5-7` · high · sha:da6000c93fc5</sub>
 - IO-17 (write-all pump) is carried by Stream.CopyToAsync plus the exact-length copy of BODY-10.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:50-50` · high · sha:da6000c93fc5</sub>
 - IO-19 to IO-24 and IO-38 (peeks and slices) are met by core helpers using read-only MemoryStream views over a captured array, each view having its own cursor.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:51-51` · high · sha:da6000c93fc5</sub>
 - IO-25 to IO-29 (tee sink) are met by an internal write-only TeeStream.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:52-52` · high · sha:da6000c93fc5</sub>
-- SEAM-4 requires the byte-stream factory to be concurrency-safe while the instances it returns need not be.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:7-8` · high · sha:da6000c93fc5</sub>
-- The byte-stream provider seam is pluggable in the reference platform only because that platform's adequate stream library is third-party and SEAM-1 bars core from depending on one.
-  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:8-9` · high · sha:da6000c93fc5</sub>
 - IO-19 to IO-24 require peeks and slices that do not advance the parent, compose additively, and are invalidated when the parent closes, and IO-38 requires that close signal to be visible across threads.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:88-91` · high · sha:da6000c93fc5</sub>
 - Lazy offset overflow (IO-21) holds because a view whose window starts past the captured length is constructed successfully and reads as empty.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:99-100` · high · sha:da6000c93fc5</sub>
+- Bytes on the wire are byte[]/ReadOnlyMemory<byte> and carry no encoding.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:124-125` · high · sha:da6000c93fc5</sub>
+- The as-built MediaType.Charset catches only ArgumentException, so MediaType.Parse("text/plain; charset=utf-7").Charset throws instead of returning null, violating HTTP-24.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:142-145` · high · sha:da6000c93fc5</sub>
+- As built at d45e64b the body seam is partial: bodies are Stream-based with byte, string, value and single-use stream factories and a race-safe consumed flag, while the synchronous WriteTo/OpenRead, file, form, multipart and seekable-stream bodies, the exact-length copy, the line reader, the tee and both logging wrappers are missing.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:241-244` · high · sha:da6000c93fc5</sub>
+- As built at d45e64b, MediaType.Charset throws on utf-7 and ReadAsStringAsync keeps a leading BOM.
+  <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:243-244` · high · sha:da6000c93fc5</sub>
 
 ## Conflicts
 

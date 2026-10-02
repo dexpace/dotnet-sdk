@@ -1,6 +1,20 @@
 # redirect-handling
 
 ## Rules
+- The async pipeline follows no redirects (PIPE-32, REDIR-25).
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:3-3` · high · sha:f2a0d207be56</sub>
+- REDIR-1 (MUST) A redirect is attempted only for status 301, 302, 303, 307 and 308; any other status (2xx, 4xx, 5xx, non-redirect 3xx) is returned verbatim without consulting redirect logic.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:7-7` · high · sha:f2a0d207be56</sub>
+- REDIR-2 (MUST) Status 300, 304 and 305 MUST NOT be auto-followed even with a Location header, and 305 in particular must never redirect to a server-chosen proxy.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:7-7` · high · sha:f2a0d207be56</sub>
+- REDIR-3 (MUST) For 301 and 302 a redirect is followed only if the original request method is in the configured allowed-method set (default {GET, HEAD}), and when followed the original method and body are preserved with deliberately no automatic POST-to-GET rewrite.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
+- REDIR-4 (MUST) 307 and 308 redirects preserve method and body and are followed only if the method is allowed.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
+- REDIR-5 (MUST) A 303 is not followed by default; when opted in it is re-issued as a GET with the body dropped and every Content-* request header removed case-insensitively, regardless of the original method.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
+- REDIR-6 (MUST) Any followed method-preserving redirect (301/302/307/308) re-sends the original body so it must be replayable; if a body is present and not replayable the operation fails with a clear error naming replayability and the redirect is not attempted, while 303 is exempt because it drops the body.
+  <sub>spec · `docs/product-spec/10-redirect-handling.md:9-9` · high · sha:f2a0d207be56</sub>
 - REDIR-7 (MUST) The Authorization header is stripped before every redirect re-issue, including same-origin and the 303 GET rebuild, because re-attaching a credential for a known origin is the auth layer's job.
   <sub>spec · `docs/product-spec/10-redirect-handling.md:13-13` · high · sha:f2a0d207be56</sub>
 - REDIR-8 (MUST) A redirect is cross-origin iff the resolved target differs from the original (seed) request origin in scheme, host (case-insensitive) or effective port (scheme default when omitted), and the comparison is against the seed origin rather than the previous hop so a same-origin sub-redirect on a foreign host cannot re-expose the credential.
@@ -51,20 +65,6 @@
   <sub>spec · `docs/product-spec/10-redirect-handling.md:27-27` · high · sha:f2a0d207be56</sub>
 - REDIR-28 (SHOULD) Each followed hop, loop detection and scheme-downgrade event SHOULD be emitted as structured records with URLs passed through a redactor, with redaction failures degrading to a placeholder rather than crashing logging.
   <sub>spec · `docs/product-spec/10-redirect-handling.md:27-27` · high · sha:f2a0d207be56</sub>
-- The async pipeline follows no redirects (PIPE-32, REDIR-25).
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:3-3` · high · sha:f2a0d207be56</sub>
-- REDIR-1 (MUST) A redirect is attempted only for status 301, 302, 303, 307 and 308; any other status (2xx, 4xx, 5xx, non-redirect 3xx) is returned verbatim without consulting redirect logic.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:7-7` · high · sha:f2a0d207be56</sub>
-- REDIR-2 (MUST) Status 300, 304 and 305 MUST NOT be auto-followed even with a Location header, and 305 in particular must never redirect to a server-chosen proxy.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:7-7` · high · sha:f2a0d207be56</sub>
-- REDIR-3 (MUST) For 301 and 302 a redirect is followed only if the original request method is in the configured allowed-method set (default {GET, HEAD}), and when followed the original method and body are preserved with deliberately no automatic POST-to-GET rewrite.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
-- REDIR-4 (MUST) 307 and 308 redirects preserve method and body and are followed only if the method is allowed.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
-- REDIR-5 (MUST) A 303 is not followed by default; when opted in it is re-issued as a GET with the body dropped and every Content-* request header removed case-insensitively, regardless of the original method.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:8-8` · high · sha:f2a0d207be56</sub>
-- REDIR-6 (MUST) Any followed method-preserving redirect (301/302/307/308) re-sends the original body so it must be replayable; if a body is present and not replayable the operation fails with a clear error naming replayability and the redirect is not attempted, while 303 is exempt because it drops the body.
-  <sub>spec · `docs/product-spec/10-redirect-handling.md:9-9` · high · sha:f2a0d207be56</sub>
 - The SDK-managed SystemNetHttpClient constructor builds its own SocketsHttpHandler with AllowAutoRedirect = false.
   <sub>design · `docs/sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md:315-316` · high · sha:da6000c93fc5</sub>
 - The adapter's HttpMessageHandler-taking constructor rejects a SocketsHttpHandler or HttpClientHandler that has redirects enabled, because a borrowed HttpClient does not expose its handler and cannot be inspected.

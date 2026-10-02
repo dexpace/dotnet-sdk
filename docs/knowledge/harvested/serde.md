@@ -9,6 +9,8 @@
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:25-25` · high · sha:0adae2d6a47f</sub>
 - Parametric deserialization targets MUST be expressible through a full generic type capture (SEAM-21).
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:25-25` · high · sha:0adae2d6a47f</sub>
+- SERDE-2 (MUST NOT) - The Serde media type must not be defaulted to a format-agnostic constant at the SPI level, because such a default would let a non-JSON serde silently stamp the wrong Content-Type.
+  <sub>spec · `docs/product-spec/14-serialization-serde.md:8-8` · high · sha:c6bc7789c3a9</sub>
 - SERDE-3 (MUST) - When encoding into or decoding from a caller-supplied stream, the serializer/deserializer must read/write the payload fully (to EOF on the read side) but must not close or take ownership of the caller's stream, even when the codec's own auto-close feature is enabled.
   <sub>spec · `docs/product-spec/14-serialization-serde.md:12-12` · high · sha:c6bc7789c3a9</sub>
 - SERDE-3 (MUST) - The encode-into-buffer profile touches only the target region and never assumes ownership of the buffer.
@@ -83,8 +85,6 @@
   <sub>spec · `docs/product-spec/14-serialization-serde.md:54-54` · high · sha:c6bc7789c3a9</sub>
 - SERDE-28 (MUST) - On any other non-2xx status (1xx, or an unfollowed 3xx such as 304) a status-aware handler must close the response and raise a serde exception whose message leads with the status code and preserves conditional/redirect context (ETag / Location).
   <sub>spec · `docs/product-spec/14-serialization-serde.md:54-54` · high · sha:c6bc7789c3a9</sub>
-- SERDE-2 (MUST NOT) - The Serde media type must not be defaulted to a format-agnostic constant at the SPI level, because such a default would let a non-JSON serde silently stamp the wrong Content-Type.
-  <sub>spec · `docs/product-spec/14-serialization-serde.md:8-8` · high · sha:c6bc7789c3a9</sub>
 - SERDE-1: a serde bundle round-trips through its own serializer and deserializer.
   <sub>spec · `docs/product-spec/appendix-b-conformance-test-checklist.md:29-29` · high · sha:0451cc7f3bb4</sub>
 - SERDE-2: the declared media type is the default Content-Type and is not defaulted at the SPI.
@@ -169,12 +169,12 @@
   <sub>design · `docs/sdk-design-dotnet/08-instrumentation-and-configuration.md:299-301` · high · sha:ddf8f695ff61</sub>
 
 ## Constraints
-- SERDE-14 (MUST) - The PATCH tri-state type must model exactly three states (Absent for a missing key, Null for an explicit null, Present carrying a value) and must make the illegal fourth state, Present of a null value, unrepresentable through the public API by bounding Present to non-null values.
-  <sub>spec · `docs/product-spec/14-serialization-serde.md:32-32` · high · sha:c6bc7789c3a9</sub>
 - SERDE-1 (MUST) - A Serde must be a single bundle exposing exactly one encoder and one decoder for one wire format, so consumers acquire both through one reference.
   <sub>spec · `docs/product-spec/14-serialization-serde.md:7-7` · high · sha:c6bc7789c3a9</sub>
 - SERDE-2 (MUST) - A Serde must declare the wire media type it produces, and that media type must be used as the default Content-Type when a request body is created from a value plus a Serde.
   <sub>spec · `docs/product-spec/14-serialization-serde.md:8-8` · high · sha:c6bc7789c3a9</sub>
+- SERDE-14 (MUST) - The PATCH tri-state type must model exactly three states (Absent for a missing key, Null for an explicit null, Present carrying a value) and must make the illegal fourth state, Present of a null value, unrepresentable through the public API by bounding Present to non-null values.
+  <sub>spec · `docs/product-spec/14-serialization-serde.md:32-32` · high · sha:c6bc7789c3a9</sub>
 - The free generic path is reflection over typeof(T), and reflection is exactly what trimming removes, so the witness that works under trimming is a JsonTypeInfo<T> from a source-generated context (hidden precondition per P7).
   <sub>design · `docs/sdk-design-dotnet/01-overview.md:74-77` · high · sha:d7cea7b15cf3</sub>
 - Verified on 10.0.401, a file-based app defaults to AOT-compatible settings, and a reflection-based JsonSerializer.SerializeAsync(stream, 1) in it throws InvalidOperationException ("Reflection-based serialization has been disabled").
@@ -260,9 +260,9 @@
 - The PR #3 serde design made Web the default (camelCase, case-insensitive); that is overturned to Web naming with NumberHandling = Strict forced back, though the as-built serde takes its options from the caller's context.
   <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:368-370` · high · sha:68af5c6bf0ea</sub>
 - The SERDE-26 fix is the copy constructor new JsonSerializerOptions(callerOptions) followed by the Tristate wiring and MakeReadOnly() on the copy, verified to work over a source-generated context's options.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:378-381` · high · sha:68af5c6bf0ea</sub>
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:375-381` · high · sha:68af5c6bf0ea</sub>
 - The specification's SERDE-26 fallback clause for codecs that cannot be copied is never needed because STJ options are always copyable.
-  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:381-382` · high · sha:68af5c6bf0ea</sub>
+  <sub>design · `docs/sdk-design-dotnet/07-pagination-sse-and-serialization.md:375-382` · high · sha:68af5c6bf0ea</sub>
 
 ## Reference
 - SEAM-19 rationale is that an undefaulted content type prevents a class of silent mislabeling bugs at the request-body edge; conformance is that a JSON codec reports the JSON media type and the core uses it as the default request-body content type.
