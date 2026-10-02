@@ -48,15 +48,54 @@ public static class HttpClientExtensions
     }
 
     /// <summary>
-    /// Wraps a synchronous transport as an <see cref="IAsyncHttpClient"/> by offloading each
-    /// blocking <see cref="IHttpClient.Execute"/> call to the thread pool.
+    /// Wraps a synchronous transport as an <see cref="IAsyncHttpClient"/> by running each blocking
+    /// <see cref="IHttpClient.Execute"/> call on <paramref name="scheduler"/>.
     /// </summary>
     /// <param name="client">The synchronous transport to wrap.</param>
+    /// <param name="scheduler">
+    /// The scheduler that runs the blocking calls. There is no overload without one (SEAM-18): blocking calls starve a
+    /// shared pool, so the caller chooses where they run.
+    /// </param>
     /// <returns>An async facade over <paramref name="client"/>.</returns>
-    public static IAsyncHttpClient AsAsync(this IHttpClient client)
+    /// <remarks>
+    /// <para>
+    /// <b>Scheduler.</b> Each call is one task started with <see cref="TaskCreationOptions.LongRunning"/> and
+    /// <see cref="TaskCreationOptions.DenyChildAttach"/> on <paramref name="scheduler"/>; a custom scheduler receives
+    /// <c>LongRunning</c> as a hint it may ignore. <see cref="TaskScheduler.Default"/> is accepted, and then each call
+    /// runs on a dedicated thread, not a pool thread, so it costs one thread per call.
+    /// </para>
+    /// <para>
+    /// <b>Context and cancellation (SEAM-24).</b> The caller's <see cref="ExecutionContext"/> flows to the worker, so
+    /// <c>AsyncLocal&lt;T&gt;</c> values, <c>Activity.Current</c> and logging scopes are visible there. Cancellation maps
+    /// both ways through the one token: it reaches the blocking call, and a cancelled call surfaces
+    /// <see cref="OperationCanceledException"/> to the awaiting caller. A blocking call cannot be interrupted, so the
+    /// token is cooperative (design §10 <c>cooperative-cancellation</c>).
+    /// </para>
+    /// <para>
+    /// <b>No orphaned response (SEAM-30).</b> A response produced after the call's token is signalled is disposed and the
+    /// call completes cancelled, so design §5.3's "cancel without interruption" mode (the caller stops awaiting through
+    /// <c>WaitAsync</c> while the worker runs on) cannot orphan one. Until phase 3b's quiet disposal, a
+    /// <c>Dispose</c> that throws there faults the task with that exception instead.
+    /// </para>
+    /// <para>
+    /// <b>Lifecycle (SEAM-14, SEAM-25).</b> The bridge owns neither the scheduler nor the wrapped client, so disposing it
+    /// disposes neither. Argument errors reach the caller through the returned task (ASYNC-2).
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> was <c>AsAsync(this IHttpClient)</c>, which offloaded to the thread pool; it takes the caller's
+    /// scheduler now, and no longer disposes the wrapped client.
+    /// </para>
+    /// <para>
+    /// <b>Breaking (behaviour):</b> a response produced after the call's token is signalled is disposed and the call
+    /// completes cancelled.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="client"/> or <paramref name="scheduler"/> is null.</exception>
+    public static IAsyncHttpClient AsAsync(this IHttpClient client, TaskScheduler scheduler)
     {
         ArgumentNullException.ThrowIfNull(client);
-        return new SyncToAsyncAdapter(client);
+        ArgumentNullException.ThrowIfNull(scheduler);
+        return new SyncToAsyncAdapter(client, scheduler);
     }
 
     /// <summary>
@@ -76,7 +115,7 @@ public static class HttpClientExtensions
     /// <b>Deadlock hazard.</b> The call blocks the calling thread. Under a <see cref="SynchronizationContext"/> that
     /// runs one callback at a time, a wrapped transport whose awaits do not use <c>ConfigureAwait(false)</c> can
     /// deadlock. The bridge does not hop to the thread pool to avoid this: that would reintroduce the shared-pool
-    /// dependency SEAM-18 rules out for <see cref="AsAsync(IHttpClient)"/>.
+    /// dependency SEAM-18 rules out for <see cref="AsAsync(IHttpClient, TaskScheduler)"/>.
     /// </para>
     /// <para>
     /// <b>Breaking (behaviour):</b> no longer disposes the wrapped client (SEAM-14); a caller who wrapped a transport they
@@ -89,15 +128,45 @@ public static class HttpClientExtensions
         return new AsyncToSyncAdapter(client);
     }
 
-    private sealed class SyncToAsyncAdapter(IHttpClient inner) : IAsyncHttpClient
+    private sealed class SyncToAsyncAdapter(IHttpClient inner, TaskScheduler scheduler) : IAsyncHttpClient
     {
-        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
-            Task.Run(() => inner.Execute(request, options, cancellationToken), cancellationToken);
-
-        public ValueTask DisposeAsync()
+        // Not async: a null argument is delivered through the task (ASYNC-2), and the work is handed to the scheduler.
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
         {
-            inner.Dispose();
-            return ValueTask.CompletedTask;
+            if (request is null)
+            {
+                return Task.FromException<Response>(new ArgumentNullException(nameof(request)));
+            }
+
+            if (options is null)
+            {
+                return Task.FromException<Response>(new ArgumentNullException(nameof(options)));
+            }
+
+            return Task.Factory.StartNew(
+                () => Run(inner, request, options, cancellationToken),
+                cancellationToken,
+                TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach,
+                scheduler);
+        }
+
+        // SEAM-25, XCUT-22: the bridge owns neither the scheduler nor the wrapped client, so it releases nothing.
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private static Response Run(IHttpClient inner, Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            var response = inner.Execute(request, options, cancellationToken)
+                ?? throw new InvalidOperationException("The wrapped IHttpClient returned null (SEAM-16).");
+
+            // SEAM-30, design §5.3: the caller may have stopped awaiting, so a response produced after the token was
+            // signalled is closed here and never surfaces. Direct Dispose, so a failure propagates (3b: DisposeQuietly).
+            if (cancellationToken.IsCancellationRequested)
+            {
+                response.Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            return response;
         }
     }
 

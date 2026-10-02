@@ -418,7 +418,7 @@ override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.ProcessAsync(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
+static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsBlocking(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.Execute(this Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
