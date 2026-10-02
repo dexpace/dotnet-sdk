@@ -136,7 +136,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             TimeSpan? retryAfterDelay = null;
             if (options.HonorRetryAfter)
             {
-                var retryAfterHeader = response.Headers.Get(HttpHeaderName.WellKnown.RetryAfter.Original);
+                var retryAfterHeader = response.Headers.Get(HttpHeaderName.WellKnown.RetryAfter);
                 retryAfterDelay = ParseRetryAfter(retryAfterHeader);
             }
 

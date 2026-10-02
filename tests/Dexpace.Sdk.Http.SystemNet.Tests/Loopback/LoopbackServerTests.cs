@@ -41,9 +41,9 @@ public sealed class LoopbackServerTests
         Assert.Equal(Status.Ok, response.Status);
         var recorded = Assert.Single(server.Requests);
         Assert.Equal("GET /probe?q=a%20b&x=1 HTTP/1.1", recorded.RequestLine);
-        // The value is byte-for-byte what the caller set; the name arrives lower-cased, because core's Headers model
-        // stores names in their canonical lower-case form (the fixture reports, it does not judge).
-        Assert.Contains("x-odd-spacing: a  b\t c", recorded.HeaderLines);
+        // The value is byte-for-byte what the caller set, and the name arrives in the casing the caller used (HTTP-21:
+        // the Headers model keeps the original casing; the fixture reports, it does not judge).
+        Assert.Contains("X-Odd-Spacing: a  b\t c", recorded.HeaderLines);
         Assert.Equal($"127.0.0.1:{server.BaseUri.Port}", recorded.Header("Host"));
 
         // The raw record is the request line, every header line, and the empty line, CRLF-terminated, and nothing

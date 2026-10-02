@@ -51,7 +51,7 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
         ArgumentNullException.ThrowIfNull(context);
 
         if (_methods.Contains(context.Request.Method)
-            && !context.Request.Headers.Contains(HttpHeaderName.Of("Idempotency-Key").Original))
+            && !context.Request.Headers.Contains(HttpHeaderName.WellKnown.IdempotencyKey))
         {
             // Reuse a key that was already generated for this context (e.g. retry re-entering here),
             // or generate a fresh one and stash it.
@@ -64,7 +64,7 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
 
             context.Request = context.Request with
             {
-                Headers = context.Request.Headers.Set("Idempotency-Key", key)
+                Headers = context.Request.Headers.Set(HttpHeaderName.WellKnown.IdempotencyKey, key)
             };
         }
 

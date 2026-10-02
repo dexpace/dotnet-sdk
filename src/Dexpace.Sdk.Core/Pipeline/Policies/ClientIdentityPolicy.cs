@@ -27,7 +27,7 @@ public sealed class ClientIdentityPolicy : HttpPipelinePolicy
         context.Request = context.Request with
         {
             Headers = context.Request.Headers.Set(
-                HttpHeaderName.WellKnown.UserAgent.Original,
+                HttpHeaderName.WellKnown.UserAgent,
                 context.Options.UserAgent)
         };
 

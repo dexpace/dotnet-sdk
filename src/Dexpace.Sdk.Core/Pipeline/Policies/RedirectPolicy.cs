@@ -92,7 +92,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             }
 
             // Extract Location header.
-            var location = response.Headers.Get(HttpHeaderName.WellKnown.Location.Original);
+            var location = response.Headers.Get(HttpHeaderName.WellKnown.Location);
             if (string.IsNullOrEmpty(location))
             {
                 return;
@@ -149,7 +149,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             }
 
             // REDIR-7: Authorization is removed before every hop. REDIR-9: Cookie and Proxy-Authorization, cross-origin.
-            var newHeaders = request.Headers.Without(HttpHeaderName.WellKnown.Authorization.Original);
+            var newHeaders = request.Headers.Without(HttpHeaderName.WellKnown.Authorization);
             if (IsCrossOrigin(seedUrl, newUrl))
             {
                 newHeaders = newHeaders.Without("Cookie").Without("Proxy-Authorization");

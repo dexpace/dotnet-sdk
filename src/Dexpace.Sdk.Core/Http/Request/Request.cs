@@ -94,6 +94,13 @@ public sealed record Request
     /// <returns>A new <see cref="Request"/>.</returns>
     public Request WithHeader(string name, string value) => this with { Headers = Headers.With(name, value) };
 
+    /// <summary>Returns a copy with <paramref name="value"/> appended under the typed <paramref name="name"/>.</summary>
+    /// <param name="name">The typed header name.</param>
+    /// <param name="value">The header value.</param>
+    /// <returns>A new <see cref="Request"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="value"/> holds a character outside HTAB and printable ASCII.</exception>
+    public Request WithHeader(HttpHeaderName name, string value) => this with { Headers = Headers.With(name, value) };
+
     /// <summary>Returns a copy with the given body.</summary>
     /// <param name="body">The replacement body.</param>
     /// <returns>A new <see cref="Request"/>.</returns>

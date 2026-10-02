@@ -41,7 +41,7 @@ public sealed class SetDatePolicy : HttpPipelinePolicy
         var dateValue = _timeProvider.GetUtcNow().ToString("r");
         context.Request = context.Request with
         {
-            Headers = context.Request.Headers.Set(HttpHeaderName.WellKnown.Date.Original, dateValue)
+            Headers = context.Request.Headers.Set(HttpHeaderName.WellKnown.Date, dateValue)
         };
 
         await continuation.RunAsync(context).ConfigureAwait(false);

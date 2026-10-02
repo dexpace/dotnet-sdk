@@ -88,8 +88,10 @@ roadmap's parity target is at most five clauses unsatisfied or unmet on a stated
 
 ### SHOULD- and MAY-level requirements declined for v1
 
-None is recorded yet. Each phase adds an entry for each requirement it declines, with the requirement ID and the
-reason.
+Each phase adds an entry for each requirement it declines, with the requirement ID and the reason.
+
+- **`HTTP-22` (MAY): the header-name interning pool is not built.** The `WellKnown` statics already share the hot
+  names, and the observable contract is value equality (`HTTP-21`). Phase 2a; design §4.1 and §12's deferred list.
 
 ### Behavioural asymmetries a consumer must know
 

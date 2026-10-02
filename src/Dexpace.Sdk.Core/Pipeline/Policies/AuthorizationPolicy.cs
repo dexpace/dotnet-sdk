@@ -79,7 +79,7 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
             // and forward the request without credential.
             context.Request = context.Request with
             {
-                Headers = context.Request.Headers.Without(WithheldHeaderName.Original)
+                Headers = context.Request.Headers.Without(WithheldHeaderName)
             };
 
             await continuation.RunAsync(context).ConfigureAwait(false);

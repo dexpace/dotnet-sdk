@@ -98,8 +98,10 @@ public sealed class HeaderInjectionValidationTests
         var headers = Headers.Empty.Set(name, "v");
 
         Assert.Equal("v", headers.Get("X-Trace"));
-        Assert.Equal("x-trace", Assert.Single(headers.Names));
+        Assert.Equal("X-Trace", Assert.Single(headers.Names));
         Assert.Equal("X-Trace", HttpHeaderName.Of(name).Original);
+        Assert.Equal(HttpHeaderName.Of("x-trace"), HttpHeaderName.Of(name));
+        Assert.Equal("v", headers.Get("x-trace"));
     }
 
     [Fact]
