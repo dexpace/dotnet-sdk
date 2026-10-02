@@ -82,6 +82,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- Roadmap phase 0, task 8 (issue #29): the `knowledge-harvest` skill ported to C#
+  (`.claude/skills/knowledge-harvest/{src,tests}`, in `tools/Dexpace.Tools.sln`, with the `knowledge-extractor` agent
+  vendored under `.claude/agents/`), and the first real harvest of `docs/knowledge/harvested/`: the `spec`, `design`
+  and `styleguide` roles, 3,336 entries in 41 topics, replacing the Ruby-seeded spec-only corpus. The ten
+  styleguide-versus-design overlay rows are recorded as Conflicts entries; the five the port keeps (the `I` prefix,
+  the `Async` suffix, `CA1062`, `LangVersion latest` and xUnit `Assert` without Shouldly) are overridden by `review`
+  notes under `docs/knowledge/notes/`, and the five it conforms to read `conformed`. A merge replaces everything
+  cited from a re-harvested source, `drift` also checks each entry's own sha, and `scripts/knowledge` tags settled
+  conflicts `[kept]` / `[conformed]`.
 - Quality gates (design §9): public-API files (`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`) per package,
   banned-API list (`BannedSymbols.txt`), license-header, method-length (`MA0051`), naming, `CA1031`, `CA2000` and
   `CA2007` rules; trim/AOT analyzers and package validation on every library; a cross-OS CI matrix with locked

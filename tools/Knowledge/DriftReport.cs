@@ -51,8 +51,11 @@ internal sealed class DriftReport
             return 0;
         }
 
-        ReportSources(SourceManifest.Load(_paths).Rows);
-        ReportKeys();
+        var manifest = SourceManifest.Load(_paths);
+        ReportSources(manifest.Rows);
+        var corpus = Corpus.Load(_paths, AppendixC.Load(_paths).Prefixes);
+        ReportEntryShas(manifest, corpus);
+        ReportKeys(corpus);
         return 0;
     }
 
@@ -124,12 +127,40 @@ internal sealed class DriftReport
         }
     }
 
+    // SOURCES.md is only the LATEST harvest's row for a file. A harvest that adds and updates but never removes
+    // would leave an entry from an older revision carrying the old sha while the row (and so the source
+    // check above) is current, so compare every harvested entry's own sha with its source's row.
+    private void ReportEntryShas(SourceManifest manifest, Corpus corpus)
+    {
+        var stale = new SortedDictionary<(string Source, string Sha), int>();
+        foreach (var entry in corpus.Entries.Where(e => !e.IsNote && e.Sha is not null && e.Section != "Conflicts"))
+        {
+            foreach (var source in entry.SourcePaths())
+            {
+                var recorded = manifest.ShaFor(source);
+                if (recorded is not null && !recorded.StartsWith(entry.Sha!, StringComparison.Ordinal)
+                    && !entry.Sha!.StartsWith(recorded, StringComparison.Ordinal))
+                {
+                    var key = (source, entry.Sha!);
+                    stale[key] = stale.GetValueOrDefault(key) + 1;
+                }
+            }
+        }
+
+        foreach (var ((source, sha), count) in stale)
+        {
+            _stdout.Write($"STALE ENTRY\t{source}\t{count} entries carry sha {sha}, SOURCES.md records {manifest.ShaFor(source)}\n");
+        }
+
+        _stdout.Write($"\n{stale.Values.Sum()} harvested entries carry a sha that differs from their source's SOURCES.md row" +
+                      (stale.Count > 0 ? "; a re-harvest that did not replace them left them behind.\n" : ".\n"));
+    }
+
     // A note names a harvested rule by key, whether it overrides that rule or only leans on it. Report every
     // citation that no longer resolves — the rule was reworded, so the note describes something that is not
     // there any more.
-    private void ReportKeys()
+    private void ReportKeys(Corpus corpus)
     {
-        var corpus = Corpus.Load(_paths, AppendixC.Load(_paths).Prefixes);
         var dangling = corpus.DanglingKeys();
         foreach (var (note, cited) in dangling)
         {

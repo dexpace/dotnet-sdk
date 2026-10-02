@@ -1,0 +1,15 @@
+# Copyright (c) 2026 dexpace and Omar Aljarrah.
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# Not a root file: the repository's .editorconfig still applies to everything here. This file only
+# carries the one exemption the root's `[tests/**/*.cs]` section would have given these tests had
+# they lived under the repository's own tests/ directory -- that glob is relative to the root file,
+# so it does not reach .claude/skills/knowledge-harvest/tests/.
+#
+# The glob is `tests/**.cs`, not `tests/**/*.cs`: the latter needs at least one directory below
+# tests/, and these files sit directly in it.
+
+[tests/**.cs]
+# Test method names are sentences in Pascal_Snake form (A_sibling_prefix_is_writable), the same
+# convention the repository's own test projects use and exempt at the root.
+dotnet_diagnostic.CA1707.severity = none
