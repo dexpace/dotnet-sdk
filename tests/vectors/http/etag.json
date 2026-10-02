@@ -1,0 +1,35 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/http/etag.test.ts (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only and has no ETag test)",
+  "note": "op=parse: Parse(input) gives kind (strong, weak or any) and opaque, and ToString() equals text. op=invalid: Parse(input) throws ArgumentException and TryParse returns false. op=blank: Parse(input) is null.",
+  "cases": [
+    { "op": "parse", "input": "\"abc123\"", "kind": "strong", "opaque": "abc123", "text": "\"abc123\"" },
+    { "op": "parse", "input": "W/\"abc123\"", "kind": "weak", "opaque": "abc123", "text": "W/\"abc123\"" },
+    { "op": "parse", "input": "*", "kind": "any", "opaque": "", "text": "*" },
+    { "op": "parse", "input": "\"café\"", "kind": "strong", "opaque": "café", "text": "\"café\"" },
+    { "op": "parse", "input": "W/\"\"", "kind": "weak", "opaque": "", "text": "W/\"\"" },
+    { "op": "parse", "input": "\"!#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~\"", "kind": "strong", "opaque": "!#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~", "text": "\"!#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~\"" },
+    { "op": "parse", "input": "  \"padded\"\t", "kind": "strong", "opaque": "padded", "text": "\"padded\"" },
+
+    { "op": "invalid", "input": "\"a\"b\"" },
+    { "op": "invalid", "input": "\"a\r\nb\"" },
+    { "op": "invalid", "input": "\"a\u007fb\"" },
+    { "op": "invalid", "input": "\"a b\"" },
+    { "op": "invalid", "input": "W/\"a b\"" },
+    { "op": "invalid", "input": "\"\"" },
+    { "op": "invalid", "input": "\"abc123" },
+    { "op": "invalid", "input": "abc123\"" },
+    { "op": "invalid", "input": "abc" },
+    { "op": "invalid", "input": "w/\"x\"" },
+    { "op": "invalid", "input": "W/x" },
+    { "op": "invalid", "input": "W/ \"x\"" },
+    { "op": "invalid", "input": "\"€\"" },
+    { "op": "invalid", "input": "**" },
+    { "op": "invalid", "input": "\"" },
+    { "op": "invalid", "input": "W/" },
+
+    { "op": "blank", "input": null },
+    { "op": "blank", "input": "" },
+    { "op": "blank", "input": "   " },
+    { "op": "blank", "input": "\t" }
+  ]
+}

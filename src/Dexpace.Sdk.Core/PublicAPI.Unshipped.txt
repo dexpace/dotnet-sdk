@@ -135,6 +135,12 @@ Dexpace.Sdk.Core.Errors.StreamingException.StreamingException() -> void
 Dexpace.Sdk.Core.Errors.StreamingException.StreamingException(string! message) -> void
 Dexpace.Sdk.Core.Errors.StreamingException.StreamingException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Http.Common.CommonMediaTypes
+Dexpace.Sdk.Core.Http.Common.ETag
+Dexpace.Sdk.Core.Http.Common.ETag.<Clone>$() -> Dexpace.Sdk.Core.Http.Common.ETag!
+Dexpace.Sdk.Core.Http.Common.ETag.Equals(Dexpace.Sdk.Core.Http.Common.ETag? other) -> bool
+Dexpace.Sdk.Core.Http.Common.ETag.IsAny.get -> bool
+Dexpace.Sdk.Core.Http.Common.ETag.IsWeak.get -> bool
+Dexpace.Sdk.Core.Http.Common.ETag.Opaque.get -> string!
 Dexpace.Sdk.Core.Http.Common.Headers
 Dexpace.Sdk.Core.Http.Common.Headers.Builder
 Dexpace.Sdk.Core.Http.Common.Headers.Builder.Add(Dexpace.Sdk.Core.Http.Common.HttpHeaderName! name, string! value) -> Dexpace.Sdk.Core.Http.Common.Headers.Builder!
@@ -170,6 +176,11 @@ Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Equals(Dexpace.Sdk.Core.Http.Common.
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Original.get -> string!
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown
 Dexpace.Sdk.Core.Http.Common.HttpHeaderSyntax
+Dexpace.Sdk.Core.Http.Common.HttpRange
+Dexpace.Sdk.Core.Http.Common.HttpRange.<Clone>$() -> Dexpace.Sdk.Core.Http.Common.HttpRange!
+Dexpace.Sdk.Core.Http.Common.HttpRange.Equals(Dexpace.Sdk.Core.Http.Common.HttpRange? other) -> bool
+Dexpace.Sdk.Core.Http.Common.HttpRange.Length.get -> long?
+Dexpace.Sdk.Core.Http.Common.HttpRange.Offset.get -> long?
 Dexpace.Sdk.Core.Http.Common.MediaType
 Dexpace.Sdk.Core.Http.Common.MediaType.<Clone>$() -> Dexpace.Sdk.Core.Http.Common.MediaType!
 Dexpace.Sdk.Core.Http.Common.MediaType.Charset.get -> System.Text.Encoding?
@@ -224,6 +235,20 @@ Dexpace.Sdk.Core.Http.Request.Request.WithUrl(System.Uri! url) -> Dexpace.Sdk.Co
 Dexpace.Sdk.Core.Http.Request.Request.WithoutBody() -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.RequestBody
 Dexpace.Sdk.Core.Http.Request.RequestBody.RequestBody() -> void
+Dexpace.Sdk.Core.Http.Request.RequestConditions
+Dexpace.Sdk.Core.Http.Request.RequestConditions.<Clone>$() -> Dexpace.Sdk.Core.Http.Request.RequestConditions!
+Dexpace.Sdk.Core.Http.Request.RequestConditions.ApplyTo(Dexpace.Sdk.Core.Http.Common.Headers! headers) -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Request.RequestConditions.ApplyTo(Dexpace.Sdk.Core.Http.Request.Request! request) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Request.RequestConditions.Equals(Dexpace.Sdk.Core.Http.Request.RequestConditions? other) -> bool
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfMatch.get -> System.Collections.Immutable.ImmutableArray<Dexpace.Sdk.Core.Http.Common.ETag!>
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfMatch.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfModifiedSince.get -> System.DateTimeOffset?
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfModifiedSince.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfNoneMatch.get -> System.Collections.Immutable.ImmutableArray<Dexpace.Sdk.Core.Http.Common.ETag!>
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfNoneMatch.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfUnmodifiedSince.get -> System.DateTimeOffset?
+Dexpace.Sdk.Core.Http.Request.RequestConditions.IfUnmodifiedSince.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestConditions.RequestConditions() -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions
 Dexpace.Sdk.Core.Http.Request.RequestOptions.<Clone>$() -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
 Dexpace.Sdk.Core.Http.Request.RequestOptions.Equals(Dexpace.Sdk.Core.Http.Request.RequestOptions? other) -> bool
@@ -340,11 +365,17 @@ Dexpace.Sdk.Core.Serialization.ISerde.DeserializeAsync<T>(System.IO.Stream! sour
 Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
 Dexpace.Sdk.Core.Serialization.ISerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
+override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
+override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.Headers.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.Headers.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.Headers.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.HttpHeaderName.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.HttpHeaderName.ToString() -> string!
+override Dexpace.Sdk.Core.Http.Common.HttpRange.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Http.Common.HttpRange.GetHashCode() -> int
+override Dexpace.Sdk.Core.Http.Common.HttpRange.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.MediaType.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.MediaType.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.MediaType.ToString() -> string!
@@ -356,6 +387,9 @@ override Dexpace.Sdk.Core.Http.Request.Query.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Request.Request.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Request.Request.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.Request.ToString() -> string!
+override Dexpace.Sdk.Core.Http.Request.RequestConditions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Http.Request.RequestConditions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Http.Request.RequestConditions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Request.RequestOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Request.RequestOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.RequestOptions.ToString() -> string!
@@ -387,6 +421,13 @@ static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationOctetStream.get 
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.MultipartFormData.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.TextEventStream.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.TextPlain.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
+static Dexpace.Sdk.Core.Http.Common.ETag.Any.get -> Dexpace.Sdk.Core.Http.Common.ETag!
+static Dexpace.Sdk.Core.Http.Common.ETag.Parse(string? value) -> Dexpace.Sdk.Core.Http.Common.ETag?
+static Dexpace.Sdk.Core.Http.Common.ETag.Strong(string! opaque) -> Dexpace.Sdk.Core.Http.Common.ETag!
+static Dexpace.Sdk.Core.Http.Common.ETag.TryParse(string? value, out Dexpace.Sdk.Core.Http.Common.ETag? etag) -> bool
+static Dexpace.Sdk.Core.Http.Common.ETag.Weak(string! opaque) -> Dexpace.Sdk.Core.Http.Common.ETag!
+static Dexpace.Sdk.Core.Http.Common.ETag.operator !=(Dexpace.Sdk.Core.Http.Common.ETag? left, Dexpace.Sdk.Core.Http.Common.ETag? right) -> bool
+static Dexpace.Sdk.Core.Http.Common.ETag.operator ==(Dexpace.Sdk.Core.Http.Common.ETag? left, Dexpace.Sdk.Core.Http.Common.ETag? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.Headers.Empty.get -> Dexpace.Sdk.Core.Http.Common.Headers!
 static Dexpace.Sdk.Core.Http.Common.Headers.operator !=(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.Headers.operator ==(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
@@ -412,6 +453,13 @@ static Dexpace.Sdk.Core.Http.Common.HttpHeaderSyntax.EscapeName(string! name) ->
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderSyntax.IsValidInboundValue(System.ReadOnlySpan<char> value) -> bool
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderSyntax.IsValidName(System.ReadOnlySpan<char> name) -> bool
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderSyntax.IsValidOutboundValue(System.ReadOnlySpan<char> value) -> bool
+static Dexpace.Sdk.Core.Http.Common.HttpRange.Bounded(long offset, long length) -> Dexpace.Sdk.Core.Http.Common.HttpRange!
+static Dexpace.Sdk.Core.Http.Common.HttpRange.From(long offset) -> Dexpace.Sdk.Core.Http.Common.HttpRange!
+static Dexpace.Sdk.Core.Http.Common.HttpRange.Parse(string! value) -> Dexpace.Sdk.Core.Http.Common.HttpRange!
+static Dexpace.Sdk.Core.Http.Common.HttpRange.Suffix(long length) -> Dexpace.Sdk.Core.Http.Common.HttpRange!
+static Dexpace.Sdk.Core.Http.Common.HttpRange.TryParse(string? value, out Dexpace.Sdk.Core.Http.Common.HttpRange? range) -> bool
+static Dexpace.Sdk.Core.Http.Common.HttpRange.operator !=(Dexpace.Sdk.Core.Http.Common.HttpRange? left, Dexpace.Sdk.Core.Http.Common.HttpRange? right) -> bool
+static Dexpace.Sdk.Core.Http.Common.HttpRange.operator ==(Dexpace.Sdk.Core.Http.Common.HttpRange? left, Dexpace.Sdk.Core.Http.Common.HttpRange? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.MediaType.Of(string! type, string! subtype, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? parameters = null) -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.MediaType.operator !=(Dexpace.Sdk.Core.Http.Common.MediaType? left, Dexpace.Sdk.Core.Http.Common.MediaType? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.MediaType.operator ==(Dexpace.Sdk.Core.Http.Common.MediaType? left, Dexpace.Sdk.Core.Http.Common.MediaType? right) -> bool
@@ -444,6 +492,9 @@ static Dexpace.Sdk.Core.Http.Request.RequestBody.FromBytes(System.ReadOnlyMemory
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromStream(System.IO.Stream! source, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long contentLength = -1) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromString(string! text, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, System.Text.Encoding? encoding = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromValue<T>(T value, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+static Dexpace.Sdk.Core.Http.Request.RequestConditions.None.get -> Dexpace.Sdk.Core.Http.Request.RequestConditions!
+static Dexpace.Sdk.Core.Http.Request.RequestConditions.operator !=(Dexpace.Sdk.Core.Http.Request.RequestConditions? left, Dexpace.Sdk.Core.Http.Request.RequestConditions? right) -> bool
+static Dexpace.Sdk.Core.Http.Request.RequestConditions.operator ==(Dexpace.Sdk.Core.Http.Request.RequestConditions? left, Dexpace.Sdk.Core.Http.Request.RequestConditions? right) -> bool
 static Dexpace.Sdk.Core.Http.Request.RequestOptions.Empty.get -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
 static Dexpace.Sdk.Core.Http.Request.RequestOptions.operator !=(Dexpace.Sdk.Core.Http.Request.RequestOptions? left, Dexpace.Sdk.Core.Http.Request.RequestOptions? right) -> bool
 static Dexpace.Sdk.Core.Http.Request.RequestOptions.operator ==(Dexpace.Sdk.Core.Http.Request.RequestOptions? left, Dexpace.Sdk.Core.Http.Request.RequestOptions? right) -> bool
