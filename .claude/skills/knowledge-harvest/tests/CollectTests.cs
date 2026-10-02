@@ -44,8 +44,9 @@ public sealed class CollectTests
     private static (Manifest Manifest, string Outputs, string Path) Fixture(TempTree tree)
     {
         var path = tree.Write("docs/a.md", "## A\nline two\nline three\nline four\n");
-        var chunk = new Chunk("c01", "haiku", "design", 40, [new ChunkFile(path, null, 40, new string('d', 64))]);
-        var manifest = new Manifest("now", [new ManifestRoot(tree.Combine("docs"), "design")], [chunk], new ManifestTotals(1, 40, 1, 0));
+        var sha = new string('d', 64);
+        Chunk ChunkOf(string id) => new(id, "haiku", "design", 40, [new ChunkFile(path, null, 40, sha)]);
+        var manifest = new Manifest("now", [new ManifestRoot(tree.Combine("docs"), "design")], [ChunkOf("c01"), ChunkOf("c02")], new ManifestTotals(2, 80, 2, 0));
         tree.Write("outputs/c01.md", Output.Replace("{PATH}", path, StringComparison.Ordinal));
         return (manifest, tree.Combine("outputs"), path);
     }
@@ -74,19 +75,23 @@ public sealed class CollectTests
         Assert.Equal("design", first["role"]!.GetValue<string>());
         Assert.Equal(new string('d', 64), first["sha256"]!.GetValue<string>());
         Assert.Equal($"{path}:2-3", first["evidence"]!.GetValue<string>());
-        Assert.Equal($"{path}:4-4", decisions.Select(d => d!["entry"]!["evidence"]!.GetValue<string>()).Single(e => e.EndsWith(":4-4", StringComparison.Ordinal)).ToString());
+        Assert.Contains(decisions, d => d!["entry"]!["evidence"]!.GetValue<string>() == $"{path}:4-4");
     }
 
     [Fact]
-    public void An_extra_decision_is_appended_and_a_duplicate_keeps_the_more_specific_evidence()
+    public void A_duplicate_across_chunks_keeps_the_narrower_citation_and_an_extra_decision_is_appended()
     {
         using var tree = new TempTree();
         var (manifest, outputs, path) = Fixture(tree);
-        tree.Write("outputs/c02.md", $"## Entries\n- type: constraint\n  topic: retry-and-resilience\n  statement: A response body can be consumed only once\n  evidence: {path}:4-4\n  confidence: high\n");
+        tree.Write("outputs/c02.md", $"## Entries\n- type: constraint\n  topic: retry-and-resilience\n  statement: A response body can be consumed only once\n  evidence: {path}:3-4\n  confidence: high\n");
         var conflict = new JsonObject { ["action"] = "conflict", ["topic"] = "x", ["title"] = "t", ["text"] = "x", ["sources"] = new JsonArray() };
         var (entries, report) = Collect.Run(manifest, outputs, new Dictionary<string, string>(), [conflict], "2026-10-02");
+
         Assert.Equal(1, report.Duplicates);
-        Assert.Equal("conflict", entries["decisions"]!.AsArray()[^1]!["action"]!.GetValue<string>());
+        var decisions = entries["decisions"]!.AsArray();
+        Assert.Equal("conflict", decisions[^1]!["action"]!.GetValue<string>());
+        var once = decisions.Select(d => d!["entry"]).Where(e => e is not null && e["statement"]!.GetValue<string>().StartsWith("A response body", StringComparison.Ordinal)).ToList();
+        Assert.Equal($"{path}:4-4", Assert.Single(once)!["evidence"]!.GetValue<string>());
     }
 
     [Fact]
@@ -97,5 +102,53 @@ public sealed class CollectTests
         Assert.NotNull(Collect.ResolveEvidence("a.md:12-15", files, lines, out _));
         Assert.Null(Collect.ResolveEvidence("a.md:5-15", files, lines, out var problem));
         Assert.Contains("outside the assigned lines", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_line_number_too_large_for_an_int_is_a_problem_not_a_crash()
+    {
+        var files = new Dictionary<string, List<ChunkFile>> { ["a.md"] = [new ChunkFile("a.md", null, 1, "s")] };
+        var lines = new Dictionary<string, int> { ["a.md"] = 100 };
+        Assert.Null(Collect.ResolveEvidence("a.md:1-99999999999999999999", files, lines, out var problem));
+        Assert.Contains("not a valid line", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_entry_is_validated_against_its_own_chunk_not_every_chunk_of_the_file()
+    {
+        using var tree = new TempTree();
+        var path = tree.Write("docs/big.md", string.Concat(Enumerable.Range(1, 40).Select(n => $"line {n}\n")));
+        var sha = new string('e', 64);
+        var first = new Chunk("c01", "sonnet", "design", 10, [new ChunkFile(path, [1, 20], 10, sha)]);
+        var second = new Chunk("c02", "sonnet", "design", 10, [new ChunkFile(path, [21, 40], 10, sha)]);
+        var manifest = new Manifest("now", [new ManifestRoot(tree.Combine("docs"), "design")], [first, second], new ManifestTotals(2, 20, 0, 2));
+        tree.Write("outputs/c01.md", $"## Entries\n- type: rule\n  topic: t\n  statement: Line thirty is cited by the chunk that read lines one to twenty.\n  evidence: {path}:30-30\n  confidence: high\n");
+        tree.Write("outputs/c02.md", $"## Entries\n- type: rule\n  topic: t\n  statement: Line thirty is cited by the chunk that read it.\n  evidence: {path}:30-30\n  confidence: high\n");
+
+        var (_, report) = Collect.Run(manifest, tree.Combine("outputs"), new Dictionary<string, string>(), [], "2026-10-02");
+        Assert.Equal(1, report.Kept);
+        Assert.Contains("c01.md", Assert.Single(report.Dropped), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_output_file_that_is_not_a_chunk_id_is_dropped()
+    {
+        using var tree = new TempTree();
+        var (manifest, outputs, path) = Fixture(tree);
+        tree.Write("outputs/notes.md", $"## Entries\n- type: rule\n  topic: t\n  statement: Stray.\n  evidence: {path}:2-2\n  confidence: high\n");
+        var (_, report) = Collect.Run(manifest, outputs, new Dictionary<string, string>(), [], "2026-10-02");
+        Assert.Contains(report.Dropped, d => d.Contains("not a chunk id", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Entries_are_ordered_by_line_number_not_by_citation_text()
+    {
+        using var tree = new TempTree();
+        var path = tree.Write("docs/long.md", string.Concat(Enumerable.Range(1, 120).Select(n => $"line {n}\n")));
+        var chunk = new Chunk("c01", "sonnet", "spec", 10, [new ChunkFile(path, null, 10, new string('f', 64))]);
+        var manifest = new Manifest("now", [new ManifestRoot(tree.Combine("docs"), "spec")], [chunk], new ManifestTotals(1, 10, 0, 1));
+        tree.Write("outputs/c01.md", $"## Entries\n- type: rule\n  topic: t\n  statement: Late.\n  evidence: {path}:102-102\n  confidence: high\n- type: rule\n  topic: t\n  statement: Early.\n  evidence: {path}:30-30\n  confidence: high\n");
+        var (entries, _) = Collect.Run(manifest, tree.Combine("outputs"), new Dictionary<string, string>(), [], "2026-10-02");
+        Assert.Equal(["Early.", "Late."], entries["decisions"]!.AsArray().Select(d => d!["entry"]!["statement"]!.GetValue<string>()));
     }
 }

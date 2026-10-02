@@ -129,6 +129,106 @@ public sealed class MergeTests
     }
 
     [Fact]
+    public void A_kept_conflict_is_recorded_with_its_status_and_does_not_fail_the_merge()
+    {
+        using var tree = new TempTree();
+        var conflict = new JsonObject
+        {
+            ["action"] = "conflict",
+            ["topic"] = "retry",
+            ["title"] = "I prefix",
+            ["text"] = "the port keeps it",
+            ["sources"] = new JsonArray("styleguide `a.md:1`"),
+            ["status"] = "kept",
+        };
+        Assert.Equal(0, Apply(tree, Payload("2026-10-02", null, conflict), out var corpus));
+        Assert.Contains("styleguide `a.md:1` · kept 2026-10-02", Topic(corpus), StringComparison.Ordinal);
+        Assert.Equal("kept", TopicDocument.Parse(Topic(corpus), "retry").Conflicts[0].Status);
+    }
+
+    [Fact]
+    public void An_empty_merge_into_a_corpus_with_only_settled_conflicts_exits_zero()
+    {
+        using var tree = new TempTree();
+        JsonObject Settled(string status) => new()
+        {
+            ["action"] = "conflict",
+            ["topic"] = "retry",
+            ["title"] = status,
+            ["text"] = status,
+            ["sources"] = new JsonArray(),
+            ["status"] = status,
+        };
+        Apply(tree, Payload("2026-10-02", null, Settled("kept"), Settled("conformed")), out var corpus);
+        Assert.Equal(0, Merge.Run(tree.Write("empty.json", """{"decisions":[]}"""), corpus, false, true, TextWriter.Null, TextWriter.Null));
+    }
+
+    [Fact]
+    public void A_re_harvest_replaces_what_the_corpus_held_from_the_re_harvested_source()
+    {
+        using var tree = new TempTree();
+        JsonObject Source(string sha) => new() { ["path"] = "docs/a.md", ["role"] = "spec", ["sha256"] = sha };
+        Apply(tree, Payload("2026-07-24", [Source(s_sha)], New("retry", Entry("Budgets are per attempt", evidence: "docs/a.md:1-5")), New("retry", Entry("Kept from another file", evidence: "docs/b.md:1-5")), New("gone", Entry("Only here", evidence: "docs/a.md:9-9"))), out var corpus);
+        var newSha = new string('b', 64);
+        Apply(tree, Payload("2026-08-01", [Source(newSha)], New("retry", Entry("Budgets are per request", evidence: "docs/a.md:1-5", sha: newSha))), out _);
+
+        var text = Topic(corpus);
+        Assert.DoesNotContain("per attempt", text, StringComparison.Ordinal);
+        Assert.Contains("Budgets are per request", text, StringComparison.Ordinal);
+        Assert.Contains("Kept from another file", text, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(corpus, "gone.md")), "a topic left with nothing from any source is removed");
+        Assert.DoesNotContain("| gone |", File.ReadAllText(Path.Combine(corpus, "INDEX.md")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_re_harvest_also_replaces_a_conflict_that_cites_the_re_harvested_source()
+    {
+        using var tree = new TempTree();
+        JsonObject Conflict(string text, string status) => new()
+        {
+            ["action"] = "conflict",
+            ["topic"] = "retry",
+            ["title"] = "t",
+            ["text"] = text,
+            ["status"] = status,
+            ["sources"] = new JsonArray("styleguide `docs/a.md:1-2`", "design `docs/elsewhere.md:3`"),
+        };
+        Apply(tree, Payload("2026-07-24", null, Conflict("old wording", "unresolved")), out var corpus);
+        var source = new JsonObject { ["path"] = "docs/a.md", ["role"] = "styleguide", ["sha256"] = s_sha };
+        Apply(tree, Payload("2026-08-01", [source], Conflict("new wording", "kept")), out _);
+        var text = Topic(corpus);
+        Assert.DoesNotContain("old wording", text, StringComparison.Ordinal);
+        Assert.Contains("new wording", text, StringComparison.Ordinal);
+        Assert.Contains("· kept 2026-08-01", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_dry_run_prints_the_changed_lines()
+    {
+        using var tree = new TempTree();
+        Apply(tree, Payload("2026-07-24", null, New("retry", Entry("Budgets are per attempt"))), out _);
+        using var output = new StringWriter();
+        Apply(tree, Payload("2026-07-24", null, New("retry", Entry("Budgets are per request"))), out var corpus, dryRun: true, output: output);
+        var text = output.ToString();
+        Assert.Contains($"--- a/{Path.Combine(corpus, "retry.md")}", text, StringComparison.Ordinal);
+        Assert.Contains("+- Budgets are per request", text, StringComparison.Ordinal);
+        Assert.Contains("nothing written", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("per request", Topic(corpus), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("""{"decisions":[null]}""")]
+    [InlineData("""{"decisions":[7]}""")]
+    [InlineData("""{"decisions":{}}""")]
+    [InlineData("""{"sources":[null],"decisions":[]}""")]
+    public void A_null_or_mistyped_node_exits_two(string text)
+    {
+        using var tree = new TempTree();
+        var path = tree.Write("entries.json", text);
+        Assert.Equal(2, Merge.Run(path, tree.Combine("k"), false, true, TextWriter.Null, TextWriter.Null));
+    }
+
+    [Fact]
     public void Applying_the_same_entries_twice_changes_nothing()
     {
         using var tree = new TempTree();

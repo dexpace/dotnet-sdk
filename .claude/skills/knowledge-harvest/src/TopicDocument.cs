@@ -9,11 +9,14 @@ namespace KnowledgeHarvest;
 /// <summary>One stored entry: a statement and its provenance.</summary>
 internal sealed record TopicEntry(string Statement, string Role, string Evidence, string Confidence, string Sha256);
 
-/// <summary>A recorded cross-source contradiction: <c>unresolved</c> until a human decides it, or <c>conformed</c>.</summary>
+/// <summary>A recorded cross-source contradiction: <c>unresolved</c> until a human decides it, then <c>kept</c> or <c>conformed</c>.</summary>
 internal sealed record TopicConflict(string Title, string Text, string Sources, string Date, string Status = TopicConflict.Unresolved)
 {
     /// <summary>A contradiction nobody has decided; the merge exits 3 while one is on file.</summary>
     public const string Unresolved = "unresolved";
+
+    /// <summary>A contradiction the port settled by keeping its departure; a <c>review</c> note records why.</summary>
+    public const string Kept = "kept";
 
     /// <summary>A contradiction the port settled by conforming to the styleguide; nothing is owed.</summary>
     public const string Conformed = "conformed";
@@ -38,7 +41,7 @@ internal sealed partial class TopicDocument(string topic)
     [GeneratedRegex(@"^- \*\*(.+?)\*\* — (.+?)\s*$", RegexOptions.ECMAScript)]
     private static partial Regex ConflictLine();
 
-    [GeneratedRegex(@"^\s{2}<sub>(.+?)\s*·\s*(unresolved|conformed) ([\d-]+)</sub>\s*$", RegexOptions.ECMAScript)]
+    [GeneratedRegex(@"^\s{2}<sub>(.+?)\s*·\s*(unresolved|kept|conformed) ([\d-]+)</sub>\s*$", RegexOptions.ECMAScript)]
     private static partial Regex ConflictSub();
 
     [GeneratedRegex(@"^- ~~(.+?)~~ source changed ([\d-]+) \(sha ([0-9a-f]+)… → ([0-9a-f]+)…\)\s*$", RegexOptions.ECMAScript)]
@@ -170,6 +173,17 @@ internal sealed partial class TopicDocument(string topic)
         {
             list.Add(entry);
         }
+    }
+
+    /// <summary>
+    /// Removes every entry, and every conflict, cited from <paramref name="sourcePath"/>; returns how many. A
+    /// conflict cites both its sides, so it goes when either is re-harvested and the researcher restates it.
+    /// </summary>
+    public int RemoveFromSource(string sourcePath)
+    {
+        var prefix = sourcePath + ":";
+        return Entries.Values.Sum(list => list.RemoveAll(e => e.Evidence.StartsWith(prefix, StringComparison.Ordinal)))
+            + Conflicts.RemoveAll(c => c.Sources.Contains(prefix, StringComparison.Ordinal));
     }
 
     /// <summary>Removes and returns the entry whose normalized statement matches, from whichever type holds it.</summary>

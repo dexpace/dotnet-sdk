@@ -100,7 +100,8 @@ internal static partial class Collect
 
     /// <summary>
     /// Resolves an evidence string to a manifest file and a checked range, or explains why it cannot.
-    /// A bare <c>path:N</c> means the one line <c>N</c>.
+    /// A bare <c>path:N</c> means the one line <c>N</c>. The extractor contract is ONE range per entry; if an
+    /// extractor lists several parts the first one that resolves is kept and the rest are dropped.
     /// </summary>
     public static (ChunkFile File, string Evidence)? ResolveEvidence(
         string evidence, IReadOnlyDictionary<string, List<ChunkFile>> files, IReadOnlyDictionary<string, int> lineCounts, out string? problem)
@@ -116,8 +117,13 @@ internal static partial class Collect
             }
 
             var path = match.Groups["path"].Value;
-            var start = int.Parse(match.Groups["start"].Value, CultureInfo.InvariantCulture);
-            var end = match.Groups["end"].Success ? int.Parse(match.Groups["end"].Value, CultureInfo.InvariantCulture) : start;
+            if (!int.TryParse(match.Groups["start"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var start)
+                || !int.TryParse(match.Groups["end"].Success ? match.Groups["end"].Value : match.Groups["start"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var end))
+            {
+                problem = $"evidence '{part}' has a line number that is not a valid line";
+                continue;
+            }
+
             if (!files.TryGetValue(path, out var assigned))
             {
                 problem = $"evidence path '{path}' is not in the manifest";
@@ -149,6 +155,10 @@ internal static partial class Collect
         string harvested)
     {
         var files = manifest.Chunks.SelectMany(c => c.Files).GroupBy(f => f.Path).ToDictionary(g => g.Key, g => g.ToList());
+        var byChunk = manifest.Chunks.ToDictionary(
+            c => c.Id,
+            c => (IReadOnlyDictionary<string, List<ChunkFile>>)c.Files.GroupBy(f => f.Path).ToDictionary(g => g.Key, g => g.ToList()),
+            StringComparer.Ordinal);
         var roles = manifest.Chunks.SelectMany(c => c.Files.Select(f => (f.Path, c.Role))).GroupBy(x => x.Path).ToDictionary(g => g.Key, g => g.First().Role);
         var lineCounts = files.Keys.ToDictionary(p => p, p => Sections.CountLines(File.ReadAllText(p, Encoding.UTF8)));
 
@@ -166,7 +176,17 @@ internal static partial class Collect
             {
                 parsed++;
                 var label = $"{System.IO.Path.GetFileName(path)}: {Truncate(proposal.Statement)}";
-                if (Validate(proposal, topicMap, files, lineCounts, label, dropped) is not { } checkedEntry)
+
+                // An entry is validated against the files and ranges of the chunk that produced it (the output
+                // file is named for its chunk id), not against every chunk's: an extractor reading lines 1-245
+                // of a split file has no business citing line 300.
+                if (!byChunk.TryGetValue(System.IO.Path.GetFileNameWithoutExtension(path), out var chunkFiles))
+                {
+                    dropped.Add($"{label} — the output file name is not a chunk id of the manifest");
+                    continue;
+                }
+
+                if (Validate(proposal, topicMap, chunkFiles, lineCounts, label, dropped) is not { } checkedEntry)
                 {
                     continue;
                 }
@@ -192,14 +212,21 @@ internal static partial class Collect
             decisions.Add(extra.DeepClone());
         }
 
+        var sources = SourceRows(files, roles);
+
+        var entries = new JsonObject { ["harvested"] = harvested, ["sources"] = sources, ["decisions"] = decisions };
+        return (entries, new CollectReport(parsed, kept.Count, duplicates, dropped, topics));
+    }
+
+    private static JsonArray SourceRows(Dictionary<string, List<ChunkFile>> files, Dictionary<string, string> roles)
+    {
         var sources = new JsonArray();
         foreach (var (path, assigned) in files.OrderBy(f => f.Key, StringComparer.Ordinal))
         {
             sources.Add(new JsonObject { ["path"] = path, ["role"] = roles[path], ["sha256"] = assigned[0].Sha256 });
         }
 
-        var entries = new JsonObject { ["harvested"] = harvested, ["sources"] = sources, ["decisions"] = decisions };
-        return (entries, new CollectReport(parsed, kept.Count, duplicates, dropped, topics));
+        return sources;
     }
 
     private static (Proposed P, string Evidence, ChunkFile File)? Validate(
@@ -239,7 +266,7 @@ internal static partial class Collect
     {
         var decisions = new JsonArray();
         var topics = new SortedDictionary<string, int>(StringComparer.Ordinal);
-        foreach (var (_, (proposal, evidence, file)) in kept.OrderBy(k => k.Key.Topic, StringComparer.Ordinal).ThenBy(k => k.Value.Evidence, StringComparer.Ordinal))
+        foreach (var (_, (proposal, evidence, file)) in kept.OrderBy(k => k.Key.Topic, StringComparer.Ordinal).ThenBy(k => k.Value.File.Path, StringComparer.Ordinal).ThenBy(k => StartLine(k.Value.Evidence)).ThenBy(k => k.Value.Evidence, StringComparer.Ordinal))
         {
             topics[proposal.Topic] = topics.GetValueOrDefault(proposal.Topic) + 1;
             decisions.Add(new JsonObject
@@ -260,6 +287,9 @@ internal static partial class Collect
 
         return (decisions, topics);
     }
+
+    private static int StartLine(string evidence) =>
+        EvidenceShape().Match(evidence) is { Success: true } m ? int.Parse(m.Groups["start"].Value, CultureInfo.InvariantCulture) : 0;
 
     private static int Span(string evidence)
     {

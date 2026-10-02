@@ -171,7 +171,13 @@ internal static class Merge
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path))!);
         var temporary = $"{path}.tmp.{Environment.ProcessId}";
-        File.WriteAllText(temporary, text, new UTF8Encoding(false));
+        using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            var bytes = new UTF8Encoding(false).GetBytes(text);
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Flush(flushToDisk: true);
+        }
+
         File.Move(temporary, path, overwrite: true);
     }
 
@@ -238,29 +244,23 @@ internal static class Merge
             return Dirty;
         }
 
-        var touched = new Dictionary<string, TopicDocument>();
-        var originals = new Dictionary<string, string>();
-        foreach (var decision in decisions)
-        {
-            var slug = Str(decision!, "topic");
-            if (!touched.TryGetValue(slug, out var document))
-            {
-                var original = ReadOrEmpty(System.IO.Path.Combine(corpus, slug + ".md"));
-                originals[slug] = original;
-                document = touched[slug] = original.Length > 0 ? TopicDocument.Parse(original, slug) : new TopicDocument(slug);
-            }
+        var all = LoadAll(corpus);
+        var originals = all.Keys.ToDictionary(slug => slug, slug => ReadOrEmpty(System.IO.Path.Combine(corpus, slug + ".md")));
+        var touched = new HashSet<string>();
+        var purged = Purge(payload, all, touched);
+        ApplyDecisions(decisions, all, originals, touched, date);
 
-            Apply(document, decision!, date);
-        }
-
-        var all = LoadAll(corpus, touched);
         var planned = Plan(payload, corpus, date, touched, originals, all);
         var changed = planned.Where(p => p.Before != p.After).ToList();
         foreach (var (path, before, after) in changed)
         {
             if (dryRun)
             {
-                output.WriteLine($"would write {path} ({before.Split('\n').Length} -> {after.Split('\n').Length} lines)");
+                WriteDiff(output, path, before, after ?? string.Empty);
+            }
+            else if (after is null)
+            {
+                File.Delete(path);
             }
             else
             {
@@ -273,13 +273,103 @@ internal static class Merge
             output.WriteLine($"merge --dry-run: {changed.Count} file(s) would change, nothing written");
         }
 
+        if (purged > 0)
+        {
+            output.WriteLine($"merge: replaced {purged} existing entries from the re-harvested sources");
+        }
+
         return Report(decisions, all, output, error);
     }
 
-    /// <summary>Every topic in the corpus: the touched ones, plus the rest reloaded so INDEX.md covers the whole corpus.</summary>
-    private static Dictionary<string, TopicDocument> LoadAll(string corpus, Dictionary<string, TopicDocument> touched)
+    /// <summary>
+    /// A harvest of a source REPLACES what the corpus holds from it. Only adding and updating would leave an
+    /// entry from an older revision of the file (reworded, or deleted from it) in place with its old sha, and
+    /// the SOURCES.md row would say the file is current while that entry says otherwise.
+    /// </summary>
+    private static int Purge(JsonNode payload, Dictionary<string, TopicDocument> all, HashSet<string> touched)
     {
-        var all = new Dictionary<string, TopicDocument>(touched);
+        var purged = 0;
+        foreach (var source in payload["sources"]?.AsArray() ?? [])
+        {
+            var path = Str(source ?? throw new FormatException("a source is null"), "path");
+            foreach (var (slug, document) in all)
+            {
+                var removed = document.RemoveFromSource(path);
+                if (removed > 0)
+                {
+                    purged += removed;
+                    touched.Add(slug);
+                }
+            }
+        }
+
+        return purged;
+    }
+
+    private static void ApplyDecisions(
+        JsonArray decisions, Dictionary<string, TopicDocument> all, Dictionary<string, string> originals, HashSet<string> touched, string date)
+    {
+        foreach (var decision in decisions)
+        {
+            var node = decision ?? throw new FormatException("a decision is null");
+            var slug = Str(node, "topic");
+            if (!all.TryGetValue(slug, out var document))
+            {
+                all[slug] = document = new TopicDocument(slug);
+                originals[slug] = string.Empty;
+            }
+
+            touched.Add(slug);
+            Apply(document, node, date);
+        }
+    }
+
+    /// <summary>A unified-style line diff (changed lines only, with their line numbers); the dry run's report.</summary>
+    public static void WriteDiff(TextWriter output, string path, string before, string after)
+    {
+        output.WriteLine($"--- a/{path}\n+++ b/{path}");
+        var old = before.Length == 0 ? [] : before.Split('\n');
+        var current = after.Length == 0 ? [] : after.Split('\n');
+        if ((long)old.Length * current.Length > 4_000_000)
+        {
+            output.WriteLine($"@@ file replaced: {old.Length} -> {current.Length} lines @@");
+            return;
+        }
+
+        var lcs = new int[old.Length + 1, current.Length + 1];
+        for (var i = old.Length - 1; i >= 0; i--)
+        {
+            for (var j = current.Length - 1; j >= 0; j--)
+            {
+                lcs[i, j] = old[i] == current[j] ? lcs[i + 1, j + 1] + 1 : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
+            }
+        }
+
+        int a = 0, b = 0;
+        while (a < old.Length || b < current.Length)
+        {
+            if (a < old.Length && b < current.Length && old[a] == current[b])
+            {
+                a++;
+                b++;
+            }
+            else if (b < current.Length && (a == old.Length || lcs[a, b + 1] >= lcs[a + 1, b]))
+            {
+                output.WriteLine($"@@ +{b + 1} @@ +{current[b]}");
+                b++;
+            }
+            else
+            {
+                output.WriteLine($"@@ -{a + 1} @@ -{old[a]}");
+                a++;
+            }
+        }
+    }
+
+    /// <summary>Every topic file in the corpus, parsed, so INDEX.md and the re-harvest purge see the whole corpus.</summary>
+    private static Dictionary<string, TopicDocument> LoadAll(string corpus)
+    {
+        var all = new Dictionary<string, TopicDocument>();
         if (!Directory.Exists(corpus))
         {
             return all;
@@ -288,9 +378,9 @@ internal static class Merge
         foreach (var file in Directory.GetFiles(corpus, "*.md").Order(StringComparer.Ordinal))
         {
             var name = System.IO.Path.GetFileName(file);
-            var slug = name[..^3];
-            if (name is not ("INDEX.md" or "SOURCES.md") && !all.ContainsKey(slug))
+            if (name is not ("INDEX.md" or "SOURCES.md"))
             {
+                var slug = name[..^3];
                 all[slug] = TopicDocument.Parse(ReadOrEmpty(file), slug);
             }
         }
@@ -298,20 +388,33 @@ internal static class Merge
         return all;
     }
 
-    private static List<(string Path, string Before, string After)> Plan(
+    private static List<(string Path, string Before, string? After)> Plan(
         JsonNode payload,
         string corpus,
         string date,
-        Dictionary<string, TopicDocument> touched,
+        HashSet<string> touched,
         Dictionary<string, string> originals,
         Dictionary<string, TopicDocument> all)
     {
         var indexPath = System.IO.Path.Combine(corpus, "INDEX.md");
         var sourcesPath = System.IO.Path.Combine(corpus, "SOURCES.md");
         var dates = ParseIndexDates(ReadOrEmpty(indexPath));
-        foreach (var slug in touched.Keys)
+        var planned = new List<(string Path, string Before, string? After)>();
+        foreach (var slug in touched.Order(StringComparer.Ordinal))
         {
+            var document = all[slug];
+            var path = System.IO.Path.Combine(corpus, slug + ".md");
+            if (document.Count == 0 && document.Conflicts.Count == 0 && document.Superseded.Count == 0)
+            {
+                // Every entry came from a source the harvest replaced and none came back: the topic is gone.
+                all.Remove(slug);
+                dates.Remove(slug);
+                planned.Add((path, originals[slug], null));
+                continue;
+            }
+
             dates[slug] = date;
+            planned.Add((path, originals[slug], document.Render()));
         }
 
         var sources = ParseSources(ReadOrEmpty(sourcesPath));
@@ -320,7 +423,6 @@ internal static class Merge
             sources[Str(source!, "path")] = new SourceRecord(Opt(source!, "role") ?? "unspecified", Opt(source!, "sha256") ?? string.Empty, date);
         }
 
-        var planned = touched.Select(t => (Path: System.IO.Path.Combine(corpus, t.Key + ".md"), Before: originals[t.Key], After: t.Value.Render())).ToList();
         planned.Add((indexPath, ReadOrEmpty(indexPath), RenderIndex(all, dates)));
         if (sources.Count > 0)
         {

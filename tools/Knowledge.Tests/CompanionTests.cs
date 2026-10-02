@@ -151,6 +151,17 @@ public sealed class DriftReportTests : KnowledgeFixture
     }
 
     [Fact]
+    public void TheDriftReport_FlagsAnEntryWhoseShaIsNotItsSourcesCurrentRow()
+    {
+        // The fixture's pagination entries carry 5555eeee6666 while SOURCES.md records another digest for the
+        // file: exactly what a re-harvest that only added and updated would leave behind.
+        var (stdout, _, status) = Run("drift");
+        Assert.Equal(0, status);
+        Assert.Contains("STALE ENTRY\tdocs/product-spec/12-pagination.md\t", stdout, StringComparison.Ordinal);
+        Assert.Contains("carry sha 5555eeee6666, SOURCES.md records 000000000000", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AMalformedManifest_Exits2()
     {
         File.AppendAllText(FixturePath("docs/knowledge/harvested/SOURCES.md"), "| `docs/x.md` | spec | `abc` | 2026-01-01 |\n");

@@ -335,7 +335,21 @@ internal sealed partial class Renderer
         // support, which does not.
         var tags = entry.OverriddenBy.Select(at => $" [overridden by {at}]")
             .Concat(entry.CitedBy.Select(at => $" [cited by {at}]"));
-        return string.Concat(tags) + (entry.IsRollup ? " [appendix-B roll-up]" : "");
+        return string.Concat(tags) + SettledTag(entry) + (entry.IsRollup ? " [appendix-B roll-up]" : "");
+    }
+
+    // A Conflicts entry's source line ends in its status and date: `unresolved`, `kept` (the port keeps the
+    // departure) or `conformed` (the port changed to match). Only the settled two are tagged; an untagged
+    // conflict is still open.
+    private static string SettledTag(Entry entry)
+    {
+        if (entry.Section != "Conflicts" || entry.IsNote || entry.Confidence is null)
+        {
+            return string.Empty;
+        }
+
+        var status = entry.Confidence.Split(' ')[0];
+        return status is "kept" or "conformed" ? $" [{status}]" : string.Empty;
     }
 
     private List<string> TopicsForPrefix(string prefix)
