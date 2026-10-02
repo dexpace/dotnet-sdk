@@ -21,7 +21,7 @@ public class HttpPipelineTests
     [Fact]
     public async Task SendAsync_ReturnsTransportResponse()
     {
-        var expected = new Response(Status.Ok);
+        var expected = TestResponses.Create(Status.Ok);
         var pipeline = new PipelineBuilder().Build(new RecordingTransport(_ => expected));
 
         var actual = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
@@ -32,7 +32,7 @@ public class HttpPipelineTests
     [Fact]
     public void Send_ReturnsTransportResponse()
     {
-        var expected = new Response(Status.Ok);
+        var expected = TestResponses.Create(Status.Ok);
         var pipeline = new PipelineBuilder().Build(new RecordingTransport(_ => expected));
 
         var actual = pipeline.Send(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
@@ -44,7 +44,7 @@ public class HttpPipelineTests
     public async Task SendAsync_WithPolicies_PoliciesInvokedAndResponseReturned()
     {
         var log = new List<string>();
-        var expected = new Response(Status.Ok);
+        var expected = TestResponses.Create(Status.Ok);
 
         var pipeline = new PipelineBuilder()
             .Add(new LoggingPolicy("a", PipelineStage.Operation, log))

@@ -24,12 +24,8 @@ public sealed class ClientIdentityPolicy : HttpPipelinePolicy
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        context.Request = context.Request with
-        {
-            Headers = context.Request.Headers.Set(
-                HttpHeaderName.WellKnown.UserAgent.Original,
-                context.Options.UserAgent)
-        };
+        context.Request = context.Request.WithHeaders(
+            context.Request.Headers.Set(HttpHeaderName.WellKnown.UserAgent, context.Options.UserAgent));
 
         await continuation.RunAsync(context).ConfigureAwait(false);
     }

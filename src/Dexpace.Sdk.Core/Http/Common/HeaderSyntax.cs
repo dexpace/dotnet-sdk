@@ -98,19 +98,14 @@ internal static class HeaderSyntax
     /// <returns>The code-point label.</returns>
     internal static string CodePoint(char c) => string.Create(CultureInfo.InvariantCulture, $"U+{(int)c:X4}");
 
-    /// <summary>An RFC 9110 <c>tchar</c>.</summary>
+    /// <summary>An RFC 9110 <c>tchar</c> (the one character table lives in <see cref="HttpHeaderSyntax"/>).</summary>
     /// <param name="c">The character.</param>
     /// <returns><see langword="true"/> for a token character.</returns>
-    internal static bool IsTokenChar(char c) =>
-        c is >= 'a' and <= 'z'
-        or >= 'A' and <= 'Z'
-        or >= '0' and <= '9'
-        or '!' or '#' or '$' or '%' or '&' or '\'' or '*'
-        or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
+    internal static bool IsTokenChar(char c) => HttpHeaderSyntax.IsTokenChar(c);
 
-    private static bool IsOutboundValueChar(char c) => c == '\t' || c is >= ' ' and <= '~';
+    private static bool IsOutboundValueChar(char c) => HttpHeaderSyntax.IsOutboundValueChar(c);
 
-    private static bool IsControl(char c) => (c < ' ' && c != '\t') || c == '\u007F';
+    private static bool IsControl(char c) => HttpHeaderSyntax.IsControl(c);
 
     private static ArgumentException InvalidValue(string name, char c, int index, string rule, string paramName) =>
         new($"The value of header '{name}' contains the invalid character {CodePoint(c)} at index {index}; {rule}.", paramName);

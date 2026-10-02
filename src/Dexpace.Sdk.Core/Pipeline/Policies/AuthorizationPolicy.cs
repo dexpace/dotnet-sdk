@@ -77,10 +77,7 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
             // Request has been redirected to a different origin — strip the credential header
             // (defense-in-depth: removes any stale value carried over from the original request)
             // and forward the request without credential.
-            context.Request = context.Request with
-            {
-                Headers = context.Request.Headers.Without(WithheldHeaderName.Original)
-            };
+            context.Request = context.Request.WithHeaders(context.Request.Headers.Without(WithheldHeaderName));
 
             await continuation.RunAsync(context).ConfigureAwait(false);
             return;
@@ -93,10 +90,7 @@ public abstract class AuthorizationPolicy : HttpPipelinePolicy
 
         var (headerName, headerValue) = await GetCredentialAsync(context).ConfigureAwait(false);
 
-        context.Request = context.Request with
-        {
-            Headers = context.Request.Headers.Set(headerName, headerValue)
-        };
+        context.Request = context.Request.WithHeaders(context.Request.Headers.Set(headerName, headerValue));
 
         await continuation.RunAsync(context).ConfigureAwait(false);
     }

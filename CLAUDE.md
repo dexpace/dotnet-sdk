@@ -231,9 +231,9 @@ Then implement the plan's numbered tasks TDD, write the checklist from what was 
 requirement ID), add a `CHANGELOG.md` `[Unreleased]` entry, append a dated status note to the roadmap, and
 run the probe once more before handing over.
 
-**What is genuinely unbuilt** (the roadmap schedules each): the domain-model rework — the `Headers` rebuild,
-`Request` validation, query parameters, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions`, and the
-transport SPI taking `RequestOptions` (phase 2); the I/O and body lifecycle — file, form-urlencoded and multipart
+**What is genuinely unbuilt** (the roadmap schedules each): the transport SPI taking `RequestOptions` and the seams
+(phase 2b; the phase 2a domain-model rework — the `Headers` rebuild, `Request`/`Response` validation, `Query`,
+`RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` — is built, see `docs/sdk-documentation/http.md`); the I/O and body lifecycle — file, form-urlencoded and multipart
 bodies, the logging body wrappers, and dispose latches (3); the execution-context chain and the recovery
 chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport

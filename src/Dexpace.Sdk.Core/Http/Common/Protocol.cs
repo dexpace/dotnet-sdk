@@ -51,7 +51,7 @@ public static class ProtocolExtensions
     };
 
     /// <summary>
-    /// Parses a protocol identifier (case-insensitively). Accepts the canonical forms emitted by
+    /// Parses a protocol identifier (case-insensitively, folding ASCII only; HTTP-33). Accepts the canonical forms emitted by
     /// <see cref="ToWireString"/> plus the alternative spellings <c>HTTP/2</c> and <c>HTTP/2.0</c>.
     /// </summary>
     /// <param name="value">The identifier to parse.</param>
@@ -60,14 +60,32 @@ public static class ProtocolExtensions
     public static Protocol Parse(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return value.ToUpperInvariant() switch
+        if (Matches(value, "http/1.0"))
         {
-            "HTTP/1.0" => Protocol.Http10,
-            "HTTP/1.1" => Protocol.Http11,
-            "HTTP/2" or "HTTP/2.0" => Protocol.Http2,
-            "H2_PRIOR_KNOWLEDGE" => Protocol.H2PriorKnowledge,
-            "QUIC" => Protocol.Quic,
-            _ => throw new ArgumentException($"Unexpected protocol: {value}", nameof(value)),
-        };
+            return Protocol.Http10;
+        }
+
+        if (Matches(value, "http/1.1"))
+        {
+            return Protocol.Http11;
+        }
+
+        if (Matches(value, "http/2") || Matches(value, "http/2.0"))
+        {
+            return Protocol.Http2;
+        }
+
+        if (Matches(value, "h2_prior_knowledge"))
+        {
+            return Protocol.H2PriorKnowledge;
+        }
+
+        return Matches(value, "quic")
+            ? Protocol.Quic
+            : throw new ArgumentException($"Unexpected protocol: {value}", nameof(value));
     }
+
+    // ASCII-only, culture-independent case folding (HTTP-33): a non-ASCII character never matches a token.
+    private static bool Matches(string value, string token) =>
+        System.Text.Ascii.EqualsIgnoreCase(value, token);
 }

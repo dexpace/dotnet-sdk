@@ -122,7 +122,7 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
                     headers = headers.Set("tracestate", activity.TraceStateString);
                 }
 
-                context.Request = context.Request with { Headers = headers };
+                context.Request = context.Request.WithHeaders(headers);
             }
 
             // Capture the previous activity so we can restore it in the finally block.

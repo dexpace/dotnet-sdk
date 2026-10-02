@@ -1,0 +1,35 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/http/media-type.test.ts and the case table of tests/Dexpace.Sdk.Core.Tests/Http/Common/MediaTypeTests.cs (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only)",
+  "note": "op=parse: Parse(input) gives type/subtype/parameters. op=reject: Parse(input) throws ArgumentException and TryParse returns false. op=roundtrip: Of(type, subtype, parameters) survives Parse(ToString()).",
+  "cases": [
+    { "op": "parse", "input": "Application/JSON;Charset=UTF-8", "type": "application", "subtype": "json", "parameters": { "charset": "UTF-8" } },
+    { "op": "parse", "input": "text/plain; charset=UTF-8", "type": "text", "subtype": "plain", "parameters": { "charset": "UTF-8" } },
+    { "op": "parse", "input": "text/plain;boundary=\"a;b=c\"", "type": "text", "subtype": "plain", "parameters": { "boundary": "a;b=c" } },
+    { "op": "parse", "input": "text/plain;", "type": "text", "subtype": "plain", "parameters": {} },
+    { "op": "parse", "input": "text/plain ; a=b ; c=d", "type": "text", "subtype": "plain", "parameters": { "a": "b", "c": "d" } },
+    { "op": "parse", "input": "multipart/form-data; boundary=\"a b\"", "type": "multipart", "subtype": "form-data", "parameters": { "boundary": "a b" } },
+    { "op": "parse", "input": "text/plain;a=\"\"", "type": "text", "subtype": "plain", "parameters": { "a": "" } },
+    { "op": "parse", "input": "*/*", "type": "*", "subtype": "*", "parameters": {} },
+    { "op": "parse", "input": "application/*", "type": "application", "subtype": "*", "parameters": {} },
+
+    { "op": "reject", "input": "" },
+    { "op": "reject", "input": "   " },
+    { "op": "reject", "input": "text" },
+    { "op": "reject", "input": "/json" },
+    { "op": "reject", "input": "application/" },
+    { "op": "reject", "input": "*/json" },
+    { "op": "reject", "input": "text/plain;charset" },
+    { "op": "reject", "input": "text/plain;=utf-8" },
+    { "op": "reject", "input": "text/plain;a=" },
+    { "op": "reject", "input": "text/plain; a = " },
+    { "op": "reject", "input": "te;xt/plain" },
+
+    { "op": "roundtrip", "type": "multipart", "subtype": "form-data", "parameters": { "boundary": "a;b" } },
+    { "op": "roundtrip", "type": "multipart", "subtype": "form-data", "parameters": { "boundary": "a=b" } },
+    { "op": "roundtrip", "type": "text", "subtype": "plain", "parameters": { "x": "a\"b\\c" } },
+    { "op": "roundtrip", "type": "text", "subtype": "plain", "parameters": { "x": "a b" } },
+    { "op": "roundtrip", "type": "text", "subtype": "plain", "parameters": { "x": "" } },
+    { "op": "roundtrip", "type": "application", "subtype": "json", "parameters": {} },
+    { "op": "roundtrip", "type": "text", "subtype": "plain", "parameters": { "charset": "utf-8", "q": "0.5" } }
+  ]
+}

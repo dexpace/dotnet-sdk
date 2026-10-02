@@ -66,7 +66,7 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_SuccessOnFirstAttempt_ReturnsResponse_NoRetry()
     {
-        var response200 = new Response(Status.Ok);
+        var response200 = TestResponses.Create(Status.Ok);
         var transport = new ScriptedTransport(new object[] { response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -83,8 +83,8 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_503ThenSuccess_RetriesAndReturnsSuccess()
     {
-        var response503 = new Response(Status.ServiceUnavailable);
-        var response200 = new Response(Status.Ok);
+        var response503 = TestResponses.Create(Status.ServiceUnavailable);
+        var response200 = TestResponses.Create(Status.Ok);
         var transport = new ScriptedTransport(new object[] { response503, response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -95,11 +95,26 @@ public sealed class RetryPolicyTests
     }
 
     [Fact]
+    public async Task A_TRACE_request_is_not_retried()
+    {
+        // HTTP-9: TRACE is no longer in the idempotent set, so a replayable TRACE is sent exactly once.
+        var transport = new ScriptedTransport(
+            new object[] { TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok) });
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
+        var trace = new Request(Method.Trace, new Uri("https://api.example.com/v1/items"));
+
+        var result = await pipeline.SendAsync(trace, MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.ServiceUnavailable, result.Status);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Fact]
     public async Task ProcessAsync_Repeated503_ReturnsLastResponseAfterMaxAttempts()
     {
         // MaxRetryAttempts = 3 → 1 initial + 3 retries = 4 total calls.
         var responses = Enumerable
-            .Repeat<object>(new Response(Status.ServiceUnavailable), 4)
+            .Repeat<object>(TestResponses.Create(Status.ServiceUnavailable), 4)
             .ToArray();
         var transport = new ScriptedTransport(responses);
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
@@ -114,7 +129,7 @@ public sealed class RetryPolicyTests
     public async Task ProcessAsync_500_IsRetried()
     {
         var transport = new ScriptedTransport(
-            new object[] { new Response(Status.InternalServerError), new Response(Status.Ok) });
+            new object[] { TestResponses.Create(Status.InternalServerError), TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
@@ -127,7 +142,7 @@ public sealed class RetryPolicyTests
     public async Task ProcessAsync_429_IsRetried()
     {
         var transport = new ScriptedTransport(
-            new object[] { new Response(Status.TooManyRequests), new Response(Status.Ok) });
+            new object[] { TestResponses.Create(Status.TooManyRequests), TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
@@ -143,7 +158,7 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_400_ReturnsImmediately_NoRetry()
     {
-        var response400 = new Response(Status.BadRequest);
+        var response400 = TestResponses.Create(Status.BadRequest);
         var transport = new ScriptedTransport(new object[] { response400 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -156,7 +171,7 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_404_ReturnsImmediately_NoRetry()
     {
-        var transport = new ScriptedTransport(new object[] { new Response(Status.NotFound) });
+        var transport = new ScriptedTransport(new object[] { TestResponses.Create(Status.NotFound) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
@@ -173,7 +188,7 @@ public sealed class RetryPolicyTests
     public async Task ProcessAsync_Post_NonReplayableBody_503_NotRetried()
     {
         // POST with a stream body (not replayable) — must not retry.
-        var response503 = new Response(Status.ServiceUnavailable);
+        var response503 = TestResponses.Create(Status.ServiceUnavailable);
         var transport = new ScriptedTransport(new object[] { response503 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -187,7 +202,7 @@ public sealed class RetryPolicyTests
     public async Task ProcessAsync_Post_ReplayableBody_RetryNonIdempotentEnabled_503_IsRetried()
     {
         var transport = new ScriptedTransport(
-            new object[] { new Response(Status.ServiceUnavailable), new Response(Status.Ok) });
+            new object[] { TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(maxRetryAttempts: 1, retryNonIdempotentWhenReplayable: true), TestContext.Current.CancellationToken);
@@ -199,7 +214,7 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_Post_ReplayableBody_RetryNonIdempotentDisabled_503_NotRetried()
     {
-        var transport = new ScriptedTransport(new object[] { new Response(Status.ServiceUnavailable) });
+        var transport = new ScriptedTransport(new object[] { TestResponses.Create(Status.ServiceUnavailable) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken);
@@ -217,7 +232,7 @@ public sealed class RetryPolicyTests
     {
         var ex = new ServiceRequestException("DNS failure");
         var transport = new ScriptedTransport(
-            new object[] { ex, new Response(Status.Ok) });
+            new object[] { ex, TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
@@ -247,7 +262,7 @@ public sealed class RetryPolicyTests
     {
         var ex = new ServiceResponseException("connection dropped");
         var transport = new ScriptedTransport(
-            new object[] { ex, new Response(Status.Ok) });
+            new object[] { ex, TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
@@ -299,8 +314,8 @@ public sealed class RetryPolicyTests
     {
         // Retry-After: 1 — parsed and honored; we just verify the retry happens.
         var headers = new Headers.Builder().Set("Retry-After", "1").Build();
-        var response503 = new Response(Status.ServiceUnavailable, headers);
-        var response200 = new Response(Status.Ok);
+        var response503 = TestResponses.Create(Status.ServiceUnavailable, headers: headers);
+        var response200 = TestResponses.Create(Status.Ok);
         var transport = new ScriptedTransport(new object[] { response503, response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -317,8 +332,8 @@ public sealed class RetryPolicyTests
         var future = fixedNow.AddSeconds(5).ToString("r");
 
         var headers = new Headers.Builder().Set("Retry-After", future).Build();
-        var response503 = new Response(Status.ServiceUnavailable, headers);
-        var response200 = new Response(Status.Ok);
+        var response503 = TestResponses.Create(Status.ServiceUnavailable, headers: headers);
+        var response200 = TestResponses.Create(Status.Ok);
         var transport = new ScriptedTransport(new object[] { response503, response200 });
 
         // Fake time pinned to fixedNow so the delta is parsed correctly.
@@ -336,8 +351,8 @@ public sealed class RetryPolicyTests
     public async Task ProcessAsync_RetryAfterIgnored_WhenHonorRetryAfterFalse()
     {
         var headers = new Headers.Builder().Set("Retry-After", "60").Build();
-        var response503 = new Response(Status.ServiceUnavailable, headers);
-        var response200 = new Response(Status.Ok);
+        var response503 = TestResponses.Create(Status.ServiceUnavailable, headers: headers);
+        var response200 = TestResponses.Create(Status.Ok);
         var transport = new ScriptedTransport(new object[] { response503, response200 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
@@ -358,7 +373,7 @@ public sealed class RetryPolicyTests
     {
         var recordedAttempts = new List<int>();
         var capturePolicy = new CapturingAttemptPolicy(recordedAttempts);
-        var transport = new ScriptedTransport(new object[] { new Response(Status.Ok) });
+        var transport = new ScriptedTransport(new object[] { TestResponses.Create(Status.Ok) });
 
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
@@ -379,9 +394,9 @@ public sealed class RetryPolicyTests
 
         var transport = new ScriptedTransport(new object[]
         {
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.Ok),
         });
 
         var pipeline = new PipelineBuilder()
@@ -440,8 +455,8 @@ public sealed class RetryPolicyTests
 
         // 1 initial + 5 retries = 6 transport calls.
         var responses = Enumerable
-            .Repeat<object>(new Response(Status.ServiceUnavailable), 5)
-            .Append(new Response(Status.Ok))
+            .Repeat<object>(TestResponses.Create(Status.ServiceUnavailable), 5)
+            .Append(TestResponses.Create(Status.Ok))
             .ToArray();
         var recording = new RecordingTimeProvider();
 
@@ -485,8 +500,8 @@ public sealed class RetryPolicyTests
 
         // 1 initial + 3 retries = 4 transport calls.
         var responses = Enumerable
-            .Repeat<object>(new Response(Status.ServiceUnavailable), 3)
-            .Append(new Response(Status.Ok))
+            .Repeat<object>(TestResponses.Create(Status.ServiceUnavailable), 3)
+            .Append(TestResponses.Create(Status.Ok))
             .ToArray();
         var recording = new RecordingTimeProvider();
 

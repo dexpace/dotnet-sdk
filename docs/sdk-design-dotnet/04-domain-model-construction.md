@@ -112,6 +112,12 @@ entry 11.
 public `init` properties that bypass its constructor, `Method` and `HttpHeaderName` are structs with invalid
 defaults, and there is no `Query` or `RequestOptions` type.
 
+**As built (2026-10-02, phase 2a):** built. Every model type is immutable and constructed through one of the four
+routes: `Method` and `HttpHeaderName` are `sealed record`s, `Request` is get-only behind its validating constructor and
+`With*` derivations, `Response` derives only through `WithBody`, and `Query`, `RequestOptions`, `ETag`, `HttpRange` and
+`RequestConditions` exist. Two architecture tests pin `HTTP-1`, `HTTP-2`, `HTTP-5` and `SEAM-29`. *Dated correction*;
+the line above stands as written.
+
 ### 4.1 Headers
 
 **Headers** (**HTTP-13**–**HTTP-22**) are an insertion-ordered immutable multimap: one entry per distinct name,
@@ -166,6 +172,12 @@ take it directly, not through its `ToString()` (**HTTP-21**).
 insertion order; no value equality; original casing lost; no inbound lenient path; `HttpHeaderName` rejects
 surrounding whitespace instead of trimming, echoes raw control characters in its message, and is a struct.
 
+**As built (2026-10-02, phase 2a):** built. `Headers` validates, folds with `System.Text.Ascii` for writes and lookups,
+enumerates the original casing of the first insertion in insertion order, has value equality and typed `HttpHeaderName`
+overloads; `Set` takes `string?` and `null` removes; `HttpHeaderName` is a `sealed record` and `HttpHeaderSyntax` exposes
+the four predicates a transport re-checks with. `HTTP-22` (interning) is declined (`docs/first-release.md`). *Dated
+correction*.
+
 ### 4.2 Request and Response
 
 **Request** (**HTTP-6**, **HTTP-7**, **HTTP-8**, **HTTP-46**, **HTTP-47**) carries exactly method, absolute URL,
@@ -200,6 +212,12 @@ correctly but never disposes the *original* response, so the live connection out
 equality and a message without the input; `Response` lacks request and reason phrase; `EnsureSuccessAsync` throws on
 3xx and does not dispose the original response.
 
+**As built (2026-10-02, phase 2a):** built. `Request` is get-only, rejects a body on GET, HEAD, TRACE and CONNECT, compares
+by value (bodies by bytes where in-memory, by identity for streams; §11 item 39), carries the redacted input in its URL
+errors (§10 entry 29) and prints a redacted `ToString()`; `Response` carries its `Request` and `ReasonPhrase`, requires its
+`Protocol`, has the five classification helpers and `WithBody`, and an absent body is an empty buffered body (§10 entry
+30). `EnsureSuccessAsync` was fixed in phase 1. *Dated correction*.
+
 ### 4.3 Status, Method, Protocol
 
 **Status** (**HTTP-10**–**HTTP-12**) is a `readonly record struct` with the code as its identity and the canonical
@@ -233,6 +251,11 @@ anything else — built as specified. The `H2PriorKnowledge` and `Quic` members 
 **As built (d45e64b):** built — diverges: `Status` lacks `IsError` and a recognised-code lookup; `Method` is a
 struct, has public `IsSafe`/`IsIdempotent` properties and the latter includes TRACE, and `Method.Of` accepts any
 non-blank string.
+
+**As built (2026-10-02, phase 2a):** built. `Status` has `IsError` and `TryGetKnown`; `Method` is a `sealed record`, `Of`
+validates an RFC 9110 token and folds the nine verbs, the public `IsSafe`/`IsIdempotent` are removed in favour of the
+internal `RetryFacts.IdempotentMethods` (TRACE is no longer idempotent), and `Protocol.Parse` folds with ASCII rules.
+*Dated correction*.
 
 ### 4.4 Media type, query, and conditional helpers
 
@@ -281,6 +304,10 @@ emits dates through the RFC 1123 formatter of §8.
 
 **As built (d45e64b):** partial: `MediaType` is built but accepts empty parameter values and control characters in
 values, and has no `TryParse`; `Query`, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` are not built.
+
+**As built (2026-10-02, phase 2a):** built. `MediaType.Parse` rejects an empty raw parameter value and `Charset` is `null`
+for `utf-7`; `Query` (with the internal `Rfc3986` encoder), `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions`
+are built (§11 item 40 records the obs-text interaction). *Dated correction*.
 
 ### 4.5 Bodies
 

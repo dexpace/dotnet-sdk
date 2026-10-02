@@ -38,7 +38,7 @@ public sealed class DexpacePipelineTests
     [Fact]
     public async Task CreateDefault_ReturnsWorkingPipeline_200()
     {
-        var transport = new ScriptedTransport([new Response(Status.Ok)]);
+        var transport = new ScriptedTransport([TestResponses.Create(Status.Ok)]);
         var pipeline = DexpacePipeline.CreateDefault(transport);
 
         var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
@@ -55,7 +55,7 @@ public sealed class DexpacePipelineTests
         var transport = new RecordingTransport(req =>
         {
             authHeaderSeen = req.Headers.Get("x-auth-stamped");
-            return new Response(Status.Ok);
+            return TestResponses.Create(Status.Ok);
         });
 
         var pipeline = DexpacePipeline.CreateDefault(transport, authPolicy: auth);
@@ -70,8 +70,8 @@ public sealed class DexpacePipelineTests
     public async Task CreateDefault_RetryIsWired_503ThenSuccess()
     {
         var transport = new ScriptedTransport([
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = DexpacePipeline.CreateDefault(transport, timeProvider: new InstantTimeProvider());
 
@@ -85,7 +85,7 @@ public sealed class DexpacePipelineTests
     public async Task CreateDefault_RetryExhausted_ReturnsLastResponse()
     {
         // MaxRetryAttempts = 3 → 1 initial + 3 retries = 4 calls
-        var transport = new ScriptedTransport(Enumerable.Repeat(new Response(Status.ServiceUnavailable), 4));
+        var transport = new ScriptedTransport(Enumerable.Repeat(TestResponses.Create(Status.ServiceUnavailable), 4));
         var pipeline = DexpacePipeline.CreateDefault(transport, timeProvider: new InstantTimeProvider());
 
         var response = await pipeline.SendAsync(MakeGetRequest(), ZeroRetryOptions(), TestContext.Current.CancellationToken);
@@ -109,10 +109,10 @@ public sealed class DexpacePipelineTests
             finalUrl = req.Url;
             if (req.Url.AbsolutePath == "/v1/items")
             {
-                return new Response(Status.Found, redirectHeaders);
+                return TestResponses.Create(Status.Found, headers: redirectHeaders);
             }
 
-            return new Response(Status.Ok);
+            return TestResponses.Create(Status.Ok);
         });
 
         var pipeline = DexpacePipeline.CreateDefault(transport);
@@ -133,10 +133,7 @@ public sealed class DexpacePipelineTests
 
         public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
         {
-            context.Request = context.Request with
-            {
-                Headers = context.Request.Headers.Set(header, value),
-            };
+            context.Request = context.Request.WithHeaders(context.Request.Headers.Set(header, value));
             await continuation.RunAsync(context).ConfigureAwait(false);
         }
     }

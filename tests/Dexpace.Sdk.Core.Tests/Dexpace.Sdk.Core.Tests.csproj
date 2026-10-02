@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Shared test vectors (roadmap constraint 10): tests/vectors/** is copied beside the test assembly. -->
+    <None Include="..\vectors\**\*.json" Link="vectors\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
     <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
   </ItemGroup>

@@ -29,11 +29,11 @@ public class PaginationStrategiesTests
     private static Request BaseRequest(string url) => Request.Get(url);
 
     // A no-op response used when the response is not examined by the strategy under test.
-    private static Response EmptyResponse => new(Status.Ok);
+    private static Response EmptyResponse => TestResponses.Create(Status.Ok);
 
     // A response that carries a Link header.
     private static Response ResponseWithLink(string linkHeaderValue) =>
-        new(Status.Ok, Headers.Empty.With("Link", linkHeaderValue));
+        TestResponses.Create(Status.Ok, headers: Headers.Empty.With("Link", linkHeaderValue));
 
     // ── ScriptedTransport + ScriptedSerde (mirrors PageableTests helpers) ──────────────────────
 
@@ -395,8 +395,8 @@ public class PaginationStrategiesTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var strategy = PaginationStrategies.Cursor<TestPage>(p => p.Cursor, "cursor");
 

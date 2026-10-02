@@ -1,0 +1,24 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/http/rfc3986.test.ts (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only)",
+  "cases": [
+    { "op": "encode", "input": "a b", "expected": "a%20b" },
+    { "op": "encode", "input": "c+d", "expected": "c%2Bd" },
+    { "op": "encode", "input": "a/b", "expected": "a%2Fb" },
+    { "op": "encode", "input": "a*b", "expected": "a%2Ab" },
+    { "op": "encode", "input": "!*'()", "expected": "%21%2A%27%28%29" },
+    { "op": "encode", "input": "AZaz09-._~", "expected": "AZaz09-._~" },
+    { "op": "encode", "input": "a b+c/d*e~f", "expected": "a%20b%2Bc%2Fd%2Ae~f" },
+    { "op": "encode", "input": "é", "expected": "%C3%A9" },
+    { "op": "encode", "input": "€", "expected": "%E2%82%AC" },
+    { "op": "encode", "input": "😀", "expected": "%F0%9F%98%80" },
+    { "op": "encode", "input": "", "expected": "" },
+    { "op": "decode", "input": "a%20b", "expected": "a b" },
+    { "op": "decode", "input": "a+b", "expected": "a+b" },
+    { "op": "decode", "input": "a%2Bb", "expected": "a+b" },
+    { "op": "decode", "input": "%C3%A9", "expected": "é" },
+    { "op": "decode", "input": "%f0%9f%98%80", "expected": "😀" },
+    { "op": "decode", "input": "a%zzb+c%2", "expected": "a%zzb+c%2" },
+    { "op": "decode", "input": "100%", "expected": "100%" },
+    { "op": "decode", "input": "", "expected": "" }
+  ]
+}

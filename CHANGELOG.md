@@ -72,6 +72,25 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Changed
 
+- **Breaking:** `Response`'s constructor is now `(Request, Status, Protocol, Headers?, ResponseBody?, string?)` and
+  `protocol` has no default (`HTTP-4`, `HTTP-6`); `Response` gains `Request`, `ReasonPhrase`, `IsRedirect`,
+  `IsClientError`, `IsServerError`, `IsError`, `IsInformational` and `WithBody`.
+- **Breaking:** `Request`'s `Method`, `Url`, `Headers` and `Body` are get-only, so `with { … }` no longer compiles:
+  use `WithMethod`, `WithUrl`, `WithHeaders`, `WithBody`, `WithoutBody`; `Request` rejects a body on GET, HEAD, TRACE
+  and CONNECT (`HTTP-7`); equality uses `Url.AbsoluteUri` ordinally, `Headers` by value, and in-memory bodies by bytes
+  (`HTTP-46`); `ToString()` prints the method and the redacted URL; a URL error carries the redacted input
+  (`HTTP-47`); `RedirectPolicy` returns a 3xx whose `Location` is not http(s) unfollowed instead of sending the hop.
+- **Breaking:** `HttpHeaderName` is a `sealed record` (was a `readonly record struct`) and `ToString()` returns
+  `Original`; `Headers` enumerates and lists the original casing in insertion order, `Names` is an
+  `IReadOnlyList<string>`, `Set` takes `string?` and `null` removes the header, `Headers` has value equality, and a
+  non-ASCII lookup name no longer folds (`HTTP-13`, `HTTP-14`–`HTTP-16`, `HTTP-21`); `ApiKeyCredential`'s
+  `HttpHeaderName? header` parameter is now a nullable reference rather than `Nullable<HttpHeaderName>`.
+- **Breaking:** `Method` is a `sealed record` (was a `readonly record struct`); `Method.IsSafe` and
+  `Method.IsIdempotent` are no longer public; `Method.Of` rejects a non-token with `ArgumentException`; `RetryPolicy`
+  no longer retries TRACE (`HTTP-9`).
+- **Breaking:** `MediaType.Parse` rejects a parameter with an empty raw value (`a=`); `MediaType.Charset` returns
+  `null` for `utf-7` instead of throwing (`HTTP-24`, `HTTP-53`). `Protocol.Parse` folds case with ASCII rules
+  (`HTTP-33`).
 - **The target-framework floor is now `net10.0` only** (roadmap decision D1), for every package; `net8.0` is no
   longer targeted. `Microsoft.Extensions.Logging.Abstractions` moves to the 10.0.x band (10.0.12), which drops the
   `System.Diagnostics.DiagnosticSource` package from core's dependency closure.
@@ -91,6 +110,16 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   notes under `docs/knowledge/notes/`, and the five it conforms to read `conformed`. A merge replaces everything
   cited from a re-harvested source, `drift` also checks each entry's own sha, and `scripts/knowledge` tags settled
   conflicts `[kept]` / `[conformed]`.
+- `docs/sdk-documentation/http.md`; architecture tests pinning `HTTP-1`, `HTTP-2`, `HTTP-5` and `SEAM-29`.
+- `ETag`, `HttpRange` and `RequestConditions` (`HTTP-48`–`HTTP-50`).
+- `HttpHeaderSyntax` — the public header-syntax predicates transports re-check with (`HTTP-17`–`HTTP-20`); typed
+  `HttpHeaderName` overloads; six `HttpHeaderName.WellKnown` names; the adapter sends custom header names in their
+  original casing.
+- `Status.IsError`, `Status.TryGetKnown` (`HTTP-10`, `HTTP-11`).
+- `Query` and `Query.Builder` — RFC 3986 query multimap with ordinal names, total lenient `Parse` and deterministic
+  `Encode` (`HTTP-28`–`HTTP-31`); internal `Rfc3986` component encoder (`HTTP-32`).
+- `RequestOptions` — per-call `Timeout`, `MaxRetries` and `Tags` (`HTTP-34`, `HTTP-35`); the type the phase 2b
+  transport SPI carries.
 - Quality gates (design §9): public-API files (`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`) per package,
   banned-API list (`BannedSymbols.txt`), license-header, method-length (`MA0051`), naming, `CA1031`, `CA2000` and
   `CA2007` rules; trim/AOT analyzers and package validation on every library; a cross-OS CI matrix with locked

@@ -65,10 +65,7 @@ public sealed class SetDatePolicyTests
         var fixedUtc = new DateTimeOffset(2026, 6, 14, 9, 0, 0, TimeSpan.Zero);
         var provider = new FakeTimeProvider(fixedUtc);
 
-        var staleRequest = MakeRequest() with
-        {
-            Headers = Headers.Empty.Set("Date", "Mon, 01 Jan 2024 00:00:00 GMT")
-        };
+        var staleRequest = MakeRequest().WithHeaders(Headers.Empty.Set("Date", "Mon, 01 Jan 2024 00:00:00 GMT"));
 
         var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()

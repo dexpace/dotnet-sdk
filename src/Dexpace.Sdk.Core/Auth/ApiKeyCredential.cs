@@ -21,7 +21,9 @@ public sealed class ApiKeyCredential
     /// </summary>
     /// <param name="key">The API key value. Must not be null or empty.</param>
     /// <param name="header">
-    /// The header to stamp. Defaults to <see cref="HttpHeaderName.WellKnown.Authorization"/>.
+    /// The header to stamp. Defaults to <see cref="HttpHeaderName.WellKnown.Authorization"/> when
+    /// <see langword="null"/>. <b>Breaking:</b> <see cref="HttpHeaderName"/> is now a class, so this parameter is a
+    /// nullable reference rather than a <c>Nullable&lt;HttpHeaderName&gt;</c>.
     /// </param>
     /// <param name="scheme">
     /// An optional scheme prefix (e.g. <c>"Bearer"</c>). When <see langword="null"/> the key

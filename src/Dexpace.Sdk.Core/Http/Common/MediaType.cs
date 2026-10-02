@@ -41,8 +41,14 @@ public sealed record MediaType
     /// <summary>
     /// The <c>charset</c> parameter resolved through <see cref="Encoding.GetEncoding(string)"/>, or
     /// <see langword="null"/> if absent or unknown. Unknown-charset failures are swallowed so callers
-    /// can fall back to a default rather than wrapping every access in a try/catch.
+    /// can fall back to a default rather than wrapping every access in a try/catch (HTTP-24).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Breaking (behaviour):</b> returns <see langword="null"/> instead of throwing for <c>utf-7</c>, whose
+    /// <see cref="NotSupportedException"/> used to escape the getter.
+    /// </para>
+    /// </remarks>
     public Encoding? Charset
     {
         get
@@ -56,7 +62,7 @@ public sealed record MediaType
             {
                 return Encoding.GetEncoding(value);
             }
-            catch (ArgumentException)
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {
                 return null;
             }
@@ -121,6 +127,13 @@ public sealed record MediaType
     /// Parses a media type in <c>type/subtype;key=value</c> form. Quoted-string parameter values
     /// are unescaped. This is the inverse of <see cref="ToString"/> for every constructible value.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Breaking (behaviour):</b> a parameter with an empty raw value (<c>a=</c>) is rejected (HTTP-53); it used to
+    /// parse as an empty value. A quoted empty value (<c>a=""</c>) is accepted, and an empty segment after a
+    /// semicolon (<c>text/plain;</c>) is still skipped.
+    /// </para>
+    /// </remarks>
     /// <param name="value">The header value to parse.</param>
     /// <returns>The parsed <see cref="MediaType"/>.</returns>
     /// <exception cref="ArgumentException">
@@ -156,6 +169,13 @@ public sealed record MediaType
 
             var key = TrimOws(segment[..eq]);
             var raw = TrimOws(segment[(eq + 1)..]);
+            if (raw.Length == 0)
+            {
+                throw new ArgumentException(
+                    $"Malformed media-type parameter at position {i}: the value must not be empty.",
+                    nameof(value));
+            }
+
             parameters[key] = Unquote(raw);
         }
 

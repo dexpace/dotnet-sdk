@@ -40,6 +40,9 @@ public readonly record struct Status
     /// <summary>True when the code is a server error (5xx).</summary>
     public bool IsServerError => Code is >= 500 and <= 599;
 
+    /// <summary>True when the code is a client or server error (400–599; HTTP-11).</summary>
+    public bool IsError => Code is >= 400 and <= 599;
+
     /// <summary>
     /// Returns the <see cref="Status"/> for <paramref name="code"/>. Canonical codes resolve to a
     /// cached instance with a populated <see cref="Name"/>; others get a name-less instance.
@@ -48,6 +51,14 @@ public readonly record struct Status
     /// <returns>A <see cref="Status"/> wrapping the code.</returns>
     public static Status FromCode(int code) =>
         s_knownByCode.TryGetValue(code, out var known) ? known : new Status(code, null);
+
+    /// <summary>
+    /// Looks up a canonical status without constructing a name-less one (HTTP-10). <see cref="FromCode"/> stays total.
+    /// </summary>
+    /// <param name="code">The numeric status code.</param>
+    /// <param name="status">The canonical status when found; otherwise <see langword="default"/>.</param>
+    /// <returns><see langword="true"/> when <paramref name="code"/> is one of the named statuses.</returns>
+    public static bool TryGetKnown(int code, out Status status) => s_knownByCode.TryGetValue(code, out status);
 
     /// <summary>Equality over <see cref="Code"/> only.</summary>
     public bool Equals(Status other) => Code == other.Code;

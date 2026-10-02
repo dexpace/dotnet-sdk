@@ -1,0 +1,35 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/http/http-range.test.ts (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only and has no HttpRange test)",
+  "note": "op=parse: Parse(input) gives offset and length (null when absent) and ToString() equals the input verbatim. op=invalid: Parse(input) throws ArgumentException and TryParse returns false. op=canonical: the factory named by kind renders as text.",
+  "cases": [
+    { "op": "parse", "input": "bytes=0-499", "offset": 0, "length": 500 },
+    { "op": "parse", "input": "Bytes=0-9", "offset": 0, "length": 10 },
+    { "op": "parse", "input": "BYTES=0-9", "offset": 0, "length": 10 },
+    { "op": "parse", "input": "bytes=5-5", "offset": 5, "length": 1 },
+    { "op": "parse", "input": "bytes=-500", "offset": null, "length": 500 },
+    { "op": "parse", "input": "bytes=9500-", "offset": 9500, "length": null },
+    { "op": "parse", "input": "bytes=0-9223372036854775806", "offset": 0, "length": 9223372036854775807 },
+
+    { "op": "invalid", "input": "items=0-4" },
+    { "op": "invalid", "input": "bytes=0-499,600-999" },
+    { "op": "invalid", "input": "bytes=0x10-0x20" },
+    { "op": "invalid", "input": "bytes=0-99999999999999999999" },
+    { "op": "invalid", "input": "bytes=5-3" },
+    { "op": "invalid", "input": "bytes=-0" },
+    { "op": "invalid", "input": "bytes=" },
+    { "op": "invalid", "input": "bytes=-" },
+    { "op": "invalid", "input": "bytes=1.5-2" },
+    { "op": "invalid", "input": "bytes=a-b" },
+    { "op": "invalid", "input": "bytes=+1-2" },
+    { "op": "invalid", "input": "bytes=1 - 2" },
+    { "op": "invalid", "input": "0-9" },
+    { "op": "invalid", "input": "bytes 0-9" },
+    { "op": "invalid", "input": "" },
+    { "op": "invalid", "input": "   " },
+
+    { "op": "canonical", "kind": "bounded", "offset": 0, "length": 500, "text": "bytes=0-499" },
+    { "op": "canonical", "kind": "bounded", "offset": 10, "length": 1, "text": "bytes=10-10" },
+    { "op": "canonical", "kind": "suffix", "offset": null, "length": 500, "text": "bytes=-500" },
+    { "op": "canonical", "kind": "from", "offset": 9500, "length": null, "text": "bytes=9500-" }
+  ]
+}

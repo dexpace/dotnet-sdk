@@ -77,10 +77,7 @@ public sealed class BasicAuthPolicyTests
     public async Task ProcessAsync_ReplacesExistingAuthorizationHeader()
     {
         var credential = new BasicCredential("bob", "hunter2");
-        var request = MakeRequest() with
-        {
-            Headers = Headers.Empty.Set("Authorization", "Bearer old-token")
-        };
+        var request = MakeRequest().WithHeaders(Headers.Empty.Set("Authorization", "Bearer old-token"));
 
         var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()
@@ -116,10 +113,7 @@ public sealed class BasicAuthPolicyTests
         Assert.NotNull(context.Request.Headers.Get("Authorization"));
 
         // Simulate cross-origin redirect.
-        context.Request = MakeRequest("https://other-service.example.org/callback") with
-        {
-            Headers = Headers.Empty
-        };
+        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty);
 
         var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);
@@ -144,7 +138,7 @@ public sealed class BasicAuthPolicyTests
         Assert.NotNull(context.Request.Headers.Get("Authorization"));
 
         // Reset the header.
-        context.Request = context.Request with { Headers = Headers.Empty };
+        context.Request = context.Request.WithHeaders(Headers.Empty);
 
         // Same origin: must stamp again.
         await policy.ProcessAsync(context, runner);
@@ -173,10 +167,7 @@ public sealed class BasicAuthPolicyTests
         Assert.NotNull(context.Request.Headers.Get("Authorization"));
 
         // Simulate a cross-origin redirect with the stale Authorization header still in place.
-        context.Request = MakeRequest("https://other-service.example.org/callback") with
-        {
-            Headers = Headers.Empty.Set("Authorization", $"Basic {Base64("user", "pass")}")
-        };
+        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("Authorization", $"Basic {Base64("user", "pass")}"));
 
         var foreignTransport = new RecordingTransport();
         var foreignRunner = new PipelineRunner([], 0, foreignTransport);

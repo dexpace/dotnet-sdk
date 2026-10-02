@@ -52,7 +52,7 @@ public static class PaginationStrategies
                 return null;
             }
 
-            return current with { Url = SetQueryParameter(current.Url, queryParameter, cursor) };
+            return current.WithUrl(SetQueryParameter(current.Url, queryParameter, cursor));
         };
     }
 
@@ -91,7 +91,7 @@ public static class PaginationStrategies
             var raw = GetQueryParameter(current.Url, queryParameter);
             var currentPage = raw is not null && int.TryParse(raw, out var n) ? n : 1;
             var nextPage = currentPage + 1;
-            return current with { Url = SetQueryParameter(current.Url, queryParameter, nextPage.ToString(CultureInfo.InvariantCulture)) };
+            return current.WithUrl(SetQueryParameter(current.Url, queryParameter, nextPage.ToString(CultureInfo.InvariantCulture)));
         };
     }
 
@@ -133,10 +133,8 @@ public static class PaginationStrategies
                 return null;
             }
 
-            // Scheme guard: only allow http/https to prevent untrusted Link headers
-            // (mailto:, javascript:, ftp:, etc.) from producing a request with a
-            // non-http/https URL. Note: `current with { Url = ... }` bypasses the
-            // Request constructor's scheme validation, so the guard must live here.
+            // Scheme guard: only allow http/https so an untrusted Link header (mailto:, javascript:, ftp:, etc.)
+            // ends pagination (null) instead of reaching WithUrl, which would throw on such a URL.
             if (!resolved.IsAbsoluteUri
                 || (!resolved.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
                     && !resolved.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
@@ -144,7 +142,7 @@ public static class PaginationStrategies
                 return null;
             }
 
-            return current with { Url = resolved };
+            return current.WithUrl(resolved);
         };
     }
 

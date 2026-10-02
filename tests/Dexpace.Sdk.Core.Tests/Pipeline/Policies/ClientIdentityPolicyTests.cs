@@ -56,10 +56,7 @@ public sealed class ClientIdentityPolicyTests
         var options = new DexpaceClientOptions { UserAgent = "override-agent/2.0" };
 
         // Request already carries an old User-Agent
-        var request = MakeRequest() with
-        {
-            Headers = Headers.Empty.Set("User-Agent", "old-agent/0.1")
-        };
+        var request = MakeRequest().WithHeaders(Headers.Empty.Set("User-Agent", "old-agent/0.1"));
 
         var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder()

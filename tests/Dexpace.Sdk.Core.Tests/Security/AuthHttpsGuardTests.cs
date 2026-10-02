@@ -81,15 +81,16 @@ public sealed class AuthHttpsGuardTests
     [Fact]
     public async Task The_rejection_is_not_retried()
     {
+        var scenarioRequest = Request.Get("http://api.example.com/");
         // The verified defect: 503 then 200 to an http:// URL stamped "Authorization: Basic" on both attempts.
-        var transport = new ScriptedTransport(new Response(Status.ServiceUnavailable), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable, scenarioRequest), TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))
             .Build(transport);
 
         await Assert.ThrowsAsync<SdkException>(
-            () => pipeline.SendAsync(Request.Get("http://api.example.com/"), s_options, TestContext.Current.CancellationToken).AsTask());
+            () => pipeline.SendAsync(scenarioRequest, s_options, TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(0, transport.CallCount);
     }
@@ -111,17 +112,18 @@ public sealed class AuthHttpsGuardTests
     [Fact]
     public async Task A_credential_free_cross_origin_downgrade_hop_skips_the_guard()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/start");
         // AUTH-29 / XCUT-16's carve-out: the permitted https -> http hop carries no credential, so it proceeds.
         var transport = new ScriptedTransport(
-            TestResponses.Redirect(302, "http://other.example.org/landing"),
-            new Response(Status.Ok));
+            TestResponses.Redirect(302, "http://other.example.org/landing", scenarioRequest),
+            TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RedirectPolicy())
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))
             .Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/start"), s_options, TestContext.Current.CancellationToken);
+            scenarioRequest, s_options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal(2, transport.CallCount);

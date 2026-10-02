@@ -1307,3 +1307,43 @@ conflict list of the entry above; nothing else in it changes.
   survive under its old sha; `drift` compares every entry's sha with its source's row; `scripts/knowledge` tags
   settled conflicts. The styleguide overlay is not a tracked source (the structure gate refuses nested roots), so
   `drift` cannot see an overlay change; `docs/knowledge/README.md` says to re-read it by hand on a re-vendor.
+
+**2026-10-02 — Phase 2a: the domain model is built (nine steps, four rulings).** Sub-phase 2a landed on branch
+`phase-2a-domain-model` as the plan's nine pull-request-sized steps, each code and tests together and each green on the
+whole local gate: (1) `RequestOptions`; (2) `Query`, the internal `Rfc3986` encoder and the vector-loading
+infrastructure (`tests/vectors/`, `TestSupport`'s `VectorFile`); (3) `Status.IsError`/`TryGetKnown`, `Protocol.Parse`'s
+ASCII fold and the `MediaType` rules (`HTTP-24`, `HTTP-53`); (4) `Method` as a `sealed record` with `RetryFacts`; (5) the
+`Headers` and `HttpHeaderName` rebuild with the public `HttpHeaderSyntax` predicates, the adapter's predicate swap and
+the original-casing wire proof, carrying phase 1's S1 obligations; (6) `Request` (get-only, validating, value equality,
+redacted `ToString`); (7) `Response` (its `Request`, `ReasonPhrase`, classifications, `WithBody`), the adapter threading
+both, and `TestResponses.Create` over the test sites; (8) `ETag`, `HttpRange`, `RequestConditions`; (9) the two
+architecture tests, an AOT-smoke check over every new type, the user page `docs/sdk-documentation/http.md`, the
+[checklist](phase2/phase2a/2026-10-02-phase2a-domain-model-checklist.md) and this note. 40 of 42 rows are ✅, `HTTP-8` is
+N/A and `HTTP-22` is declined in `docs/first-release.md`.
+
+- **The four rulings of 2026-09-30 stand as designed.** `P2a-2`: a URL error carries the input as `UrlRedactor`
+  renders it (design §10 entry 29). `Request.ToString()` prints the method and the redacted URL. `P2a-3`: an obs-text
+  `ETag` is valid, but `RequestConditions.ApplyTo` throws because the outbound header rule wins (design §11 item 40).
+  `Method.Of` keeps folding the nine verbs ASCII-case-insensitively (the class remark now says so). `P2a-1` (body by
+  value for in-memory bodies, identity for streams) is design §11 item 39; `P2a-4` (an absent response body is an
+  empty buffered body, now replayable) is §10 entry 30. The design §4 "As built" lines carry dated corrections.
+- **The one `Security` assertion that changed value** is `HeaderInjectionValidationTests.Surrounding_whitespace_is_trimmed_from_a_name_before_validation`
+  (`"x-trace"` → `"X-Trace"`, with two assertions added); every other edit to a `Security` file is a mechanical
+  constructor or `with` rewrite, listed in the checklist.
+- **Breaking changes** (ten, all in `CHANGELOG.md` `[Unreleased]`): `Method` and `HttpHeaderName` are classes;
+  `Method.IsSafe`/`IsIdempotent` are no longer public and TRACE is no longer retried; `Method.Of` rejects a non-token;
+  `Headers` enumerates original casing in insertion order, `Names` is an `IReadOnlyList<string>`, `Set` takes `string?`,
+  equality is by value; `Request` is get-only (`with` no longer compiles) and rejects a body on GET, HEAD, TRACE and
+  CONNECT; `RedirectPolicy` returns a non-http(s) `Location` unfollowed; `Response`'s constructor takes the request and a
+  required `Protocol`; `MediaType.Parse` rejects `a=` and `Charset` is `null` for `utf-7`.
+- **Hand-off to 2b.** `RequestOptions` is merged, the only hard gate of 2b's SPI signature. `Query` and `Rfc3986` are
+  available for the projection (`SEAM-27`). `Response`'s constructor changed, and 2b's SPI PR edits the same files
+  (`SystemNetHttpClient.cs`, `tests/Dexpace.Sdk.TestSupport/Transports/*`, `tests/Dexpace.Sdk.AotSmoke/SmokeChecks.cs`);
+  whichever lands second re-derives the `ToResponse(HttpResponseMessage, Request)` change rather than resolving hunks.
+  8b maps the well-known header casing (`TRANSPORT-10`) and bounds `RequestOptions.Timeout` (`TRANSPORT-5`); 6a grows
+  `RetryFacts` and consumes `RequestOptions.MaxRetries = 0`; 3a and 3b inherit `RequestBody`'s equality contract and
+  `HttpHeaderSyntax`.
+- **Sources and namespaces.** The vector files cite `nodejs-sdk@c0ff3fd`: the plan's `nodejs-sdk@54aeed4` and
+  `ruby-sdk@5b17395` are not in the local clones, and the Ruby repository holds documents only. The test classes for the
+  `Http/Request/` and `Http/Response/` folders use the namespaces `…Tests.Http.Requests` and `…Responses`.
+- **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.

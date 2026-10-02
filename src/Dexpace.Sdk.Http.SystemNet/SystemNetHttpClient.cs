@@ -197,7 +197,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         try
         {
             ThrowIfRedirected(sentUri, response);
-            return ToResponse(response);
+            return ToResponse(response, request);
         }
         catch
         {
@@ -260,14 +260,14 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 
     private static bool IsWireSafe(string name, IReadOnlyList<string> values)
     {
-        if (name.Length == 0 || !name.All(HeaderSyntaxOnWire.IsTokenChar))
+        if (!HttpHeaderSyntax.IsValidName(name))
         {
             return false;
         }
 
         foreach (var value in values)
         {
-            if (!value.All(HeaderSyntaxOnWire.IsOutboundValueChar))
+            if (!HttpHeaderSyntax.IsValidOutboundValue(value))
             {
                 return false;
             }
@@ -302,7 +302,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             // path can be re-used on a request. Drop it rather than let HttpClient write it or fail the whole send.
             if (!IsWireSafe(name, values))
             {
-                s_unsafeHeaderDropped(_logger, HeaderSyntaxOnWire.Escape(name), null);
+                s_unsafeHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
                 continue;
             }
 
@@ -318,7 +318,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return message;
     }
 
-    private Response ToResponse(HttpResponseMessage message)
+    private Response ToResponse(HttpResponseMessage message, Request request)
     {
         var headersBuilder = new Headers.Builder();
         AddInbound(headersBuilder, message.Headers);
@@ -329,7 +329,10 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         var status = Status.FromCode((int)message.StatusCode);
         var headers = headersBuilder.Build();
         var protocol = MapProtocol(message.Version);
-        return new Response(status, headers, new HttpResponseMessageBody(message), protocol);
+
+        // HTTP-6: the reason phrase is carried only when it is header-safe; an unsafe one is dropped, never thrown on.
+        var reason = message.ReasonPhrase is { } phrase && HttpHeaderSyntax.IsValidInboundValue(phrase) ? phrase : null;
+        return new Response(request, status, protocol, headers, new HttpResponseMessageBody(message), reason);
     }
 
     // HTTP-19 / XCUT-18: received headers take the lenient path; one that fails even that is dropped on its own
@@ -346,7 +349,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
                 }
                 catch (ArgumentException)
                 {
-                    s_inboundHeaderDropped(_logger, HeaderSyntaxOnWire.Escape(name), null);
+                    s_inboundHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
                 }
             }
         }
@@ -360,45 +363,4 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         { Major: 3 } => Protocol.Quic,
         _ => Protocol.Http11,
     };
-
-    /// <summary>
-    /// The wire-boundary re-check's predicates: the same rules the model enforces (RFC 9110 token names; HTAB and
-    /// printable ASCII values), restated here because an adapter builds against core's public surface only.
-    /// </summary>
-    private static class HeaderSyntaxOnWire
-    {
-        public static bool IsTokenChar(char c) =>
-            c is >= 'a' and <= 'z'
-            or >= 'A' and <= 'Z'
-            or >= '0' and <= '9'
-            or '!' or '#' or '$' or '%' or '&' or '\'' or '*'
-            or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~';
-
-        public static bool IsOutboundValueChar(char c) => c == '\t' || c is >= ' ' and <= '~';
-
-        // A name for a log line: every non-token character becomes \uXXXX, so a forged CR/LF cannot inject a line
-        // (HTTP-20).
-        public static string Escape(string name)
-        {
-            if (name.All(IsTokenChar))
-            {
-                return name;
-            }
-
-            var sb = new StringBuilder(name.Length + 8);
-            foreach (var c in name)
-            {
-                if (IsTokenChar(c))
-                {
-                    sb.Append(c);
-                }
-                else
-                {
-                    sb.Append(CultureInfo.InvariantCulture, $"\\u{(int)c:X4}");
-                }
-            }
-
-            return sb.ToString();
-        }
-    }
 }

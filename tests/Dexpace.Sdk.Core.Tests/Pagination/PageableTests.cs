@@ -39,7 +39,7 @@ public class PageableTests
 
     // nextRequest: advance to the next URL when HasNext is true.
     private static Request? NextRequest(TestPage page, Response _, Request current) =>
-        page.HasNext ? current with { Url = new Uri(current.Url + "/next") } : null;
+        page.HasNext ? current.WithUrl(new Uri(current.Url + "/next")) : null;
 
     // Convenience: create a pageable over TestPage with int items.
     private static AsyncPageable<int> MakePageable(
@@ -102,8 +102,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, _) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -126,8 +126,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -147,7 +147,7 @@ public class PageableTests
         var page1 = new TestPage([7, 8, 9], HasNext: false);
 
         var serde = new ScriptedSerde<TestPage>(page1);
-        var (pipeline, _) = MakePipeline(new Response(Status.Ok));
+        var (pipeline, _) = MakePipeline(TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -168,7 +168,7 @@ public class PageableTests
         var page1 = new TestPage([1], HasNext: false);
 
         var serde = new ScriptedSerde<TestPage>(page1);
-        var (pipeline, _) = MakePipeline(new Response(Status.Ok, responseHeaders));
+        var (pipeline, _) = MakePipeline(TestResponses.Create(Status.Ok, headers: responseHeaders));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -195,8 +195,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -217,8 +217,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -242,7 +242,7 @@ public class PageableTests
             .ToArray();
 
         var serde = new ScriptedSerde<TestPage>(scriptedPages);
-        var responses = Enumerable.Range(0, 5).Select(_ => new Response(Status.Ok)).ToArray();
+        var responses = Enumerable.Range(0, 5).Select(_ => TestResponses.Create(Status.Ok)).ToArray();
         var (pipeline, transport) = MakePipeline(responses);
 
         var pageable = MakePageable(pipeline, serde, maxPages: 2);
@@ -266,9 +266,9 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2, page3);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde, maxPages: null);
 
@@ -290,7 +290,7 @@ public class PageableTests
         var page1 = new TestPage([1, 2], HasNext: false); // HasNext=false → nextRequest returns null
 
         var serde = new ScriptedSerde<TestPage>(page1);
-        var (pipeline, transport) = MakePipeline(new Response(Status.Ok));
+        var (pipeline, transport) = MakePipeline(TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -317,8 +317,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, _) = MakePipeline(
-            new Response(Status.Ok, body: body1),
-            new Response(Status.Ok, body: body2));
+            TestResponses.Create(Status.Ok, body: body1),
+            TestResponses.Create(Status.Ok, body: body2));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -457,8 +457,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok, body: body1),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok, body: body1),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -481,7 +481,7 @@ public class PageableTests
 
         // Serde throws on the first call.
         var throwingSerde = new ThrowingOnFirstCallSerde();
-        var (pipeline, _) = MakePipeline(new Response(Status.Ok, body: body));
+        var (pipeline, _) = MakePipeline(TestResponses.Create(Status.Ok, body: body));
 
         var pageable = Pageable.Create<TestPage, int>(
             pipeline,
@@ -510,8 +510,8 @@ public class PageableTests
 
         var serde = new ScriptedSerde<TestPage>(p1, p2);
         var (pipeline, transport) = MakePipeline(
-            new Response(Status.Ok),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok),
+            TestResponses.Create(Status.Ok));
 
         var pageable = MakePageable(pipeline, serde);
 
@@ -532,7 +532,7 @@ public class PageableTests
     [Fact]
     public async Task Cancellation_AlreadyCancelled_Items_ThrowsBeforeTransport()
     {
-        var (pipeline, transport) = MakePipeline(new Response(Status.Ok));
+        var (pipeline, transport) = MakePipeline(TestResponses.Create(Status.Ok));
         var serde = new ScriptedSerde<TestPage>(new TestPage([1], HasNext: false));
         var pageable = MakePageable(pipeline, serde);
 
@@ -550,7 +550,7 @@ public class PageableTests
     [Fact]
     public async Task Cancellation_AlreadyCancelled_Pages_ThrowsBeforeTransport()
     {
-        var (pipeline, transport) = MakePipeline(new Response(Status.Ok));
+        var (pipeline, transport) = MakePipeline(TestResponses.Create(Status.Ok));
         var serde = new ScriptedSerde<TestPage>(new TestPage([1], HasNext: false));
         var pageable = MakePageable(pipeline, serde);
 
