@@ -1,0 +1,33 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/http/query-params.test.ts (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only)",
+  "note": "op=encode: add every pair in order (a null value is a flag) and expect Encode() == encoded. op=parse: Parse(input) enumerates exactly pairs, grouped by name in first-appearance order; encoded is Encode() of the result.",
+  "cases": [
+    { "op": "encode", "pairs": [["q", "a b"], ["plus", "c+d"]], "encoded": "q=a%20b&plus=c%2Bd" },
+    { "op": "encode", "pairs": [["path", "a/b"], ["star", "a*b"]], "encoded": "path=a%2Fb&star=a%2Ab" },
+    { "op": "encode", "pairs": [], "encoded": "" },
+    { "op": "encode", "pairs": [["x", "1"], ["x", "2"], ["y", "3"]], "encoded": "x=1&x=2&y=3" },
+    { "op": "encode", "pairs": [["x", "1"], ["y", "2"], ["x", "3"]], "encoded": "x=1&x=3&y=2" },
+    { "op": "encode", "pairs": [["a b", "1"], ["k=v", "x&y"]], "encoded": "a%20b=1&k%3Dv=x%26y" },
+    { "op": "encode", "pairs": [["emoji", "😀"]], "encoded": "emoji=%F0%9F%98%80" },
+    { "op": "encode", "pairs": [["flag", null]], "encoded": "flag=" },
+    { "op": "encode", "pairs": [["page", "1"], ["Page", "2"]], "encoded": "page=1&Page=2" },
+
+    { "op": "parse", "input": null, "pairs": [], "encoded": "" },
+    { "op": "parse", "input": "", "pairs": [], "encoded": "" },
+    { "op": "parse", "input": "   ", "pairs": [], "encoded": "" },
+    { "op": "parse", "input": "?", "pairs": [], "encoded": "" },
+    { "op": "parse", "input": "?a=1", "pairs": [["a", "1"]], "encoded": "a=1" },
+    { "op": "parse", "input": "flag", "pairs": [["flag", ""]], "encoded": "flag=" },
+    { "op": "parse", "input": "flag=", "pairs": [["flag", ""]], "encoded": "flag=" },
+    { "op": "parse", "input": "a=1&&b=2", "pairs": [["a", "1"], ["b", "2"]], "encoded": "a=1&b=2" },
+    { "op": "parse", "input": "&", "pairs": [], "encoded": "" },
+    { "op": "parse", "input": "=v&a=1", "pairs": [["a", "1"]], "encoded": "a=1" },
+    { "op": "parse", "input": "a=%zz", "pairs": [["a", "%zz"]], "encoded": "a=%25zz" },
+    { "op": "parse", "input": "a=b+c", "pairs": [["a", "b+c"]], "encoded": "a=b%2Bc" },
+    { "op": "parse", "input": "a=%20", "pairs": [["a", " "]], "encoded": "a=%20" },
+    { "op": "parse", "input": "a=b=c", "pairs": [["a", "b=c"]], "encoded": "a=b%3Dc" },
+    { "op": "parse", "input": "a=1&a=2&b=3&a=4", "pairs": [["a", "1"], ["a", "2"], ["a", "4"], ["b", "3"]], "encoded": "a=1&a=2&a=4&b=3" },
+    { "op": "parse", "input": "%E2%82%AC=%F0%9F%98%80", "pairs": [["€", "😀"]], "encoded": "%E2%82%AC=%F0%9F%98%80" },
+    { "op": "parse", "input": "page=1&Page=2", "pairs": [["page", "1"], ["Page", "2"]], "encoded": "page=1&Page=2" }
+  ]
+}

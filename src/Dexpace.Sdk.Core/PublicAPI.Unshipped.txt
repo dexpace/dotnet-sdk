@@ -181,6 +181,23 @@ Dexpace.Sdk.Core.Http.Common.Protocol.Http11 = 1 -> Dexpace.Sdk.Core.Http.Common
 Dexpace.Sdk.Core.Http.Common.Protocol.Http2 = 2 -> Dexpace.Sdk.Core.Http.Common.Protocol
 Dexpace.Sdk.Core.Http.Common.Protocol.Quic = 4 -> Dexpace.Sdk.Core.Http.Common.Protocol
 Dexpace.Sdk.Core.Http.Common.ProtocolExtensions
+Dexpace.Sdk.Core.Http.Request.Query
+Dexpace.Sdk.Core.Http.Request.Query.Builder
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Add(string! name, string? value) -> Dexpace.Sdk.Core.Http.Request.Query.Builder!
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Build() -> Dexpace.Sdk.Core.Http.Request.Query!
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Builder() -> void
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Remove(string! name) -> Dexpace.Sdk.Core.Http.Request.Query.Builder!
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Set(string! name, System.Collections.Generic.IEnumerable<string?>! values) -> Dexpace.Sdk.Core.Http.Request.Query.Builder!
+Dexpace.Sdk.Core.Http.Request.Query.Builder.Set(string! name, string? value) -> Dexpace.Sdk.Core.Http.Request.Query.Builder!
+Dexpace.Sdk.Core.Http.Request.Query.Contains(string! name) -> bool
+Dexpace.Sdk.Core.Http.Request.Query.Count.get -> int
+Dexpace.Sdk.Core.Http.Request.Query.Encode() -> string!
+Dexpace.Sdk.Core.Http.Request.Query.Equals(Dexpace.Sdk.Core.Http.Request.Query? other) -> bool
+Dexpace.Sdk.Core.Http.Request.Query.Get(string! name) -> string?
+Dexpace.Sdk.Core.Http.Request.Query.GetAll(string! name) -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Http.Request.Query.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<string!, System.Collections.Generic.IReadOnlyList<string!>!>>!
+Dexpace.Sdk.Core.Http.Request.Query.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Http.Request.Query.ToBuilder() -> Dexpace.Sdk.Core.Http.Request.Query.Builder!
 Dexpace.Sdk.Core.Http.Request.Request
 Dexpace.Sdk.Core.Http.Request.Request.<Clone>$() -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.Request.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
@@ -311,6 +328,9 @@ override Dexpace.Sdk.Core.Http.Common.MediaType.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.MediaType.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.Method.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.Method.ToString() -> string!
+override Dexpace.Sdk.Core.Http.Request.Query.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Http.Request.Query.GetHashCode() -> int
+override Dexpace.Sdk.Core.Http.Request.Query.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Request.Request.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Request.Request.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.Request.ToString() -> string!
@@ -377,6 +397,10 @@ static Dexpace.Sdk.Core.Http.Common.Method.Put.get -> Dexpace.Sdk.Core.Http.Comm
 static Dexpace.Sdk.Core.Http.Common.Method.Trace.get -> Dexpace.Sdk.Core.Http.Common.Method
 static Dexpace.Sdk.Core.Http.Common.ProtocolExtensions.Parse(string! value) -> Dexpace.Sdk.Core.Http.Common.Protocol
 static Dexpace.Sdk.Core.Http.Common.ProtocolExtensions.ToWireString(this Dexpace.Sdk.Core.Http.Common.Protocol protocol) -> string!
+static Dexpace.Sdk.Core.Http.Request.Query.Empty.get -> Dexpace.Sdk.Core.Http.Request.Query!
+static Dexpace.Sdk.Core.Http.Request.Query.Parse(string? query) -> Dexpace.Sdk.Core.Http.Request.Query!
+static Dexpace.Sdk.Core.Http.Request.Query.operator !=(Dexpace.Sdk.Core.Http.Request.Query? left, Dexpace.Sdk.Core.Http.Request.Query? right) -> bool
+static Dexpace.Sdk.Core.Http.Request.Query.operator ==(Dexpace.Sdk.Core.Http.Request.Query? left, Dexpace.Sdk.Core.Http.Request.Query? right) -> bool
 static Dexpace.Sdk.Core.Http.Request.Request.Create(Dexpace.Sdk.Core.Http.Common.Method method, string! url, Dexpace.Sdk.Core.Http.Common.Headers? headers = null, Dexpace.Sdk.Core.Http.Request.RequestBody? body = null) -> Dexpace.Sdk.Core.Http.Request.Request!
 static Dexpace.Sdk.Core.Http.Request.Request.Get(string! url) -> Dexpace.Sdk.Core.Http.Request.Request!
 static Dexpace.Sdk.Core.Http.Request.Request.operator !=(Dexpace.Sdk.Core.Http.Request.Request? left, Dexpace.Sdk.Core.Http.Request.Request? right) -> bool
