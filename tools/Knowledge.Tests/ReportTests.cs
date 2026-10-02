@@ -250,6 +250,83 @@ public sealed class PhaseTests : KnowledgeFixture
     }
 
     [Fact]
+    public void Phase_CreditsEveryCanonicalIdInAnEnDashRange()
+    {
+        // The fixture's canonical HTTP IDs are 1, 2, 7 and 70, so HTTP-1–HTTP-7 is three of them: a range
+        // credits what appendix C defines, not every integer between the endpoints.
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", "Covers HTTP-1\u2013HTTP-7 in one sweep.\n");
+        var (stdout, _, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("2026-01-02-phase3-ranges.md — 3: HTTP-1 HTTP-2 HTTP-7", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("HTTP-1\u2013HTTP-7")]
+    [InlineData("HTTP-1-HTTP-7")]
+    [InlineData("HTTP-1\u20137")]
+    [InlineData("HTTP-1-7")]
+    [InlineData("HTTP-1..HTTP-7")]
+    [InlineData("HTTP-1..7")]
+    [InlineData("HTTP-1 \u2013 HTTP-7")]
+    public void Phase_ExpandsEveryRangeForm(string citation)
+    {
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", $"Covers {citation}.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 3: HTTP-1 HTTP-2 HTTP-7", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_ExpandsARangeToTheEntriesItCites()
+    {
+        // HTTP-2 sits strictly inside the range and is named nowhere else, so its entry reaches the corpus
+        // query only through the expansion.
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", "Covers HTTP-1\u2013HTTP-70.\n");
+        var (stdout, _, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("4 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+        Assert.Contains(RollupHttp2, stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_LeavesAnUnexpandableRangeAsItsEndpoints()
+    {
+        // Reversed, spanning two prefixes, and a short form with spaces (`- 3 retries` is prose, not a
+        // range): none of them is a range, so each credits only the IDs it actually names.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Reversed HTTP-7\u2013HTTP-1. Across HTTP-2\u2013PAGE-1. Prose HTTP-70 - 3 retries.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 5: HTTP-1 HTTP-2 HTTP-7 HTTP-70 PAGE-1", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_DoesNotExpandARangeOverAPrefixAppendixCDoesNotDefine()
+    {
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Encode as UTF-8\u2013UTF-16, hash with SHA-1..5, see RFC-7230\u20137235, and HTTP-70.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 1: HTTP-70", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_BoundsAnAbsurdRangeByAppendixC()
+    {
+        // The expansion walks appendix C's IDs for the prefix, never the integers between the endpoints, so a
+        // typo'd upper bound costs nothing and credits no more than the family holds. The typo'd endpoint is
+        // still credited as written — the corpus query warns that it is not in appendix C, which is the
+        // feedback a bad citation deserves — and a bound too large for a long behaves the same way.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "HTTP-1\u2013HTTP-9999999999 and PAGE-2..99999999999999999999999999.\n");
+        var (stdout, stderr, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("— 9: HTTP-1 HTTP-2 HTTP-7 HTTP-70 HTTP-9999999999 PAGE-2..4 PAGE-99999999999999999999999999", stdout, StringComparison.Ordinal);
+        Assert.Contains("HTTP-9999999999 is not in appendix C", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AMalformedPhase_Exits2()
     {
         var (_, stderr, status) = Run("--phase", "nope");

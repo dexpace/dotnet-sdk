@@ -289,7 +289,7 @@ no section, role, or exact-token ID matching. Two exceptions, both narrow:
 | `--role spec\|design\|styleguide\|review` | Provenance role. `review` only ever appears in `notes/`. Today only `spec` has entries. |
 | `--chapter 9` | Styleguide chapter. The only way in from a "styleguide N.M" citation (after a harvest). |
 | `--grep <regex>` / bare words | Case-insensitive; `--grep` is a .NET regex, bare words are literal. |
-| `--phase 5a` | Every ID cited by `docs/work/*/phase5/phase5a/*.md`, queried as one `--req` set, per-document breakdown first. Exits 0 with a message when the phase has no documents yet. |
+| `--phase 5a` | Every ID cited by `docs/work/*/phase5/phase5a/*.md`, queried as one `--req` set, per-document breakdown first. A cited range (`HTTP-1–HTTP-35`, `HTTP-1-HTTP-35`, `HTTP-1..35`) counts every appendix-C ID between its ends. Exits 0 with a message when the phase has no documents yet. |
 | `--gaps HTTP` / `--gaps HTTP PAGE` / `--gaps HTTP,PAGE` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited apart. The pointer is checked against the chapters: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line. **Answers without a corpus.** |
 | `--prefix-info HTTP` | One prefix only (a second word exits 2). Subsystem, owning chapter, ID count and level split, from appendix C. **Answers without a corpus.** |
 | `--brief` | Drop `<sub>` lines, ~30% smaller — but you lose the citation. |

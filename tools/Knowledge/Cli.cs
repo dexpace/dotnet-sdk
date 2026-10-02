@@ -37,7 +37,9 @@ internal sealed class Cli
           <words...>          bare words: case-insensitive substrings, all must match
                               (after --gaps they are further prefixes instead)
           --phase <N[x]>      every requirement ID cited by docs/work/*/phaseN[/phaseNx]/,
-                              queried as one --req set, with the per-document breakdown
+                              queried as one --req set, with the per-document breakdown.
+                              A range (HTTP-1–HTTP-35, HTTP-1-HTTP-35, HTTP-1..35) is credited
+                              with every appendix-C ID between its ends
           --brief             drop <sub> provenance lines (~30% less output)
           --json              machine-readable records
           --list-topics       every topic with entry, distinct-ID and note counts
@@ -280,7 +282,7 @@ internal sealed class Cli
         var extraReqs = new List<string>();
         if (options.Phase is not null)
         {
-            var documents = new PhaseDocs(paths, appendix.Prefixes).Find(options.Phase);
+            var documents = new PhaseDocs(paths, appendix).Find(options.Phase);
             var phase = PhaseDocs.Normalize(options.Phase);
             if (documents.Count == 0)
             {
