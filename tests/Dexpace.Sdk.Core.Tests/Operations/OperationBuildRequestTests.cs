@@ -107,6 +107,26 @@ public sealed class OperationBuildRequestTests
         }
     }
 
+    [Theory]
+    [InlineData("https://h/c", "/{x}/pets", "https://h/c//pets")]
+    [InlineData("https://h/c", "/pets/{x}/toys", "https://h/c/pets//toys")]
+    [InlineData("https://h/c/", "/{x}/pets", "https://h/c//pets")]
+    [InlineData("https://h/c", "//pets/{x}", "https://h/c//pets/")]
+    [InlineData("https://h/", "/{x}/pets", "https://h//pets")]
+    public void An_empty_path_value_keeps_its_segment_wherever_it_sits(string baseText, string template, string expected)
+    {
+        var descriptor = new OperationDescriptor
+        {
+            Method = Method.Get,
+            PathTemplate = template,
+            PathParameters = new Dictionary<string, string> { ["x"] = string.Empty }.ToImmutableDictionary(StringComparer.Ordinal),
+        };
+
+        var request = descriptor.BuildRequest(new Uri(baseText, UriKind.Absolute));
+
+        Assert.Equal(expected, request.Url.AbsoluteUri);
+    }
+
     [Fact]
     public void The_built_request_carries_method_headers_and_the_same_body_instance()
     {

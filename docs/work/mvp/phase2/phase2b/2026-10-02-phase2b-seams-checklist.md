@@ -9,7 +9,11 @@ branch `40-phase-2b-seams`, stacked on `39-phase-2a-domain-model`, following the
 
 The scope is 29 rows: `SEAM-1`–`SEAM-28` and `SEAM-30`. Every test below is `[Trait("Category", "Unit")]` and lives in
 `tests/Dexpace.Sdk.Core.Tests/` unless a project is named; phase 2b adds no `Security` class. **Red evidence:** for a new
-type or a changed signature the red was the compile error (the plan's convention 1). Behavioural reds were observed for
+type or a changed signature in PRs 1 to 4 the red was the compile error (the plan's convention 1). PR 5 is the exception:
+its production types (`OperationDescriptor`, `PathTemplateSyntax`, `OperationUrlComposer`, `BuildRequest`) were written before
+their tests, so `OperationDescriptorTests` and `OperationBuildRequestTests` were never seen red. Break-proofs (temporary breaks, never committed) were run afterwards for the rendered-dot-segment check, the
+lone-surrogate check (5 failures), the ordinal re-basing (1 failure) and the `PathTemplate` null check (1 failure); the
+other PR 5 tests are pins whose failure on a break was not demonstrated. Behavioural reds were observed for
 `AsBlocking` (task 3.3: three failures on the as-built adapter), for the `SEAM-1`, `SEAM-2` and `SEAM-30` guards and for
 a sample of the pins (below). A test marked "pin" holds behaviour that was already correct.
 

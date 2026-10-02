@@ -23,15 +23,19 @@ internal static class OperationUrlComposer
         var basePath = baseAddress.GetComponents(UriComponents.Path, UriFormat.UriEscaped);
         var path = rendered.Length == 0
             ? basePath
-            : basePath.TrimEnd('/') + "/" + rendered.TrimStart('/');
+            : DropOneTrailingSlash(basePath) + (rendered[0] == '/' ? string.Empty : "/") + rendered;
 
         var query = JoinQueries(
             baseAddress.GetComponents(UriComponents.Query, UriFormat.UriEscaped),
             operation.Query.Encode());
 
-        var text = new StringBuilder(baseAddress.GetLeftPart(UriPartial.Authority))
-            .Append('/')
-            .Append(path.TrimStart('/'));
+        var text = new StringBuilder(baseAddress.GetLeftPart(UriPartial.Authority));
+        if (path.Length == 0 || path[0] != '/')
+        {
+            text.Append('/');
+        }
+
+        text.Append(path);
         if (query.Length > 0)
         {
             text.Append('?').Append(query);
@@ -104,6 +108,10 @@ internal static class OperationUrlComposer
             }
         }
     }
+
+    // At most one separator is dropped, so an empty placeholder value keeps its segment wherever it sits (SEAM-27).
+    private static string DropOneTrailingSlash(string value) =>
+        value.EndsWith('/') ? value[..^1] : value;
 
     private static string JoinQueries(string baseQuery, string operationQuery)
     {
