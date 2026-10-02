@@ -23,9 +23,12 @@ internal static partial class Ids
     // A token that may open a range: groups 1-2 are the lower ID's prefix and number. What follows is either
     // the full form, `-HTTP-35` (groups 3-4, a space allowed each side of the separator), or the short form,
     // `-35` (group 5, no spaces, because `HTTP-1 - 3 retries` is prose). The separator is an en dash
-    // (U+2013), a hyphen or `..`, the last being what Compress prints.
+    // (U+2013), a hyphen or `..`, the last being what Compress prints. Up to two backticks or asterisks may
+    // close the lower endpoint and open the upper one, because docs/work writes `REDIR-3`–`REDIR-5` and
+    // **HTTP-28**–**HTTP-32** far more often than a bare range. An underscore is left out: `_` is a word
+    // character, so `\b` already refuses `_HTTP-1_` as a token and a range could not rescue it.
     [GeneratedRegex(
-        @"\b([A-Z][A-Z0-9]{1,11})-([0-9]+)(?: ?(?:[\u2013-]|\.\.) ?([A-Z][A-Z0-9]{1,11})-([0-9]+)|(?:[\u2013-]|\.\.)([0-9]+))?\b",
+        @"\b([A-Z][A-Z0-9]{1,11})-([0-9]+)(?:[`*]{0,2} ?(?:[\u2013-]|\.\.) ?[`*]{0,2}([A-Z][A-Z0-9]{1,11})-([0-9]+)|[`*]{0,2}(?:[\u2013-]|\.\.)([0-9]+))?\b",
         RegexOptions.ECMAScript)]
     private static partial Regex TokenOrRange();
 
@@ -60,16 +63,19 @@ internal static partial class Ids
     /// <summary>
     /// <see cref="Extract"/>, plus the range a document writes in place of listing every ID:
     /// <c>HTTP-1–HTTP-35</c>, <c>HTTP-1-HTTP-35</c>, <c>HTTP-1..HTTP-35</c> and the short forms
-    /// <c>HTTP-1–35</c>, <c>HTTP-1-35</c>, <c>HTTP-1..35</c>. A range credits its two endpoints as written and
-    /// every ID appendix C defines between them — never an integer appendix C lacks, and never more than the
-    /// family holds, so a typo'd upper bound is bounded by the table rather than by the number.
+    /// <c>HTTP-1–35</c>, <c>HTTP-1-35</c>, <c>HTTP-1..35</c>, each also with its endpoints in code or bold
+    /// (<c>`HTTP-1`–`HTTP-35`</c>, <c>**HTTP-1**–**HTTP-35**</c>). A range credits its two endpoints as written
+    /// and every ID appendix C defines between them — never an integer appendix C lacks, and never more than
+    /// the family holds, so a typo'd upper bound is bounded by the table rather than by the number.
     /// </summary>
     /// <remarks>
     /// A range is one prefix at both ends. A reversed one (<c>HTTP-35–HTTP-1</c>), one that spans two prefixes
     /// (<c>HTTP-1–PAGE-2</c>) and one over a prefix the allowlist does not hold (<c>UTF-8–UTF-16</c>) expand to
-    /// nothing, and each endpoint is then credited exactly as <see cref="Extract"/> would credit it. Used for
-    /// a phase's documents, whose job is to say what they depend on; harvested entries and spec prose keep
-    /// the exact-token reading, because their citations are a pinned, reviewed set.
+    /// nothing, and each endpoint the text names is then credited exactly as <see cref="Extract"/> would
+    /// credit it. A short form's upper end is only a number, so it names an ID solely by closing a valid range:
+    /// <c>HTTP-35–3</c> and <c>RETRY-12-3 times</c> credit the lower ID alone, never <c>HTTP-3</c> or
+    /// <c>RETRY-3</c>. Used for a phase's documents, whose job is to say what they depend on; harvested entries
+    /// and spec prose keep the exact-token reading, because their citations are a pinned, reviewed set.
     /// </remarks>
     public static List<string> ExtractWithRanges(
         string text, IReadOnlySet<string> prefixes, IReadOnlyList<string> canonicalIds)
@@ -82,16 +88,23 @@ internal static partial class Ids
             var lower = match.Groups[2].Value;
             Credit(found, seen, prefixes, $"{prefix}-{lower}");
 
-            var upper = match.Groups[4].Success ? match.Groups[4] : match.Groups[5];
+            var fullForm = match.Groups[4].Success;
+            var upper = fullForm ? match.Groups[4] : match.Groups[5];
             if (!upper.Success)
             {
                 continue;
             }
 
-            var upperPrefix = match.Groups[3].Success ? match.Groups[3].Value : prefix;
+            var (low, high) = (ParseNumber(lower), ParseNumber(upper.Value));
+            if (!fullForm && low > high)
+            {
+                // `HTTP-35–3`, `RETRY-12-3 times`: a bare number is an ID only as the end of a valid range.
+                continue;
+            }
+
+            var upperPrefix = fullForm ? match.Groups[3].Value : prefix;
             if (upperPrefix == prefix)
             {
-                var (low, high) = (ParseNumber(lower), ParseNumber(upper.Value));
                 var between = canonicalIds.Where(id => PrefixOf(id) == prefix && NumberOf(id) >= low && NumberOf(id) <= high);
                 foreach (var id in Sort(between))
                 {

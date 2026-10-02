@@ -63,6 +63,19 @@ public sealed class CanonicalIdsTests : KnowledgeFixture
     [InlineData("HTTP-1 \u2013 HTTP-7")]
     [InlineData("HTTP-1 - HTTP-7")]
     [InlineData("HTTP-1 .. HTTP-7")]
+    // docs/work writes a range with each endpoint in code or bold (`REDIR-3`–`REDIR-5` 120 times, **HTTP-28**–**HTTP-32**
+    // 77 times, against 9 bare), so the markup around an endpoint is part of the form, not noise before it.
+    [InlineData("`HTTP-1`\u2013`HTTP-7`")]
+    [InlineData("`HTTP-1`-`HTTP-7`")]
+    [InlineData("`HTTP-1`..`HTTP-7`")]
+    [InlineData("`HTTP-1` \u2013 `HTTP-7`")]
+    [InlineData("`HTTP-1\u2013HTTP-7`")]
+    [InlineData("**HTTP-1**\u2013**HTTP-7**")]
+    [InlineData("**HTTP-1**\u2013 **HTTP-7**")]
+    [InlineData("**HTTP-1\u2013HTTP-7**")]
+    [InlineData("*HTTP-1*\u2013*HTTP-7*")]
+    [InlineData("`HTTP-1`\u20137")]
+    [InlineData("**HTTP-1**..7")]
     public void Ranges_ExpandToTheCanonicalIdsBetweenTheEndpoints(string citation)
     {
         // Appendix C holds HTTP-1, 2, 7 and 70 in the fixture, so 3 to 6 are not requirements to credit.
@@ -85,6 +98,16 @@ public sealed class CanonicalIdsTests : KnowledgeFixture
     [InlineData("HTTP-1\u2013PAGE-2", new[] { "HTTP-1", "PAGE-2" })]
     [InlineData("HTTP-1 \u2013 7", new[] { "HTTP-1" })]
     [InlineData("HTTP-70 - 3 retries", new[] { "HTTP-70" })]
+    // A short form's upper end is a bare number, which names an ID only by closing a range. Reversed, it is a
+    // count or a size (`HTTP-70-3 times`), and crediting HTTP-3 would invent a citation the text never makes.
+    [InlineData("HTTP-70\u20133", new[] { "HTTP-70" })]
+    [InlineData("HTTP-7-2 times", new[] { "HTTP-7" })]
+    [InlineData("HTTP-70..7", new[] { "HTTP-70" })]
+    [InlineData("`HTTP-70`\u20133", new[] { "HTTP-70" })]
+    // Markup does not make a non-range one.
+    [InlineData("`HTTP-7` and `HTTP-1`, **HTTP-2** - prose", new[] { "HTTP-7", "HTTP-1", "HTTP-2" })]
+    [InlineData("`HTTP-7`\u2013`HTTP-1`", new[] { "HTTP-7", "HTTP-1" })]
+    [InlineData("`HTTP-1`\u2013`PAGE-2`", new[] { "HTTP-1", "PAGE-2" })]
     [InlineData("UTF-8\u2013UTF-16 and SHA-1..5", new string[0])]
     public void Ranges_ThatAreNotRangesCreditOnlyTheEndpointsTheyName(string citation, string[] expected)
     {

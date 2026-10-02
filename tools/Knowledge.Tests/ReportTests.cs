@@ -177,10 +177,6 @@ public sealed class PrefixInfoTests : KnowledgeFixture
     }
 }
 
-/// <summary>
-/// <c>--prefix P --section rules</c> answers a different question from <c>--prefix-info P</c>, so a
-/// narrowed prefix query says which canonical IDs it did NOT cover, and why each is missing.
-/// </summary>
 public sealed class PrefixCoverageTests : KnowledgeFixture
 {
     [Fact]
@@ -269,6 +265,15 @@ public sealed class PhaseTests : KnowledgeFixture
     [InlineData("HTTP-1..HTTP-7")]
     [InlineData("HTTP-1..7")]
     [InlineData("HTTP-1 \u2013 HTTP-7")]
+    [InlineData("HTTP-1 - HTTP-7")]
+    [InlineData("HTTP-1 .. HTTP-7")]
+    [InlineData("`HTTP-1`\u2013`HTTP-7`")]
+    [InlineData("`HTTP-1`-`HTTP-7`")]
+    [InlineData("`HTTP-1`..`HTTP-7`")]
+    [InlineData("**HTTP-1**\u2013**HTTP-7**")]
+    [InlineData("**HTTP-1**\u2013 **HTTP-7**")]
+    [InlineData("`HTTP-1\u2013HTTP-7`")]
+    [InlineData("`HTTP-1`\u20137")]
     public void Phase_ExpandsEveryRangeForm(string citation)
     {
         WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", $"Covers {citation}.\n");
@@ -324,6 +329,29 @@ public sealed class PhaseTests : KnowledgeFixture
         Assert.Equal(0, status);
         Assert.Contains("— 9: HTTP-1 HTTP-2 HTTP-7 HTTP-70 HTTP-9999999999 PAGE-2..4 PAGE-99999999999999999999999999", stdout, StringComparison.Ordinal);
         Assert.Contains("HTTP-9999999999 is not in appendix C", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_DoesNotCreditABareNumberItsRangeCannotClose()
+    {
+        // `HTTP-70-3 times` and a reversed `HTTP-70\u20133` name HTTP-70 and a number; HTTP-3 is not cited.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Reversed HTTP-70\u20133. Retried HTTP-7-2 times. Marked `HTTP-70`\u20131.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 2: HTTP-7 HTTP-70", stdout, StringComparison.Ordinal);
+        Assert.Contains("2 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_ReadsTheMarkdownWrappedRangesTheRealPhaseDocumentsUse()
+    {
+        // The two spellings docs/work uses almost exclusively: each endpoint in code, or each in bold.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Covers `PAGE-1`\u2013`PAGE-3` and **HTTP-1**\u2013**HTTP-7**.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 6: HTTP-1 HTTP-2 HTTP-7 PAGE-1..3", stdout, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -38,8 +38,9 @@ internal sealed class Cli
                               (after --gaps they are further prefixes instead)
           --phase <N[x]>      every requirement ID cited by docs/work/*/phaseN[/phaseNx]/,
                               queried as one --req set, with the per-document breakdown.
-                              A range (HTTP-1–HTTP-35, HTTP-1-HTTP-35, HTTP-1..35) is credited
-                              with every appendix-C ID between its ends
+                              A range (HTTP-1–HTTP-35, HTTP-1-HTTP-35, HTTP-1..HTTP-35, or the
+                              short HTTP-1–35, each endpoint also in `code` or **bold**) is
+                              credited with every appendix-C ID between its ends
           --brief             drop <sub> provenance lines (~30% less output)
           --json              machine-readable records
           --list-topics       every topic with entry, distinct-ID and note counts
