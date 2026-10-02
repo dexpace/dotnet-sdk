@@ -241,6 +241,7 @@ Dexpace.Sdk.Core.Http.Response.Status
 Dexpace.Sdk.Core.Http.Response.Status.Code.get -> int
 Dexpace.Sdk.Core.Http.Response.Status.Equals(Dexpace.Sdk.Core.Http.Response.Status other) -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsClientError.get -> bool
+Dexpace.Sdk.Core.Http.Response.Status.IsError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsInformational.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsRedirect.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsServerError.get -> bool
@@ -431,6 +432,7 @@ static Dexpace.Sdk.Core.Http.Response.Status.NoContent.get -> Dexpace.Sdk.Core.H
 static Dexpace.Sdk.Core.Http.Response.Status.NotFound.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.NotModified.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.Ok.get -> Dexpace.Sdk.Core.Http.Response.Status
+static Dexpace.Sdk.Core.Http.Response.Status.TryGetKnown(int code, out Dexpace.Sdk.Core.Http.Response.Status status) -> bool
 static Dexpace.Sdk.Core.Http.Response.Status.operator !=(Dexpace.Sdk.Core.Http.Response.Status left, Dexpace.Sdk.Core.Http.Response.Status right) -> bool
 static Dexpace.Sdk.Core.Http.Response.Status.operator ==(Dexpace.Sdk.Core.Http.Response.Status left, Dexpace.Sdk.Core.Http.Response.Status right) -> bool
 static Dexpace.Sdk.Core.Http.Response.Status.PartialContent.get -> Dexpace.Sdk.Core.Http.Response.Status
