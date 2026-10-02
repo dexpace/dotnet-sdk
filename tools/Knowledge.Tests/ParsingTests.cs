@@ -47,6 +47,95 @@ public sealed class CanonicalIdsTests : KnowledgeFixture
     }
 
     [Fact]
+    public void PlainExtraction_StillReadsARangeAsItsTwoEndpoints()
+    {
+        // Entry citations and spec prose keep the exact-token reading; only --phase expands ranges.
+        Assert.Equal(["HTTP-1", "HTTP-7"], Ids.Extract("HTTP-1\u2013HTTP-7", Appendix.Prefixes));
+    }
+
+    [Theory]
+    [InlineData("HTTP-1\u2013HTTP-7")]
+    [InlineData("HTTP-1-HTTP-7")]
+    [InlineData("HTTP-1\u20137")]
+    [InlineData("HTTP-1-7")]
+    [InlineData("HTTP-1..HTTP-7")]
+    [InlineData("HTTP-1..7")]
+    [InlineData("HTTP-1 \u2013 HTTP-7")]
+    [InlineData("HTTP-1 - HTTP-7")]
+    [InlineData("HTTP-1 .. HTTP-7")]
+    // docs/work writes a range with each endpoint in code or bold (`REDIR-3`–`REDIR-5` 120 times, **HTTP-28**–**HTTP-32**
+    // 77 times, against 9 bare), so the markup around an endpoint is part of the form, not noise before it.
+    [InlineData("`HTTP-1`\u2013`HTTP-7`")]
+    [InlineData("`HTTP-1`-`HTTP-7`")]
+    [InlineData("`HTTP-1`..`HTTP-7`")]
+    [InlineData("`HTTP-1` \u2013 `HTTP-7`")]
+    [InlineData("`HTTP-1\u2013HTTP-7`")]
+    [InlineData("**HTTP-1**\u2013**HTTP-7**")]
+    [InlineData("**HTTP-1**\u2013 **HTTP-7**")]
+    [InlineData("**HTTP-1\u2013HTTP-7**")]
+    [InlineData("*HTTP-1*\u2013*HTTP-7*")]
+    [InlineData("`HTTP-1`\u20137")]
+    [InlineData("**HTTP-1**..7")]
+    public void Ranges_ExpandToTheCanonicalIdsBetweenTheEndpoints(string citation)
+    {
+        // Appendix C holds HTTP-1, 2, 7 and 70 in the fixture, so 3 to 6 are not requirements to credit.
+        Assert.Equal(
+            ["HTTP-1", "HTTP-2", "HTTP-7"],
+            Ids.ExtractWithRanges($"See {citation}.", Appendix.Prefixes, Appendix.AllIds));
+    }
+
+    [Fact]
+    public void Ranges_ComposeWithPlainTokensInFirstSeenOrderWithoutDuplicates()
+    {
+        Assert.Equal(
+            ["PAGE-4", "PAGE-1", "PAGE-2", "PAGE-3", "HTTP-70"],
+            Ids.ExtractWithRanges("PAGE-4, then PAGE-1..4, then HTTP-70 and PAGE-2.", Appendix.Prefixes, Appendix.AllIds));
+    }
+
+    [Theory]
+    [InlineData("HTTP-7\u2013HTTP-1", new[] { "HTTP-7", "HTTP-1" })]
+    [InlineData("HTTP-2..2", new[] { "HTTP-2" })]
+    [InlineData("HTTP-1\u2013PAGE-2", new[] { "HTTP-1", "PAGE-2" })]
+    [InlineData("HTTP-1 \u2013 7", new[] { "HTTP-1" })]
+    [InlineData("HTTP-70 - 3 retries", new[] { "HTTP-70" })]
+    // A short form's upper end is a bare number, which names an ID only by closing a range. Reversed, it is a
+    // count or a size (`HTTP-70-3 times`), and crediting HTTP-3 would invent a citation the text never makes.
+    [InlineData("HTTP-70\u20133", new[] { "HTTP-70" })]
+    [InlineData("HTTP-7-2 times", new[] { "HTTP-7" })]
+    [InlineData("HTTP-70..7", new[] { "HTTP-70" })]
+    [InlineData("`HTTP-70`\u20133", new[] { "HTTP-70" })]
+    // Markup does not make a non-range one.
+    [InlineData("`HTTP-7` and `HTTP-1`, **HTTP-2** - prose", new[] { "HTTP-7", "HTTP-1", "HTTP-2" })]
+    [InlineData("`HTTP-7`\u2013`HTTP-1`", new[] { "HTTP-7", "HTTP-1" })]
+    [InlineData("`HTTP-1`\u2013`PAGE-2`", new[] { "HTTP-1", "PAGE-2" })]
+    [InlineData("UTF-8\u2013UTF-16 and SHA-1..5", new string[0])]
+    public void Ranges_ThatAreNotRangesCreditOnlyTheEndpointsTheyName(string citation, string[] expected)
+    {
+        Assert.Equal(expected, Ids.ExtractWithRanges(citation, Appendix.Prefixes, Appendix.AllIds));
+    }
+
+    [Fact]
+    public void Ranges_ReadBackWhatCompressPrints()
+    {
+        // `--phase` prints a document's IDs as `PAGE-1..4`; a checklist pasted from that output must credit the same set.
+        string[] ids = ["HTTP-7", "PAGE-1", "PAGE-2", "PAGE-3", "PAGE-4"];
+        var compressed = Ids.Compress(ids);
+        Assert.Equal("HTTP-7 PAGE-1..4", compressed);
+        Assert.Equal(ids, Ids.ExtractWithRanges(compressed, Appendix.Prefixes, Appendix.AllIds));
+    }
+
+    [Fact]
+    public void Ranges_AreBoundedByAppendixCNotByTheirEndpoints()
+    {
+        Assert.Equal(
+            ["HTTP-1", "HTTP-2", "HTTP-7", "HTTP-70", "HTTP-9999999999"],
+            Ids.ExtractWithRanges("HTTP-1\u2013HTTP-9999999999", Appendix.Prefixes, Appendix.AllIds));
+        Assert.Equal(
+            ["PAGE-3", "PAGE-4", "PAGE-99999999999999999999999999"],
+            Ids.ExtractWithRanges("PAGE-3..99999999999999999999999999", Appendix.Prefixes, Appendix.AllIds));
+    }
+
+    [Fact]
     public void Ids_SortNumericallyWithinAPrefix()
     {
         Assert.Equal(

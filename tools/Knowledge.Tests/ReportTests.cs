@@ -51,6 +51,96 @@ public sealed class GapsTests : KnowledgeFixture
     }
 
     [Fact]
+    public void Gaps_TakesSpaceSeparatedPrefixesLikeTheCommaForm()
+    {
+        // The roadmap documents the flag as `--gaps <PREFIXES>`, and a shell user types a space. The second
+        // prefix used to be a bare query word that --gaps never looked at: the report covered HTTP alone
+        // and exited 0 (#31).
+        var (stdout, stderr, status) = Run("--gaps", "HTTP", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Equal("", stderr);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+        Assert.Equal(Run("--gaps", "HTTP,SEAM").Stdout, stdout);
+    }
+
+    [Fact]
+    public void Gaps_MixesSpaceAndCommaFormsAndTakesWordsAfterOtherOptions()
+    {
+        var (stdout, _, status) = Run("--gaps", "HTTP,PAGE", "--brief", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("PAGE — Pagination", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("in 3 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_AWordThatIsNotAPrefixIsAUsageErrorNotASilentDrop()
+    {
+        var (stdout, stderr, status) = Run("--gaps", "HTTP", "UTF");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("'UTF' is not a requirement-ID prefix in appendix C", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_ReportsEachPrefixOnceHoweverItWasSpelled()
+    {
+        var (stdout, _, status) = Run("--gaps", "http", "HTTP,SEAM", "seam");
+        Assert.Equal(0, status);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_ReadsWordsBeforeTheFlagAsPrefixesToo()
+    {
+        // Position never mattered to the parser, so it cannot matter to the report either.
+        var (stdout, _, status) = Run("HTTP", "--gaps", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_RepeatedAccumulatesRatherThanKeepingTheLastValue()
+    {
+        var (stdout, _, status) = Run("--gaps", "HTTP", "--gaps", "SEAM", "PAGE");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("PAGE — Pagination", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("in 3 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("HTTP,", "SEAM")]
+    [InlineData("HTTP", ",SEAM")]
+    [InlineData("HTTP,,SEAM")]
+    [InlineData(",HTTP,", ",", "SEAM,")]
+    public void Gaps_DropsEmptyPiecesFromACommaAndASpace(params string[] values)
+    {
+        // `--gaps HTTP, SEAM` is what a person types after a trailing comma; it is two prefixes, not three
+        // of which one is the empty string.
+        var (stdout, stderr, status) = Run(["--gaps", .. values]);
+        Assert.Equal(0, status);
+        Assert.Equal("", stderr);
+        Assert.Equal(Run("--gaps", "HTTP,SEAM").Stdout, stdout);
+    }
+
+    [Fact]
+    public void Gaps_AllAnywhereMeansEveryPrefix_AndStillChecksTheOthers()
+    {
+        var everything = Run("--gaps", "all").Stdout;
+        Assert.Equal(everything, Run("--gaps", "all", "SEAM").Stdout);
+        Assert.Equal(everything, Run("SEAM", "--gaps", "ALL").Stdout);
+        Assert.Equal(everything, Run("--gaps", "SEAM,all").Stdout);
+        Assert.Equal(2, Run("--gaps", "all", "UTF").Status);
+    }
+
+    [Fact]
     public void AnUnknownPrefix_Exits2()
     {
         var (_, stderr, status) = Run("--gaps", "UTF");
@@ -121,6 +211,39 @@ public sealed class PrefixInfoTests : KnowledgeFixture
         Assert.Contains("owning chapter: docs/product-spec/04-core-http-domain-model.md", stdout, StringComparison.Ordinal);
         Assert.Contains("2 of 4 IDs have a substantive entry, 1 are roll-up only, 1 are uncited", stdout, StringComparison.Ordinal);
         Assert.Contains("topics carrying HTTP knowledge: http-domain-model", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrefixInfo_TakesOnePrefix_AndRejectsAnExtraWordRatherThanDroppingIt()
+    {
+        var (stdout, stderr, status) = Run("--prefix-info", "HTTP", "SEAM");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info takes one prefix", stderr, StringComparison.Ordinal);
+        Assert.Contains("SEAM", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrefixInfo_RepeatedIsRejectedRatherThanKeepingTheLast()
+    {
+        var (stdout, stderr, status) = Run("--prefix-info", "HTTP", "--prefix-info", "PAGE");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info was given more than once", stderr, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--prefix-info", "PAGE", "--gaps", "HTTP")]
+    [InlineData("--gaps", "HTTP", "--prefix-info", "PAGE")]
+    [InlineData("--prefix-info", "PAGE", "--gaps", "HTTP", "SEAM")]
+    public void PrefixInfo_CombinedWithGaps_IsRejectedNotAnsweredOneSided(params string[] argv)
+    {
+        // Each answers on its own and the other used to vanish; the extra word must not be blamed on --prefix-info.
+        var (stdout, stderr, status) = Run(argv);
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info and --gaps cannot be combined", stderr, StringComparison.Ordinal);
+        Assert.DoesNotContain("also given", stderr, StringComparison.Ordinal);
     }
 }
 
@@ -194,6 +317,115 @@ public sealed class PhaseTests : KnowledgeFixture
         Assert.Equal(0, status);
         Assert.Contains("no phase documents found for phase 9", stdout, StringComparison.Ordinal);
         Assert.Contains("--prefix-info and --gaps", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_CreditsEveryCanonicalIdInAnEnDashRange()
+    {
+        // The fixture's canonical HTTP IDs are 1, 2, 7 and 70, so HTTP-1–HTTP-7 is three of them: a range
+        // credits what appendix C defines, not every integer between the endpoints.
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", "Covers HTTP-1\u2013HTTP-7 in one sweep.\n");
+        var (stdout, _, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("2026-01-02-phase3-ranges.md — 3: HTTP-1 HTTP-2 HTTP-7", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("HTTP-1\u2013HTTP-7")]
+    [InlineData("HTTP-1-HTTP-7")]
+    [InlineData("HTTP-1\u20137")]
+    [InlineData("HTTP-1-7")]
+    [InlineData("HTTP-1..HTTP-7")]
+    [InlineData("HTTP-1..7")]
+    [InlineData("HTTP-1 \u2013 HTTP-7")]
+    [InlineData("HTTP-1 - HTTP-7")]
+    [InlineData("HTTP-1 .. HTTP-7")]
+    [InlineData("`HTTP-1`\u2013`HTTP-7`")]
+    [InlineData("`HTTP-1`-`HTTP-7`")]
+    [InlineData("`HTTP-1`..`HTTP-7`")]
+    [InlineData("**HTTP-1**\u2013**HTTP-7**")]
+    [InlineData("**HTTP-1**\u2013 **HTTP-7**")]
+    [InlineData("`HTTP-1\u2013HTTP-7`")]
+    [InlineData("`HTTP-1`\u20137")]
+    public void Phase_ExpandsEveryRangeForm(string citation)
+    {
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", $"Covers {citation}.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 3: HTTP-1 HTTP-2 HTTP-7", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_ExpandsARangeToTheEntriesItCites()
+    {
+        // HTTP-2 sits strictly inside the range and is named nowhere else, so its entry reaches the corpus
+        // query only through the expansion.
+        WriteFixture("docs/work/mvp/phase3/2026-01-02-phase3-ranges.md", "Covers HTTP-1\u2013HTTP-70.\n");
+        var (stdout, _, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("4 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+        Assert.Contains(RollupHttp2, stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_LeavesAnUnexpandableRangeAsItsEndpoints()
+    {
+        // Reversed, spanning two prefixes, and a short form with spaces (`- 3 retries` is prose, not a
+        // range): none of them is a range, so each credits only the IDs it actually names.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Reversed HTTP-7\u2013HTTP-1. Across HTTP-2\u2013PAGE-1. Prose HTTP-70 - 3 retries.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 5: HTTP-1 HTTP-2 HTTP-7 HTTP-70 PAGE-1", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_DoesNotExpandARangeOverAPrefixAppendixCDoesNotDefine()
+    {
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Encode as UTF-8\u2013UTF-16, hash with SHA-1..5, see RFC-7230\u20137235, and HTTP-70.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 1: HTTP-70", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_BoundsAnAbsurdRangeByAppendixC()
+    {
+        // The expansion walks appendix C's IDs for the prefix, never the integers between the endpoints, so a
+        // typo'd upper bound costs nothing and credits no more than the family holds. The typo'd endpoint is
+        // still credited as written — the corpus query warns that it is not in appendix C, which is the
+        // feedback a bad citation deserves — and a bound too large for a long behaves the same way.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "HTTP-1\u2013HTTP-9999999999 and PAGE-2..99999999999999999999999999.\n");
+        var (stdout, stderr, status) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Equal(0, status);
+        Assert.Contains("— 9: HTTP-1 HTTP-2 HTTP-7 HTTP-70 HTTP-9999999999 PAGE-2..4 PAGE-99999999999999999999999999", stdout, StringComparison.Ordinal);
+        Assert.Contains("HTTP-9999999999 is not in appendix C", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_DoesNotCreditABareNumberItsRangeCannotClose()
+    {
+        // `HTTP-70-3 times` and a reversed `HTTP-70\u20133` name HTTP-70 and a number; HTTP-3 is not cited.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Reversed HTTP-70\u20133. Retried HTTP-7-2 times. Marked `HTTP-70`\u20131.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 2: HTTP-7 HTTP-70", stdout, StringComparison.Ordinal);
+        Assert.Contains("2 distinct requirement IDs cited by phase 3", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Phase_ReadsTheMarkdownWrappedRangesTheRealPhaseDocumentsUse()
+    {
+        // The two spellings docs/work uses almost exclusively: each endpoint in code, or each in bold.
+        WriteFixture(
+            "docs/work/mvp/phase3/2026-01-02-phase3-ranges.md",
+            "Covers `PAGE-1`\u2013`PAGE-3` and **HTTP-1**\u2013**HTTP-7**.\n");
+        var (stdout, _, _) = Run("--phase", "3", "--brief", "--no-drift-check");
+        Assert.Contains("— 6: HTTP-1 HTTP-2 HTTP-7 PAGE-1..3", stdout, StringComparison.Ordinal);
     }
 
     [Fact]

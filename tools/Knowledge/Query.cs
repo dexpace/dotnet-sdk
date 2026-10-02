@@ -29,7 +29,7 @@ internal sealed class QueryOptions
 
     public string? Phase { get; set; }
 
-    public string? Gaps { get; set; }
+    public List<string> Gaps { get; } = [];
 
     public string? PrefixInfo { get; set; }
 
@@ -315,17 +315,19 @@ internal sealed partial class Query
 
 /// <summary>
 /// <c>docs/work/&lt;delivery&gt;/phaseN[/phaseNx]/*.md</c> — a phase's design, plan and checklist.
-/// Collecting the requirement IDs they cite turns "what did phase 5a depend on" into one query.
+/// Collecting the requirement IDs they cite turns "what did phase 5a depend on" into one query. A document
+/// that writes <c>HTTP-1–HTTP-35</c> rather than thirty-five IDs is credited with all of them
+/// (<see cref="Ids.ExtractWithRanges"/>), which is why this takes appendix C and not just its prefixes.
 /// </summary>
 internal sealed partial class PhaseDocs
 {
     private readonly KnowledgePaths _paths;
-    private readonly IReadOnlySet<string> _prefixes;
+    private readonly AppendixC _appendix;
 
-    public PhaseDocs(KnowledgePaths paths, IReadOnlySet<string> prefixes)
+    public PhaseDocs(KnowledgePaths paths, AppendixC appendix)
     {
         _paths = paths;
-        _prefixes = prefixes;
+        _appendix = appendix;
     }
 
     [GeneratedRegex(@"\A([0-9]+)([a-z])?\z", RegexOptions.ECMAScript)]
@@ -370,7 +372,8 @@ internal sealed partial class PhaseDocs
             }
         }
 
-        return [.. files.Select(path => (_paths.Relative(path), Ids.Extract(File.ReadAllText(path), _prefixes)))];
+        return [.. files.Select(path => (
+            _paths.Relative(path), Ids.ExtractWithRanges(File.ReadAllText(path), _appendix.Prefixes, _appendix.AllIds)))];
     }
 
     // A shell glob's `*` (directories) or `*.md` (files); like a glob, it skips dot-entries.
