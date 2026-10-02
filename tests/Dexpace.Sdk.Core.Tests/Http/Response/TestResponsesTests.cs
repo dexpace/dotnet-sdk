@@ -3,6 +3,7 @@
 
 using System.Text;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
@@ -18,8 +19,13 @@ public class TestResponsesTests
     {
         var headers = Headers.Empty.With("X-A", "1");
         var body = ResponseBody.FromBytes(Encoding.UTF8.GetBytes("hello"));
+        var request = Request.Get("https://other.test/x");
 
-        using var response = TestResponses.Create(Status.Created, headers: headers, body: body, protocol: Protocol.Http2);
+        using var response = TestResponses.Create(
+            Status.Created, request, headers: headers, body: body, protocol: Protocol.Http2, reasonPhrase: "Made");
+
+        Assert.Same(request, response.Request);
+        Assert.Equal("Made", response.ReasonPhrase);
 
         Assert.Equal(Status.Created, response.Status);
         Assert.Equal(headers, response.Headers);
@@ -37,5 +43,14 @@ public class TestResponsesTests
         Assert.Empty(response.Headers);
         Assert.NotNull(response.Body);
         Assert.Equal(Protocol.Http11, response.Protocol);
+    }
+
+    [Fact]
+    public void Create_defaults_the_request_to_a_GET_on_example_test()
+    {
+        using var response = TestResponses.Create(Status.Ok);
+
+        Assert.Equal(Method.Get, response.Request.Method);
+        Assert.Equal("https://example.test/", response.Request.Url.AbsoluteUri);
     }
 }

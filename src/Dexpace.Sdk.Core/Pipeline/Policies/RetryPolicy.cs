@@ -27,6 +27,10 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <see langword="true"/>.
 /// </para>
 /// <para>
+/// <b>Breaking (behaviour):</b> TRACE is no longer retried; idempotency is read from the single internal
+/// set GET, HEAD, OPTIONS, PUT, DELETE (HTTP-9).
+/// </para>
+/// <para>
 /// <b>Delay:</b> when <c>Retry-After</c> is present and
 /// <see cref="RetryOptions.HonorRetryAfter"/> is <see langword="true"/>, the parsed value
 /// is used; otherwise the delay is drawn from a uniform random distribution over

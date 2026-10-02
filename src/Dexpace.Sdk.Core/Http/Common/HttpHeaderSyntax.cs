@@ -82,7 +82,7 @@ public static class HttpHeaderSyntax
 
     /// <summary>
     /// Renders <paramref name="name"/> safe for a log line (HTTP-20): every non-token character becomes
-    /// <c>\uXXXX</c> (so a space is <c> </c> and CR is <c>\u000D</c>); a valid token comes back unchanged.
+    /// <c>\uXXXX</c> (so a space is <c>\u0020</c> and CR is <c>\u000D</c>); a valid token comes back unchanged.
     /// </summary>
     /// <param name="name">The header name, valid or not.</param>
     /// <returns>The escaped name, which never holds a control character, space or colon.</returns>
