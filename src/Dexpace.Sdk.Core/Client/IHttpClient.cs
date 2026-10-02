@@ -16,7 +16,7 @@ namespace Dexpace.Sdk.Core.Client;
 /// ignorable: a transport that ignores them behaves identically to one that honours <see cref="RequestOptions.Empty"/>.
 /// Most consumers should prefer <see cref="IAsyncHttpClient"/>; this blocking variant exists for callers and call sites
 /// that cannot go async. A bare blocking send function is a transport through
-/// <c>DelegateHttpClient.CreateBlocking</c>, and <see cref="HttpClientExtensions"/> holds the sync/async bridges.
+/// <see cref="DelegateHttpClient.CreateBlocking"/>, and <see cref="HttpClientExtensions"/> holds the sync/async bridges.
 /// </para>
 /// <para>
 /// <b>Thread-safety (SEAM-12).</b> Implementations must be safe for concurrent calls from multiple threads; per-call

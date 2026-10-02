@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
@@ -81,5 +82,31 @@ public sealed class HttpClientExtensionsTests
         var task = asyncClient.ExecuteAsync(null!);
         Assert.True(task.IsFaulted);
         Assert.Equal("request", (await Assert.ThrowsAsync<ArgumentNullException>(() => task)).ParamName);
+    }
+
+    [Fact]
+    public async Task The_option_less_Execute_works_over_a_DelegateHttpClient()
+    {
+        RecordedCall? asyncCall = null;
+        RecordedCall? blockingCall = null;
+        await using var asyncClient = DelegateHttpClient.Create((r, o, ct) =>
+        {
+            asyncCall = new RecordedCall(r, o, ct);
+            return Task.FromResult(TestResponses.Create(Status.Ok, r));
+        });
+        using var blockingClient = DelegateHttpClient.CreateBlocking((r, o, ct) =>
+        {
+            blockingCall = new RecordedCall(r, o, ct);
+            return TestResponses.Create(Status.Ok, r);
+        });
+        using var cts = new CancellationTokenSource();
+
+        using var a = await asyncClient.ExecuteAsync(NewRequest(), cts.Token);
+        using var b = blockingClient.Execute(NewRequest(), cts.Token);
+
+        Assert.Same(RequestOptions.Empty, asyncCall!.Options);
+        Assert.Equal(cts.Token, asyncCall.CancellationToken);
+        Assert.Same(RequestOptions.Empty, blockingCall!.Options);
+        Assert.Equal(cts.Token, blockingCall.CancellationToken);
     }
 }

@@ -116,7 +116,7 @@ dotnet-sdk/
 │   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers
 │   │   ├── Http/Request/            # Request, RequestBody
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
-│   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions
+│   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
 │   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, HttpPipelinePolicy, PipelineContext,
 │   │   │   └── Policies/            #   DexpacePipeline; operation, redirect, retry, idempotency, set-date,
 │   │   │                            #   client-identity, instrumentation and auth policies

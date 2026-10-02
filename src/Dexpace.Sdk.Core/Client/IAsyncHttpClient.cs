@@ -20,7 +20,7 @@ namespace Dexpace.Sdk.Core.Client;
 /// <b>Contract (SEAM-11).</b> One request produces one response. The response body is never pre-buffered: the caller
 /// reads and disposes it. The <see cref="RequestOptions"/> are optional and ignorable, and a transport that ignores
 /// them behaves identically to one that honours <see cref="RequestOptions.Empty"/>. A bare send function is a transport
-/// through <c>DelegateHttpClient</c>.
+/// through <see cref="DelegateHttpClient.Create"/>.
 /// </para>
 /// <para>
 /// <b>Thread-safety (SEAM-12).</b> Implementations must be safe for concurrent calls from multiple threads;

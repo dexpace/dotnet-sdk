@@ -60,7 +60,7 @@ public sealed class AsyncToSyncBridgeTests
     {
         // SEAM-13: a second thread cancels; the blocked Execute throws OperationCanceledException instead of hanging.
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var transport = new FuncTransport(async (_, _, ct) =>
+        await using var transport = DelegateHttpClient.Create(async (_, _, ct) =>
         {
             started.SetResult();
             await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);

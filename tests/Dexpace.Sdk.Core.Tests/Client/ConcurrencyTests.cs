@@ -86,4 +86,40 @@ public sealed class ConcurrencyTests
             }
         }
     }
+
+    [Fact]
+    public async Task No_cross_talk_through_both_DelegateHttpClient_forms()
+    {
+        var inputs = Inputs().ToList();
+        var asyncCalls = new System.Collections.Concurrent.ConcurrentBag<RecordedCall>();
+        var blockingCalls = new System.Collections.Concurrent.ConcurrentBag<RecordedCall>();
+        await using var asyncClient = DelegateHttpClient.Create(async (request, options, ct) =>
+        {
+            asyncCalls.Add(new RecordedCall(request, options, ct));
+            await Task.Yield();
+            return Echo(request);
+        });
+        using var blockingClient = DelegateHttpClient.CreateBlocking((request, options, ct) =>
+        {
+            blockingCalls.Add(new RecordedCall(request, options, ct));
+            return Echo(request);
+        });
+
+        var asyncResponses = await Task.WhenAll(inputs.Select(i =>
+            Task.Run(() => asyncClient.ExecuteAsync(i.Request, i.Options, CancellationToken.None), TestContext.Current.CancellationToken)));
+        var blockingResponses = await Task.WhenAll(inputs.Select(i =>
+            Task.Run(() => blockingClient.Execute(i.Request, i.Options, CancellationToken.None), TestContext.Current.CancellationToken)));
+        try
+        {
+            AssertPaired(inputs, asyncResponses, [.. asyncCalls]);
+            AssertPaired(inputs, blockingResponses, [.. blockingCalls]);
+        }
+        finally
+        {
+            foreach (var response in asyncResponses.Concat(blockingResponses))
+            {
+                response.Dispose();
+            }
+        }
+    }
 }

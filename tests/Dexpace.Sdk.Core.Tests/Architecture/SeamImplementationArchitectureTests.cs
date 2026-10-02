@@ -25,6 +25,10 @@ public sealed class SeamImplementationArchitectureTests
             "AsAsync: re-shapes a caller-supplied IHttpClient as IAsyncHttpClient; performs no I/O of its own (SEAM-18).",
         ["HttpClientExtensions+AsyncToSyncAdapter"] =
             "AsBlocking: re-shapes a caller-supplied IAsyncHttpClient as IHttpClient; performs no I/O of its own (SEAM-18).",
+        ["DelegateHttpClient+AsyncAdapter"] =
+            "DelegateHttpClient.Create: gives a caller-supplied send function the IAsyncHttpClient shape C# nominal typing requires; no I/O (SEAM-11).",
+        ["DelegateHttpClient+BlockingAdapter"] =
+            "DelegateHttpClient.CreateBlocking: gives a caller-supplied blocking send function the IHttpClient shape; no I/O (SEAM-11).",
     };
 
     private static readonly Type[] s_seams = [typeof(IHttpClient), typeof(IAsyncHttpClient), typeof(ISerde)];

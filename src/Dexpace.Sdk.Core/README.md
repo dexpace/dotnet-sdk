@@ -12,7 +12,7 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | Namespace | Contents |
 |---|---|
 | `Dexpace.Sdk.Core.Http.*` | `Method`, `Protocol`, `MediaType`, `HttpHeaderName`, `Headers`, `Request`, `RequestBody`, `Response`, `ResponseBody`, `Status` |
-| `Dexpace.Sdk.Core.Client` | The transport SPI: `IAsyncHttpClient`, `IHttpClient`, and the `AsAsync` / `AsBlocking` bridges |
+| `Dexpace.Sdk.Core.Client` | The transport SPI: `IAsyncHttpClient`, `IHttpClient`, the `AsAsync` / `AsBlocking` bridges, and `DelegateHttpClient` |
 | `Dexpace.Sdk.Core.Pipeline` | `HttpPipeline`, `PipelineBuilder`, `HttpPipelinePolicy`, `DexpacePipeline.CreateDefault`, and the policies: operation timeout, redirect, idempotency key, client identity, retry, `Date`, auth, instrumentation |
 | `Dexpace.Sdk.Core.Auth` | `TokenCredential`, `AccessTokenCache`, `ApiKeyCredential`, `BasicCredential` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
