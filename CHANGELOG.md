@@ -111,11 +111,12 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `System.Diagnostics.DiagnosticSource` package from core's dependency closure.
 - Build: `global.json` pins SDK `10.0.401` with `rollForward: latestPatch`; `ImplicitUsings` is off, with a
   committed `GlobalUsings.cs` per project; every project commits a `packages.lock.json`.
-- `DexpaceClientOptions.BaseAddress` and `DexpaceClientOptions.AttemptTimeout` now document that nothing reads them
-  yet; roadmap phases 2b and 6a wire them.
+- `DexpaceClientOptions.BaseAddress` is now read by `OperationDescriptor.BuildRequest(DexpaceClientOptions)`;
+  `DexpaceClientOptions.AttemptTimeout` still documents that nothing reads it yet (roadmap phase 6a wires it).
 
 ### Added
 
+- `docs/sdk-documentation/seams.md`; the AOT smoke covers the seam surface.
 - `OperationDescriptor` and `BuildRequest` — the operation-input projection, RFC 3986 composed over the base address
   (`SEAM-26`–`SEAM-28`); `DexpaceClientOptions.BaseAddress` is now read.
 - `DelegateHttpClient.Create` / `CreateBlocking` — a bare send function as a transport (`SEAM-11`).

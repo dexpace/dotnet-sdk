@@ -400,6 +400,15 @@ through `TryAddWithoutValidation` unvalidated, lower-cased, with `Host`/framing 
 mis-partitioned; an inbound `Content-Type` the parser rejects throws and leaks the message; no `ObjectDisposedException`
 latch; no delegate-backed transport factory.
 
+**As built (2026-10-02, phase 2b):** built. `IHttpClient.Execute(Request, RequestOptions, CancellationToken)` has no
+parameter defaults (a default on an implementation's three-parameter member would let `transport.Execute(request, default)`
+bind it with `null` options), and the option-less `HttpClientExtensions.Execute` passes `RequestOptions.Empty`. The
+delegate-backed factories are `DelegateHttpClient.Create` (asynchronous) and `DelegateHttpClient.CreateBlocking`
+(blocking), not two overloads named `Create` as the wording above says: a lambda that only throws is ambiguous between a
+`Func<…, Response>` and a `Func<…, Task<Response>>` overload (`CS0121`, verified), and that is the failing transport a
+conformance kit needs (P2b-6). `SystemNetHttpClient.Execute` is still sync-over-async and ignores its options until phase
+8b, and the `ObjectDisposedException` latch is phase 3b's and 8b's. *Dated correction*; the line above stands as written.
+
 ### 3.3 The asynchronous transport seam and the canonical pivot
 
 **What the reference requires and why.** **SEAM-16** requires the async transport's future to "complete either with a
@@ -533,6 +542,17 @@ when the previous `OnNext` has returned, never eagerly, and it never disposes th
 `AsBlocking` drops the token; there is no quiet-dispose rule for `TaskCompletionSource` losers (none exist yet); no
 Rx bridge.
 
+**As built (2026-10-02, phase 2b):** built. `ExecuteAsync(Request, RequestOptions, CancellationToken)` is the pivot.
+`AsAsync(IHttpClient, TaskScheduler)` takes the caller's scheduler, has no overload without one, starts each call with
+`LongRunning | DenyChildAttach` (so `TaskScheduler.Default` is accepted and costs a dedicated thread per call), passes the
+options and token into `Execute`, and, after `Execute` returns, disposes a response produced once the token is signalled
+and completes cancelled, so §5.3's "cancel without interruption" mode cannot orphan a response (P2b-4). `AsBlocking`
+passes the options and token, rejects a `null` task or response with `InvalidOperationException`, and neither bridge
+disposes what it wraps. `PipelineRunner` converts a `null` transport result into `PipelineAbortedException` before any
+policy sees it. A `Dispose` that throws inside the check after return faults the task until phase 3b's `DisposeQuietly`.
+`BannedSymbols.txt` bans `TaskCompletionSource<T>.SetResult`/`TrySetResult` and the five `Task<T>.WaitAsync` overloads
+in `src/`. *Dated correction*.
+
 ### 3.4 The wire-codec (serde) seam → kept separate, even though embedding is free
 
 **SEAM-19** requires the codec seam to bundle a serializer, a deserializer and the media type its serializer
@@ -627,6 +647,15 @@ forbids, so the adapter copies first (`new JsonSerializerOptions(callerOptions)`
 offered; there is no `SerdeException` base and both failure types are sealed; the adapter freezes the caller's
 `JsonSerializerOptions` instead of a private copy.
 
+**As built (2026-10-02, phase 2b):** built. `SerdeException` is abstract, with `protected` constructors (it makes every
+thrown serde failure an encode or a decode failure), and both subtypes are unsealed under it. `SerdeExtensions` offers the
+three profiles once, over any `ISerde`: `SerializeToUtf8Bytes`, `SerializeToString` and the fixed-buffer
+`Serialize(Span<byte>, T)` (an overflow is an `ArgumentOutOfRangeException` that leaves the destination untouched).
+`SerializeToString` decodes the seam's UTF-8 buffer, and a codec whose wire format is not UTF-8 text implements the
+optional interface `IStringSerde` to supply its own string. `SEAM-22` is met by construction: no `Type`-taking decode
+overload exists, and an architecture test keeps it so (P2b-2). The adapter's private copy of `JsonSerializerOptions` is
+phase 7a's. *Dated correction*.
+
 ### 3.5 The operation-input projection seam
 
 **SEAM-26** requires a per-operation declaration of method, path template with named placeholders, and typed
@@ -686,6 +715,14 @@ is silently converted to `/`.
 
 **As built (d45e64b):** not built (pagination carries its own internal query-pair reader and the URL redactor its own
 parser; neither is the projection seam).
+
+**As built (2026-10-02, phase 2b):** built. `OperationDescriptor` carries typed `PathParameters`, `Query`, `Headers` and
+`Body`, with validation in its `init` accessors, and `BuildRequest(Uri)` / `BuildRequest(DexpaceClientOptions)` compose
+over the base's components with the one internal RFC 3986 encoder. A dot-segment is rejected in the template's literal
+text at construction and in a rendered segment at `BuildRequest`, not only as a whole value (§11 item 35, P2b-7), and
+`InvalidOperationException` is the build-time failure for a placeholder with no value or a parameter naming none.
+`OperationId` is carried and never reaches the request; attaching it to the context chain is phase 4a's. *Dated
+correction*.
 
 ### 3.6 Discovery and the zero-dependency boundary, restated
 
