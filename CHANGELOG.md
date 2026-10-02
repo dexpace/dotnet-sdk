@@ -72,6 +72,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Changed
 
+- Build: `BannedSymbols.txt` bans `TaskCompletionSource<T>.SetResult` / `TrySetResult` and `Task<T>.WaitAsync` in `src/`
+  (`SEAM-30`); no public surface changes.
 - **Breaking:** `SerializationException` and `DeserializationException` are unsealed and derive from the new abstract
   `SerdeException` (was: sealed, deriving from `SdkException`). Source-compatible at every throw and catch site;
   binary-incompatible for a caller compiled against the sealed types (`SEAM-23`).
