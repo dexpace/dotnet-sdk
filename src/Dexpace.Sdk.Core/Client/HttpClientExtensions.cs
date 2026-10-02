@@ -65,6 +65,24 @@ public static class HttpClientExtensions
     /// </summary>
     /// <param name="client">The asynchronous transport to wrap.</param>
     /// <returns>A blocking facade over <paramref name="client"/>.</returns>
+    /// <remarks>
+    /// <para>
+    /// A last resort (design §3.3, §5.3), for call sites that cannot go async. The call's options and token are passed to
+    /// <see cref="IAsyncHttpClient.ExecuteAsync"/>, so cancelling the token cancels the in-flight task (SEAM-13). A
+    /// <see langword="null"/> task or <see langword="null"/> response from the wrapped client is an
+    /// <see cref="InvalidOperationException"/> (SEAM-16).
+    /// </para>
+    /// <para>
+    /// <b>Deadlock hazard.</b> The call blocks the calling thread. Under a <see cref="SynchronizationContext"/> that
+    /// runs one callback at a time, a wrapped transport whose awaits do not use <c>ConfigureAwait(false)</c> can
+    /// deadlock. The bridge does not hop to the thread pool to avoid this: that would reintroduce the shared-pool
+    /// dependency SEAM-18 rules out for <see cref="AsAsync(IHttpClient)"/>.
+    /// </para>
+    /// <para>
+    /// <b>Breaking (behaviour):</b> no longer disposes the wrapped client (SEAM-14); a caller who wrapped a transport they
+    /// own disposes it themselves.
+    /// </para>
+    /// </remarks>
     public static IHttpClient AsBlocking(this IAsyncHttpClient client)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -83,15 +101,25 @@ public static class HttpClientExtensions
         }
     }
 
-    // AsBlocking's documented sync bridge (design §3.3): blocking on the async transport is its whole purpose.
+    // design §3.3, §5.3 — last resort; the SynchronizationContext deadlock hazard is documented on AsBlocking.
 #pragma warning disable RS0030
     private sealed class AsyncToSyncAdapter(IAsyncHttpClient inner) : IHttpClient
     {
-        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
-            inner.ExecuteAsync(request, options, cancellationToken).GetAwaiter().GetResult();
+        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            ArgumentNullException.ThrowIfNull(options);
 
-        public void Dispose() =>
-            inner.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            var task = inner.ExecuteAsync(request, options, cancellationToken)
+                ?? throw new InvalidOperationException("The wrapped IAsyncHttpClient returned null (SEAM-16).");
+            return task.GetAwaiter().GetResult()
+                ?? throw new InvalidOperationException("The wrapped IAsyncHttpClient returned null (SEAM-16).");
+        }
+
+        // SEAM-14, XCUT-22: the bridge creates nothing, so it releases nothing; the caller disposes what it wrapped.
+        public void Dispose()
+        {
+        }
     }
 #pragma warning restore RS0030
 }
