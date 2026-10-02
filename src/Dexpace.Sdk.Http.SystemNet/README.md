@@ -23,6 +23,7 @@ The reference transport for the dexpace .NET SDK. It adapts `System.Net.Http.Htt
 
 ```csharp
 using System.Net.Http;
+using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Http.SystemNet;
 
@@ -34,7 +35,8 @@ using var response = await transport.ExecuteAsync(Request.Get("https://api.examp
 Console.WriteLine($"{response.Status.Code}: {await response.Body.ReadAsStringAsync()}");
 ```
 
-`new SystemNetHttpClient()` creates and owns a correctly configured client. Pass the transport to
+`ExecuteAsync(request, options, token)` is the interface member; the two-argument form `ExecuteAsync(request, token)` is
+the option-less extension in `Dexpace.Sdk.Core.Client`, which passes `RequestOptions.Empty`. `new SystemNetHttpClient()` creates and owns a correctly configured client. Pass the transport to
 `DexpacePipeline.CreateDefault` to get retry, redirect, auth and instrumentation on top of it.
 
 ## Links

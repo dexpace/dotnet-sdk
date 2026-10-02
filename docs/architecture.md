@@ -42,9 +42,12 @@ exactly as the Python port leans on `bytes` / `BinaryIO` instead of an Okio anal
 3. **Request / Response** (`Http/Request`, `Http/Response`) — `Request` is an immutable `record`
    (method, absolute `Uri`, `Headers`, optional `RequestBody`); `Response` is a disposable carrier
    of `Status`, `Headers`, `ResponseBody`, and the negotiated `Protocol`.
-4. **Transport SPI** (`Client`) — `IAsyncHttpClient.ExecuteAsync(Request, CancellationToken)` is the
-   async-first seam; `IHttpClient.Execute(Request)` is the synchronous variant.
-   `HttpClientExtensions` bridges between them (`AsAsync`, `AsBlocking`). `core` ships no transport.
+4. **Transport SPI** (`Client`) — `IAsyncHttpClient.ExecuteAsync(Request, RequestOptions, CancellationToken)` is the
+   async-first seam; `IHttpClient.Execute(Request, RequestOptions, CancellationToken)` is the synchronous variant.
+   Neither declares parameter defaults; `HttpClientExtensions.ExecuteAsync` / `Execute` are the option-less calls that
+   pass `RequestOptions.Empty`. The same class bridges between the two seams: `AsAsync(TaskScheduler)` runs each
+   blocking call on the caller's scheduler, and `AsBlocking` blocks on the async call as a last resort; neither
+   disposes what it wraps. `core` ships no transport.
 5. **Errors** (`Errors`) — `SdkException` roots a hierarchy distinguishing the three transport
    failure shapes (`ServiceRequestException`, `ServiceResponseException`, `HttpResponseException`)
    from body/stream lifecycle, serialization, and pipeline failures.

@@ -72,6 +72,16 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Changed
 
+- **Breaking:** `IHttpClient.Execute(Request)` is now `Execute(Request, RequestOptions, CancellationToken)` and
+  `IAsyncHttpClient.ExecuteAsync(Request, CancellationToken = default)` is now
+  `ExecuteAsync(Request, RequestOptions, CancellationToken)`, with no parameter defaults; `SystemNetHttpClient` takes
+  the same signatures. Callers that import `Dexpace.Sdk.Core.Client` keep calling `ExecuteAsync(request, ct)` through
+  the new extension; every implementer changes (`SEAM-11`, `SEAM-13`).
+- **Breaking:** `AsAsync(this IHttpClient)` is now `AsAsync(this IHttpClient, TaskScheduler)`; neither bridge disposes
+  the client it wraps any more; a response produced by `AsAsync` after the call's token is signalled is disposed and
+  the call completes cancelled (`SEAM-14`, `SEAM-18`, `SEAM-30`).
+- **Breaking (behaviour):** a transport returning `null` now fails at the pipeline runner with
+  `PipelineAbortedException`, before any policy sees a `null` response (`SEAM-16`).
 - Build: `BannedSymbols.txt` bans `TaskCompletionSource<T>.SetResult` / `TrySetResult` and `Task<T>.WaitAsync` in `src/`
   (`SEAM-30`); no public surface changes.
 - **Breaking:** `SerializationException` and `DeserializationException` are unsealed and derive from the new abstract
@@ -106,6 +116,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `HttpClientExtensions.Execute` / `ExecuteAsync` — option-less calls that pass `RequestOptions.Empty` (`SEAM-11`).
 - `SerdeException` (abstract), the optional `IStringSerde`, and `SerdeExtensions` — `SerializeToUtf8Bytes`,
   `SerializeToString` and a fixed-buffer `Serialize(Span<byte>, T)` over any `ISerde` (`SEAM-20`, `SEAM-23`).
 - Roadmap phase 0, task 8 (issue #29): the `knowledge-harvest` skill ported to C#
