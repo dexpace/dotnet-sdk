@@ -82,6 +82,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `RequestOptions` — per-call `Timeout`, `MaxRetries` and `Tags` (`HTTP-34`, `HTTP-35`); the type the phase 2b
+  transport SPI carries.
 - Quality gates (design §9): public-API files (`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`) per package,
   banned-API list (`BannedSymbols.txt`), license-header, method-length (`MA0051`), naming, `CA1031`, `CA2000` and
   `CA2007` rules; trim/AOT analyzers and package validation on every library; a cross-OS CI matrix with locked

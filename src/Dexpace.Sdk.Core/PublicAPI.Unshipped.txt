@@ -197,6 +197,17 @@ Dexpace.Sdk.Core.Http.Request.Request.WithBody(Dexpace.Sdk.Core.Http.Request.Req
 Dexpace.Sdk.Core.Http.Request.Request.WithHeader(string! name, string! value) -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Http.Request.RequestBody
 Dexpace.Sdk.Core.Http.Request.RequestBody.RequestBody() -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions
+Dexpace.Sdk.Core.Http.Request.RequestOptions.<Clone>$() -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Equals(Dexpace.Sdk.Core.Http.Request.RequestOptions? other) -> bool
+Dexpace.Sdk.Core.Http.Request.RequestOptions.MaxRetries.get -> int?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.MaxRetries.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.RequestOptions() -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Tags.get -> System.Collections.Immutable.ImmutableDictionary<string!, string!>!
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Tags.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.get -> System.TimeSpan?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.WithTag(string! key, string! value) -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
 Dexpace.Sdk.Core.Http.Response.Response
 Dexpace.Sdk.Core.Http.Response.Response.Body.get -> Dexpace.Sdk.Core.Http.Response.ResponseBody!
 Dexpace.Sdk.Core.Http.Response.Response.Dispose() -> void
@@ -303,6 +314,9 @@ override Dexpace.Sdk.Core.Http.Common.Method.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Request.Request.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Request.Request.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.Request.ToString() -> string!
+override Dexpace.Sdk.Core.Http.Request.RequestOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Http.Request.RequestOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Http.Request.RequestOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Response.Status.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Response.Status.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
@@ -372,6 +386,9 @@ static Dexpace.Sdk.Core.Http.Request.RequestBody.FromBytes(System.ReadOnlyMemory
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromStream(System.IO.Stream! source, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long contentLength = -1) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromString(string! text, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, System.Text.Encoding? encoding = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromValue<T>(T value, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+static Dexpace.Sdk.Core.Http.Request.RequestOptions.Empty.get -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
+static Dexpace.Sdk.Core.Http.Request.RequestOptions.operator !=(Dexpace.Sdk.Core.Http.Request.RequestOptions? left, Dexpace.Sdk.Core.Http.Request.RequestOptions? right) -> bool
+static Dexpace.Sdk.Core.Http.Request.RequestOptions.operator ==(Dexpace.Sdk.Core.Http.Request.RequestOptions? left, Dexpace.Sdk.Core.Http.Request.RequestOptions? right) -> bool
 static Dexpace.Sdk.Core.Http.Response.ResponseBody.FromBytes(System.ReadOnlyMemory<byte> bytes, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null) -> Dexpace.Sdk.Core.Http.Response.ResponseBody!
 static Dexpace.Sdk.Core.Http.Response.ResponseBody.FromStream(System.IO.Stream! source, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long contentLength = -1) -> Dexpace.Sdk.Core.Http.Response.ResponseBody!
 static Dexpace.Sdk.Core.Http.Response.Status.Accepted.get -> Dexpace.Sdk.Core.Http.Response.Status
