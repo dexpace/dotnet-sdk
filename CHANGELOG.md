@@ -72,6 +72,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Changed
 
+- **Breaking:** `SerializationException` and `DeserializationException` are unsealed and derive from the new abstract
+  `SerdeException` (was: sealed, deriving from `SdkException`). Source-compatible at every throw and catch site;
+  binary-incompatible for a caller compiled against the sealed types (`SEAM-23`).
 - **Breaking:** `Response`'s constructor is now `(Request, Status, Protocol, Headers?, ResponseBody?, string?)` and
   `protocol` has no default (`HTTP-4`, `HTTP-6`); `Response` gains `Request`, `ReasonPhrase`, `IsRedirect`,
   `IsClientError`, `IsServerError`, `IsError`, `IsInformational` and `WithBody`.
@@ -101,6 +104,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `SerdeException` (abstract), the optional `IStringSerde`, and `SerdeExtensions` — `SerializeToUtf8Bytes`,
+  `SerializeToString` and a fixed-buffer `Serialize(Span<byte>, T)` over any `ISerde` (`SEAM-20`, `SEAM-23`).
 - Roadmap phase 0, task 8 (issue #29): the `knowledge-harvest` skill ported to C#
   (`.claude/skills/knowledge-harvest/{src,tests}`, in `tools/Dexpace.Tools.sln`, with the `knowledge-extractor` agent
   vendored under `.claude/agents/`), and the first real harvest of `docs/knowledge/harvested/`: the `spec`, `design`

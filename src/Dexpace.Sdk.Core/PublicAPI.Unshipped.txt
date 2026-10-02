@@ -106,6 +106,10 @@ Dexpace.Sdk.Core.Errors.SdkException
 Dexpace.Sdk.Core.Errors.SdkException.SdkException() -> void
 Dexpace.Sdk.Core.Errors.SdkException.SdkException(string! message) -> void
 Dexpace.Sdk.Core.Errors.SdkException.SdkException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.Errors.SerdeException
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException() -> void
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException(string! message) -> void
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SerializationException
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException() -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message) -> void
@@ -364,7 +368,10 @@ Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.ReadOnlySpan<byte> u
 Dexpace.Sdk.Core.Serialization.ISerde.DeserializeAsync<T>(System.IO.Stream! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
 Dexpace.Sdk.Core.Serialization.ISerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Serialization.IStringSerde
+Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
+Dexpace.Sdk.Core.Serialization.SerdeExtensions
 override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
@@ -533,6 +540,9 @@ static Dexpace.Sdk.Core.Pagination.PaginationStrategies.LinkHeader<TPage>(string
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.PageNumber<TPage>(string! queryParameter, System.Func<TPage, bool>! hasMore) -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy? authPolicy = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.TimeProvider? timeProvider = null) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
 static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!
