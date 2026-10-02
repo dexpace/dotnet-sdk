@@ -117,6 +117,7 @@ dotnet-sdk/
 │   │   ├── Http/Request/            # Request, RequestBody
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
+│   │   ├── Operations/              # OperationDescriptor, the operation-input projection
 │   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, HttpPipelinePolicy, PipelineContext,
 │   │   │   └── Policies/            #   DexpacePipeline; operation, redirect, retry, idempotency, set-date,
 │   │   │                            #   client-identity, instrumentation and auth policies

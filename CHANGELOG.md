@@ -116,6 +116,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `OperationDescriptor` and `BuildRequest` — the operation-input projection, RFC 3986 composed over the base address
+  (`SEAM-26`–`SEAM-28`); `DexpaceClientOptions.BaseAddress` is now read.
 - `DelegateHttpClient.Create` / `CreateBlocking` — a bare send function as a transport (`SEAM-11`).
 - `HttpClientExtensions.Execute` / `ExecuteAsync` — option-less calls that pass `RequestOptions.Empty` (`SEAM-11`).
 - `SerdeException` (abstract), the optional `IStringSerde`, and `SerdeExtensions` — `SerializeToUtf8Bytes`,

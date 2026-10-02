@@ -21,9 +21,9 @@ public sealed class DexpaceClientOptions
     /// requests always use absolute URLs.
     /// </summary>
     /// <remarks>
-    /// <b>Not yet read by anything.</b> Setting it has no effect today: a <see cref="Http.Request.Request"/>
-    /// always carries an absolute URL, and no policy or transport consults this property. Roadmap
-    /// phase 2b wires it, with the operation-input projection (design §3.5).
+    /// Read by <see cref="Operations.OperationDescriptor.BuildRequest(DexpaceClientOptions)"/>: it must be an absolute
+    /// <c>http</c> or <c>https</c> URI with no fragment, checked at <c>BuildRequest</c> (phase 5a may check at
+    /// construction when it makes the options a record, CFG-8, CFG-9). No policy or transport consults it.
     /// </remarks>
     public Uri? BaseAddress { get; set; }
 

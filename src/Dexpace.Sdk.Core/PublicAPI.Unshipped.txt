@@ -296,6 +296,27 @@ Dexpace.Sdk.Core.Http.Response.Status.IsServerError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsSuccess.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.Name.get -> string?
 Dexpace.Sdk.Core.Http.Response.Status.Status() -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor
+Dexpace.Sdk.Core.Operations.OperationDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.BuildRequest(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.BuildRequest(System.Uri! baseAddress) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Equals(Dexpace.Sdk.Core.Operations.OperationDescriptor? other) -> bool
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Headers.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Method.get -> Dexpace.Sdk.Core.Http.Common.Method!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Method.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationDescriptor() -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationId.get -> string?
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationId.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathParameters.get -> System.Collections.Immutable.ImmutableDictionary<string!, string!>!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathParameters.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathTemplate.get -> string!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathTemplate.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Query.get -> Dexpace.Sdk.Core.Http.Request.Query!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Query.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.WithPathParameter(string! name, string! value) -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
 Dexpace.Sdk.Core.Pagination.AsyncPageable<T>
 Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.AsyncPageable() -> void
 Dexpace.Sdk.Core.Pagination.Page<T>
@@ -403,6 +424,9 @@ override Dexpace.Sdk.Core.Http.Request.RequestOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.RequestOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Response.Status.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Response.Status.ToString() -> string!
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.GetHashCode() -> int
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
@@ -539,6 +563,8 @@ static Dexpace.Sdk.Core.Http.Response.Status.SwitchingProtocols.get -> Dexpace.S
 static Dexpace.Sdk.Core.Http.Response.Status.TemporaryRedirect.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.TooManyRequests.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.Unauthorized.get -> Dexpace.Sdk.Core.Http.Response.Status
+static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator !=(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator ==(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
 static Dexpace.Sdk.Core.Pagination.Pageable.Create<TPage, T>(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline, Dexpace.Sdk.Core.Http.Request.Request! first, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Func<TPage, System.Collections.Generic.IReadOnlyList<T>!>! selectItems, System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>! nextRequest, int? maxPages = null) -> Dexpace.Sdk.Core.Pagination.AsyncPageable<T>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.Cursor<TPage>(System.Func<TPage, string?>! nextCursor, string! queryParameter) -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.LinkHeader<TPage>(string! rel = "next") -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!

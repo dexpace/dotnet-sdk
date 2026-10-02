@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Operations;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Architecture;
@@ -38,6 +39,7 @@ public sealed class ModelImmutabilityArchitectureTests
         typeof(RequestConditions),
         typeof(ETag),
         typeof(HttpRange),
+        typeof(OperationDescriptor),
     ];
 
     public static TheoryData<Type> Models()
