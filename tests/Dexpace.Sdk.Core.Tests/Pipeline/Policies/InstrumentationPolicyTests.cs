@@ -62,7 +62,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_StartsActivity_WithClientKind()
     {
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
@@ -75,7 +75,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_ActivityName_IsHttpMethod()
     {
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
@@ -88,7 +88,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_Activity_HasExpectedOtelTags()
     {
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com:8443/v1/items");
 
@@ -105,7 +105,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_UrlFull_IsSensitiveParamRedacted()
     {
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         // Default-deny: neither "api_key" nor "page" is in UrlRedactor.DefaultQueryAllowList
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET123&page=2");
@@ -126,8 +126,8 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         // Use RetryPolicy + InstrumentationPolicy so AttemptNumber increments
         var transport = new ScriptedTransport([
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
@@ -150,7 +150,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         Activity? capturedActivity = null;
         var capturingPolicy = new CapturingPolicy(ctx => capturedActivity = ctx.Activity, stage: (PipelineStage)650);
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new InstrumentationPolicy())
             .Add(capturingPolicy)
@@ -185,7 +185,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         // Dispose the listener — now no listener is active, StartActivity returns null.
         _listener.Dispose();
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
 
         // Must not throw even when Activity is null
@@ -200,7 +200,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
@@ -217,7 +217,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.active_requests");
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
@@ -245,7 +245,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_LogsStructuredEvent_WithRedactedUrl()
     {
         var logger = new RecordingLogger();
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy(logger);
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET&x=1");
 
@@ -265,7 +265,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_NullLogger_DoesNotThrow()
     {
         // Passing null logger should fall back to NullLogger.Instance
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy(null);
         var result = await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
         Assert.Equal(Status.Ok, result.Status);
@@ -281,7 +281,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         var transport = new RecordingTransport(req =>
         {
             capturedRequest = req;
-            return new Response(Status.Ok);
+            return TestResponses.Create(Status.Ok);
         });
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
@@ -311,7 +311,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
             var transport = new RecordingTransport(req =>
             {
                 capturedRequest = req;
-                return new Response(Status.Ok);
+                return TestResponses.Create(Status.Ok);
             });
             var policy = new InstrumentationPolicy();
 
@@ -338,7 +338,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         var transport = new RecordingTransport(req =>
         {
             capturedRequest = req;
-            return new Response(Status.Ok);
+            return TestResponses.Create(Status.Ok);
         });
         var policy = new InstrumentationPolicy();
 
@@ -356,7 +356,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         // The recorder materialises each measurement's tag span, so the tags can be inspected after the call.
         using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
 
@@ -375,7 +375,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_Activity_HasUrlSchemeTag()
     {
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
@@ -407,7 +407,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
             activityAfterCompletion = ctx.Activity;
         }, stage: (PipelineStage)500);
 
-        var transport = new RecordingTransport(_ => new Response(Status.Ok));
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(outerPolicy)
             .Add(new InstrumentationPolicy())   // Diagnostics = 600, runs after 500

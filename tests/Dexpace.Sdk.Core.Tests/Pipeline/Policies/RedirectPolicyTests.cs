@@ -66,7 +66,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -92,7 +92,7 @@ public sealed class RedirectPolicyTests
     {
         // Pin through the new constructor: the hop is one new Request(...), so the body is cleared with the method.
         const string RedirectUrl = "https://api.example.com/v2/items";
-        var transport = new ScriptedTransport([TestResponses.Redirect(303, RedirectUrl), new Response(Status.Ok)]);
+        var transport = new ScriptedTransport([TestResponses.Redirect(303, RedirectUrl), TestResponses.Create(Status.Ok)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
         var post = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(new byte[] { 1, 2, 3 }));
 
@@ -111,10 +111,7 @@ public sealed class RedirectPolicyTests
     public async Task A_Location_that_is_not_http_or_https_returns_the_3xx_unfollowed(string location)
     {
         var tracking = new DisposalTrackingBody();
-        var redirect = new Response(
-            Status.FromCode(302),
-            new Headers.Builder().Set("Location", location).Build(),
-            tracking);
+        var redirect = TestResponses.Create(Status.FromCode(302), headers: new Headers.Builder().Set("Location", location).Build(), body: tracking);
         var transport = new ScriptedTransport([redirect]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -162,7 +159,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(307, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -188,7 +185,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, "../v2/items"),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -215,7 +212,7 @@ public sealed class RedirectPolicyTests
             TestResponses.Redirect(302, Location),
             TestResponses.Redirect(302, Location),
             TestResponses.Redirect(302, Location),
-            new Response(Status.Ok), // never reached
+            TestResponses.Create(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -244,7 +241,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, CrossOriginUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -275,7 +272,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, SameOriginUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -297,7 +294,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, HttpUrl),
-            new Response(Status.Ok), // never reached
+            TestResponses.Create(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -320,7 +317,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(302, HttpUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -344,7 +341,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(303, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -370,7 +367,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(308, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -393,7 +390,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(301, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -416,7 +413,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(301, RedirectUrl),
-            new Response(Status.Ok),
+            TestResponses.Create(Status.Ok),
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -434,7 +431,7 @@ public sealed class RedirectPolicyTests
     [Fact]
     public async Task ProcessAsync_200_IsPassedThrough_NoRedirect()
     {
-        var transport = new ScriptedTransport([new Response(Status.Ok)]);
+        var transport = new ScriptedTransport([TestResponses.Create(Status.Ok)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         var result = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
@@ -453,8 +450,8 @@ public sealed class RedirectPolicyTests
         // 302 with no Location header — must not follow
         var transport = new ScriptedTransport(
         [
-            new Response(Status.FromCode(302), Headers.Empty),
-            new Response(Status.Ok), // never reached
+            TestResponses.Create(Status.FromCode(302), headers: Headers.Empty),
+            TestResponses.Create(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -475,7 +472,7 @@ public sealed class RedirectPolicyTests
         var transport = new ScriptedTransport(
         [
             TestResponses.Redirect(307, RedirectUrl),
-            new Response(Status.Ok), // never reached
+            TestResponses.Create(Status.Ok), // never reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -499,8 +496,8 @@ public sealed class RedirectPolicyTests
         var malformedHeaders = new Headers.Builder().Set("Location", "http://[bad").Build();
         var transport = new ScriptedTransport(
         [
-            new Response(Status.FromCode(302), malformedHeaders),
-            new Response(Status.Ok), // must never be reached
+            TestResponses.Create(Status.FromCode(302), headers: malformedHeaders),
+            TestResponses.Create(Status.Ok), // must never be reached
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
@@ -528,7 +525,7 @@ public sealed class RedirectPolicyTests
         [
             TestResponses.Redirect(302, UrlB),  // A → B
             TestResponses.Redirect(302, UrlC),  // B → C
-            new Response(Status.Ok),              // C → 200
+            TestResponses.Create(Status.Ok),              // C → 200
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 

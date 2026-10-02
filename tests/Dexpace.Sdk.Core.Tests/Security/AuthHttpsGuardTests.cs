@@ -82,7 +82,7 @@ public sealed class AuthHttpsGuardTests
     public async Task The_rejection_is_not_retried()
     {
         // The verified defect: 503 then 200 to an http:// URL stamped "Authorization: Basic" on both attempts.
-        var transport = new ScriptedTransport(new Response(Status.ServiceUnavailable), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))
@@ -114,7 +114,7 @@ public sealed class AuthHttpsGuardTests
         // AUTH-29 / XCUT-16's carve-out: the permitted https -> http hop carries no credential, so it proceeds.
         var transport = new ScriptedTransport(
             TestResponses.Redirect(302, "http://other.example.org/landing"),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RedirectPolicy())
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))

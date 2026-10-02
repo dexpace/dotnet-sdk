@@ -5,6 +5,7 @@ using System.Text;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Http;
@@ -23,7 +24,7 @@ public sealed class EnsureSuccessTests
     [InlineData(299)]
     public async Task EnsureSuccessAsync_SuccessStatusCode_DoesNotThrow(int statusCode)
     {
-        using var response = new Response(Status.FromCode(statusCode));
+        using var response = TestResponses.Create(Status.FromCode(statusCode));
         await response.EnsureSuccessAsync(TestContext.Current.CancellationToken);   // must not throw
     }
 
@@ -40,7 +41,7 @@ public sealed class EnsureSuccessTests
     [InlineData(503)]
     public async Task EnsureSuccessAsync_ErrorStatusCode_ThrowsHttpResponseException(int statusCode)
     {
-        using var response = new Response(Status.FromCode(statusCode));
+        using var response = TestResponses.Create(Status.FromCode(statusCode));
         await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
     }
 
@@ -51,7 +52,7 @@ public sealed class EnsureSuccessTests
     [Fact]
     public async Task EnsureSuccessAsync_ExceptionCarriesCorrectStatus()
     {
-        using var response = new Response(Status.FromCode(404));
+        using var response = TestResponses.Create(Status.FromCode(404));
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
         Assert.Equal(Status.FromCode(404), ex.Status);
     }
@@ -65,7 +66,7 @@ public sealed class EnsureSuccessTests
     {
         var bodyBytes = Encoding.UTF8.GetBytes("{\"code\":\"not_found\",\"message\":\"Resource not found\"}");
         var body = ResponseBody.FromBytes(bodyBytes, MediaType.Of("application", "json"));
-        using var response = new Response(Status.FromCode(404), body: body);
+        using var response = TestResponses.Create(Status.FromCode(404), body: body);
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
@@ -81,7 +82,7 @@ public sealed class EnsureSuccessTests
         // by reading it twice in sequence.
         var bodyBytes = Encoding.UTF8.GetBytes("error payload");
         var body = ResponseBody.FromBytes(bodyBytes);
-        using var response = new Response(Status.FromCode(500), body: body);
+        using var response = TestResponses.Create(Status.FromCode(500), body: body);
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
@@ -102,7 +103,7 @@ public sealed class EnsureSuccessTests
     {
         var contentType = MediaType.Of("application", "json");
         var body = ResponseBody.FromBytes(Encoding.UTF8.GetBytes("{}"), contentType);
-        using var response = new Response(Status.FromCode(422), body: body);
+        using var response = TestResponses.Create(Status.FromCode(422), body: body);
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
@@ -117,7 +118,7 @@ public sealed class EnsureSuccessTests
     public async Task EnsureSuccessAsync_ExceptionResponseCarriesOriginalHeadersAndProtocol()
     {
         var headers = Headers.Empty.Set("X-Request-Id", "abc-123");
-        using var response = new Response(Status.FromCode(503), headers: headers, protocol: Protocol.Http2);
+        using var response = TestResponses.Create(Status.FromCode(503), headers: headers, protocol: Protocol.Http2);
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(() => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
 
@@ -133,7 +134,7 @@ public sealed class EnsureSuccessTests
     public async Task EnsureSuccessAsync_CancelledToken_ThrowsOperationCanceledException()
     {
         var body = ResponseBody.FromStream(new NeverEndingStream());
-        using var response = new Response(Status.FromCode(500), body: body);
+        using var response = TestResponses.Create(Status.FromCode(500), body: body);
 
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();

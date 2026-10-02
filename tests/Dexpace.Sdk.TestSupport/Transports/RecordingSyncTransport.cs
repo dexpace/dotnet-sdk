@@ -32,7 +32,7 @@ public sealed class RecordingSyncTransport(Func<Request, Response>? respond = nu
     public Response Execute(Request request)
     {
         _log.Add(request);
-        return respond is null ? new Response(Status.Ok) : respond(request);
+        return respond is null ? TestResponses.Create(Status.Ok) : respond(request);
     }
 
     /// <inheritdoc />

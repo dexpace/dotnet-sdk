@@ -35,7 +35,7 @@ public sealed class RecordingTransport(Func<Request, Response>? respond = null) 
         _log.Add(request);
         try
         {
-            return Task.FromResult(respond is null ? new Response(Status.Ok) : respond(request));
+            return Task.FromResult(respond is null ? TestResponses.Create(Status.Ok) : respond(request));
         }
 #pragma warning disable CA1031 // Not swallowed: a responder's exception becomes the returned task's fault.
         catch (Exception ex)

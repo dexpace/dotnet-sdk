@@ -33,7 +33,7 @@ public sealed class ReDriveRequestIsolationTests
     public async Task A_retry_attempt_does_not_enter_carrying_the_previous_attempts_credential()
     {
         var probe = new ProbePolicy(PipelineStage.PerAttempt);
-        var transport = new ScriptedTransport(new Response(Status.ServiceUnavailable), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)
@@ -52,7 +52,7 @@ public sealed class ReDriveRequestIsolationTests
     public async Task A_retry_after_an_exception_re_sends_the_request_it_held()
     {
         var probe = new ProbePolicy(PipelineStage.PerAttempt);
-        var transport = new ScriptedTransport(new ServiceRequestException("connection refused"), new Response(Status.Ok));
+        var transport = new ScriptedTransport(new ServiceRequestException("connection refused"), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)
@@ -71,7 +71,7 @@ public sealed class ReDriveRequestIsolationTests
         var probe = new ProbePolicy(PipelineStage.PerCall);
         var transport = new ScriptedTransport(
             TestResponses.Redirect(307, "https://api.example.com/moved"),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RedirectPolicy())
             .Add(probe)
@@ -91,7 +91,7 @@ public sealed class ReDriveRequestIsolationTests
     {
         // Any policy below the retry pillar that writes context.Request is undone before the re-drive.
         var probe = new ProbePolicy(PipelineStage.PerAttempt, header: "X-Attempt-Marker");
-        var transport = new ScriptedTransport(new Response(Status.ServiceUnavailable), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)

@@ -5,6 +5,7 @@ using System.Text;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Security;
@@ -36,7 +37,7 @@ public sealed class EnsureSuccessErrorMappingTests
     {
         var payload = Encoding.UTF8.GetBytes("kept");
         var body = new TrackingBody(payload);
-        using var response = new Response(Status.FromCode(code), body: body);
+        using var response = TestResponses.Create(Status.FromCode(code), body: body);
 
         await response.EnsureSuccessAsync(TestContext.Current.CancellationToken);
 
@@ -52,7 +53,7 @@ public sealed class EnsureSuccessErrorMappingTests
     [InlineData(599)]
     public async Task An_error_status_throws(int code)
     {
-        using var response = new Response(Status.FromCode(code));
+        using var response = TestResponses.Create(Status.FromCode(code));
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
             () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
@@ -64,9 +65,7 @@ public sealed class EnsureSuccessErrorMappingTests
     public async Task The_buffered_error_body_is_replayable()
     {
         var payload = Encoding.UTF8.GetBytes("{\"error\":\"boom\"}");
-        using var response = new Response(
-            Status.InternalServerError,
-            body: ResponseBody.FromStream(new MemoryStream(payload), CommonMediaTypes.ApplicationJsonUtf8));
+        using var response = TestResponses.Create(Status.InternalServerError, body: ResponseBody.FromStream(new MemoryStream(payload), CommonMediaTypes.ApplicationJsonUtf8));
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
             () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
@@ -80,7 +79,7 @@ public sealed class EnsureSuccessErrorMappingTests
     public async Task The_original_response_is_disposed_when_the_error_is_raised()
     {
         var body = new TrackingBody(Encoding.UTF8.GetBytes("error"));
-        using var response = new Response(Status.ServiceUnavailable, body: body);
+        using var response = TestResponses.Create(Status.ServiceUnavailable, body: body);
 
         await Assert.ThrowsAsync<HttpResponseException>(
             () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
@@ -93,7 +92,7 @@ public sealed class EnsureSuccessErrorMappingTests
     {
         using var stream = new FailingStream();
         var body = new TrackingBody(stream);
-        using var response = new Response(Status.InternalServerError, body: body);
+        using var response = TestResponses.Create(Status.InternalServerError, body: body);
 
         await Assert.ThrowsAsync<IOException>(
             () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());
@@ -106,7 +105,7 @@ public sealed class EnsureSuccessErrorMappingTests
     {
         var payload = new byte[Response.MaxBufferedErrorBytes + 4096];
         Array.Fill(payload, (byte)'x');
-        using var response = new Response(Status.BadGateway, body: ResponseBody.FromStream(new MemoryStream(payload)));
+        using var response = TestResponses.Create(Status.BadGateway, body: ResponseBody.FromStream(new MemoryStream(payload)));
 
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
             () => response.EnsureSuccessAsync(TestContext.Current.CancellationToken).AsTask());

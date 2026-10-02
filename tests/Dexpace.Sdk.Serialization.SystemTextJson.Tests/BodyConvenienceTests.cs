@@ -7,6 +7,7 @@ using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Serialization;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
@@ -57,8 +58,7 @@ public sealed class BodyConvenienceTests
     public async Task GetErrorAsync_deserializes_the_buffered_error_body()
     {
         var json = Encoding.UTF8.GetBytes("""{"Code":"rate_limited","Message":"slow down"}""");
-        var response = new Response(Status.TooManyRequests, Headers.Empty,
-            ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
+        var response = TestResponses.Create(Status.TooManyRequests, headers: Headers.Empty, body: ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
         var ex = new HttpResponseException(response);
 
         var error = await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);
@@ -70,8 +70,7 @@ public sealed class BodyConvenienceTests
     public async Task GetErrorAsync_throws_when_body_already_consumed()
     {
         var json = Encoding.UTF8.GetBytes("""{"Code":"x","Message":"y"}""");
-        var response = new Response(Status.BadRequest, Headers.Empty,
-            ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
+        var response = TestResponses.Create(Status.BadRequest, headers: Headers.Empty, body: ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson));
         var ex = new HttpResponseException(response);
 
         await ex.GetErrorAsync<ApiError>(Serde(), TestContext.Current.CancellationToken);

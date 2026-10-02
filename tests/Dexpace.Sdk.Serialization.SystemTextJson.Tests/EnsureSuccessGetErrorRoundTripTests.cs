@@ -5,6 +5,7 @@ using System.Text;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
@@ -25,7 +26,7 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
         // Arrange: a 422 response carrying a JSON error body
         var json = Encoding.UTF8.GetBytes("""{"Code":"validation_failed","Message":"Name is required"}""");
         var body = ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJsonUtf8);
-        using var response = new Response(Status.FromCode(422), body: body);
+        using var response = TestResponses.Create(Status.FromCode(422), body: body);
 
         // Act: EnsureSuccessAsync should throw with the body buffered
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
@@ -43,7 +44,7 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
         var json = Encoding.UTF8.GetBytes("""{"Code":"server_error","Message":"Unexpected error"}""");
         using var stream = new MemoryStream(json);
         var body = ResponseBody.FromStream(stream, CommonMediaTypes.ApplicationJsonUtf8, json.Length);
-        using var response = new Response(Status.FromCode(500), body: body);
+        using var response = TestResponses.Create(Status.FromCode(500), body: body);
 
         // Act
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
@@ -58,7 +59,7 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
     public async Task EnsureSuccessAsync_WithEmptyBody_ThrowsWithNoContent()
     {
         // Arrange: error response with an empty body
-        using var response = new Response(Status.FromCode(404));
+        using var response = TestResponses.Create(Status.FromCode(404));
 
         // Act
         var ex = await Assert.ThrowsAsync<HttpResponseException>(
@@ -72,7 +73,7 @@ public sealed class EnsureSuccessGetErrorRoundTripTests
     [Fact]
     public async Task EnsureSuccessAsync_SuccessResponse_ReturnsWithoutThrowing()
     {
-        using var response = new Response(Status.FromCode(200));
+        using var response = TestResponses.Create(Status.FromCode(200));
         await response.EnsureSuccessAsync(TestContext.Current.CancellationToken);  // must not throw
     }
 }

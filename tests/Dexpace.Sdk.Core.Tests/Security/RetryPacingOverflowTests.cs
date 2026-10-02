@@ -79,10 +79,10 @@ public sealed class RetryPacingOverflowTests
             },
         };
         var transport = new ScriptedTransport(
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.ServiceUnavailable),
-            new Response(Status.Ok));
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.ServiceUnavailable),
+            TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
 
         using var response = await pipeline.SendAsync(
@@ -98,7 +98,7 @@ public sealed class RetryPacingOverflowTests
         string retryAfter, TimeProvider clock)
     {
         var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
-        var transport = new ScriptedTransport(new Response(Status.ServiceUnavailable, headers), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable, headers: headers), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
         var response = await pipeline.SendAsync(
             Request.Get("https://api.example.com/"), new DexpaceClientOptions(), TestContext.Current.CancellationToken);

@@ -32,7 +32,7 @@ public sealed class OperationPolicyTests
         public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
-            return new Response(Status.Ok);
+            return TestResponses.Create(Status.Ok);
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

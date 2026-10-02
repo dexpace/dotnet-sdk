@@ -47,7 +47,7 @@ public sealed class RedirectCredentialHygieneTests
 
     private static async Task<IReadOnlyList<Request>> FollowAsync(Request seed, params Response[] script)
     {
-        var transport = new ScriptedTransport([.. script, new Response(Status.Ok)]);
+        var transport = new ScriptedTransport([.. script, TestResponses.Create(Status.Ok)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
         using var response = await pipeline.SendAsync(seed, s_options, Ct);
         Assert.Equal(Status.Ok, response.Status);
@@ -97,7 +97,7 @@ public sealed class RedirectCredentialHygieneTests
     {
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
         var options = new DexpaceClientOptions { Redirect = new RedirectOptions { AllowHttpsToHttpDowngrade = true } };
-        var transport = new ScriptedTransport(TestResponses.Redirect(302, location), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Redirect(302, location), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         using var response = await pipeline.SendAsync(seed, options, Ct);
@@ -168,7 +168,7 @@ public sealed class RedirectCredentialHygieneTests
         // credential. Phase 6b removes the switch (design §6.2).
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
         var options = new DexpaceClientOptions { Redirect = new RedirectOptions { StripSensitiveHeadersOnCrossOrigin = false } };
-        var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://evil.example/b"), new Response(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://evil.example/b"), TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         using var response = await pipeline.SendAsync(seed, options, Ct);
