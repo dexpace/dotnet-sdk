@@ -46,6 +46,19 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// client used to succeed.
 /// </para>
 /// <para>
+/// <b>Breaking</b> (phase 2b): <c>ExecuteAsync(Request, CancellationToken = default)</c> and <c>Execute(Request)</c> are
+/// now <c>ExecuteAsync(Request, RequestOptions, CancellationToken)</c> and
+/// <c>Execute(Request, RequestOptions, CancellationToken)</c>, with no parameter defaults. Callers that import
+/// <c>Dexpace.Sdk.Core.Client</c> keep calling <c>ExecuteAsync(request, token)</c> through its option-less extension.
+/// <see cref="RequestOptions"/> are ignored until phase 8b (SEAM-11), and the synchronous call is sync-over-async until
+/// then.
+/// </para>
+/// <para>
+/// <b>After dispose (SEAM-15).</b> An owned client throws <see cref="ObjectDisposedException"/> from every call, since
+/// <c>HttpClient</c> does; a borrowed client keeps working, because it is never disposed. Phase 8b's latch makes both
+/// throw.
+/// </para>
+/// <para>
 /// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,
 /// <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and <c>Expect</c> — are
 /// dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (TRANSPORT-11). Every other
@@ -161,13 +174,18 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// <see cref="RequestOptions"/> are accepted and read by nothing until phase 8b wires
+    /// <see cref="RequestOptions.Timeout"/> (TRANSPORT-5), which SEAM-11 permits.
+    /// </remarks>
     /// <exception cref="SdkException">
     /// A caller-supplied client followed a redirect itself (TRANSPORT-1): the final request URI differs from the one
     /// sent in scheme, host, port or path. The response has been disposed.
     /// </exception>
-    public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
+    public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(options);
         using var message = ToHttpRequestMessage(request);
 
         // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
@@ -210,8 +228,8 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     // The transport's documented sync bridge (design §3.3). CA2000 reads the awaited Task as an undisposed
     // IDisposable; a Task needs no disposal (it holds no wait handle unless one is requested).
 #pragma warning disable RS0030, CA2000
-    public Response Execute(Request request) =>
-        ExecuteAsync(request).GetAwaiter().GetResult();
+    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+        ExecuteAsync(request, options, cancellationToken).GetAwaiter().GetResult();
 #pragma warning restore RS0030, CA2000
 
     /// <inheritdoc/>

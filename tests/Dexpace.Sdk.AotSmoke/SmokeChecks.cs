@@ -137,7 +137,7 @@ internal static class SmokeChecks
     {
         public string? LastUserAgent { get; private set; }
 
-        public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
         {
             LastUserAgent = request.Headers.Get("User-Agent");
             using var buffer = new MemoryStream();

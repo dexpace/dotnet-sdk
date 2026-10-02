@@ -18,10 +18,16 @@ public sealed class RecordingTransport(Func<Request, Response>? respond = null) 
     private readonly RequestLog _log = new();
 
     /// <summary>Every request received so far, in arrival order.</summary>
-    public IReadOnlyList<Request> Requests => _log.Snapshot();
+    public IReadOnlyList<Request> Requests => [.. _log.Snapshot().Select(call => call.Request)];
+
+    /// <summary>Every call received so far, in arrival order, with the exact options and token instances.</summary>
+    public IReadOnlyList<RecordedCall> Calls => _log.Snapshot();
 
     /// <summary>The most recent request, or <see langword="null"/> before the first call.</summary>
-    public Request? LastRequest => _log.Last;
+    public Request? LastRequest => _log.Last?.Request;
+
+    /// <summary>The most recent call, or <see langword="null"/> before the first call.</summary>
+    public RecordedCall? LastCall => _log.Last;
 
     /// <summary>The number of calls received so far.</summary>
     public int CallCount => _log.Count;
@@ -30,9 +36,9 @@ public sealed class RecordingTransport(Func<Request, Response>? respond = null) 
     public bool IsDisposed { get; private set; }
 
     /// <inheritdoc />
-    public Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
+    public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
     {
-        _log.Add(request);
+        _log.Add(request, options, cancellationToken);
         try
         {
             return Task.FromResult(respond is null ? TestResponses.Create(Status.Ok) : respond(request));

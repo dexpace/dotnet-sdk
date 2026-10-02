@@ -29,7 +29,7 @@ public sealed class OperationPolicyTests
     // A transport that delays indefinitely until its token is cancelled.
     private sealed class HangingTransport : IAsyncHttpClient
     {
-        public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
             return TestResponses.Create(Status.Ok);
