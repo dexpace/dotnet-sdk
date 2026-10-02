@@ -72,6 +72,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Changed
 
+- **Breaking:** `Method` is a `sealed record` (was a `readonly record struct`); `Method.IsSafe` and
+  `Method.IsIdempotent` are no longer public; `Method.Of` rejects a non-token with `ArgumentException`; `RetryPolicy`
+  no longer retries TRACE (`HTTP-9`).
 - **Breaking:** `MediaType.Parse` rejects a parameter with an empty raw value (`a=`); `MediaType.Charset` returns
   `null` for `utf-7` instead of throwing (`HTTP-24`, `HTTP-53`). `Protocol.Parse` folds case with ASCII rules
   (`HTTP-33`).

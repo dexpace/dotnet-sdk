@@ -95,6 +95,21 @@ public sealed class RetryPolicyTests
     }
 
     [Fact]
+    public async Task A_TRACE_request_is_not_retried()
+    {
+        // HTTP-9: TRACE is no longer in the idempotent set, so a replayable TRACE is sent exactly once.
+        var transport = new ScriptedTransport(
+            new object[] { new Response(Status.ServiceUnavailable), new Response(Status.Ok) });
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
+        var trace = new Request(Method.Trace, new Uri("https://api.example.com/v1/items"));
+
+        var result = await pipeline.SendAsync(trace, MakeOptions(maxRetryAttempts: 3), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.ServiceUnavailable, result.Status);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Fact]
     public async Task ProcessAsync_Repeated503_ReturnsLastResponseAfterMaxAttempts()
     {
         // MaxRetryAttempts = 3 → 1 initial + 3 retries = 4 total calls.
