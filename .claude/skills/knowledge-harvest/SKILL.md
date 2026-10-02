@@ -49,7 +49,7 @@ extractor prompt; anything else is carried through provenance with no bias. Norm
 inferred role to one of those three when the phrasing clearly matches, otherwise pass the
 user's own word through.
 
-Default persistence is **off**. Default corpus location in THIS repository is `docs/knowledge/harvested/`: `scripts/knowledge` and `verify-structure` read only that directory, and the structure gate rejects a topic file stranded one level up (`docs/knowledge/README.md`).
+Default persistence is **off**. The tool has **no default corpus**: `merge` requires `--corpus`, and in THIS repository it is always `--corpus docs/knowledge/harvested`, because `scripts/knowledge` and `verify-structure` read only that directory and the structure gate rejects a topic file stranded one level up (`docs/knowledge/README.md`).
 
 If no path is given at all, ask which paths. Do not default to the current directory —
 harvesting a whole repo by accident is expensive.
@@ -165,7 +165,10 @@ dotnet run --project .claude/skills/knowledge-harvest/src -- collect \
 ```
 
 `collect` prints entry counts per proposed topic and, on stderr, every entry it **dropped** (evidence not in the
-manifest, outside the assigned line range, an unknown type, a non-slug topic). A dropped entry is a recall
+manifest, outside the line range of the **chunk that produced it** — the output file name must be that chunk's id,
+or the whole file is dropped — a line number that is not a valid line, an unknown type, a non-slug topic). The
+extractor contract is one `path:start-end` range per entry; if an extractor lists several, the first that
+resolves is kept. Entries are ordered by topic, file and numeric line. A dropped entry is a recall
 loss to report or re-extract, never to repair by hand. `--topics` is a JSON object mapping a proposed slug
 onto the canonical one (Step 6.1); `--extra` is a JSON array of `supersede` / `conflict` decisions to append.
 Run from the repository root: manifest paths are repo-relative and `collect` re-reads the files to check lines.
@@ -193,7 +196,7 @@ Classify each entry into one action:
 |---|---|
 | Not in the corpus | `new` |
 | Same normalized statement already present | `update` (refreshes evidence, sha, confidence) |
-| Contradicts an existing entry, **same** role, source sha differs from `SOURCES.md` | `supersede` |
+| Contradicts an existing entry, **same** role, source sha differs from `SOURCES.md` | `supersede` (rarely needed: the merge already replaces everything cited from a re-harvested source) |
 | Contradicts an existing entry, **same** role, source sha unchanged | `conflict` |
 | Contradicts an existing entry, **different** role | `conflict`, always |
 
@@ -262,18 +265,22 @@ dotnet run --project .claude/skills/knowledge-harvest/src -- merge "$WORK/entrie
 
 Exit codes:
 
-- `0` — applied cleanly.
-- `3` — applied, but conflicts with status `unresolved` are on file. (`"status": "conformed"` records a
-  contradiction the port settled by conforming to the styleguide; it is shown but does not exit 3.)
-  Present each unresolved one to the user with both statements and both sources, apply their decision as an
-  `update` or `supersede`, and re-run. Conflicts stay in the file until resolved; this is intentional. In this
-  repository a **kept** departure is resolved by a `review`-role note under `docs/knowledge/notes/` that cites
-  the Conflicts entry's key (`docs/knowledge/README.md`), never by editing `harvested/`.
+- `0` — applied cleanly. A re-harvest **replaces** whatever the corpus holds from each source in the payload's
+  `sources`: every entry cited from that file, and every Conflicts entry that cites it, is dropped before the
+  new decisions apply, and a topic left with nothing is deleted. So restate the conflicts in `--extra` on every
+  run, and expect the merge to print how many entries it replaced.
+- `3` — applied, but a conflict with status `unresolved` is on file. A conflict carries one of three
+  statuses (`"status"` in its decision; default `unresolved`): `kept` (the port keeps its departure, and in this
+  repository a `review` note under `docs/knowledge/notes/` cites the entry's key), `conformed` (the port
+  changed to match the styleguide; nothing owed), or `unresolved`. Only `unresolved` exits 3, so exit 3 always
+  means a decision is owed: present each such conflict to the user with both statements and both sources, record
+  their decision as `kept` (and write the note) or `conformed`, and re-run. Never edit `harvested/` by hand.
 - `4` — the corpus has uncommitted git changes. Report it and offer `--force`. Do not pass
   `--force` on your own; unreviewed edits under the corpus would be silently overwritten.
-- `2` — malformed `entries.json`. Fix it and re-run.
+- `2` — malformed `entries.json` (a null or mistyped node included). Fix it and re-run.
 
-Use `--dry-run` first when the corpus already has substantial content and the run is large.
+Use `--dry-run` first when the corpus already has substantial content: it prints a line diff of every file that
+would change (`@@ +N @@` for an added line, `@@ -N @@` for a removed one) and writes nothing.
 
 Finally, summarize: entries added, updated, superseded, conflicts open, chunks failed.
 

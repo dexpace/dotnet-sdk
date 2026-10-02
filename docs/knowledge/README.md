@@ -9,13 +9,16 @@ reads both; nothing else should read either by hand.
 | `notes/` | What the implementation found. Role `review`, a manual `sha:` marker. | Hand-written. A note overrides the harvested entry it names. |
 
 **Current state: harvested, all three roles.** `harvested/` is the output of the first real `knowledge-harvest`
-run in this repository (2026-10-02, 48 source files, 3,342 entries in 41 topics plus 8 recorded Conflicts), so
-`--role spec`, `--role design`, `--role styleguide` and `--chapter` queries all answer; it replaced the Ruby-seeded
-spec-only corpus wholesale. Entries carry the sha of the source file as it stands in this checkout, and
-`scripts/knowledge drift` verifies all 48. The Conflicts entries are the styleguide-versus-design overlay rows of
-roadmap constraint 6: the three the port **keeps** (`I` prefix, `Async` suffix, `CA1062`) are `unresolved` until a
-`review` note in `notes/` overrides them; the five it **conforms** to are recorded `conformed` and owe no note.
-`notes/` holds only what the implementation found; the Ruby notes were not carried over.
+run in this repository (2026-10-02, 48 source files): 3,336 entries in 41 topics (`spec` 1,373, `design` 1,354,
+`styleguide` 609) plus 10 Conflicts entries. `--role spec`, `--role design`, `--role styleguide` and `--chapter`
+queries all answer; it replaced the Ruby-seeded spec-only corpus wholesale. Entries carry the sha of the source file
+as it stands in this checkout, and `scripts/knowledge drift` verifies all 48 sources and every entry's own sha.
+The Conflicts entries are the styleguide-versus-design overlay rows of roadmap constraint 6, each with a status on
+its source line: the five the port **keeps** (`I` prefix, `Async` suffix, `CA1062`, `LangVersion latest`, xUnit
+`Assert` without Shouldly) read `kept` and are overridden by `review` notes in `notes/`; the five it **conforms**
+to (`net10.0`, xUnit v3, `CA2007`, `ImplicitUsings`, `MA0051`) read `conformed` and owe no note. `scripts/knowledge
+--section conflicts` tags them `[kept]` / `[conformed]`; an untagged conflict is still open. `notes/` holds only
+what the implementation found; the Ruby notes were not carried over.
 
 **Why `harvested/` is never hand-edited.** A `<sub>` line's sha digests the whole *source file*, not the
 entry, so every entry harvested from one document carries the same value and an edit to an entry's text
@@ -50,14 +53,21 @@ overlay says they apply.
 
 **Gates.** `scripts/knowledge verify-structure` is the blocking gate that keeps the two trees apart (exit 0
 clean, 1 on a violation, 2 when it cannot run). `scripts/knowledge drift` is a hand-run report over source
-shas and note citations; it never fails a build.
+shas, every harvested entry's own sha against its source's row, and note citations; it never fails a build.
 
-Re-harvesting: `--corpus docs/knowledge/harvested`, always. The skill's default is this directory, which no
-query reads — the structure gate rejects a topic file stranded here for that reason. A `supersede`
-resolution the harvest emits must be moved to `notes/` by hand, or the gate rejects it too. The first real
-harvest replaced the seeded `harvested/` wholesale, `SOURCES.md` and `INDEX.md` included, and each re-harvest does
-the same for the sources it covers. The skill's tool is `.claude/skills/knowledge-harvest/` (C#, in
+Re-harvesting: always pass `--corpus docs/knowledge/harvested`; the tool has no default corpus, and any other
+directory is one no query reads (the structure gate rejects a topic file stranded one level up). A merge **replaces**
+what the corpus holds from every source it re-harvests: each entry, and each Conflicts entry, citing that file is
+dropped before the new ones apply, and a topic left with nothing is deleted, so a reworded or deleted rule cannot
+survive under its old sha. Restate the conflicts on every run. A `supersede` resolution the harvest emits must be
+moved to `notes/` by hand, or the gate rejects it. The first harvest replaced the seeded `harvested/` wholesale,
+`SOURCES.md` and `INDEX.md` included. The skill's tool is `.claude/skills/knowledge-harvest/` (C#, in
 `tools/Dexpace.Tools.sln`).
+
+**Not tracked: the styleguide overlay.** `docs/styleguide/README.md` holds the overlay the Conflicts entries come
+from, but it is not a `SOURCES.md` row: the structure gate refuses a source root that contains another
+(`docs/styleguide` would contain `docs/styleguide/csharp`), so `drift` cannot see a changed overlay row. When the
+styleguide is re-vendored, re-read the overlay against the ten Conflicts entries by hand.
 
 The workflow for reading and writing all of this is `.claude/skills/knowledge-lookup/SKILL.md`; the tool's
 source and tests are `tools/Knowledge/` and `tools/Knowledge.Tests/`.

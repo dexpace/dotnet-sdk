@@ -24,15 +24,16 @@ SDK's fuller corpus for comparison (`scripts/knowledge --root ../ruby-sdk --role
 
 **Read this first — what the corpus holds today.** `docs/knowledge/harvested/` is the first real harvest
 (`.claude/skills/knowledge-harvest/`, 2026-10-02): all three roots — `spec` (`docs/product-spec/`), `design`
-(`docs/sdk-design-dotnet/` 00–09) and `styleguide` (`docs/styleguide/csharp/` 01–15 + README) — 3,342 entries in
-40 topics plus 8 Conflicts entries, every sha re-verifiable with `scripts/knowledge drift`.
+(`docs/sdk-design-dotnet/` 00–09) and `styleguide` (`docs/styleguide/csharp/` 01–15 + README) — 3,336 entries in
+41 topics plus 10 Conflicts entries, every sha re-verifiable with `scripts/knowledge drift`.
 
 - `--role design`, `--role styleguide`, `--chapter N` and the styleguide-derived topics (`csharp-idioms`,
   `naming-conventions`, `testing`, `assertions`, …) answer. **A hit states what a document says, not what the
   code does**: the design chapters carry an "As built" verdict, and a `review` note overrides a harvested rule.
-- `--section conflicts` shows the eight styleguide-versus-design overlay rows (roadmap constraint 6). The
-  three the port **keeps** are tagged `[overridden by notes/…]` once their note exists; the five it
-  **conforms** to read `conformed` on their source line and owe no note.
+- `--section conflicts` shows the ten styleguide-versus-design overlay rows (roadmap constraint 6), each tagged
+  `[kept]` or `[conformed]`; an untagged one is open. The five the port **keeps** also carry
+  `[overridden by notes/…]`, and so does every harvested statement of the departed-from rule; the five it
+  **conforms** to owe no note.
 - `docs/sdk-design-dotnet/` §10–§12 are registers and are not harvested; read them directly.
 - `notes/` holds only what the implementation found. The Ruby notes were not carried over.
 - Everything ID-first works: `--req`, `--prefix`, `--gaps`, `--prefix-info`, `--coverage`, `--phase`.
@@ -103,8 +104,8 @@ tags these `[appendix-B roll-up]` and prints a WARNING when every hit is one. (`
 substantive / roll-up-only / uncited split per prefix and `--gaps <PREFIX>` lists the IDs; run one rather
 than trusting a remembered number.)
 
-**A spec-only hit is not the .NET answer either.** Until the design role is harvested, a `--req` result says
-what the specification requires, never how this port maps it. For the mapping, read the owning
+**A spec-only hit is not the .NET answer either.** A `--req` result from the `spec` role says what the
+specification requires, never how this port maps it. For the mapping add `--role design`, or read the owning
 `docs/sdk-design-dotnet/NN-*.md` section directly (grep it for the bold ID, `**RETRY-5**`).
 
 ### The roll-up path
@@ -203,7 +204,7 @@ answers from the design and styleguide roles as well; **pending harvest** — hi
 | Serialization, SSE and pagination | `--topic serde,sse-streaming,pagination --section rules,constraints,conclusions --brief` and `--prefix SERDE,SSE,PAGE --section rules,constraints,conclusions --brief` (a `--section rules` reading alone misses `SERDE-17` under Constraints and `SERDE-24`/`SERDE-25` under Conclusions; `SERDE-30` is filed under Reference, which even this form misses — the NOTE footer names it) | `--gaps SERDE,SSE,PAGE` | live |
 | Transport adapters | `--topic transport-adapter,cancellation-and-timeouts,concurrency-and-async --section rules --brief` and `--prefix TRANSPORT,ASYNC --section rules --brief` | `--prefix-info TRANSPORT`, `--gaps TRANSPORT,ASYNC` | live |
 | Cross-cutting invariants and the quality bar | `--topic cross-cutting-invariants,tooling-and-quality-gates,resource-management --section rules --brief` and `--prefix XCUT,NFR --section rules --brief` | `--gaps XCUT,NFR` | live |
-| Styleguide-vs-design conflicts | `--section conflicts --brief` | the eight constraint-6 overlay rows; three kept (note-overridden), five conformed | live |
+| Styleguide-vs-design conflicts | `--section conflicts --brief` | the ten constraint-6 overlay rows; five kept (note-overridden), five conformed | live |
 
 A regex with an alternation cannot live in a Markdown cell without an escape that would be copied into the
 shell, so the encoding row keeps its narrowing outside the table: run that group and then add
@@ -222,8 +223,8 @@ runs to hundreds of entries and thousands of tokens; budget for it.
 2. **Read the group.** One query, `--section rules`, from the table above.
 3. **Check the system** against each rule.
 4. **Write a note for each broken rule**, in `docs/knowledge/notes/<topic>.md`, naming the rule by the key
-   the query printed (`retry-and-resilience/07534e67`). Backtick the key: that is how the CLI links the two,
-   and `scripts/knowledge --key retry-and-resilience/07534e67` resolves it. The key changes exactly when the
+   the query printed (`naming-conventions/a3f2e504`). Backtick the key: that is how the CLI links the two,
+   and `scripts/knowledge --key naming-conventions/a3f2e504` resolves it. The key changes exactly when the
    rule's text changes — including on a re-harvest that rewords it, which is when the note needs revisiting;
    `scripts/knowledge drift` reports a citation that has gone stale, and `scripts/knowledge
    verify-structure` fails on one. Never edit the harvested entry.
@@ -244,7 +245,7 @@ Hand-written. `../harvested/retry-and-resilience.md` is what the documents say; 
 implementation found, and it wins.
 
 ## Superseded
-- **What we found**, superseding `retry-and-resilience/07534e67`. …
+- **What we found**, superseding `naming-conventions/a3f2e504`. …
   <sub>review · `docs/work/mvp/phase3/2026-10-01-phase3-retry-design.md` · high · sha:manual-3-erratum</sub>
 ```
 
@@ -253,8 +254,9 @@ are recording which of two documents won, `## Reference` when the note only poin
 for a preference. Create `notes/<topic>.md` on the first note for that topic; `notes/.gitkeep` holds the
 directory until then.
 
-**Harvesting.** Always `--corpus docs/knowledge/harvested`; the skill's default is `docs/knowledge/`, which
-no query reads and the structure gate rejects. A harvest replaces the topics it covers wholesale (the first one replaced the seeded tree),
+**Harvesting.** Always pass `--corpus docs/knowledge/harvested`; the tool has no default, and any other directory
+is one no query reads and the structure gate rejects. A merge replaces everything cited from the sources it
+re-harvests (the first one replaced the seeded tree),
 `SOURCES.md` and `INDEX.md` included, and should cover all three roots (`docs/product-spec/`,
 `docs/sdk-design-dotnet/` 00–09, `docs/styleguide/csharp/`) — never the registers (`sdk-design-dotnet`
 10–12, `docs/deviations.md`, `docs/first-release.md`). If the harvest emits a `supersede` resolution, move it
