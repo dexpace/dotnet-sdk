@@ -290,8 +290,8 @@ no section, role, or exact-token ID matching. Two exceptions, both narrow:
 | `--chapter 9` | Styleguide chapter. The only way in from a "styleguide N.M" citation (after a harvest). |
 | `--grep <regex>` / bare words | Case-insensitive; `--grep` is a .NET regex, bare words are literal. |
 | `--phase 5a` | Every ID cited by `docs/work/*/phase5/phase5a/*.md`, queried as one `--req` set, per-document breakdown first. Exits 0 with a message when the phase has no documents yet. |
-| `--gaps HTTP` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited apart. The pointer is checked against the chapters: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line. **Answers without a corpus.** |
-| `--prefix-info HTTP` | Subsystem, owning chapter, ID count and level split, from appendix C. **Answers without a corpus.** |
+| `--gaps HTTP` / `--gaps HTTP PAGE` / `--gaps HTTP,PAGE` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited apart. The pointer is checked against the chapters: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line. **Answers without a corpus.** |
+| `--prefix-info HTTP` | One prefix only (a second word exits 2). Subsystem, owning chapter, ID count and level split, from appendix C. **Answers without a corpus.** |
 | `--brief` | Drop `<sub>` lines, ~30% smaller — but you lose the citation. |
 | `--json` | Records, each with `origin`, `key` and a `rollup` boolean (snake_case fields). |
 | `--list-topics` | Every topic with entry, distinct-ID and note counts. |

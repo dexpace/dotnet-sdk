@@ -51,6 +51,49 @@ public sealed class GapsTests : KnowledgeFixture
     }
 
     [Fact]
+    public void Gaps_TakesSpaceSeparatedPrefixesLikeTheCommaForm()
+    {
+        // The roadmap documents the flag as `--gaps <PREFIXES>`, and a shell user types a space. The second
+        // prefix used to be a bare query word that --gaps never looked at: the report covered HTTP alone
+        // and exited 0 (#31).
+        var (stdout, stderr, status) = Run("--gaps", "HTTP", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Equal("", stderr);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+        Assert.Equal(Run("--gaps", "HTTP,SEAM").Stdout, stdout);
+    }
+
+    [Fact]
+    public void Gaps_MixesSpaceAndCommaFormsAndTakesWordsAfterOtherOptions()
+    {
+        var (stdout, _, status) = Run("--gaps", "HTTP,PAGE", "--brief", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("PAGE — Pagination", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("in 3 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_AWordThatIsNotAPrefixIsAUsageErrorNotASilentDrop()
+    {
+        var (stdout, stderr, status) = Run("--gaps", "HTTP", "UTF");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("'UTF' is not a requirement-ID prefix in appendix C", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_ReportsEachPrefixOnceHoweverItWasSpelled()
+    {
+        var (stdout, _, status) = Run("--gaps", "http", "HTTP,SEAM", "seam");
+        Assert.Equal(0, status);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnUnknownPrefix_Exits2()
     {
         var (_, stderr, status) = Run("--gaps", "UTF");
@@ -121,6 +164,16 @@ public sealed class PrefixInfoTests : KnowledgeFixture
         Assert.Contains("owning chapter: docs/product-spec/04-core-http-domain-model.md", stdout, StringComparison.Ordinal);
         Assert.Contains("2 of 4 IDs have a substantive entry, 1 are roll-up only, 1 are uncited", stdout, StringComparison.Ordinal);
         Assert.Contains("topics carrying HTTP knowledge: http-domain-model", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrefixInfo_TakesOnePrefix_AndRejectsAnExtraWordRatherThanDroppingIt()
+    {
+        var (stdout, stderr, status) = Run("--prefix-info", "HTTP", "SEAM");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info takes one prefix", stderr, StringComparison.Ordinal);
+        Assert.Contains("SEAM", stderr, StringComparison.Ordinal);
     }
 }
 
