@@ -137,7 +137,7 @@ dotnet-sdk/
 ├── scripts/
 │   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs, reproducible-pack.sh
 │   └── knowledge                    # the knowledge-lookup CLI
-├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/housekeeping/{src,tests}
+├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/{housekeeping,knowledge-harvest}/{src,tests}
 ├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates
 └── docs/                            # see docs/README.md
 ```
@@ -205,8 +205,9 @@ Read [`docs/README.md`](docs/README.md) first — it is the ownership table for 
   (public API keeps the `I` prefix and `Async` suffix; see design §10).
 - **`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`** — the v1 roadmap (phases 0–12), its
   cross-cutting constraints and its Phase Status Notes. `docs/first-release.md` is the release register.
-- **Skills** (`.claude/skills/`): `knowledge-lookup` and `housekeeping`. Their tools and tests build from
-  `tools/Dexpace.Tools.sln`, separate from `Dexpace.Sdk.sln`.
+- **Skills** (`.claude/skills/`): `knowledge-lookup`, `knowledge-harvest` (with the `knowledge-extractor` agent in
+  `.claude/agents/`) and `housekeeping`. Their tools and tests build from `tools/Dexpace.Tools.sln`, separate from
+  `Dexpace.Sdk.sln`.
 
 **The phase workflow** (roadmap, "How Phases Get Executed"). Each phase or sub-phase runs
 brainstorm → design → plan → checklist, on a branch `<issue>-phase-<N[x]>-<slug>` off `main`:

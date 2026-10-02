@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The knowledge-harvest skill's tooling: a hand-run console tool, not a shipped package. It ports the
+       user-level skill's scan.py and merge.py to C#, as the housekeeping skill keeps its own tool, and
+       references no package: the BCL covers hashing, regular expressions, JSON and process spawning. It
+       inherits the repository's Directory.Build.props and Directory.Packages.props. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>KnowledgeHarvest</RootNamespace>
+    <AssemblyName>KnowledgeHarvest</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="KnowledgeHarvest.Tests" />
+  </ItemGroup>
+
+</Project>
