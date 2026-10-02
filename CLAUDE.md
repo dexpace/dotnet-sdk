@@ -116,7 +116,8 @@ dotnet-sdk/
 │   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers
 │   │   ├── Http/Request/            # Request, RequestBody
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
-│   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions
+│   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
+│   │   ├── Operations/              # OperationDescriptor, the operation-input projection
 │   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, HttpPipelinePolicy, PipelineContext,
 │   │   │   └── Policies/            #   DexpacePipeline; operation, redirect, retry, idempotency, set-date,
 │   │   │                            #   client-identity, instrumentation and auth policies
@@ -124,12 +125,12 @@ dotnet-sdk/
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor
-│   │   ├── Serialization/           # ISerde, ResponseBodySerdeExtensions
-│   │   └── Errors/                  # SdkException hierarchy
+│   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
+│   │   └── Errors/                  # SdkException hierarchy, SerdeException
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 ├── tests/
-│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-2 and SSE-37
+│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22 and SSE-37
 │   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over a Loopback/ server
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
@@ -231,9 +232,10 @@ Then implement the plan's numbered tasks TDD, write the checklist from what was 
 requirement ID), add a `CHANGELOG.md` `[Unreleased]` entry, append a dated status note to the roadmap, and
 run the probe once more before handing over.
 
-**What is genuinely unbuilt** (the roadmap schedules each): the transport SPI taking `RequestOptions` and the seams
-(phase 2b; the phase 2a domain-model rework — the `Headers` rebuild, `Request`/`Response` validation, `Query`,
-`RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` — is built, see `docs/sdk-documentation/http.md`); the I/O and body lifecycle — file, form-urlencoded and multipart
+**What is genuinely unbuilt** (the roadmap schedules each; the phase 2a domain-model rework — the `Headers` rebuild,
+`Request`/`Response` validation, `Query`, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` — and the phase 2b
+seams — the transport SPI taking `RequestOptions`, `DelegateHttpClient`, the serde profiles and `OperationDescriptor`,
+with `BaseAddress` now read — are built, see `docs/sdk-documentation/http.md` and `docs/sdk-documentation/seams.md`): the I/O and body lifecycle — file, form-urlencoded and multipart
 bodies, the logging body wrappers, and dispose latches (3); the execution-context chain and the recovery
 chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport

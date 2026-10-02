@@ -55,4 +55,14 @@ public class DexpaceClientOptionsTests
         Assert.NotNull(opts.Retry);
         Assert.NotNull(opts.Redirect);
     }
+
+    [Fact]
+    public void BaseAddress_is_read_by_BuildRequest()
+    {
+        // SEAM-27: BaseAddress is no longer inert; OperationDescriptor.BuildRequest(DexpaceClientOptions) reads it.
+        var options = new DexpaceClientOptions { BaseAddress = new Uri("https://api.example.com/v1") };
+        var descriptor = new Dexpace.Sdk.Core.Operations.OperationDescriptor { Method = Dexpace.Sdk.Core.Http.Common.Method.Get, PathTemplate = "/pets" };
+
+        Assert.Equal("https://api.example.com/v1/pets", descriptor.BuildRequest(options).Url.AbsoluteUri);
+    }
 }

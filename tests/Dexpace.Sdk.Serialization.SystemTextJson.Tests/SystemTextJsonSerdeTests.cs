@@ -2,6 +2,8 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Buffers;
+using System.Collections.Generic;
+using System.Text.Json;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Xunit;
@@ -61,7 +63,8 @@ public sealed class SystemTextJsonSerdeTests
     public void Deserialize_malformed_json_throws_DeserializationException()
     {
         var serde = Serde();
-        Assert.Throws<DeserializationException>(() => serde.Deserialize<Widget>("{ not json"u8));
+        var ex = Assert.Throws<DeserializationException>(() => serde.Deserialize<Widget>("{ not json"u8));
+        Assert.IsType<JsonException>(ex.InnerException);
     }
 
     // --- Widened catch tests ---
@@ -75,7 +78,11 @@ public sealed class SystemTextJsonSerdeTests
         n.Next = n;
 
         var buffer = new ArrayBufferWriter<byte>();
-        Assert.Throws<SerializationException>(() => serde.Serialize(buffer, n));
+        var ex = Assert.Throws<SerializationException>(() => serde.Serialize(buffer, n));
+
+        // The synchronous writer path reports a cycle as InvalidOperationException (not JsonException, as the async
+        // path does); the clause under test is that the cause is chained, whatever its type.
+        Assert.NotNull(ex.InnerException);
     }
 
     [Fact]
@@ -86,7 +93,8 @@ public sealed class SystemTextJsonSerdeTests
         n.Next = n;
 
         using var stream = new MemoryStream();
-        await Assert.ThrowsAsync<SerializationException>(() => serde.SerializeAsync(stream, n, TestContext.Current.CancellationToken).AsTask());
+        var ex = await Assert.ThrowsAsync<SerializationException>(() => serde.SerializeAsync(stream, n, TestContext.Current.CancellationToken).AsTask());
+        Assert.IsType<JsonException>(ex.InnerException);
     }
 
     [Fact]
@@ -99,5 +107,107 @@ public sealed class SystemTextJsonSerdeTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => serde.DeserializeAsync<Widget>(stream, cancelled).AsTask());
+    }
+
+    // --- SEAM-20 / SEAM-21 / SEAM-22 pins ---
+
+    private sealed class ThrowingStream : Stream
+    {
+        public IOException Failure { get; } = new("stream failed");
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw Failure;
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            throw Failure;
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw Failure;
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
+            throw Failure;
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            throw Failure;
+    }
+
+    // The helper takes the seam type on purpose: SEAM-22 is about a generic caller that only knows ISerde.
+#pragma warning disable CA1859
+    private static async Task<List<T>?> Decode<T>(Core.Serialization.ISerde serde, Stream source) =>
+        await serde.DeserializeAsync<List<T>>(source, TestContext.Current.CancellationToken);
+#pragma warning restore CA1859
+
+    [Fact]
+    public async Task SerializeAsync_leaves_the_destination_open()
+    {
+        using var stream = new MemoryStream();
+
+        await Serde().SerializeAsync(stream, new Widget("a", 1), TestContext.Current.CancellationToken);
+
+        Assert.True(stream.CanWrite);
+    }
+
+    [Fact]
+    public async Task DeserializeAsync_leaves_the_source_open()
+    {
+        using var stream = new MemoryStream("{\"Name\":\"x\",\"Size\":1}"u8.ToArray());
+
+        await Serde().DeserializeAsync<Widget>(stream, TestContext.Current.CancellationToken);
+
+        Assert.True(stream.CanRead);
+    }
+
+    [Fact]
+    public async Task An_IOException_from_the_destination_propagates_unwrapped()
+    {
+        using var stream = new ThrowingStream();
+
+        var ex = await Assert.ThrowsAsync<IOException>(
+            () => Serde().SerializeAsync(stream, new Widget("a", 1), TestContext.Current.CancellationToken).AsTask());
+
+        Assert.Same(stream.Failure, ex);
+    }
+
+    [Fact]
+    public async Task An_IOException_from_the_source_propagates_unwrapped()
+    {
+        using var stream = new ThrowingStream();
+
+        var ex = await Assert.ThrowsAsync<IOException>(
+            () => Serde().DeserializeAsync<Widget>(stream, TestContext.Current.CancellationToken).AsTask());
+
+        Assert.Same(stream.Failure, ex);
+    }
+
+    [Fact]
+    public async Task A_generic_helper_decodes_into_the_closed_type()
+    {
+        // SEAM-22: the capture is the generic argument itself, bound to the closed type at run time.
+        using var stream = new MemoryStream("[{\"Name\":\"x\",\"Size\":1}]"u8.ToArray());
+
+        var result = await Decode<Widget>(Serde(), stream);
+
+        var items = Assert.IsType<List<Widget>>(result);
+        Assert.Equal(new Widget("x", 1), Assert.Single(items));
     }
 }

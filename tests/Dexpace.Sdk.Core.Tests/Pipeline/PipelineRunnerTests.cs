@@ -1,8 +1,11 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
@@ -72,6 +75,62 @@ public class PipelineRunnerTests
         await runner.RunAsync(context);
 
         Assert.Equal(2, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task The_transport_receives_RequestOptions_Empty()
+    {
+        // Position D: until phase 4c carries a caller's options on the context, the runner passes Empty. 4c replaces this test.
+        var transport = new RecordingTransport();
+
+        await new PipelineRunner([], 0, transport).RunAsync(MakeContext());
+
+        Assert.Same(RequestOptions.Empty, transport.LastCall!.Options);
+    }
+
+    [Fact]
+    public async Task The_transport_receives_the_contexts_token()
+    {
+        using var cts = new CancellationTokenSource();
+        var transport = new RecordingTransport();
+        var context = new PipelineContext(MakeRequest(), new DexpaceClientOptions(), cts.Token);
+
+        await new PipelineRunner([], 0, transport).RunAsync(context);
+
+        Assert.Equal(cts.Token, transport.LastCall!.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_null_response_from_the_transport_fails_at_the_runner_before_any_policy_sees_it()
+    {
+        // SEAM-16: nullability is compile-time only, so the terminal runner asserts the transport's result.
+        var observed = new List<Response?>();
+        var policy = new ObservingPolicy(observed);
+        var context = MakeContext();
+
+        var runner = new PipelineRunner([policy], 0, new NullTransport());
+
+        await Assert.ThrowsAsync<PipelineAbortedException>(() => runner.RunAsync(context).AsTask());
+        Assert.Empty(observed);
+    }
+
+    private sealed class NullTransport : IAsyncHttpClient
+    {
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult<Response>(null!);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class ObservingPolicy(List<Response?> observed) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.Operation;
+
+        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        {
+            await continuation.RunAsync(context).ConfigureAwait(false);
+            observed.Add(context.Response);
+        }
     }
 
     private sealed class DoubleDipPolicy : HttpPipelinePolicy

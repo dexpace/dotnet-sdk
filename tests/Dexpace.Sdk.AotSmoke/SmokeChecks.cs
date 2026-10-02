@@ -1,15 +1,18 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Buffers;
 using System.Collections.Immutable;
 using System.IO;
 using System.Net;
 using System.Text;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Operations;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet;
@@ -35,6 +38,9 @@ internal static class SmokeChecks
             CheckPhase2aModels();
             await CheckPipelineJsonRoundTripAsync();
             await CheckReferenceTransportAsync();
+            await CheckBridgesAndDelegateClientsAsync();
+            CheckSerdeProfiles();
+            CheckOperationDescriptor();
         }
         catch (SmokeFailureException failure)
         {
@@ -124,6 +130,90 @@ internal static class SmokeChecks
         Expect(await response.Body.ReadAsStringAsync() == "pong", "transport streams the response body");
     }
 
+    // Phase 2b: both bridges and both DelegateHttpClient forms, over an in-process transport (no reflection).
+    private static async Task CheckBridgesAndDelegateClientsAsync()
+    {
+        var request = Request.Get(s_endpoint.OriginalString);
+
+        // AsAsync on TaskScheduler.Default (a dedicated thread through LongRunning) and the option-less extension.
+        using var blocking = DelegateHttpClient.CreateBlocking((r, _, _) => new Response(r, Status.Ok, Protocol.Http11));
+        await using var asAsync = blocking.AsAsync(TaskScheduler.Default);
+        using var viaAsAsync = await asAsync.ExecuteAsync(request);
+        Expect(viaAsAsync.Status == Status.Ok, "AsAsync(TaskScheduler.Default) round trip");
+
+        // AsBlocking over an async delegate transport, passing the options and the token through.
+        var options = new RequestOptions { MaxRetries = 1 };
+        RequestOptions? seen = null;
+        await using var asyncClient = DelegateHttpClient.Create((r, o, _) =>
+        {
+            seen = o;
+            return Task.FromResult(new Response(r, Status.Accepted, Protocol.Http11));
+        });
+        using var viaBlocking = asyncClient.AsBlocking();
+        using var response = viaBlocking.Execute(request, options, CancellationToken.None);
+        Expect(response.Status == Status.Accepted && ReferenceEquals(seen, options), "AsBlocking round trip");
+
+        using var optionless = DelegateHttpClient.CreateBlocking((r, o, _) => new Response(r, ReferenceEquals(o, RequestOptions.Empty) ? Status.Ok : Status.BadRequest, Protocol.Http11));
+        using var optionlessResponse = optionless.Execute(request);
+        Expect(optionlessResponse.Status == Status.Ok, "DelegateHttpClient.CreateBlocking with the option-less call");
+    }
+
+    // Phase 2b: the derived serialization profiles over the source-generated codec, and the serde failure hierarchy.
+    private static void CheckSerdeProfiles()
+    {
+        var serde = new SystemTextJsonSerde(SmokeJsonContext.Default);
+        var widget = new Widget("gear", 9);
+
+        var bytes = serde.SerializeToUtf8Bytes(widget);
+        Expect(serde.SerializeToString(widget) == "{\"Name\":\"gear\",\"Size\":9}", "SerializeToString");
+
+        var fixedBuffer = new byte[bytes.Length + 2];
+        var count = serde.Serialize(fixedBuffer.AsSpan(2), widget);
+        Expect(count == bytes.Length && fixedBuffer.AsSpan(2).SequenceEqual(bytes), "fixed-buffer Serialize");
+
+        var overflow = false;
+        try
+        {
+            _ = serde.Serialize(new byte[1], widget);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            overflow = true;
+        }
+
+        Expect(overflow, "fixed-buffer Serialize overflow");
+
+        var caught = false;
+        try
+        {
+            _ = serde.Deserialize<Widget>("{ not json"u8);
+        }
+        catch (SerdeException ex) when (ex is DeserializationException)
+        {
+            caught = true;
+        }
+
+        Expect(caught, "a DeserializationException is caught as SerdeException");
+    }
+
+    // Phase 2b: OperationDescriptor.BuildRequest with a path parameter, a query and a base address.
+    private static void CheckOperationDescriptor()
+    {
+        var descriptor = new OperationDescriptor
+        {
+            Method = Method.Get,
+            PathTemplate = "/pets/{id}",
+            PathParameters = ImmutableDictionary<string, string>.Empty.Add("id", "a/b"),
+            Query = new Query.Builder().Add("limit", "10").Build(),
+        };
+
+        var request = descriptor.BuildRequest(new Uri("https://smoke.example.test/v1?sig=abc"));
+
+        Expect(
+            request.Url.AbsoluteUri == "https://smoke.example.test/v1/pets/a%2Fb?sig=abc&limit=10",
+            "OperationDescriptor.BuildRequest composition");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
@@ -137,7 +227,7 @@ internal static class SmokeChecks
     {
         public string? LastUserAgent { get; private set; }
 
-        public async Task<Response> ExecuteAsync(Request request, CancellationToken cancellationToken = default)
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
         {
             LastUserAgent = request.Headers.Get("User-Agent");
             using var buffer = new MemoryStream();

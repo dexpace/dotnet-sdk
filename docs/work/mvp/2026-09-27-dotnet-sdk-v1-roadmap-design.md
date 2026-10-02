@@ -1347,3 +1347,43 @@ N/A and `HTTP-22` is declined in `docs/first-release.md`.
   `ruby-sdk@5b17395` are not in the local clones, and the Ruby repository holds documents only. The test classes for the
   `Http/Request/` and `Http/Response/` folders use the namespaces `…Tests.Http.Requests` and `…Responses`.
 - **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
+
+**2026-10-02 — Phase 2b: the seams are built (six steps, six rulings).** Sub-phase 2b landed on branch `40-phase-2b-seams`,
+stacked on `39-phase-2a-domain-model` (2a had already landed all nine of its steps, so every gate of the plan was met),
+as the plan's six pull-request-sized steps, each green on the whole local gate: (1) the serde seam — `SerdeException`,
+the unsealed and re-parented subtypes, `SerdeExtensions`, `IStringSerde` and the adapter pins; (2) the seam-surface
+guards — `Seam1ArchitectureTests`, `SeamImplementationArchitectureTests`, the `SEAM-5` parameter pins, the ownership tests
+and the `SEAM-30` entries in `BannedSymbols.txt`; (3) the SPI change — both interfaces take `RequestOptions` and a token
+with no defaults, the option-less extensions, `PipelineRunner`'s null guard, `SystemNetHttpClient`'s signatures, both
+bridges rewritten, and the test fakes; (4) `DelegateHttpClient`; (5) `OperationDescriptor`, `BuildRequest` and the
+composition vectors; (6) the AOT-smoke extension, the user page `docs/sdk-documentation/seams.md`, the
+[checklist](phase2/phase2b/2026-10-02-phase2b-seams-checklist.md), the dated corrections to design §3.2–§3.5, §11 and §12,
+and this note. 20 of 29 rows are ✅, `SEAM-15` is ⏳ 8b, and the rest are N/A (`SEAM-5` and `SEAM-6` with the DI half ⏳
+phase 9).
+
+- **The six rulings of 2026-09-30 stand as designed.** `SerdeException` is abstract; `AsAsync` accepts
+  `TaskScheduler.Default` (a dedicated thread per call through `LongRunning`); `AsAsync` checks after return, so a
+  `WaitAsync`-abandoned call cannot orphan a response, at the price that a throwing `Dispose` faults the task until 3b;
+  `SerializeToString` is UTF-8 with the optional `IStringSerde` override; `OperationDescriptor` carries typed values; and
+  a build-time assembly failure is `InvalidOperationException`. Design §11 items 41–43 and the correction to item 35 carry
+  P2b-1, P2b-2, P2b-4 and P2b-7; §3.2's wording is corrected for P2b-6 (`Create` and `CreateBlocking`).
+- **Breaking changes** (seven, all in `CHANGELOG.md` `[Unreleased]`): the serde exceptions are unsealed under
+  `SerdeException`; both SPI members take `RequestOptions` and a token; `SystemNetHttpClient` takes the same signatures;
+  `AsAsync` takes a `TaskScheduler`; neither bridge disposes what it wraps; `AsAsync` disposes a response produced after
+  cancellation; a `null` from a transport fails at `PipelineRunner`.
+- **No `Security` class was edited.** The four wire classes compile through the option-less extension once
+  `SystemNet.Tests/GlobalUsings.cs` imports `Dexpace.Sdk.Core.Client`; the core `Security` classes are untouched.
+- **Hand-offs.** 3b: `Disposal.DisposeQuietly` replaces `AsAsync`'s direct `Dispose()` and its pin test
+  (`A_throwing_dispose_after_cancellation_faults_the_task_with_that_exception`), and the dispose latches close `SEAM-14`.
+  4a: attaches `OperationDescriptor.OperationId` to the context chain (`SEAM-28`). 4c: adds `HttpPipeline` to the allow-list
+  of `SeamImplementationArchitectureTests` (`PIPE-26`), carries a caller's `RequestOptions` on the context and replaces
+  `PipelineRunnerTests.The_transport_receives_RequestOptions_Empty`. 5a: may move `BaseAddress` validation to
+  construction. 7a: builds on `SerdeException`, the profiles and `SerdeExceptionHierarchyTests`. 8a: drives the kit against
+  `DelegateHttpClient` and owns the per-transport proofs of `SEAM-11` (no pre-buffering), `SEAM-12` and `SEAM-13`. 8b: the
+  real synchronous send, the `ObjectDisposedException` latch (`SEAM-15`) and `RequestOptions.Timeout`. 9: the DI half of
+  `SEAM-5` and `SEAM-6`.
+- **Sources and namespaces.** `tests/vectors/seam/operation-compose.json` cites `nodejs-sdk@c0ff3fd`: the plan's
+  `54aeed4` and `ruby-sdk@5b17395` are not in the local clones. The new `Core.Tests` classes use the namespaces
+  `…Tests.Exceptions`, `…Clients` and `…Serdes`, because `…Errors`, `…Client` and `…Serialization` would shadow types for
+  the older tests.
+- **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.

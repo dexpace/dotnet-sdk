@@ -107,6 +107,58 @@ public class SystemNetHttpClientTests
             () => transport.ExecuteAsync(Request.Get("https://example.test/x"), TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Options_are_accepted_and_ignored_until_8b()
+    {
+        // SEAM-11's conformance clause on the real adapter: a transport that ignores options behaves identically.
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Accepted));
+        await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+        var request = Request.Get("https://example.test/ping");
+        var options = new RequestOptions { Timeout = TimeSpan.FromMilliseconds(1), MaxRetries = 3 };
+
+        await using var withOptions = await transport.ExecuteAsync(request, options, TestContext.Current.CancellationToken);
+        await using var withEmpty = await transport.ExecuteAsync(request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Accepted, withOptions.Status);
+        Assert.Equal(withEmpty.Status, withOptions.Status);
+    }
+
+    [Fact]
+    public async Task A_null_options_argument_faults_the_task_with_ArgumentNullException()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+
+        var task = transport.ExecuteAsync(Request.Get("https://example.test/ping"), null!, TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => task);
+        Assert.Equal("options", ex.ParamName);
+    }
+
+    [Fact]
+    public void The_sync_Execute_passes_the_token_through()
+    {
+        using var handler = new TokenObservingHandler();
+        using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => transport.Execute(Request.Get("https://example.test/ping"), RequestOptions.Empty, cts.Token));
+    }
+
+    // Honours the token the way a real handler does, so the sync call's token is observable without a socket.
+    private sealed class TokenObservingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
+    }
+
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(

@@ -180,6 +180,11 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     than insertion (verified in §3.5). *Resolved*: the projection rejects a value that is exactly `.` or `..` with an
     `ArgumentException` naming the placeholder (§3.5). The same canonicalisation applies to a redirect `Location`,
     where RFC 3986 resolution requires it and no caller-supplied value is involved (§6.2).
+    *Dated correction, 2026-10-02 (phase 2b, P2b-7):* the same removal applies to the template's literal text, so a
+    template such as `/../admin` or `/%2e%2e/admin` would also escape the base path (verified: `https://h/c/%2E%2E/x`
+    becomes `https://h/x`). The projection therefore also rejects a literal segment that is a dot-segment (`%2E` read as
+    `.`) when the template is set, and rejects a rendered dot-segment at `BuildRequest` (reachable only by concatenating
+    literal dots with an empty value, as in `/.{a}.`), the second as `InvalidOperationException`.
 36. **HTTP-17's header-name rules are a floor; may a port be stricter?** **HTTP-17** rejects blank names, C0
     controls, DEL and non-ASCII and trims surrounding whitespace, but does not say whether a port may reject more.
     RFC 9110's token grammar also rejects separators such as space, `(` and `:`, and `HttpClient`'s
@@ -218,3 +223,23 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     but `Headers.Set` enforces **HTTP-18**'s outbound ASCII rule. *Resolved* (§4.4): the outbound rule wins. The tag
     parses and constructs, and `RequestConditions.ApplyTo` throws `ArgumentException` (naming the code point, never the
     value) when asked to send it. The chapters do not address the interaction.
+41. **SEAM-2 says core "never implements" a seam, but core must ship the bridges and `DelegateHttpClient`.** *Added by
+    dated correction, 2026-10-02 (phase 2b, P2b-1).* Read to the letter, "never implements" forbids the two bridges
+    **SEAM-18** requires, `DelegateHttpClient` (**SEAM-11**) and 4c's `HttpPipeline` (**PIPE-26**). *Resolved* (§3.2): core
+    never supplies the external concern behind a seam (the I/O of a transport, the format of a codec) and never names a
+    concrete supplier, but it may ship adapters that re-shape a caller-supplied implementation and perform no I/O. An
+    architecture test (`SeamImplementationArchitectureTests`) makes the reading mechanical: every core type implementing a
+    seam is non-public and on a named allow-list with a reason, and a new implementer needs an entry. A reading of the
+    clause, not a departure from it.
+42. **SEAM-22 asks for "full generic type capture", which a .NET generic method does not need.** *Added by dated
+    correction, 2026-10-02 (phase 2b, P2b-2).* The type a codec decodes into is the generic argument itself, which the CLR
+    binds to a closed type at run time, so an unresolved type variable cannot reach the codec through the generic API; the
+    only door through which one could, a `Type`-taking overload, does not exist. *Resolved* (§3.4): the requirement is met
+    by construction and is marked ✅, not N/A, with `SerdeSeamArchitectureTests.No_seam_member_takes_a_System_Type` as the
+    tripwire and the `ContainsGenericParameters` rejection design §3.4 requires of any future `Type` overload.
+43. **§3.3 says no SDK path abandons a `Task<Response>`, but §5.3 documents a mode in which the caller does.** *Added by
+    dated correction, 2026-10-02 (phase 2b, P2b-4).* "Cancel without interruption" is the caller awaiting
+    `task.WaitAsync(token)` while the blocking call runs on, so a response produced later has no receiver, which is
+    **SEAM-30**'s orphan. *Resolved* (§3.3, §5.3): `AsAsync` checks the token after `Execute` returns, disposes a response
+    produced once it is signalled, and completes the task cancelled, so the response is closed exactly once and never
+    surfaces. The disposal is direct, so a throwing `Dispose` faults the task until phase 3b's `DisposeQuietly` replaces it.

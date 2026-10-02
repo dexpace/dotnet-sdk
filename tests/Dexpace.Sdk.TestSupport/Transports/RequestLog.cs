@@ -5,10 +5,10 @@ using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.TestSupport.Transports;
 
-/// <summary>The thread-safe request record the fake transports share; a retry test may call from several threads.</summary>
+/// <summary>The thread-safe call record the fake transports share; a retry test may call from several threads.</summary>
 internal sealed class RequestLog
 {
-    private readonly List<Request> _requests = [];
+    private readonly List<RecordedCall> _calls = [];
     private readonly Lock _gate = new();
 
     public int Count
@@ -17,37 +17,37 @@ internal sealed class RequestLog
         {
             lock (_gate)
             {
-                return _requests.Count;
+                return _calls.Count;
             }
         }
     }
 
-    public Request? Last
+    public RecordedCall? Last
     {
         get
         {
             lock (_gate)
             {
-                return _requests.Count > 0 ? _requests[^1] : null;
+                return _calls.Count > 0 ? _calls[^1] : null;
             }
         }
     }
 
-    /// <summary>Records <paramref name="request"/> and returns its zero-based call index.</summary>
-    public int Add(Request request)
+    /// <summary>Records the call and returns its zero-based call index.</summary>
+    public int Add(Request request, RequestOptions options, CancellationToken cancellationToken)
     {
         lock (_gate)
         {
-            _requests.Add(request);
-            return _requests.Count - 1;
+            _calls.Add(new RecordedCall(request, options, cancellationToken));
+            return _calls.Count - 1;
         }
     }
 
-    public IReadOnlyList<Request> Snapshot()
+    public IReadOnlyList<RecordedCall> Snapshot()
     {
         lock (_gate)
         {
-            return [.. _requests];
+            return [.. _calls];
         }
     }
 }

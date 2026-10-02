@@ -40,11 +40,12 @@ Dexpace.Sdk.Core.Auth.TokenRequestContext.Scopes.get -> System.Collections.Gener
 Dexpace.Sdk.Core.Auth.TokenRequestContext.TokenRequestContext() -> void
 Dexpace.Sdk.Core.Auth.TokenRequestContext.TokenRequestContext(System.Collections.Generic.IReadOnlyList<string!>! scopes) -> void
 Dexpace.Sdk.Core.Auth.TokenRequestContext.TokenRequestContext(System.Collections.Generic.IReadOnlyList<string!>! scopes, string? claims) -> void
+Dexpace.Sdk.Core.Client.DelegateHttpClient
 Dexpace.Sdk.Core.Client.HttpClientExtensions
 Dexpace.Sdk.Core.Client.IAsyncHttpClient
-Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Core.Client.IHttpClient
-Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.get -> System.TimeSpan?
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.set -> void
@@ -106,6 +107,10 @@ Dexpace.Sdk.Core.Errors.SdkException
 Dexpace.Sdk.Core.Errors.SdkException.SdkException() -> void
 Dexpace.Sdk.Core.Errors.SdkException.SdkException(string! message) -> void
 Dexpace.Sdk.Core.Errors.SdkException.SdkException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.Errors.SerdeException
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException() -> void
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException(string! message) -> void
+Dexpace.Sdk.Core.Errors.SerdeException.SerdeException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SerializationException
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException() -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message) -> void
@@ -291,6 +296,27 @@ Dexpace.Sdk.Core.Http.Response.Status.IsServerError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsSuccess.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.Name.get -> string?
 Dexpace.Sdk.Core.Http.Response.Status.Status() -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor
+Dexpace.Sdk.Core.Operations.OperationDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.BuildRequest(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.BuildRequest(System.Uri! baseAddress) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Equals(Dexpace.Sdk.Core.Operations.OperationDescriptor? other) -> bool
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Headers.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Method.get -> Dexpace.Sdk.Core.Http.Common.Method!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Method.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationDescriptor() -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationId.get -> string?
+Dexpace.Sdk.Core.Operations.OperationDescriptor.OperationId.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathParameters.get -> System.Collections.Immutable.ImmutableDictionary<string!, string!>!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathParameters.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathTemplate.get -> string!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.PathTemplate.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Query.get -> Dexpace.Sdk.Core.Http.Request.Query!
+Dexpace.Sdk.Core.Operations.OperationDescriptor.Query.init -> void
+Dexpace.Sdk.Core.Operations.OperationDescriptor.WithPathParameter(string! name, string! value) -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
 Dexpace.Sdk.Core.Pagination.AsyncPageable<T>
 Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.AsyncPageable() -> void
 Dexpace.Sdk.Core.Pagination.Page<T>
@@ -364,7 +390,10 @@ Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.ReadOnlySpan<byte> u
 Dexpace.Sdk.Core.Serialization.ISerde.DeserializeAsync<T>(System.IO.Stream! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
 Dexpace.Sdk.Core.Serialization.ISerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Serialization.IStringSerde
+Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
+Dexpace.Sdk.Core.Serialization.SerdeExtensions
 override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
@@ -395,6 +424,9 @@ override Dexpace.Sdk.Core.Http.Request.RequestOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Request.RequestOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Response.Status.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Response.Status.ToString() -> string!
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.GetHashCode() -> int
+override Dexpace.Sdk.Core.Operations.OperationDescriptor.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
@@ -411,8 +443,12 @@ override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.ProcessAsync(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
+static Dexpace.Sdk.Core.Client.DelegateHttpClient.Create(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!>! send) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
+static Dexpace.Sdk.Core.Client.DelegateHttpClient.CreateBlocking(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, Dexpace.Sdk.Core.Http.Response.Response!>! send) -> Dexpace.Sdk.Core.Client.IHttpClient!
+static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsBlocking(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client) -> Dexpace.Sdk.Core.Client.IHttpClient!
+static Dexpace.Sdk.Core.Client.HttpClientExtensions.Execute(this Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
+static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationFormUrlEncoded.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJson.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJsonLines.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
@@ -527,12 +563,17 @@ static Dexpace.Sdk.Core.Http.Response.Status.SwitchingProtocols.get -> Dexpace.S
 static Dexpace.Sdk.Core.Http.Response.Status.TemporaryRedirect.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.TooManyRequests.get -> Dexpace.Sdk.Core.Http.Response.Status
 static Dexpace.Sdk.Core.Http.Response.Status.Unauthorized.get -> Dexpace.Sdk.Core.Http.Response.Status
+static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator !=(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator ==(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
 static Dexpace.Sdk.Core.Pagination.Pageable.Create<TPage, T>(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline, Dexpace.Sdk.Core.Http.Request.Request! first, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Func<TPage, System.Collections.Generic.IReadOnlyList<T>!>! selectItems, System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>! nextRequest, int? maxPages = null) -> Dexpace.Sdk.Core.Pagination.AsyncPageable<T>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.Cursor<TPage>(System.Func<TPage, string?>! nextCursor, string! queryParameter) -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.LinkHeader<TPage>(string! rel = "next") -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.PageNumber<TPage>(string! queryParameter, System.Func<TPage, bool>! hasMore) -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy? authPolicy = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.TimeProvider? timeProvider = null) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
+static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
 static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!

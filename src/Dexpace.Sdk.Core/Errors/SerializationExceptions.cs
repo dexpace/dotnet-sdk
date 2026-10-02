@@ -4,7 +4,14 @@
 namespace Dexpace.Sdk.Core.Errors;
 
 /// <summary>A value could not be serialized into a request payload.</summary>
-public sealed class SerializationException : SdkException
+/// <remarks>
+/// <para>
+/// <b>Breaking:</b> was <c>sealed</c> and derived directly from <c>SdkException</c>; unsealed and re-parented under
+/// <see cref="SerdeException"/> so codegen and adapters can add more specific subtypes (SEAM-23). This departs from
+/// styleguide 8.6 and 6.2 on purpose.
+/// </para>
+/// </remarks>
+public class SerializationException : SerdeException
 {
     /// <summary>Initializes a new instance.</summary>
     public SerializationException()
@@ -28,7 +35,14 @@ public sealed class SerializationException : SdkException
 }
 
 /// <summary>A response payload could not be deserialized into the requested type.</summary>
-public sealed class DeserializationException : SdkException
+/// <remarks>
+/// <para>
+/// <b>Breaking:</b> was <c>sealed</c> and derived directly from <c>SdkException</c>; unsealed and re-parented under
+/// <see cref="SerdeException"/> so codegen and adapters can add more specific subtypes (SEAM-23). This departs from
+/// styleguide 8.6 and 6.2 on purpose.
+/// </para>
+/// </remarks>
+public class DeserializationException : SerdeException
 {
     /// <summary>Initializes a new instance.</summary>
     public DeserializationException()

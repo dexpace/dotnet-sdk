@@ -1,0 +1,38 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/seams/operation.test.ts (the plan pins 54aeed4, which is not in the local clone; ruby-sdk@90075b1 carries docs only, so the Ruby operation_build_request_test.rb cases come from the plan's list). Every expected value was probed against System.Uri on the pinned SDK 10.0.401.",
+  "note": "base: the base address text, parsed with UriKind.RelativeOrAbsolute. method/template/pathParameters/query (ordered name,value pairs) fill an OperationDescriptor. A success case expects Request.Url.AbsoluteUri == expected. An error case expects the named exception type, raised at errorAt: init (assigning the descriptor's members) or build (BuildRequest). mustContain/mustNotContain are checked against the exception message.",
+  "cases": [
+    { "name": "spec worked example", "base": "https://host/c?sig=abc", "method": "GET", "template": "/pets", "expected": "https://host/c/pets?sig=abc" },
+    { "name": "spec worked example with an operation query", "base": "https://host/c?sig=abc", "method": "GET", "template": "/pets", "query": [["limit", "10"]], "expected": "https://host/c/pets?sig=abc&limit=10" },
+    { "name": "a slash in a value is one segment", "base": "https://host/c", "method": "GET", "template": "/pets/{id}", "pathParameters": { "id": "a/b" }, "expected": "https://host/c/pets/a%2Fb" },
+    { "name": "root base", "base": "https://h", "method": "GET", "template": "/pets", "expected": "https://h/pets" },
+    { "name": "trailing-slash base gives exactly one separator", "base": "https://h/c/", "method": "GET", "template": "/pets", "expected": "https://h/c/pets" },
+    { "name": "template without a leading slash", "base": "https://h/c", "method": "GET", "template": "pets", "expected": "https://h/c/pets" },
+    { "name": "empty template keeps a trailing-slash base", "base": "https://h/c/", "method": "GET", "template": "", "expected": "https://h/c/" },
+    { "name": "empty template keeps a bare base path", "base": "https://h/c", "method": "GET", "template": "", "expected": "https://h/c" },
+    { "name": "empty template over a root base", "base": "https://h", "method": "GET", "template": "", "expected": "https://h/" },
+    { "name": "a question-mark-only base query adds no query", "base": "https://h/c?", "method": "GET", "template": "/pets", "expected": "https://h/c/pets" },
+    { "name": "a dangling ampersand on the base query is dropped", "base": "https://h/c?a=1&", "method": "GET", "template": "/pets", "query": [["x", "2"]], "expected": "https://h/c/pets?a=1&x=2" },
+    { "name": "an existing base query is kept before the operation query", "base": "https://host/c?existing=yes", "method": "GET", "template": "/pets", "query": [["a", "1"]], "expected": "https://host/c/pets?existing=yes&a=1" },
+    { "name": "operation query only", "base": "https://h/c", "method": "GET", "template": "/pets", "query": [["x", "2"]], "expected": "https://h/c/pets?x=2" },
+    { "name": "a space in a query value is %20", "base": "https://h/c", "method": "GET", "template": "/pets", "query": [["q", "a b"]], "expected": "https://h/c/pets?q=a%20b" },
+    { "name": "a placeholder used twice takes one value", "base": "https://h/c", "method": "GET", "template": "/a/{x}/b/{x}", "pathParameters": { "x": "1" }, "expected": "https://h/c/a/1/b/1" },
+    { "name": "a space in a value is %20", "base": "https://h/c", "method": "GET", "template": "/{x}", "pathParameters": { "x": "a b" }, "expected": "https://h/c/a%20b" },
+    { "name": "a plus in a value is %2B", "base": "https://h/c", "method": "GET", "template": "/{x}", "pathParameters": { "x": "a+b" }, "expected": "https://h/c/a%2Bb" },
+    { "name": "non-ASCII in a value is UTF-8 percent-encoded", "base": "https://h/c", "method": "GET", "template": "/{x}", "pathParameters": { "x": "é" }, "expected": "https://h/c/%C3%A9" },
+    { "name": "a literal percent escape in the template is kept", "base": "https://h/c", "method": "GET", "template": "/a%20b/{x}", "pathParameters": { "x": "1" }, "expected": "https://h/c/a%20b/1" },
+    { "name": "user info and port are kept", "base": "https://u:p@h:8443/c", "method": "GET", "template": "/pets", "expected": "https://u:p@h:8443/c/pets" },
+    { "name": "an encoded dot-segment value is inert", "base": "https://h/c", "method": "GET", "template": "/x/{a}", "pathParameters": { "a": "%2e%2e" }, "expected": "https://h/c/x/%252e%252e" },
+    { "name": "dots inside a segment are not dot-segments", "base": "https://h/c", "method": "GET", "template": "/v1.2/{x}", "pathParameters": { "x": "a..b" }, "expected": "https://h/c/v1.2/a..b" },
+
+    { "name": "a placeholder with no value", "base": "https://h/c", "method": "GET", "template": "/pets/{id}", "error": "InvalidOperationException", "errorAt": "build", "mustContain": ["id"] },
+    { "name": "a path parameter naming no placeholder", "base": "https://h/c", "method": "GET", "template": "/pets", "pathParameters": { "id": "SECRET-VALUE" }, "error": "InvalidOperationException", "errorAt": "build", "mustContain": ["id"], "mustNotContain": ["SECRET-VALUE"] },
+    { "name": "a value of a single dot", "base": "https://h/c", "method": "GET", "template": "/pets/{id}", "pathParameters": { "id": "." }, "error": "ArgumentException", "errorAt": "init", "mustContain": ["id"] },
+    { "name": "a value of two dots", "base": "https://h/c", "method": "GET", "template": "/pets/{id}", "pathParameters": { "id": ".." }, "error": "ArgumentException", "errorAt": "init", "mustContain": ["id"] },
+    { "name": "a base with a fragment", "base": "https://h/c#f", "method": "GET", "template": "/pets", "error": "ArgumentException", "errorAt": "build" },
+    { "name": "a base with an empty fragment", "base": "https://h/c#", "method": "GET", "template": "/pets", "error": "ArgumentException", "errorAt": "build" },
+    { "name": "a relative base", "base": "/c", "method": "GET", "template": "/pets", "error": "ArgumentException", "errorAt": "build" },
+    { "name": "a non-http base", "base": "ftp://h/", "method": "GET", "template": "/pets", "error": "ArgumentException", "errorAt": "build" },
+    { "name": "a rendered dot-segment from an empty value", "base": "https://h/c", "method": "GET", "template": "/.{a}.", "pathParameters": { "a": "" }, "error": "InvalidOperationException", "errorAt": "build", "mustContain": ["/.{a}."] }
+  ]
+}

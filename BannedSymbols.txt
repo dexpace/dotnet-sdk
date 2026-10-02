@@ -55,3 +55,15 @@ M:System.Net.Http.HttpClient.#ctor(System.Net.Http.HttpMessageHandler,System.Boo
 
 # Console output from a library (styleguide csharp-aspnetcore 06 rule 6.8): log through ILogger instead.
 T:System.Console;Libraries never write to the console; log through ILogger (styleguide aspnetcore 6.8)
+
+# Cancellation-completion race (SEAM-30, design §3.3, §3.7): a Response must never be orphaned between a producer and a
+# caller that stopped awaiting. TaskCompletionSource<T>.SetResult/TrySetResult and every Task<T>.WaitAsync overload
+# are the two ways to build that race, so reintroducing either needs a scoped `#pragma warning disable RS0030` citing
+# SEAM-30. The non-generic TaskCompletionSource and Task.WaitAsync carry no Response and stay allowed.
+M:System.Threading.Tasks.TaskCompletionSource`1.SetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30 (design §3.3, §3.7)
+M:System.Threading.Tasks.TaskCompletionSource`1.TrySetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30 (design §3.3, §3.7)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.Threading.CancellationToken);Abandons a Response when the token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)

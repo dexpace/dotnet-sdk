@@ -26,6 +26,12 @@ Four kinds of entry appear, and they are not interchangeable:
   §10 entry 25); **OBS-8**'s emit-once and **OBS-40**'s collision diagnostic (§8.1, §10 entry 22); and **PAGE-15**'s
   two-page case with **PAGE-12**'s look-ahead machinery (§7.1, §10 entry 17). A vacuous item is reported as vacuous
   by the conformance kit, never as passing (§9.3, §11 item 21).
+
+  **Correction (2026-10-02): phase 2b extends the vacuous list for `SEAM`.** Four clauses of rows that are otherwise built
+  describe an antecedent this port never reaches, and are vacuous, not N/A (P2b-3, §11 items 41–43): **SEAM-17**'s second
+  sentence (no ecosystem facade module ships, because .NET has one async ecosystem, §3.3); **SEAM-21**'s no-codec clause
+  (core ships no format-agnostic deserializer, §3.4); **SEAM-24**'s adapter-module clause (§3.3); and **SEAM-25**'s first
+  sentence (no adapter owns an executor, §3.7). The conformance kit reports each as vacuous, never as passing.
 - **Deferred or declined** — a SHOULD or MAY the port does not implement for the first release: **HTTP-22** (MAY,
   name interning, §4.1); **BODY-36** (MAY, memory-mapped view, offered only on demand, §3.1); **RETRY-38** and
   **RECOV-31**, one feature under two IDs (§11 items 10 and 20); **CFG-13**'s global slot (SHOULD, declined, §8.2,

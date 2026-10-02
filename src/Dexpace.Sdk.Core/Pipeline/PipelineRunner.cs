@@ -2,6 +2,8 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
@@ -47,13 +49,26 @@ public readonly struct PipelineRunner
     /// </summary>
     /// <param name="context">The mutable context for the current call.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline tail has run.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Breaking (behaviour):</b> a transport returning <c>null</c> now fails here with
+    /// <see cref="PipelineAbortedException"/>, before any policy sees it; policies used to see a <c>null</c> response and
+    /// <c>HttpPipeline</c> threw at the end (SEAM-16).
+    /// </para>
+    /// </remarks>
+    /// <exception cref="PipelineAbortedException">The transport returned no response.</exception>
     public async ValueTask RunAsync(PipelineContext context)
     {
         if (_index >= _policies.Length)
         {
-            context.Response = await _transport
-                .ExecuteAsync(context.Request, context.CancellationToken)
+            // Position D: until phase 4c carries a caller's options on the context, the transport gets Empty.
+            var result = await _transport
+                .ExecuteAsync(context.Request, RequestOptions.Empty, context.CancellationToken)
                 .ConfigureAwait(false);
+
+            // SEAM-16: nullability is compile-time only, so assert the transport's result before any policy sees it.
+            context.Response = result
+                ?? throw new PipelineAbortedException("The transport returned no response (SEAM-16).");
             return;
         }
 
