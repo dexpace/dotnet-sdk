@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The knowledge-harvest skill's own suite. Pure functions over temporary directories; no model is
+       involved. Versions come from the root Directory.Packages.props. -->
+  <PropertyGroup>
+    <RootNamespace>KnowledgeHarvest.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\KnowledgeHarvest.csproj" />
+  </ItemGroup>
+
+</Project>

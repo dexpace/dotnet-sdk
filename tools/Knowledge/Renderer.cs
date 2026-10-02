@@ -158,11 +158,14 @@ internal sealed partial class Renderer
     /// What the corpus does NOT know about a prefix. The question a roadmap phase asks before it plans
     /// anything: an ID with no substantive entry has to be read out of the specification itself.
     /// </summary>
-    public string Gaps(string selector)
+    public string Gaps(IEnumerable<string> selectors)
     {
-        List<string> prefixes = string.Equals(Text.Strip(selector), "all", StringComparison.OrdinalIgnoreCase)
-            ? [.. _appendix.Prefixes.Order(StringComparer.Ordinal)]
-            : [.. RubySplit(selector, ',').Select(ValidatePrefix).Distinct(StringComparer.Ordinal)];
+        // Every argument is a comma list, and the empty pieces of `HTTP, SEAM` (a trailing comma, then a
+        // space) or `HTTP,,SEAM` are noise, not an unknown prefix. `all` anywhere means every prefix, which
+        // contains whatever else was named; the others are still checked, so a typo does not hide behind it.
+        var names = selectors.SelectMany(selector => selector.Split(',')).Select(Text.Strip).Where(name => name.Length > 0).ToList();
+        var named = names.Where(name => !IsAll(name)).Select(ValidatePrefix).Distinct(StringComparer.Ordinal).ToList();
+        List<string> prefixes = names.Any(IsAll) ? [.. _appendix.Prefixes.Order(StringComparer.Ordinal)] : named;
         if (prefixes.Count == 0)
         {
             throw new UsageException("--gaps was given no prefix; pass one like --gaps HTTP, or --gaps all");
@@ -324,17 +327,7 @@ internal sealed partial class Renderer
                 string.Join(' ', _appendix.Prefixes.Order(StringComparer.Ordinal)));
     }
 
-    // Ruby's String#split: trailing empty fields are dropped, so `HTTP,` is one prefix and `` is none.
-    private static List<string> RubySplit(string value, char separator)
-    {
-        var parts = value.Split(separator).ToList();
-        while (parts.Count > 0 && parts[^1].Length == 0)
-        {
-            parts.RemoveAt(parts.Count - 1);
-        }
-
-        return parts;
-    }
+    private static bool IsAll(string name) => string.Equals(name, "all", StringComparison.OrdinalIgnoreCase);
 
     private static string TagsOf(Entry entry)
     {
@@ -342,7 +335,21 @@ internal sealed partial class Renderer
         // support, which does not.
         var tags = entry.OverriddenBy.Select(at => $" [overridden by {at}]")
             .Concat(entry.CitedBy.Select(at => $" [cited by {at}]"));
-        return string.Concat(tags) + (entry.IsRollup ? " [appendix-B roll-up]" : "");
+        return string.Concat(tags) + SettledTag(entry) + (entry.IsRollup ? " [appendix-B roll-up]" : "");
+    }
+
+    // A Conflicts entry's source line ends in its status and date: `unresolved`, `kept` (the port keeps the
+    // departure) or `conformed` (the port changed to match). Only the settled two are tagged; an untagged
+    // conflict is still open.
+    private static string SettledTag(Entry entry)
+    {
+        if (entry.Section != "Conflicts" || entry.IsNote || entry.Confidence is null)
+        {
+            return string.Empty;
+        }
+
+        var status = entry.Confidence.Split(' ')[0];
+        return status is "kept" or "conformed" ? $" [{status}]" : string.Empty;
     }
 
     private List<string> TopicsForPrefix(string prefix)

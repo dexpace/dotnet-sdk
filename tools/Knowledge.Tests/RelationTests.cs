@@ -118,3 +118,33 @@ public sealed class RelationTests : KnowledgeFixture
         Assert.Empty(Corpus.OverriddenKeys("Adds to `a/0123abcd`."));
     }
 }
+
+/// <summary>
+/// A Conflicts entry ends its source line in a status. Without a tag, a conflict the port settled by keeping
+/// the departure or by conforming prints exactly like one nobody has decided.
+/// </summary>
+public sealed class ConflictStatusTests : KnowledgeFixture
+{
+    private const string Topic = """
+        # naming
+
+        ## Conflicts
+        - **Open one** — nobody decided.
+          <sub>styleguide `docs/a.md:1-2` · design `docs/b.md:3-4` · unresolved 2026-10-02</sub>
+        - **Kept one** — the port keeps it.
+          <sub>styleguide `docs/a.md:1-2` · design `docs/b.md:3-4` · kept 2026-10-02</sub>
+        - **Conformed one** — the port conforms.
+          <sub>styleguide `docs/a.md:1-2` · design `docs/b.md:3-4` · conformed 2026-10-02</sub>
+        """;
+
+    [Fact]
+    public void KeptAndConformedConflictsAreTaggedAndAnOpenOneIsNot()
+    {
+        WriteFixture("docs/knowledge/harvested/naming.md", Topic);
+        var (stdout, _, _) = Run("--section", "conflicts", "--topic", "naming", "--brief", "--no-drift-check");
+        var lines = stdout.Split('\n');
+        Assert.DoesNotMatch(@"\[(kept|conformed)\]", lines.Single(l => l.Contains("(Conflicts)", StringComparison.Ordinal) && l.Contains(":4 ", StringComparison.Ordinal)));
+        Assert.Contains(lines, l => l.Contains(":6 ", StringComparison.Ordinal) && l.Contains("[kept]", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains(":8 ", StringComparison.Ordinal) && l.Contains("[conformed]", StringComparison.Ordinal));
+    }
+}

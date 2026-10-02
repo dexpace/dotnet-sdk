@@ -35,18 +35,25 @@ internal sealed class Cli
           --chapter <n>       styleguide chapter, e.g. 6 (a "6.7" drops the .7)
           --grep <regex>      case-insensitive regex over entry text (repeatable)
           <words...>          bare words: case-insensitive substrings, all must match
+                              (under --gaps, wherever they stand, they are prefixes instead)
           --phase <N[x]>      every requirement ID cited by docs/work/*/phaseN[/phaseNx]/,
-                              queried as one --req set, with the per-document breakdown
+                              queried as one --req set, with the per-document breakdown.
+                              A range (HTTP-1–HTTP-35, HTTP-1-HTTP-35, HTTP-1..HTTP-35, or the
+                              short HTTP-1–35, each endpoint also in `code` or **bold**) is
+                              credited with every appendix-C ID between its ends
           --brief             drop <sub> provenance lines (~30% less output)
           --json              machine-readable records
           --list-topics       every topic with entry, distinct-ID and note counts
           --list-reqs         requirement-ID -> location map (large; prefer --coverage)
           --coverage          substantive vs roll-up-only vs uncited, per prefix
           --gaps <NAMES|all>  the IDs with no substantive entry, roll-up-only and
-                              uncited listed apart (comma-ok: --gaps HTTP,PAGE). What a
-                              phase must read out of the spec rather than the corpus.
-          --prefix-info <P>   subsystem, owning chapter and ID count for a prefix, all
-                              derived from appendix C — no routing table to go stale
+                              uncited listed apart. Space- or comma-separated, and
+                              repeatable: --gaps HTTP PAGE, --gaps HTTP,PAGE. `all`
+                              anywhere in the list means every prefix. What a phase
+                              must read out of the spec rather than the corpus.
+          --prefix-info <P>   subsystem, owning chapter and ID count for one prefix, all
+                              derived from appendix C — no routing table to go stale.
+                              A second prefix, a repeat, or --gaps beside it exits 2.
           --no-drift-check    skip the stale-source warning (it hashes touched sources)
           --root <dir>        repository root (default: the checkout this tool was built
                               from; {KnowledgePaths.EnvRoot} overrides that)
@@ -62,7 +69,9 @@ internal sealed class Cli
         in the entry is a citation in support.
 
         An unknown --role, --section, --chapter, --origin, --prefix or --gaps exits 2:
-        a typo there is a silent empty result. An unknown --req only warns, because a
+        a typo there is a silent empty result. So does an argument a flag would
+        otherwise drop: a second word after --prefix-info, --prefix-info given twice,
+        and --prefix-info together with --gaps. An unknown --req only warns, because a
         not-yet-canonical ID is a legitimate thing to ask about.
 
         Exits 1 when a query matches nothing, and when the corpus has not been
@@ -75,7 +84,7 @@ internal sealed class Cli
           scripts/knowledge --prefix HTTP --section rules   # an audit group, by ID family
           scripts/knowledge --chapter 9 lock                # "styleguide 9.x"
           scripts/knowledge --prefix-info RETRY             # subsystem, chapter, counts
-          scripts/knowledge --gaps RETRY,RECOV              # what the corpus does NOT know
+          scripts/knowledge --gaps RETRY RECOV              # what the corpus does NOT know
           scripts/knowledge --phase 5a --brief              # a past phase's whole ID set
 
         """;
@@ -185,11 +194,15 @@ internal sealed class Cli
             case "--chapter": options.Chapter.Add(value); break;
             case "--grep": options.Grep.Add(value); break;
             case "--phase": options.Phase = value; break;
-            case "--gaps": options.Gaps = value; break;
-            case "--prefix-info": options.PrefixInfo = value; break;
+            case "--gaps": options.Gaps.Add(value); break;
+            case "--prefix-info": options.PrefixInfo = SetOnce(options.PrefixInfo, flag, value); break;
             default: options.Root = value; break;
         }
     }
+
+    // A flag that takes one value cannot take two: the second would silently replace the first.
+    private static string SetOnce(string? current, string flag, string value) =>
+        current is null ? value : throw new UsageException($"{flag} was given more than once; it takes one value");
 
     private static bool SetSwitch(QueryOptions options, string flag)
     {
@@ -208,12 +221,30 @@ internal sealed class Cli
 
     private int Dispatch(QueryOptions options, List<string> words)
     {
+        // --gaps and --prefix-info each answer from appendix C alone and never look at the query words or at
+        // each other, so anything handed to the one that it does not read is a dropped argument unless it is
+        // refused here: --gaps reads the words as further prefixes (`--gaps HTTP SEAM`, the roadmap's
+        // `--gaps <PREFIXES>`), and --prefix-info, which describes exactly one, refuses them.
+        if (options.PrefixInfo is not null && options.Gaps.Count > 0)
+        {
+            throw new UsageException(
+                "--prefix-info and --gaps cannot be combined: each answers a question of its own. " +
+                "Run them one at a time.");
+        }
+
+        if (options.PrefixInfo is not null && words.Count > 0)
+        {
+            throw new UsageException(
+                $"--prefix-info takes one prefix, but was also given: {string.Join(' ', words)}. " +
+                "Run it once per prefix.");
+        }
+
         var paths = options.Root is not null ? new KnowledgePaths(options.Root) : KnowledgePaths.Default();
         var appendix = AppendixC.Load(paths);
 
         // --gaps and --prefix-info answer from appendix C alone, so they are the two commands worth
         // running before anything has been harvested.
-        var tolerant = options.Gaps is not null || options.PrefixInfo is not null;
+        var tolerant = options.Gaps.Count > 0 || options.PrefixInfo is not null;
         var corpus = LoadCorpus(paths, appendix.Prefixes, tolerant);
         var renderer = new Renderer(corpus, appendix, paths);
 
@@ -222,9 +253,9 @@ internal sealed class Cli
             return Emit(renderer.PrefixInfo(options.PrefixInfo));
         }
 
-        if (options.Gaps is not null)
+        if (options.Gaps.Count > 0)
         {
-            return Emit(renderer.Gaps(options.Gaps));
+            return Emit(renderer.Gaps([.. options.Gaps, .. words]));
         }
 
         if (options.ListTopics)
@@ -268,7 +299,7 @@ internal sealed class Cli
         var extraReqs = new List<string>();
         if (options.Phase is not null)
         {
-            var documents = new PhaseDocs(paths, appendix.Prefixes).Find(options.Phase);
+            var documents = new PhaseDocs(paths, appendix).Find(options.Phase);
             var phase = PhaseDocs.Normalize(options.Phase);
             if (documents.Count == 0)
             {
