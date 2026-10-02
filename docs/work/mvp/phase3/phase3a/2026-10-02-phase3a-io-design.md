@@ -2,10 +2,11 @@
 
 **Status:** Draft, for review. Written 2026-10-02 against `main` at `313188f` (2a and 2b merged). The scope authority is
 the roadmap's Phase 3 card and Phase List row 3 (`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`). No phase 3
-segmentation design exists; [P3a-1](#rulings) records what this document assumes in its place. The structural precedent
+segmentation design exists; [P3a-1](#rulings) records the row split in its place, accepted by the lead's ruling of
+2026-10-02. The structural precedent
 is the 2b design (`docs/work/mvp/phase2/phase2b/2026-09-30-phase2b-seams-design.md`).
 
-**What this document is.** The sub-phase design for 3a. It gives one explicit decision per requirement row (45 rows), the
+**What this document is.** The sub-phase design for 3a. It gives one explicit decision per requirement row (43 rows, per the lead's ruling of 2026-10-02 on P3a-1), the
 shape of every type 3a adds or changes, argued positions on the judgement calls the card and design §3.1 leave open, the
 two verdicts §3.1 owes (one argued here, one handed to 3b), a migration plan from the as-built code, the breaking
 changes, a landing order in pull-request-sized steps, the test strategy, the interface 3b builds on, and the rulings
@@ -27,10 +28,10 @@ Each ordering is stated as a **dependency** or a **convenience** (roadmap "How P
 | Predecessor | Kind | State at `313188f` |
 |---|---|---|
 | Phase 0 (gates: warnings as errors, `RS0016`/`RS0017`, `RS0030` with `BannedSymbols.txt`, `MA0051` at 70 lines, `CA2007` on `src/`, `IsAotCompatible`, the AOT smoke consumer, the test partition and `TestCategoryTests`) | **dependency** | Met. 3a is written under every gate from its first line. |
-| Phase 1, S8 (`HTTP-52`'s close scope and 1 MiB cap) | **dependency**, for the `HTTP-52` row | Met. `EnsureSuccessErrorMappingTests` (`Security`) is the evidence; 3a re-homes the drain under it and must keep it green **unedited** (constraint 5). |
+| Phase 1, S8 (`HTTP-52`'s close scope and 1 MiB cap) | **dependency**, for the `HTTP-52` drain re-home (3b's row, P3a-13) | Met. `EnsureSuccessErrorMappingTests` (`Security`) is the evidence; 3a re-homes the drain under it and must keep it green **unedited** (constraint 5). |
 | **2a** (the phase 3 card's only entry criterion) | **dependency** | Met. 3a inherits `RequestBody`'s equality contract (`HTTP-46`, P2a-1), `MediaType.Charset`'s lookup that returns `null` on `utf-7` (`HTTP-24`, the decode boundary `IO-13` leans on), P2a-4's empty replayable body for an absent response body, and `HttpHeaderSyntax` (unused by 3a; 3b's multipart quotes against it). |
 | 2b | **convenience** | Met. The roadmap graph draws `P2b --> P3`; the 2 segmentation design already doubted the edge, and 3a confirms it is a convenience: no 3a type compiles against a 2b-only type. 3a copies 2b's shape for the synchronous token (`Execute(…, CancellationToken)`) so the body's sync surface matches the seam's. |
-| A phase 3 segmentation design | **convenience**, with a stated substitute | Absent. The segmentation rule applies (phase 3 spans ch.05 and ch.06), but the card already fixes the cut ("3a then 3b … a dependency") and names 3a's build list. P3a-1 states the row split this design assumes; the lead reconciles it with 3b's design. |
+| A phase 3 segmentation design | **convenience**, with a stated substitute | Absent. The segmentation rule applies (phase 3 spans ch.05 and ch.06), but the card already fixes the cut ("3a then 3b … a dependency") and names 3a's build list. P3a-1 states the row split, reconciled with 3b's design and accepted by the lead's ruling of 2026-10-02. |
 
 **The 3a → 3b edge is a dependency, and runs one way.** 3b's request-logging wrapper (`BODY-17`–`BODY-21`, `BODY-37`)
 is built on 3a's `TeeStream` (`IO-25`–`IO-29`); its response-logging wrapper (`BODY-22`–`BODY-29`) on 3a's capped
@@ -45,7 +46,8 @@ lands it (see [Coupling](#coupling-with-3b-and-later-phases)).
 
 - **Normative.** Every row's canonical text is its appendix-C row. `docs/product-spec/05-i-o-contracts.md` states
   `IO-1`–`IO-31`, `IO-36`–`IO-42`; `IO-32`–`IO-35` are the gap IDs, read from appendix C only.
-  `docs/product-spec/06-request-and-response-body-lifecycle.md` states `HTTP-36`, `HTTP-39`, `HTTP-52` (§6.1, §6.7).
+  `docs/product-spec/06-request-and-response-body-lifecycle.md` states `HTTP-39` (3a's row) and `HTTP-36`, `HTTP-52`
+  (3b's rows, on which 3a does work that 3b cites) (§6.1, §6.7).
 - **Design.** §3.1 (the whole IO mapping, the four .NET notes, the views, the canonical body representation, the two
   ownership rules), §3.7 (the latch), §4.5 (bodies), §5.1 (the bounded error-body copy, for `HTTP-52`), §10 entries 3–6
   and 20, §11 items 34 and 39, §12's `IO` and `BODY` rows.
@@ -74,9 +76,10 @@ lands it (see [Coupling](#coupling-with-3b-and-later-phases)).
 the file). §3.1's text is unchanged in substance, and this design read the file directly. A re-harvest is the lead's call;
 nothing here depends on it.
 
-**Scope.** 45 rows: `IO-1`–`IO-42` (35 MUST, 6 SHOULD, 1 MAY) and `HTTP-36`, `HTTP-39`, `HTTP-52` (3 MUST). The other nine
-phase-3 `HTTP` IDs and all 37 `BODY` IDs are 3b's (P3a-1). 3b's concurrent design also claims `HTTP-36`, `HTTP-39` and
-`HTTP-52`; P3a-1 recommends that 3a keep only `HTTP-39` (43 rows), and the lead decides.
+**Scope.** 43 rows: `IO-1`–`IO-42` (35 MUST, 6 SHOULD, 1 MAY) and `HTTP-39` (MUST). The other eleven phase-3 `HTTP`
+IDs and all 37 `BODY` IDs are 3b's 48 rows (P3a-1, accepted by the lead's ruling of 2026-10-02; 43 + 48 = 91, the
+roadmap's count). `HTTP-36` and `HTTP-52` are among 3b's: 3a still builds the sync twin and re-homes the drain, and 3b's
+rows cite 3a's tests for both (see [the work 3a does on 3b's rows](#work-3a-does-on-3bs-rows)).
 
 ---
 
@@ -150,7 +153,7 @@ repository. Rows and rulings cite them by number.
 | `IO-10` | MUST | **N/A.** Both operations belong to the reference `Buffer`, which does not ship (`IO-7`). The one windowing operation core has is `CapturedBytes.Slice`, and it follows `IO-21`'s lazy rule, not `IO-10`'s eager rejection; the two clauses describe different reference operations and cannot both bind one .NET operation. Recorded as a §11 resolution. | P3a-9 (position C). | — | `Slice(…).ToArray()` is `IO-20`/`IO-21`'s test. | 6 | N/A (P3a-9) |
 | `IO-11` | MUST | **N/A for `exhausted()` and `readByte()`** (the surface does not exist; `Stream.ReadByte` returns −1 at EOF). **✅ for the count-less drain:** `ResponseBody.ReadAsBytes`/`ReadAsBytesAsync` return every remaining byte, and an empty array for an empty body. | §3.1 table; §10 `eof-is-zero-read`. | `ResponseBody` | Pin: `ResponseBodyTests.ReadAsBytes_of_an_empty_body_is_an_empty_array` (both forms, over `FromBytes([])` and `FromStream(Stream.Null)`); `…ReadAsBytes_returns_every_byte_of_a_chunked_source`. | 5 | N/A; ✅ |
 | `IO-12` | MUST | Free on the BCL (`ReadExactly`, fact 5), and **built** where core needs an exact count: `StreamCopy.CopyExactly` never delivers a short result; a premature end throws `EndOfStreamException` naming delivered-of-total. | §3.1 table; `HTTP-39`. | `StreamCopy` | The `HTTP-39` tests. | 1 | ✅ |
-| `IO-13` | MUST | Free on `Encoding`, with the write side already built (`FromString(text, contentType, encoding)`) and the read side `ReadAsString(Async)`'s single decode boundary (whose charset policy is `HTTP-42`, 3b's row). 3a moves the decode into one private helper both forms share, so 3b's BOM strip (§11 item 34) lands once. The line reader decodes UTF-8 only, replacing malformed sequences (fact 7, P3a-11). The `writeUtf8(substring range)` letter is `Encoding.GetBytes(text.AsSpan(range))`, BCL. | §3.1 "Encoding, stated once". | `ResponseBody`, `Utf8LineReader` | `TextRoundTripTests.Non_ASCII_text_round_trips_through_UTF_8_and_ISO_8859_1` (`FromString("é…", …, Encoding.Latin1)` writes `E9`; a response body declaring `charset=iso-8859-1` reads it back, sync and async). | 4, 5 | ✅ |
+| `IO-13` | MUST | Free on `Encoding`, with the write side already built (`FromString(text, contentType, encoding)`) and the read side `ReadAsString(Async)`'s single decode boundary (whose charset policy is `HTTP-42`, 3b's row). Both string readers decode through **one** routine with 3b's preamble strip (§11 item 34, P3b-12): whichever of 3a's PR 5 and 3b's PR 1 lands second converges both readers on it ([Coupling](#coupling-with-3b-and-later-phases)). The line reader decodes UTF-8 only, replacing malformed sequences (fact 7, P3a-11). The `writeUtf8(substring range)` letter is `Encoding.GetBytes(text.AsSpan(range))`, BCL. | §3.1 "Encoding, stated once". | `ResponseBody`, `Utf8LineReader` | `TextRoundTripTests.Non_ASCII_text_round_trips_through_UTF_8_and_ISO_8859_1` (`FromString("é…", …, Encoding.Latin1)` writes `E9`; a response body declaring `charset=iso-8859-1` reads it back, sync and async). | 4, 5 | ✅ |
 | `IO-14` | MUST | **Built:** the internal `Utf8LineReader` in its default mode. `\n` and `\r\n` terminate; a lone `\r` is content, decided by one byte of lookahead even across a refill; `null` when exhausted before any byte; a final unterminated line as-is; an empty line is `""`. It replaces `StreamReader.ReadLine`, which is the wrong tool (fact 12) and is banned in `src/` (P3a-14). | §3.1 third note; P3a-11. | `Utf8LineReader`, `LineTerminators` | `Utf8LineReaderTests`, driven by `tests/vectors/io/utf8-lines.json` (ported from `nodejs-sdk@c0ff3fd` `io/buffered-source.text.test.ts` and appendix C), each vector run at 1, 2, 3, 7 and 4,096 bytes per read so every terminator straddles a refill; `…A_lone_CR_before_EOF_is_content`; `…A_multi_byte_character_split_across_reads_decodes_once`; `…A_line_longer_than_the_cap_fails_and_the_reader_stays_failed`; `…Reading_a_long_line_byte_by_byte_scans_each_byte_once` (an internal scanned-byte counter equals the input length). | 4 | ✅ |
 | `IO-15` | MUST | **N/A.** No `skip`; `Stream.Seek` or a discard read is the BCL's. | §10 `eof-is-zero-read`. | — | None. | 6 | N/A |
 | `IO-16` | SHOULD | **N/A.** The SDK's byte surface already *is* the host-native `Stream`, so there is nothing to bridge to. | §3.1 table; §10 `eof-is-zero-read`. | — | None. | 6 | N/A |
@@ -180,12 +183,23 @@ repository. Rows and rulings cite them by number.
 | `IO-40` | MUST | **✅ by rule, mechanised.** Core never sets `ReadTimeout`/`WriteTimeout` (now an `RS0030` entry, P3a-14). `TeeStream` forwards the caller's token to the primary unchanged, links nothing, and lets an `OperationCanceledException` from the primary propagate as the same instance. The sync helpers check the token between chunks and nowhere else. | §3.1 table; §10 `cooperative-cancellation`. | `TeeStream`, `StreamCopy`, `BannedSymbols.txt` | `TeeStreamTests.The_callers_token_reaches_the_primary_unchanged`; `…An_OperationCanceledException_from_the_primary_propagates_as_the_same_instance`; `StreamCopyTests.A_cancelled_token_stops_the_sync_copy_between_chunks`. | 1, 3 | ✅ |
 | `IO-41` | MUST | **Built** (not free, fact 11): `TeeStream` and `Utf8LineReader` latch their dispose with `Interlocked.Exchange`, so the owned stream is disposed at most once across any mix of `Dispose` and `DisposeAsync`. Views are `MemoryStream`s, whose double dispose is harmless. | §3.7 "Idempotence is a latch". | `TeeStream`, `Utf8LineReader` | `…Disposing_twice_in_any_mix_disposes_the_owned_stream_once` for both types (`DisposeCountingStream`). | 3, 4 | ✅ |
 | `IO-42` | MUST | **Built:** after dispose, `TeeStream.Write`/`Flush` and `Utf8LineReader.ReadLine` throw `ObjectDisposedException` (design §3.1's reading of "an I/O error"); the in-memory exemption holds — `TeeStream.SnapshotTap()` still works after dispose, and a capture has no close. | §3.1 table (`IO-42` row). | `TeeStream`, `Utf8LineReader` | `…Writing_after_dispose_throws_ObjectDisposedException`; `…The_tap_can_be_snapshotted_after_dispose`; `Utf8LineReaderTests.Reading_after_dispose_throws_ObjectDisposedException`. | 3, 4 | ✅ |
-| `HTTP-36` | MUST | **Built:** the single write-to-sink operation gains its **synchronous twin** `WriteTo(Stream, CancellationToken)`, with `ToReplayable` beside it (P3a-5). Both forms produce identical bytes and share one consume guard. `ContentType` stays nullable; `ContentLength`'s −1 sentinel is now validated (`FromStream` rejects anything below −1); `IsReplayable` defaults to `false`. | §3.1 "The canonical body representation"; §4.5; P3a-5. | `RequestBody` and its private variants | `RequestBodyContractTests`: a test-local subclass reports −1 and `false`; its un-overridden `WriteTo` throws `NotSupportedException` naming the subclass; each SDK variant writes the same bytes through `WriteTo` and `WriteToAsync`; a stream body written once in either form throws `StreamConsumedException` on a second write in the other form; `ToReplayable` and `ToReplayableAsync` return equal bodies. | 1, 5 | ✅ |
 | `HTTP-39` | MUST | **Built:** `StreamCopy.CopyExactly(Async)`. Writes exactly `count` bytes; a premature end throws `EndOfStreamException` "The source ended after {delivered} of {count} bytes."; `count` 0 performs no read; never reads past `count`. `RequestBody.FromStream` with a known length uses it (P3a-6). The zero-length-read clause is `eof-is-zero-read`: 0 is EOF, and the length comparison is what catches truncation. | §3.1 first note; §10 `eof-is-zero-read`; P3a-6. | `StreamCopy`, the private stream request body | `StreamCopyTests` (`[Theory]` over sources shorter, equal and longer than `count`, at several read sizes; the message names both numbers; the longer source keeps its remainder unread). Integration, in `tests/Dexpace.Sdk.Http.SystemNet.Tests`: `ExactLengthBodyWireTests.A_body_shorter_than_its_declared_length_fails_the_send` (the failure chain contains the `EndOfStreamException` naming "of N") and `…A_source_longer_than_its_declared_length_sends_exactly_the_declared_bytes` (the loopback receives N bytes and `Content-Length: N`). | 1 | ✅ (`BODY-10`'s row is 3b's and cites these tests) |
-| `HTTP-52` | MUST | **Already met by phase 1 (S8)**; 3a re-homes `Response`'s private `DrainCappedAsync` onto `StreamCopy.DrainUpToAsync`, with a pooled chunk instead of a fresh 80 KiB array per call (styleguide 13.6, design §5.1's stated improvement). Behaviour is unchanged and the `Security` class is untouched. The shared `ErrorBodyBuffer`, the `ErrorMappingPolicy` and the no-body-returns-unchanged clause on the pipeline step stay **⏳ 4c**, as phase 1's checklist routed them. | §5.1 "The bounded error-body copy"; phase 1 checklist S8; P3a-13. | `Response`, `StreamCopy` | Cite `EnsureSuccessErrorMappingTests` (`Security`, all six methods, unedited). Pin: `StreamCopyTests.DrainUpTo_stops_at_the_cap_and_reports_whether_the_end_was_seen`. | 1 | ✅; ⏳ 4c (`ErrorBodyBuffer`, `ErrorMappingPolicy`) |
 
-**Totals, as designed.** 28 ✅; 4 split `N/A; ✅` or `✅; N/A` (`IO-1`, `IO-2`, `IO-11`, `IO-17`); 13 N/A (`IO-7`,
-`IO-10`, `IO-15`, `IO-16`, `IO-18`, `IO-30`–`IO-36`, `IO-39`). One ✅ carries a ⏳ half (`HTTP-52`, 4c). No 🚫.
+**Totals, as designed.** 43 rows: 26 ✅; 4 split `N/A; ✅` or `✅; N/A` (`IO-1`, `IO-2`, `IO-11`, `IO-17`); 13 N/A
+(`IO-7`, `IO-10`, `IO-15`, `IO-16`, `IO-18`, `IO-30`–`IO-36`, `IO-39`). No ⏳ half and no 🚫 (`HTTP-52`'s ⏳ 4c half
+moved to 3b's checklist with the row).
+
+### Work 3a does on 3b's rows
+
+By the lead's ruling of 2026-10-02 on P3a-1, `HTTP-36` and `HTTP-52` are **3b's rows** and count in 3b's 48, not in the
+43 above. 3a still does the work below, in the PRs named, and 3b's rows cite these tests (3b's `HTTP-36` row cites the
+sync twin; its `HTTP-52` row cites the drain re-home). The two rows are kept here as the record of that work, with no
+exit mark of their own in 3a's checklist.
+
+| ID | Level | Decision | Rationale / source | Types affected | Test approach | PR | Exit |
+|---|---|---|---|---|---|---|---|
+| `HTTP-36` | MUST | **Built:** the single write-to-sink operation gains its **synchronous twin** `WriteTo(Stream, CancellationToken)`, with `ToReplayable` beside it (P3a-5). Both forms produce identical bytes and share one consume guard. `ContentType` stays nullable; `ContentLength`'s −1 sentinel is now validated (`FromStream` rejects anything below −1); `IsReplayable` defaults to `false`. | §3.1 "The canonical body representation"; §4.5; P3a-5. | `RequestBody` and its private variants | `RequestBodyContractTests`: a test-local subclass reports −1 and `false`; its un-overridden `WriteTo` throws `NotSupportedException` naming the subclass; each SDK variant writes the same bytes through `WriteTo` and `WriteToAsync`; a stream body written once in either form throws `StreamConsumedException` on a second write in the other form; `ToReplayable` and `ToReplayableAsync` return equal bodies. | 1, 5 | — (3b's row; it cites these tests) |
+| `HTTP-52` | MUST | **Already met by phase 1 (S8)**; 3a re-homes `Response`'s private `DrainCappedAsync` onto `StreamCopy.DrainUpToAsync`, with a pooled chunk instead of a fresh 80 KiB array per call (styleguide 13.6, design §5.1's stated improvement). Behaviour is unchanged and the `Security` class is untouched. The shared `ErrorBodyBuffer`, the `ErrorMappingPolicy` and the no-body-returns-unchanged clause on the pipeline step stay **⏳ 4c**, as phase 1's checklist routed them. | §5.1 "The bounded error-body copy"; phase 1 checklist S8; P3a-13. | `Response`, `StreamCopy` | Cite `EnsureSuccessErrorMappingTests` (`Security`, all six methods, unedited). Pin: `StreamCopyTests.DrainUpTo_stops_at_the_cap_and_reports_whether_the_end_was_seen`. | 1 | — (3b's row, ✅; ⏳ 4c there; it cites this re-home) |
 
 ---
 
@@ -206,6 +220,11 @@ and the task leaves the split to this design.
   3a fixes only the half §10 entry 5 calls "`IO-6` at the helper layer" (P3a-4), which 3b inherits and must not
   contradict: 3b's request-logging wrapper builds its `TeeStream` with `leaveOpen: true`, because the destination it
   wraps belongs to the transport.
+
+3b's concurrent design first claimed both verdicts. The lead's ruling of 2026-10-02 settled the split as above: 3a argues
+the reopen verdict (P3a-2 stands), 3b argues only `body-stream-ownership` and cites position B for `BODY-14`, extending
+it to its new response variants and keeping its own `BODY-14` tests. §10 entry 6's dated correction has one owner, 3a
+(PR 6).
 
 ### B. `response-body-reopen-throws`: confirmed, and extended across the two forms
 
@@ -290,8 +309,8 @@ request body's size is the caller's own data, and `ToReplayable(Async)` is an ex
 after consuming it, leaving the caller with neither the stream nor a copy. So the request side is bounded only by
 `IO-9`'s host limit (`Array.MaxLength`), refused before any write when the length is known. Retry's *automatic*
 materialisation is a different question with a different owner: 6a decides its own buffering cap (`BODY-4`, `RETRY`).
-This departs from §3.1's wording ("applies first" to every materialising helper), so it is a dated correction to §3.1,
-and P3a-12 marks it open for the lead.
+This departs from §3.1's wording ("applies first" to every materialising helper), so it is a dated correction to §3.1;
+P3a-12 put it to the lead, who accepted it as written by the ruling of 2026-10-02.
 
 **The failure.** A new public `BodyTooLargeException : StreamingException`, sealed with the standard constructors
 (styleguide 8.6, `CA1032`). Options considered: `InvalidOperationException` (untyped, so no caller can catch the
@@ -545,7 +564,7 @@ The plan confirms the exact lines from the analyzer's code fix. `Dexpace.Sdk.Htt
 | `BytesRequestBody` gains `WriteTo` | `RequestBody.cs` | `destination.Write(bytes)` |
 | `ToReplayableAsync` writes into `BoundedBufferStream`; gains `ToReplayable` | `RequestBody.cs` | Pre-sized when `ContentLength` is known; refuses above `Array.MaxLength` before writing |
 | `FromStream` validation | `RequestBody.cs`, `ResponseBody.cs` | `ArgumentOutOfRangeException.ThrowIfLessThan(contentLength, -1)`; request side also rejects `!source.CanRead` |
-| `ResponseBody` gains `OpenRead`, `ReadAsBytes`, `ReadAsString`; `ReadAsBytesAsync` goes through `BodyMaterializer`; the two string readers share one private decode | `ResponseBody.cs` (all three private variants override `OpenRead`, sharing each variant's latch) | `DefaultMaxMaterializedBytes` is the limit; the internal overload taking a limit exists for tests |
+| `ResponseBody` gains `OpenRead`, `ReadAsBytes`, `ReadAsString`; `ReadAsBytesAsync` goes through `BodyMaterializer`; the two string readers share one decode routine (3b's `TextDecoding`, with the preamble strip, if 3b's PR 1 landed first; otherwise 3a's routine, which 3b's PR 1 then converges — see Coupling) | `ResponseBody.cs` (all three private variants override `OpenRead`, sharing each variant's latch) | `DefaultMaxMaterializedBytes` is the limit; the internal overload taking a limit exists for tests |
 | `Response.DrainCappedAsync` → `StreamCopy.DrainUpToAsync` | `Response.cs` | The private method is removed; `EnsureSuccessAsync` keeps its `try`/`finally` dispose scope verbatim |
 | Test subclasses of `ResponseBody`/`RequestBody` (`TrackingBody` ×3, `DisposalCountingBody`, `DisposalTrackingBody`, `ThrowingDisposeBody`, `ForeignBody`, the `Security` class's `TrackingBody`) | `tests/` | **None**: the sync members are virtual (P3a-5), so no subclass must change. The `Security` class stays unedited |
 | `BannedSymbols.txt` gains the P3a-8 and P3a-14 entries | repository root | The plan verifies each documentation ID fires with a throwaway probe, as 2b did; `src/` has no current use of any of them (verified by grep at `313188f`) |
@@ -583,12 +602,12 @@ it), with its `PublicAPI.Unshipped.txt` diff and `CHANGELOG.md` line where it ha
 
 | PR | Content | Rows | Gate | Notes |
 |---|---|---|---|---|
-| **1** | `PooledChunk`; `StreamCopy`; the `BannedSymbols.txt` entries; `TestSupport/IO/`; the stream request body's exact copy and `FromStream` validation; `Response`'s drain re-home; `ExactLengthBodyWireTests` (Integration) | `IO-1`, `IO-2` (copy half), `IO-3` (copy, `FromStream`), `IO-12`, `IO-17`, `IO-22`/`IO-38` (the ban), `IO-40` (copy, ban), `HTTP-39`, `HTTP-52` | none | Breaking 1, 2. Every later PR uses `PooledChunk` or the fakes, so this lands first. `EnsureSuccessErrorMappingTests` must pass unedited |
+| **1** | `PooledChunk`; `StreamCopy`; the `BannedSymbols.txt` entries; `TestSupport/IO/`; the stream request body's exact copy and `FromStream` validation; `Response`'s drain re-home; `ExactLengthBodyWireTests` (Integration) | `IO-1`, `IO-2` (copy half), `IO-3` (copy, `FromStream`), `IO-12`, `IO-17`, `IO-22`/`IO-38` (the ban), `IO-40` (copy, ban), `HTTP-39` | none | Breaking 1, 2. Also the `HTTP-52` drain re-home (3b's row cites it). Every later PR uses `PooledChunk` or the fakes, so this lands first. `EnsureSuccessErrorMappingTests` must pass unedited |
 | **2** | `CapturedBytes` | `IO-8`, `IO-19`–`IO-24`, `IO-37` | PR 1 | Independent of PRs 3–5 |
 | **3** | `TeeStream` | `IO-4`, `IO-5`, `IO-6` (tee), `IO-8` (tap), `IO-25`–`IO-29`, `IO-40` (tee), `IO-41`, `IO-42` | PR 1 | Independent of PRs 2, 4, 5. **3b's request-logging wrapper waits for this PR** |
 | **4** | `Utf8LineReader`, `LineTerminators`; `tests/vectors/io/utf8-lines.json` | `IO-2` (reader), `IO-6` (reader), `IO-13` (decode), `IO-14`, `IO-41`, `IO-42` | PR 1 | Independent of PRs 2, 3, 5. 7b's consumer |
-| **5** | The sync body surface; `BodyMaterializer`, `BoundedBufferStream`, `BodyTooLargeException`, `DefaultMaxMaterializedBytes`; the shared private decode | `HTTP-36`, `IO-2` (bodies), `IO-9`, `IO-11`, `IO-13` | PR 1 | Breaking 3–5; the only PR with public-API lines. **3b's new variants override the sync members once this lands** (see Coupling) |
-| **6** | Close-out: the N/A rows; the AOT smoke extended over the sync body members, `BodyTooLargeException` and a known-length `FromStream`; the user page `docs/sdk-documentation/io.md`; the 3a checklist; the dated design corrections; `CLAUDE.md`, READMEs; the roadmap status note | all 45 (closing) | 1–5 | The docs close the sub-phase (roadmap step 7) |
+| **5** | The sync body surface; `BodyMaterializer`, `BoundedBufferStream`, `BodyTooLargeException`, `DefaultMaxMaterializedBytes`; the one decode routine both string readers share | `IO-2` (bodies), `IO-9`, `IO-11`, `IO-13` | PR 1 | Breaking 3–5; the only PR with public-API lines. Also the `HTTP-36` sync twin (3b's row cites it). If 3b's PR 1 landed first, this PR converges the sync reader on 3b's routine (Coupling). **3b's new variants override the sync members once this lands** (see Coupling) |
+| **6** | Close-out: the N/A rows; the AOT smoke extended over the sync body members, `BodyTooLargeException` and a known-length `FromStream`; the user page `docs/sdk-documentation/io.md`; the 3a checklist; the dated design corrections; `CLAUDE.md`, READMEs; the roadmap status note | all 43 (closing) | 1–5 | The docs close the sub-phase (roadmap step 7) |
 
 ---
 
@@ -636,10 +655,12 @@ it), with its `PublicAPI.Unshipped.txt` diff and `CHANGELOG.md` line where it ha
 | File body (`BODY-11`–`BODY-13`, `HTTP-40`) | `StreamCopy.CopyExactly(Async)`, `ShortTransferMessage` | One message form for `HTTP-39`, `BODY-10` and `BODY-13` |
 | Materialise-once (`BODY-3`, `HTTP-37`) | `RequestBody.ToReplayable(Async)` as rebuilt here | Bounded by `Array.MaxLength`, fail-fast on a known length (P3a-12) |
 | Every new body variant (file, form, multipart, seekable stream, both logging wrappers) | The sync surface (P3a-5) | Override **both** `WriteTo` and `WriteToAsync` (and `OpenRead` with `OpenReadAsync` on the response side), sharing one consume latch across forms. If a 3b variant lands before 3a's PR 5, PR 5 adds its sync override; if after, 3b's PR does |
-| BOM strip in `ReadAsStringAsync` (§11 item 34) | The shared private decode | One edit covers both forms |
+| BOM strip (§11 item 34, P3b-12) and the shared decode | One decode routine for `ReadAsString` and `ReadAsStringAsync` | **Two-way, one routine:** whichever of 3a's PR 5 and 3b's PR 1 lands second converges both readers on the single routine with the preamble strip (3b's `TextDecoding`, any preamble-bearing encoding), and the other PR's tests must pass over it unchanged: 3a's `IO-13` decode and round-trip tests, and 3b's BOM cases, run in both the sync and the async form. No second decode survives either order |
 | `BODY-14`/`HTTP-41` rows | Position B (P3a-3) | Cite it; the reopen verdict is not re-argued |
 | `BODY-8` and `body-stream-ownership` | P3a-4 (helper half) | 3b argues the body half and must keep the helper default |
-| `BODY-10` row | 3a's `HTTP-39` tests | 3b's row cites them |
+| `BODY-10` row | 3a's `HTTP-39` tests | 3b's row cites them (⏳ 3a) |
+| `HTTP-36` row (3b's, by the lead's ruling on P3a-1) | The sync twin and its `RequestBodyContractTests` (PR 5) | 3b's row cites them and extends the contract theory to its variants |
+| `HTTP-52` row (3b's, by the lead's ruling on P3a-1) | P3a-13's re-home onto `StreamCopy.DrainUpToAsync` (PR 1) | 3b's row cites it; `EnsureSuccessErrorMappingTests` passes over the re-home unedited |
 | Dispose latches (`HTTP-41`, `HTTP-43`, `BODY-15`, `SEAM-14`) and `Disposal.DisposeQuietly` | the `Interlocked` latch pattern of `TeeStream`/`Utf8LineReader` | Same mechanism (§3.7); 3a builds no public latch |
 
 ### Later phases
@@ -682,27 +703,29 @@ Dated corrections, in PR 6, each naming the ruling that caused it:
 
 ## Rulings
 
-Taken by this design in the absence of a human reviewer. Each lists the options considered; three are **open for the
-lead**.
+Taken by this design in the absence of a human reviewer. Each lists the options considered. The three put to the lead
+(P3a-1, P3a-5, P3a-12) were **accepted as written by the lead's ruling of 2026-10-02**.
 
-1. **P3a-1 — The 3a/3b row split. Open for the lead.** 3a holds 45 rows: `IO-1`–`IO-42`, `HTTP-36`, `HTTP-39`,
-   `HTTP-52`. 3b holds 46: `BODY-1`–`BODY-37` and `HTTP-37`, `HTTP-38`, `HTTP-40`–`HTTP-45`, `HTTP-51`, with
-   `HTTP-44`/`HTTP-45` ⏳ 7a in 3b's checklist (response side). `BODY-10` stays in 3b's prefix and cites 3a's `HTTP-39`
+1. **P3a-1 — The 3a/3b row split. Accepted by the lead's ruling of 2026-10-02**, in the reconciled form below. 3a holds
+   43 rows: `IO-1`–`IO-42` and `HTTP-39`. 3b holds 48: `BODY-1`–`BODY-37` and `HTTP-36`–`HTTP-38`, `HTTP-40`–`HTTP-45`,
+   `HTTP-51`, `HTTP-52`, with `HTTP-44`/`HTTP-45` ⏳ 7a in 3b's checklist (response side). 43 + 48 = 91, the roadmap's
+   count. 3b's `HTTP-36` and `HTTP-52` rows cite 3a's tests for the sync twin and the drain re-home
+   ([Work 3a does on 3b's rows](#work-3a-does-on-3bs-rows)). `BODY-10` stays in 3b's prefix and cites 3a's `HTTP-39`
    tests. Options: Ruby's split (all 12 `HTTP` IDs to 3b, `IO` only to 3a) — rejected because the card puts the
    exact-length copy and the sync surface in 3a, and a row should sit with the phase that builds its evidence;
    moving `BODY-10` into 3a too — rejected to keep every `BODY` row in one checklist and avoid a collision with 3b's
    concurrent design. No phase 3 segmentation design exists; this ruling and the card stand in for it.
 
-   **Observed conflict, 2026-10-02.** 3b's concurrent design (`docs/superpowers/specs/2026-10-02-phase3b-bodies-design.md`,
-   read only for this check) claims all 49 of `BODY-1`–`BODY-37` and the 12 `HTTP` IDs, with `HTTP-36` and `HTTP-52`
-   "already met" and `HTTP-39`/`BODY-10` "⏳ 3a". So `HTTP-36`, `HTTP-39` and `HTTP-52` are claimed twice. Nothing else
-   conflicts: 3b's assumed 3a interface (sync and async `CopyExactly` naming delivered-of-total, the base-type `WriteTo`
+   **Observed conflict, 2026-10-02 (resolved by the ruling).** 3b's concurrent design (then in the superpowers inbox, now
+   [filed beside this one](../phase3b/2026-10-02-phase3b-bodies-design.md); read only for this check) claimed
+   `BODY-1`–`BODY-37` and all 12 `HTTP` IDs (49), with `HTTP-36` and `HTTP-52` "already met" and `HTTP-39`/`BODY-10`
+   "⏳ 3a". So `HTTP-36`, `HTTP-39` and `HTTP-52` were claimed twice. Nothing else conflicted: 3b's assumed 3a interface (sync and async `CopyExactly` naming delivered-of-total, the base-type `WriteTo`
    and `OpenRead` "abstract or virtual … 3a's call", a capped `ReadAsBytesAsync`, a decode routine shared with the sync
-   reader) matches what this design ships. **Recommended reconciliation:** `HTTP-39` is 3a's row (3a is its only
+   reader) matches what this design ships. **Reconciliation, as accepted:** `HTTP-39` is 3a's row (3a is its only
    builder, and a ⏳ row in 3b would point at 3a's plan anyway); `HTTP-36` and `HTTP-52` go to 3b's checklist, where 3b
    already marks them met, citing 3a's tests for the sync twin and the drain re-home. That gives 3a 43 rows and 3b 48,
    moves one row out of 3b's design, and changes no decision in either document: the `HTTP-36` and `HTTP-52` rows above
-   stay as the record of 3a's work on them. The lead decides.
+   stay as the record of 3a's work on them, outside the 43. The lead's ruling of 2026-10-02 adopted it as written.
 2. **P3a-2 — Who argues the two §3.1 verdicts.** 3a argues `response-body-reopen-throws`, because 3a's `OpenRead` forces
    the answer; 3b argues `body-stream-ownership` (`BODY-8`), with 3a fixing only `IO-6`'s helper half (position A).
 3. **P3a-3 — Reopen throws, in both forms.** One consume latch per response variant, shared by `OpenRead` and
@@ -711,12 +734,12 @@ lead**.
 4. **P3a-4 — Helper-layer ownership (`IO-6`).** Internal wrappers take ownership by default with a `leaveOpen` opt-out
    (the BCL convention, fact 12); their dispose is latched so the owned stream is disposed at most once (fact 11,
    `IO-41`). `CapturedBytes` owns no external resource.
-5. **P3a-5 — The sync body surface. Open for the lead.** Every async body member gains a sync twin (`WriteTo`,
+5. **P3a-5 — The sync body surface. Accepted by the lead's ruling of 2026-10-02.** Every async body member gains a sync twin (`WriteTo`,
    `ToReplayable`, `OpenRead`, `ReadAsBytes`, `ReadAsString`), `virtual`, with `WriteTo`/`OpenRead` throwing
    `NotSupportedException` naming the subclass by default (fact 2's `HttpContent` precedent) and every SDK variant
    overriding them. Options: `abstract` (compile-time guarantee; breaks every subclass, including a `Security` class and
-   the adapter ahead of 8b), a sync-over-async default (banned; defeats the real sync path). The lead may prefer the
-   compile-time guarantee; the cost is listed in position D.
+   the adapter ahead of 8b), a sync-over-async default (banned; defeats the real sync path). The compile-time guarantee
+   was put to the lead with its cost (position D); the ruling kept the virtual form.
 6. **P3a-6 — Exact-length semantics.** A known-length stream body writes exactly its length, throws `EndOfStreamException`
    naming delivered-of-total when short, never reads past its length, issues no read for 0; `FromStream` rejects lengths
    below −1 and (request side) a non-readable stream. One message helper serves `HTTP-39`, `BODY-10` and `BODY-13`
@@ -733,13 +756,14 @@ lead**.
 11. **P3a-11 — `Utf8LineReader`.** Two modes (`IO-14`'s, and `Whatwg` for 7b, with a deferred-LF skip so a CR-terminated
     line is never held for the next chunk); a mandatory line cap (default 1 MiB) that throws `InvalidDataException` and
     latches the reader failed; UTF-8 with U+FFFD for malformed bytes; a BOM is content; linear scan (position G).
-12. **P3a-12 — The materialisation cap. Open for the lead.** The response-side readers refuse more than
+12. **P3a-12 — The materialisation cap. Accepted by the lead's ruling of 2026-10-02.** The response-side readers refuse more than
     `ResponseBody.DefaultMaxMaterializedBytes` (64 MiB) with a new public `BodyTooLargeException`, refusing a declared
     length before reading and probing one byte at the cap for an unknown length; `ToReplayable(Async)` is bounded only by
     `Array.MaxLength`; no public knob until 5a. Options and the departure from §3.1's wording are in position E. This is a
     behaviour change to `ReadAsBytesAsync` and `ReadAsStringAsync` that a caller downloading more than 64 MiB will feel.
 13. **P3a-13 — `HTTP-52`'s drain is re-homed, not redesigned.** `Response` drains through `StreamCopy.DrainUpToAsync` with
     a pooled chunk; `EnsureSuccessErrorMappingTests` stays unedited; `ErrorBodyBuffer` and `ErrorMappingPolicy` stay 4c's.
+    The row is 3b's (P3a-1), and cites this re-home.
 14. **P3a-14 — Three new tripwires in `BannedSymbols.txt`:** `Stream.set_ReadTimeout`/`set_WriteTimeout` (`IO-40`);
     `TextReader.ReadLine`/`ReadLineAsync` and their `StreamReader`/`StringReader` overrides (`IO-14`, fact 12); and
     P3a-8's pool entries. Each message cites its design section, as the existing entries do.

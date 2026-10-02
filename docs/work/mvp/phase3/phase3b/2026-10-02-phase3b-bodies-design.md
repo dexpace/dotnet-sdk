@@ -2,14 +2,15 @@
 
 **Status:** Draft, for review. Written 2026-10-02 against `main` at `313188f` (phase 2b merged). Brainstormed without a
 human in the loop: every judgement call the brainstorming skill would have put to the lead is taken here as a numbered
-ruling (`P3b-n`) with the options and the rationale, and the three that need the lead's sign-off are marked **open for
-the lead**. The scope authority is the roadmap's Phase 3 card and Phase List row 3
+ruling (`P3b-n`) with the options and the rationale. The three that needed the lead's sign-off (P3b-3, P3b-5, P3b-10)
+were **accepted as written by the lead's ruling of 2026-10-02**. The scope authority is the roadmap's Phase 3 card and Phase List row 3
 (`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`), which put 3a (I/O) before 3b (bodies) as a
 **dependency**. The format follows the phase 2a and 2b designs (`docs/work/mvp/phase2/phase2a/2026-09-29-phase2a-domain-model-design.md`,
 `docs/work/mvp/phase2/phase2b/2026-09-30-phase2b-seams-design.md`).
 
-**What this document is.** The sub-phase design for 3b: one explicit disposition per requirement row (49 rows:
-`BODY-1`–`BODY-37` and `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52`), the public shape of every body type 3b adds or
+**What this document is.** The sub-phase design for 3b: one explicit disposition per requirement row (48 rows:
+`BODY-1`–`BODY-37` and `HTTP-36`–`HTTP-38`, `HTTP-40`–`HTTP-45`, `HTTP-51`, `HTTP-52`; `HTTP-39` is 3a's, by the lead's
+ruling of 2026-10-02 on P3a-1), the public shape of every body type 3b adds or
 changes, the internal shape of the two logging wrappers and of `Disposal`, the interface 3b assumes from 3a, argued
 positions and rulings, the breaking-changes list, the test strategy and a landing order in pull-request-sized steps.
 
@@ -29,7 +30,7 @@ materialisation cap, the synchronous surface); it states what it assumes of it.
 | Phase 1, S8 and S9 | **convenience** | Met, with clauses routed here: S9's "the dispose latches on `Response` and the body" is 3b's (phase 1 checklist, row S9). S8 built `EnsureSuccessAsync`'s capped replayable error body, which 3b pins and does not move (4c owns the policy). |
 | 2a | **convenience** (inherited contracts) | Met. 3b inherits `RequestBody`'s equality contract (`HTTP-46`, design §11 item 39: value for construction-time bytes, identity for live sources), `HttpHeaderSyntax`, the validating `MediaType`, the non-null empty response body (§10 entry 30). |
 | 2b | **convenience** (hand-offs) | Met. 3b owes 2b: `Disposal.DisposeQuietly` replaces `AsAsync`'s direct `Dispose()` and its pin test `SyncToAsyncBridgeTests.A_throwing_dispose_after_cancellation_faults_the_task_with_that_exception`; the dispose latches close `SEAM-14`'s idempotence clause (2b checklist row `SEAM-14`, ⏳ 3b). |
-| **3a** | **dependency** for PRs 2–6 | Being designed concurrently. See [the 3a interface](#the-interface-assumed-from-3a). PR 1 (latches, `Disposal`, BOM, `BODY-16`) and the form body have no edge into 3a. |
+| **3a** | **dependency** for PRs 2–6 | Designed concurrently ([3a design](../phase3a/2026-10-02-phase3a-io-design.md)). See [the 3a interface](#the-interface-assumed-from-3a). PR 1 (latches, `Disposal`, BOM, `BODY-16`) and the form body have no edge into 3a. **The shared decode is two-way:** whichever of 3a's PR 5 and 3b's PR 1 lands second converges both string readers on the one routine with the preamble strip (P3b-12), and the other PR's BOM and decode tests, sync and async, must pass over it. |
 
 ### The interface assumed from 3a
 
@@ -50,6 +51,12 @@ declines an item, the row that consumes it here reopens.
 seekable variant) and `ResponseBody.cs` (3a caps `ReadAsBytesAsync` and adds `OpenRead`; 3b rewrites disposal, the
 readers' `finally` and the decode). 3a lands first; whichever 3b PR follows re-derives its change on 3a's merged code
 rather than resolving hunks (the 2a/2b precedent).
+
+**One decode routine, in either order.** 3a's PR 5 adds a synchronous `ReadAsString` beside `ReadAsStringAsync`; 3b's PR 1
+builds `TextDecoding` (P3b-12). Exactly one routine survives: whichever of the two PRs lands second converges **both**
+readers on `TextDecoding` with the preamble strip (if 3b's PR 1 is second, it replaces 3a's private decode; if 3a's PR 5 is
+second, its sync reader calls `TextDecoding` and adds none). The PR that lands second runs the other's tests over the one
+routine unchanged: 3a's `IO-13` decode and round-trip tests and 3b's BOM cases, each in both the sync and the async form.
 
 ---
 
@@ -78,8 +85,10 @@ rather than resolving hunks (the 2a/2b precedent).
 | `scripts/knowledge --prefix-info IO` | 42 IDs, 4 uncited (3a's) |
 | `scripts/knowledge --gaps BODY,IO,HTTP` | only `IO-32`–`IO-35` (3a's; the roadmap's older table also listed `BODY-6`, `BODY-7`, which the corpus now covers — both were read from appendix C regardless) |
 
-**Scope.** 49 rows. `HTTP-44`/`HTTP-45` are dispositioned here and built in 7a (Phase List row 3). Every `IO` row is
-3a's.
+**Scope.** 48 rows, by the lead's ruling of 2026-10-02 on P3a-1: `HTTP-39` is 3a's row (3a holds 43; 43 + 48 = 91, the
+roadmap's count), and `BODY-10` stays here as ⏳ 3a. `HTTP-36` and `HTTP-52` are 3b's rows and cite 3a's tests for the
+sync twin and the drain re-home. `HTTP-44`/`HTTP-45` are dispositioned here and built in 7a (Phase List row 3). Every `IO`
+row is 3a's.
 
 ---
 
@@ -127,18 +136,17 @@ points to [the landing order](#landing-order).
 
 | ID | Level | Decision | Rationale / source | Types affected | Test approach | PR | Exit |
 |---|---|---|---|---|---|---|---|
-| `HTTP-36` | MUST | **Already met**, extended to every new variant: one write operation (3a adds the synchronous twin), nullable `ContentType`, `ContentLength` with −1, `IsReplayable` defaulting to `false`. | §3.1, §4.5 | `RequestBody` and every new variant | Pin per variant in `RequestBodyContractTests`: a `[Theory]` over every factory asserting the triple and, for replayable ones, byte-identical double writes. | 2–4 | ✅ |
+| `HTTP-36` | MUST | **Already met**, extended to every new variant: one write operation, nullable `ContentType`, `ContentLength` with −1, `IsReplayable` defaulting to `false`. The synchronous twin `WriteTo`/`ToReplayable` is 3a's work (P3a-5), cited here; every 3b variant overrides both forms. | §3.1, §4.5; 3a's P3a-5 | `RequestBody` and every new variant | Cite 3a's sync twin tests (3a's `RequestBodyContractTests`, 3a plan task 5.2: the un-overridden `WriteTo` default, sync/async byte parity, the shared consume guard across forms). Pin per 3b variant in `RequestBodyContractTests`: a `[Theory]` over every factory asserting the triple and, for replayable ones, byte-identical double writes in both forms. | 2–4 | ✅ |
 | `HTTP-37` | MUST | **Already met** (`Interlocked.Exchange` guard; base `ToReplayableAsync` drains once and returns a bytes body). 3b adds pins and the multipart composite guard (P3b-8). | §3.1; §11 item 7 | `RequestBody`, multipart | `SingleUseBodyTests`: second write throws `StreamConsumedException`; N concurrent writers, exactly one proceeds; `ToReplayableAsync` on a single-use body leaves the original consumed. | 2 | ✅ |
 | `HTTP-38` | MUST | **Build.** Classification by source: bytes, string, value, form, file → replayable; multipart → conjunction; stream → single-use unless seekable with a known length (P3b-4). `FromForm` uses the WHATWG serializer, `+` for space (P3b-7). | §3.1, §3.5 (form encoder) | `FromForm`, `FromFile`, `Multipart`, `FromStream` | `FormBodyTests` over the vector table (fact 6), `RequestBodyContractTests`' classification theory. | 2–4 | ✅ |
-| `HTTP-39` | MUST | **Hand-off to 3a** (the exact-length copy and its wiring into `StreamRequestBody`). 3b consumes it in the file and seekable bodies and proves the consumption. | Roadmap Phase 3 card (3a list) | — | 3a's row. 3b's consumer tests: `FileRequestBodyTests.A_file_that_shrinks_after_construction_fails_naming_transferred_of_total`, `SeekableStreamBodyTests.A_short_seekable_source_fails`. | — | ⏳ 3a (its plan's exact-copy task) |
-| `HTTP-40` | MUST | **Build** `FileRequestBody` with fail-fast validation (exists, not a directory, offset and count within the size captured at construction), a fresh handle per write, `ContentLength` the exact count. "Regular file" has a platform limit on Unix (P3b-5, **open for the lead**). | §3.1 file-backed bodies; facts 1–4 | `FileRequestBody`, `RequestBody.FromFile` | `FileRequestBodyTests` (port of Node's `body-file` case list, below). | 3 | ✅, reading P3b-5 |
-| `HTTP-41` | MUST | **Build** the idempotent close (the latch, P3b-2) and the readers' `finally` close (`BODY-16`). Single use is already met; the "same handle" clause keeps §10 entry 6 (position B). | §3.1, §3.7; §10 entry 6 | `ResponseBody`, `Response` | `ResponseBodyLifecycleTests`. | 1 | ✅, with §10 entry 6 |
+| `HTTP-40` | MUST | **Build** `FileRequestBody` with fail-fast validation (exists, not a directory, offset and count within the size captured at construction), a fresh handle per write, `ContentLength` the exact count. "Regular file" has a platform limit on Unix (P3b-5, accepted by the lead's ruling of 2026-10-02 and routed as a new design §10 entry). | §3.1 file-backed bodies; facts 1–4 | `FileRequestBody`, `RequestBody.FromFile` | `FileRequestBodyTests` (port of Node's `body-file` case list, below). | 3 | ✅, reading P3b-5 |
+| `HTTP-41` | MUST | **Build** the idempotent close (the latch, P3b-2) and the readers' `finally` close (`BODY-16`). Single use is already met; the "same handle" clause keeps §10 entry 6, as 3a argues it (P3a-3; position B here). | §3.1, §3.7; §10 entry 6 | `ResponseBody`, `Response` | `ResponseBodyLifecycleTests`. | 1 | ✅, with §10 entry 6 |
 | `HTTP-42` | MUST | **Already met** for the charset fallback (2a fixed `utf-7`); **build** the BOM strip (P3b-12), in one decode routine shared with 3a's synchronous reader. | §3.1 encoding; §11 item 34; fact 5 | `ResponseBody.ReadAsStringAsync` | `ResponseBodyDecodeTests`: UTF-8 BOM stripped; UTF-16 LE BOM stripped under `charset=utf-16`; a BOM not matching the resolved charset kept; no charset → UTF-8; unknown charset → UTF-8 (pin). | 1 | ✅ |
 | `HTTP-43` | MUST | **Build** the `Response` latch: `Dispose`/`DisposeAsync` share one `Interlocked` flag and forward to the (also latched) body. | §3.7 | `Response` | `ResponseDisposeLatchTests`: double dispose releases once (sync, async, mixed); a throwing body propagates once and the second call is a no-op; a never-read body is released. | 1 | ✅ |
 | `HTTP-44` | MUST | **Hand-off to 7a** (the lazy typed-response wrapper). | Phase List row 3; Phase 7 card | — | None in 3b. | — | ⏳ 7a (Phase 7 card, "the lazy typed-response wrapper") |
 | `HTTP-45` | MUST | **Hand-off to 7a**, as `HTTP-44`. | as above | — | None. | — | ⏳ 7a |
 | `HTTP-51` | SHOULD (embedded MUST) | **Build** the multipart body: one framing routine computes each part header once at construction, used for both the length and the write; replayable/length as conjunctions; a random spec-valid boundary; a caller boundary validated against RFC 2046; part-header values that cannot break the framing (P3b-8). | §3.1 composite bodies | `RequestBody.Multipart`, `MultipartPart` | `MultipartBodyTests` (port of Node's case list, below). | 4 | ✅ |
-| `HTTP-52` | MUST | **Already met** by phase 1 S8 (`EnsureSuccessAsync`: capped at 1 MiB, replayable copy, drained inside the dispose scope). 3b re-runs the `Security` tests over the new latch; the policy form is 4c's. | phase 1 checklist S8; §5.1 | `Response.EnsureSuccessAsync` (unchanged) | Cite `EnsureSuccessErrorMappingTests` (`Security`), edited only mechanically (see Migration). | 1 | ✅ ⏳ 4c (`ErrorMappingPolicy`, `ErrorBodyBuffer`) |
+| `HTTP-52` | MUST | **Already met** by phase 1 S8 (`EnsureSuccessAsync`: capped at 1 MiB, replayable copy, drained inside the dispose scope). 3a re-homes the drain onto `StreamCopy.DrainUpToAsync` (3a's P3a-13), behaviour unchanged; 3b re-runs the `Security` tests over the new latch; the policy form is 4c's. | phase 1 checklist S8; §5.1; 3a's P3a-13 | `Response.EnsureSuccessAsync` (3a's re-home) | Cite 3a's re-home (P3a-13; 3a plan tasks 1.2 and 1.5, `StreamCopyTests.DrainUpTo_stops_at_the_cap_and_reports_whether_the_end_was_seen`) and `EnsureSuccessErrorMappingTests` (`Security`), which the re-home leaves unedited; 3b's only touch is P3b-2's mechanical `TrackingBody` rewrite (see Migration), which changes no assertion. | 1 | ✅ ⏳ 4c (`ErrorMappingPolicy`, `ErrorBodyBuffer`) |
 | `BODY-1` | MUST | As `HTTP-36`. | §3.1 | all variants | `RequestBodyContractTests`. | 2–4 | ✅ |
 | `BODY-2` | MUST | **Build**: multipart `IsReplayable` is the conjunction over parts; `ContentLength` is −1 if any part's is. | §3.1 | multipart | `MultipartBodyTests`. | 4 | ✅ |
 | `BODY-3` | MUST | **Already met** (base `ToReplayableAsync`); every new replayable variant returns `this`; the logging wrapper re-wraps (`BODY-21`). | §3.1; §11 item 7 | base, variants | `SingleUseBodyTests`, `RequestBodyContractTests` (`ToReplayableAsync` returns the same instance for replayable bodies). | 2 | ✅ |
@@ -148,11 +156,11 @@ points to [the landing order](#landing-order).
 | `BODY-7` | MUST | **Already met** (`Interlocked`); pinned under real concurrency. | §3.1; §11 item 7 | stream, multipart | `SingleUseBodyTests.Concurrent_writes_admit_exactly_one` (Barrier-started, N = 16). | 2 | ✅ |
 | `BODY-8` | MUST | **Verdict: keep design §10 entry 5** (position A): a request body closes exactly what it opened. `FromStream` (single-use and seekable) never disposes the caller's stream; `FromFile` opens and disposes its own handle per write; multipart disposes nothing it was given. | §3.1; §10 entry 5; §11 item 12 | stream, seekable, file, multipart | `RequestBodyOwnershipTests`: the caller's stream is open after a write, a failed write and a `ToReplayableAsync`; the file handle is released after each write and after a failed write (the test reopens the file with `FileShare.None` immediately afterwards). | 2, 3 | ✅, with §10 entry 5 |
 | `BODY-9` | SHOULD | **Build** the seekable variant (P3b-4): `FromStream` over a readable, seekable stream with a declared length in `[0, Array.MaxLength]` is replayable; each write seeks to the position captured at construction under an in-flight latch, so at most one rewind happens between two writes; otherwise single-use. | §3.1 seekable streams | `RequestBody.FromStream`, private `SeekableStreamRequestBody` | `SeekableStreamBodyTests`. | 2 | ✅ |
-| `BODY-10` | MUST | **Hand-off to 3a**, as `HTTP-39`. | Phase 3 card | — | 3a's row; 3b's consumer tests as `HTTP-39`. | — | ⏳ 3a |
+| `BODY-10` | MUST | **Hand-off to 3a**: the exact-length copy is 3a's row `HTTP-39` (by the lead's ruling of 2026-10-02 on P3a-1). 3b consumes it in the file and seekable bodies and proves the consumption. | Phase 3 card; 3a's P3a-6 | — | Cite 3a's `HTTP-39` tests (`StreamCopyTests`, `ExactLengthBodyWireTests`). 3b's consumer tests: `FileRequestBodyTests.A_file_that_shrinks_after_construction_fails_naming_transferred_of_total`, `SeekableStreamBodyTests.A_short_seekable_source_fails`. | — | ⏳ 3a (its plan's exact-copy task) |
 | `BODY-11` | MUST | As `HTTP-40`, plus count's rest-of-file sentinel (−1). | §3.1 | `FileRequestBody` | `FileRequestBodyTests`. | 3 | ✅, reading P3b-5 |
 | `BODY-12` | SHOULD | **Recognisable by type: build** (`FileRequestBody` is public sealed and exposes `FilePath`, `Offset`, `ContentLength`). **Kernel zero-copy: not built**: `SocketsHttpHandler` has no file-to-socket path for request content (§3.1), so the transfer is a large-buffer `FileStream` copy with the stream's own buffering off (`bufferSize: 0`), stated, never claimed as zero-copy. | §3.1 | `FileRequestBody` | `FileRequestBodyTests.Is_recognisable_by_type_and_exposes_its_range`. | 3 | ✅ 🚫 (kernel path: §3.1) |
 | `BODY-13` | MUST | **Build** through 3a's exact copy, so the message form is shared with `BODY-10` (§3.1). | §3.1 | `FileRequestBody` | `FileRequestBodyTests.A_file_that_shrinks_after_construction_fails_naming_transferred_of_total` (fact 4). | 3 | ✅ |
-| `BODY-14` | MUST | **Verdict: keep design §10 entry 6** (position B): a second `OpenReadAsync` throws `StreamConsumedException`; repeatable access needs the explicit buffering wrapper (the response-logging wrapper's fits-cap regime, or `FromReplayableBytes` for error bodies). | §3.1; §10 entry 6 | `ResponseBody` variants | `ResponseBodyLifecycleTests.A_second_open_throws_and_names_the_buffering_route`. | 1 | ✅, with §10 entry 6 |
+| `BODY-14` | MUST | **Verdict argued by 3a** (P3a-3, the lead's ruling of 2026-10-02): design §10 entry 6 stands, across `OpenRead` and `OpenReadAsync`. 3b extends it to its new variants (position B): a second open throws `StreamConsumedException`; repeatable access needs the explicit buffering wrapper (the response-logging wrapper's fits-cap regime, or `FromReplayableBytes` for error bodies). | §3.1; §10 entry 6; 3a's P3a-3 | `ResponseBody` variants | `ResponseBodyLifecycleTests.A_second_open_throws_and_names_the_buffering_route`. | 1 | ✅, with §10 entry 6 |
 | `BODY-15` | MUST | **Build** the latch (P3b-2): close releases the transport resource whether or not the body was read, at most once, and a release that throws still flips the latch. | §3.7 | `ResponseBody`, `HttpResponseMessageBody` | `ResponseBodyLifecycleTests`; `SystemNet.Tests/HttpResponseMessageBodyTests` (the message is disposed once across `Dispose` + `DisposeAsync`). | 1 | ✅ |
 | `BODY-16` | MUST | **Build** (P3b-13): `ReadAsBytesAsync`/`ReadAsStringAsync` (and 3a's synchronous readers) dispose the **body** in `finally`, not only the stream. | §3.1; §11 item 13 (`BODY-16` is "HTTP-16-body") | `ResponseBody` | `ResponseBodyLifecycleTests.Readers_dispose_the_body_on_success_and_on_failure` (a body whose stream throws mid-read). | 1 | ✅ |
 | `BODY-17` | MUST | **Build** the request-logging wrapper (internal, P3b-9) over 3a's `TeeStream`: the delegate writes once into the tee; the wire receives every byte. | §3.1 request-logging wrapper | `LoggingRequestBody` (internal) | `LoggingRequestBodyTests` (port of Node's `request-body-logging.test.ts`). | 5 | ✅ |
@@ -160,7 +168,7 @@ points to [the landing order](#landing-order).
 | `BODY-19` | MUST | **Build**: the cap is a required constructor argument (no unbounded default, P3b-9); 0 mirrors nothing and forwards everything. | §3.1 | `LoggingRequestBody` | `…A_multi_megabyte_write_mirrors_only_the_cap`, `…A_cap_of_zero_mirrors_nothing`. | 5 | ✅ |
 | `BODY-20` | SHOULD | **Build**: mirror-before-forward is 3a's tee contract; the snapshot after a primary failure contains the failing chunk. | §3.1; IO-25 | `LoggingRequestBody` | `…A_primary_failure_leaves_the_failing_chunk_captured`. | 5 | ✅ |
 | `BODY-21` | MUST | **Build**: `IsReplayable` is the delegate's; `ToReplayableAsync` returns `this` when the delegate is replayable, otherwise a new wrapper (own tap, same cap) over the delegate's replayable form. | §3.1 | `LoggingRequestBody` | `…Materialising_rewraps_with_the_cap_and_a_separate_tap`. | 5 | ✅ |
-| `BODY-22` | MUST | **Build** the response-logging wrapper's lazy drain-once: first read, snapshot or error query triggers it; concurrent first accesses serialise on a `SemaphoreSlim(1, 1)`, which parks no thread (§3.1). The drain's token is a ruling (P3b-10, **open for the lead**). | §3.1 response-logging wrapper | `LoggingResponseBody` (internal) | `LoggingResponseBodyTests` (port of Node's `response-body-logging.test.ts`), including a counting delegate under 16 concurrent first readers. | 6 | ✅ |
+| `BODY-22` | MUST | **Build** the response-logging wrapper's lazy drain-once: first read, snapshot or error query triggers it; concurrent first accesses serialise on a `SemaphoreSlim(1, 1)`, which parks no thread (§3.1). The drain's token is a ruling (P3b-10, accepted by the lead's ruling of 2026-10-02). | §3.1 response-logging wrapper | `LoggingResponseBody` (internal) | `LoggingResponseBodyTests` (port of Node's `response-body-logging.test.ts`), including a counting delegate under 16 concurrent first readers. | 6 | ✅ |
 | `BODY-23` | MUST | **Build** the fits-cap regime: capture all, dispose the delegate (quietly, `BODY-28`), serve each read as a fresh read-only `MemoryStream` view over the captured array. | §3.1; IO-19–IO-24 | `LoggingResponseBody` | `…Fits_cap_every_read_is_an_independent_view`. | 6 | ✅ |
 | `BODY-24` | MUST | **Build** the over-cap regime: keep the delegate open; the next read is a single-use internal concatenating stream (prefix view, then the live tail); a second read throws `StreamConsumedException`. | §3.1 | `LoggingResponseBody`, internal `PrefixedReadStream` | `…Over_cap_the_consumer_receives_every_byte_once`. | 6 | ✅ |
 | `BODY-25` | MUST | **Met through design §10 entry 4**: `Stream.Read` returning 0 *is* end of stream on .NET; the drain and the tail never issue a zero-count read (asserted in debug builds), so a source cannot make them spin. No declared-length cross-check in the drain: a `HEAD` response carries a `Content-Length` and no body, so the check would fail correct responses (position E). | §3.1 note 1; §10 entry 4 | `LoggingResponseBody`, `PrefixedReadStream` | `…Never_issues_a_zero_count_read` (a probe stream that throws on `count == 0`). | 6 | ✅, with §10 entry 4 |
@@ -177,13 +185,13 @@ points to [the landing order](#landing-order).
 | `BODY-36` | MAY | **Declined for v1**: no memory-mapped view; offered later only if a signing use case asks (§3.1, §12 "Deferred"). | §3.1; §12 | — | None. | 7 | ⏳ (`docs/first-release.md`, "SHOULD- and MAY-level requirements declined for v1", bullet added in PR 7) |
 | `BODY-37` | MUST | **Build** the wrapper half: the wrapper exposes no tap handle, only copying snapshots; the tee's own refusal (`IO-28`) is 3a's. | §3.1 | `LoggingRequestBody` | `…Snapshots_are_copies` (mutating a returned snapshot leaves the next one intact); an architecture assertion that no member of either wrapper returns `Stream`, `Memory<byte>` or `byte[]` other than `Snapshot`'s copy. | 5 | ✅ (tee half ⏳ 3a, `IO-28`) |
 
-**Inherited row, closed here (not in the 49).** `SEAM-14` idempotence (2b checklist ⏳ 3b): `SystemNetHttpClient`'s
+**Inherited row, closed here (not in the 48).** `SEAM-14` idempotence (2b checklist ⏳ 3b): `SystemNetHttpClient`'s
 `Dispose` is latched, and `DelegateHttpClient`'s and both bridges' disposes are no-ops (idempotent trivially). The 2b
 checklist row gets a dated correction pointing at `SystemNetHttpClientDisposeTests`; 8b keeps `SEAM-15`.
 
-**Totals.** 49 rows, no N/A: 36 ✅ outright; 6 ✅ with a clause another owner holds (`HTTP-52`, `BODY-30`,
-`BODY-31` and `BODY-34` with a ⏳ clause, `BODY-12` with a 🚫 clause, `BODY-37` with the tee half ⏳ 3a); 7 ⏳ wholly
-(`HTTP-39`, `BODY-10` to 3a; `HTTP-44`, `HTTP-45` to 7a; `BODY-4` to 6a/6b/6c; `BODY-5` to 6a; `BODY-36` to
+**Totals.** 48 rows, no N/A: 36 ✅ outright; 6 ✅ with a clause another owner holds (`HTTP-52`, `BODY-30`,
+`BODY-31` and `BODY-34` with a ⏳ clause, `BODY-12` with a 🚫 clause, `BODY-37` with the tee half ⏳ 3a); 6 ⏳ wholly
+(`BODY-10` to 3a; `HTTP-44`, `HTTP-45` to 7a; `BODY-4` to 6a/6b/6c; `BODY-5` to 6a; `BODY-36` to
 `docs/first-release.md`). The plan recounts against the built code.
 
 ---
@@ -192,10 +200,11 @@ checklist row gets a dated correction pointing at `SystemNetHttpClientDisposeTes
 
 ### A. The body-ownership verdict (`body-stream-ownership`, `BODY-8`) — 3b argues it
 
-**Which phase argues which verdict (P3b-1).** Both of §3.1's owed verdicts are body-layer: `BODY-8` is a request-body
-rule and `BODY-14` a response-body rule, so **3b argues both**. 3a argues only the helper-layer half of §10 entry 5
-(`IO-6`: an internal wrapper takes ownership unless told `leaveOpen`). If 3a's design also claims either, the lead
-picks one owner; the arguments below do not depend on which.
+**Which phase argues which verdict (P3b-1).** By the lead's ruling of 2026-10-02, **3b argues only
+`body-stream-ownership`** (`BODY-8`, a request-body rule) and 3a argues `response-body-reopen-throws` (`BODY-14`), because
+3a's `OpenRead` forces the answer ([3a's position B](../phase3a/2026-10-02-phase3a-io-design.md#b-response-body-reopen-throws-confirmed-and-extended-across-the-two-forms),
+P3a-2, P3a-3). 3a also fixes the helper-layer half of §10 entry 5 (`IO-6`: an internal wrapper takes ownership unless
+told `leaveOpen`), which 3b inherits. 3b cites 3a's position for the reopen verdict (position B below).
 
 **Verdict: §10 entry 5 stands, extended to the 3b variants.** A request body closes exactly the sources it opened:
 
@@ -218,16 +227,20 @@ is exactly what the requirement asks a port not to inherit by accident.
 every `leaveOpen: true` API in the BCL, and the alternative (a body that closes a stream it did not open) breaks the
 seekable variant, which must keep the stream open to replay.
 
-### B. The reopen verdict (`response-body-reopen-throws`, `BODY-14`)
+### B. The reopen verdict (`response-body-reopen-throws`, `BODY-14`) — 3a argues it
 
-**Verdict: §10 entry 6 stands.** A second `OpenReadAsync` throws `StreamConsumedException` instead of returning the
-same `Stream`. `BODY-14`'s letter asks for the same handle; its purpose is "not a fresh replay". Returning the same,
-partially read `Stream` to a second caller is how two consumers silently interleave; throwing keeps the no-replay
-guarantee and makes the misuse loud. 3b adds two things the verdict needs to be honest: the exception message names
+**Cited, not argued here.** The verdict is 3a's
+([3a's position B](../phase3a/2026-10-02-phase3a-io-design.md#b-response-body-reopen-throws-confirmed-and-extended-across-the-two-forms),
+P3a-3, by the lead's ruling of 2026-10-02): §10 entry 6 stands, and a second open in either form (`OpenRead` or
+`OpenReadAsync`, one latch per variant) throws `StreamConsumedException` instead of returning the same `Stream`. 3b
+extends it to its new response variants: the response-logging wrapper's over-cap stream is single-use under the same
+rule, while its fits-cap views and the replayable error body are replayable by design and open a fresh view each time.
+3b keeps its own `BODY-14` tests (`ResponseBodyLifecycleTests`). §10 entry 6's dated correction is 3a's (one owner);
+3b writes none. 3b adds two things the verdict needs to be honest: the exception message names
 the buffering route (the explicit wrapper the requirement's last sentence asks for), and the ordering rule of P3b-11
 (a consumed **and** disposed stream body reports "consumed", so existing callers see the same exception type).
 
-### C. Disposal before its dependencies exist (P3b-3, **open for the lead**)
+### C. Disposal before its dependencies exist (P3b-3, accepted by the lead's ruling of 2026-10-02)
 
 Design §3.7's `DisposeQuietly` attaches to the primary through §5.2's `ExceptionTrail.AddSuppressed` and filters
 through `ExceptionFacts.IsFatal`; both are 4b's, which follows 3b. And it reports through "a `Warning` log and an
@@ -245,15 +258,17 @@ exception event on the current SDK `Activity`", but core has no logger plumbing 
 2. Build a minimal `ExceptionTrail` in 3b. Rejected: it designs 4b's public `SdkException.Suppressed` surface early.
 3. Defer `Disposal` to 4b. Rejected: the 2b hand-off and `BODY-28` need it now.
 
-**Why open for the lead.** With no listener and no logger (a bare `AsAsync` call outside any traced scope), option 1
-reports to nobody, which is §3.7's "never swallows silently" violated until 5b. The mitigation would be a counter on
-`DexpaceDiagnostics.Meter`, but its instrument name is 5b's `OBS-32` decision. The default taken is: accept the gap
-until 5b, documented on `Disposal`. The lead may instead ask 3b to add the counter now.
+**Why it went to the lead, and the ruling.** With no listener and no logger (a bare `AsAsync` call outside any traced
+scope), option 1 reports to nobody, which is §3.7's "never swallows silently" violated until 5b. The mitigation would be a
+counter on `DexpaceDiagnostics.Meter`, but its instrument name is 5b's `OBS-32` decision. The default taken was: accept the
+gap until 5b, documented on `Disposal`. **The lead's ruling of 2026-10-02 accepted it:** the no-listener/no-logger silence
+is an accepted interim gap, and it closes in 5b, which plumbs the client's logger to the call sites and owns the counter's
+name. 3b adds no counter.
 
 The signature adds `ILogger?` to §3.7's two-parameter form; it is optional and internal, so §3.7 gets a dated
 correction rather than a deviation.
 
-### D. The drain's cancellation token (P3b-10, **open for the lead**)
+### D. The drain's cancellation token (P3b-10, accepted by the lead's ruling of 2026-10-02)
 
 §3.1 says the response-logging drain "runs under the wrapper's own lifetime token, not the first caller's, so one
 caller cancelling cannot poison the shared drain for the others". Taken literally, a hung server body then blocks the
@@ -273,7 +288,8 @@ deadline would stop working whenever body logging is on. Options:
    task (styleguide 9.1).
 
 Option 2 departs from a sentence of §3.1, so it is a dated correction to §3.1 (the mechanism changes; `BODY-22`'s
-"upstream read exactly once" is kept). The lead may prefer option 1's literal reading.
+"upstream read exactly once" is kept). Option 1's literal reading was put to the lead; the ruling of 2026-10-02 accepted
+option 2.
 
 ### E. No declared-length cross-check on the response drain (`BODY-25`)
 
@@ -294,11 +310,15 @@ writer (3a's exact copy).
 
 ## Rulings (2026-10-02, taken by the brainstorm)
 
-Each ruling lists the options considered and why the chosen one won. **Open for the lead:** P3b-3, P3b-5, P3b-10.
+Each ruling lists the options considered and why the chosen one won. The three put to the lead (P3b-3, P3b-5, P3b-10)
+were **accepted as written by the lead's ruling of 2026-10-02**, which also settled P3b-1's split with 3a.
 
-- **P3b-1 — 3b argues both §3.1 verdicts; both stand** (positions A and B). *Options:* split one per sub-phase; 3a
-  argues both; 3b argues both. *Why:* `BODY-8` and `BODY-14` are body rules, and 3a's ownership surface is `IO-6` at
-  the helper layer. §10 entries 5 and 6 get dated corrections naming the new variants.
+- **P3b-1 — 3b argues `body-stream-ownership`; 3a argues the reopen verdict; both stand** (positions A and B). *Options:*
+  split one per sub-phase; 3a argues both; 3b argues both. This design first took "3b argues both", because `BODY-8` and
+  `BODY-14` are body rules; 3a's design argued the reopen verdict because its `OpenRead` forces the answer (P3a-2). *Ruled
+  by the lead, 2026-10-02:* split one per sub-phase — 3b argues `BODY-8` (3a's ownership surface is only `IO-6` at the
+  helper layer), and 3a argues `BODY-14` (P3a-3), which 3b cites and extends to its new variants, keeping its `BODY-14`
+  tests. §10 entry 5 gets a dated correction naming the new variants (3b, PR 7); §10 entry 6's correction is 3a's alone.
 - **P3b-2 — `ResponseBody` adopts the standard dispose pattern with one SDK latch.** Public `Dispose()` and
   `DisposeAsync()` become non-virtual: `if (Interlocked.Exchange(ref _disposed, 1) != 0) return;` then
   `Dispose(true)` / `await DisposeAsyncCore()`. Subclasses override `protected virtual void Dispose(bool disposing)`
@@ -309,7 +329,8 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   base type already use. (b) chosen. No `protected IsDisposed` is added (10.1): the built-in variants track their own
   state, and a subclass can do the same.
 - **P3b-3 — `Disposal` is built now, internal, with an optional `ILogger`, reporting through `Activity` until 4b and
-  5b repoint it** (position C). **Open for the lead** (the no-listener gap).
+  5b repoint it** (position C). **Accepted by the lead's ruling of 2026-10-02:** the no-listener/no-logger silence is an
+  accepted interim gap that closes in 5b.
 - **P3b-4 — `FromStream` promotes a seekable stream to replayable, automatically.** Conditions: `CanRead`, `CanSeek`,
   and a declared `contentLength` in `[0, Array.MaxLength]`. The start position is captured at construction; **every**
   write (the first included) seeks to it, so a caller who moved the stream after construction still gets the
@@ -320,7 +341,8 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   `Content-Length` one behind the caller's back. *Options:* a separate `FromSeekableStream` factory (explicit, but
   `HTTP-38` says the factories classify by source, and every caller would have to know to choose it); inference of
   the length (rejected above). Equality: identity (a live source, 2a's rule). Behaviour change, listed as breaking 4.
-- **P3b-5 — "Regular file" is enforced where the platform can see it** (facts 1–3). **Open for the lead.**
+- **P3b-5 — "Regular file" is enforced where the platform can see it** (facts 1–3). **Accepted by the lead's ruling of
+  2026-10-02, routed as a new design §10 entry.**
   `FromFile` resolves a symbolic link to its final target before capturing the size (fact 3), throws
   `FileNotFoundException` for a missing path, `ArgumentException` for a directory (and, on Windows, a path whose
   attributes carry `Device`), and `ArgumentOutOfRangeException` for the range. On Unix a FIFO or a character device is
@@ -329,8 +351,8 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   the write is a legitimate empty write. The residue: a special file uploads as an empty body instead of failing at
   construction. *Options:* P/Invoke `stat` (platform-specific struct layouts and an AOT-visible native dependency for
   one validation clause — rejected); accept and document (chosen). Because a MUST clause is unmet on a stated domain,
-  this is a **design §10 candidate** in the "four leave a MUST clause unmet" class; the lead decides whether it is a
-  §10 entry or a §11 reading.
+  this is a **design §10 candidate** in the "four leave a MUST clause unmet" class. The lead's ruling of 2026-10-02
+  routed it as a new §10 entry, not a §11 reading; PR 7 writes it.
 - **P3b-6 — File handle and sharing.** Each write opens
   `new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize: 0,
   FileOptions.SequentialScan | (async ? FileOptions.Asynchronous : 0))`, seeks to `Offset`, copies exactly the count
@@ -381,7 +403,7 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   writes of one wrapped replayable body would interleave its preview — documented, since a call has one attempt in
   flight at a time.
 - **P3b-10 — The drain runs under a token linked from the starting accessor and the wrapper's lifetime** (position D).
-  **Open for the lead.** The drain is one `bool async` core (§11 item 12) split under the 70-line cap: acquire
+  **Accepted by the lead's ruling of 2026-10-02.** The drain is one `bool async` core (§11 item 12) split under the 70-line cap: acquire
   (`Wait`/`WaitAsync` with the caller's token), drain-or-return-cached, release.
 - **P3b-11 — Use after dispose.** A stream-backed response body (the built-in `FromStream` variant and `SystemNet`'s
   `HttpResponseMessageBody`) throws `StreamClosedException` (the existing type, whose summary describes exactly this)
@@ -395,7 +417,9 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   routine that resolves the encoding (declared charset, else UTF-8) and skips a leading `encoding.Preamble` when the
   bytes start with it, for any encoding with a preamble (fact 5), then decodes the rest. A BOM that does not match the
   resolved charset is kept, because the declared charset wins (`HTTP-42`). This is §11 item 34 as written, extended
-  from UTF-8 to every preamble-bearing encoding (dated correction to §11 item 34).
+  from UTF-8 to every preamble-bearing encoding (dated correction to §11 item 34). **One routine, two-way:** whichever
+  of 3a's PR 5 (the sync `ReadAsString`) and 3b's PR 1 (`TextDecoding`) lands second converges both readers on this
+  routine, and the other's BOM and decode tests, sync and async, pass over it unchanged (Prerequisites, landing order).
 - **P3b-13 — The convenience readers dispose the body, not only the stream** (`BODY-16`). `ReadAsBytesAsync` becomes
   `try { … } finally { await DisposeAsync() }` (3a's synchronous readers mirror it). `ResponseBodySerdeExtensions
   .ReadValueAsync` is a typed reader, not one of `BODY-16`'s two, and is left to 7a (`SERDE`), named in the coupling.
@@ -405,7 +429,7 @@ Each ruling lists the options considered and why the chosen one won. **Open for 
   name). `FromFile` has no default media type: the SDK does not guess MIME from an extension.
 - **P3b-15 — Exit marks for the rows other phases own** are as in the table: `BODY-4`/`BODY-5` to 6a/6b/6c,
   `BODY-30`/`BODY-31`/`HTTP-52` ✅ with the policy form ⏳ 4c, `BODY-34` ✅ ⏳ 5b, `BODY-36` declined into
-  `docs/first-release.md`, `BODY-12` ✅ 🚫, `HTTP-39`/`BODY-10` ⏳ 3a, `HTTP-44`/`HTTP-45` ⏳ 7a.
+  `docs/first-release.md`, `BODY-12` ✅ 🚫, `BODY-10` ⏳ 3a (`HTTP-39` is 3a's row), `HTTP-44`/`HTTP-45` ⏳ 7a.
 - **P3b-16 — The 2b pin test is replaced, not deleted silently.**
   `A_throwing_dispose_after_cancellation_faults_the_task_with_that_exception` becomes
   `A_throwing_dispose_after_cancellation_cancels_the_task_and_reports_the_failure`: the task is `Canceled`, and an
@@ -562,13 +586,13 @@ Each step is one pull request carrying code and tests together, its `PublicAPI.U
 
 | PR | Content | Rows | Gate | Notes |
 |---|---|---|---|---|
-| **1** | `Disposal`; the `ResponseBody` dispose pattern and latch; `Response` latch; `HttpResponseMessageBody` migration and `SystemNetHttpClient` latch; the fakes' rewrite; `AsAsync` on `DisposeQuietly` and the replaced pin test; readers dispose the body; `TextDecoding` and the BOM; `ErrorBodyPreviewTests` | `HTTP-41`, `HTTP-42`, `HTTP-43`, `HTTP-52` (cite), `BODY-14`, `BODY-15`, `BODY-16`, `BODY-30` (cite), `BODY-33`, inherited `SEAM-14` | **free now** (no 3a edge); re-derive on 3a's `ResponseBody.cs` if 3a lands first | Breaking 1–6 |
+| **1** | `Disposal`; the `ResponseBody` dispose pattern and latch; `Response` latch; `HttpResponseMessageBody` migration and `SystemNetHttpClient` latch; the fakes' rewrite; `AsAsync` on `DisposeQuietly` and the replaced pin test; readers dispose the body; `TextDecoding` and the BOM; `ErrorBodyPreviewTests` | `HTTP-41`, `HTTP-42`, `HTTP-43`, `HTTP-52` (cite), `BODY-14`, `BODY-15`, `BODY-16`, `BODY-30` (cite), `BODY-33`, inherited `SEAM-14` | **free now** (no 3a edge); re-derive on 3a's `ResponseBody.cs` if 3a lands first | Breaking 1–6. **Shared decode, two-way:** if 3a's PR 5 merged first, this PR converges its sync `ReadAsString` onto `TextDecoding` and runs 3a's `IO-13` decode tests over it; if this PR merges first, 3a's PR 5 calls `TextDecoding` from the sync reader and runs these BOM cases in the sync form. One routine either way |
 | **2** | `FromForm` and `FormUrlEncoder` (+ `tests/vectors/body/form-urlencoded.json`); `FromStream` validation and the seekable variant; `RequestBodyContractTests`, `SingleUseBodyTests`, `RequestBodyOwnershipTests` (stream half) | `HTTP-36`–`HTTP-38`, `BODY-1`, `BODY-3`, `BODY-6`–`BODY-9`, `BODY-35` | form: **free now**; seekable: **3a's exact copy and sync `WriteTo`** | Breaking 7. May split into 2a (form) and 2b (seekable) if 3a is late |
 | **3** | `FileRequestBody`, `FromFile` | `HTTP-40`, `BODY-8` (file half), `BODY-11`–`BODY-13` | 3a's exact copy and sync `WriteTo` | Additive |
 | **4** | `Multipart`, `MultipartPart`, `MultipartFraming`, `BoundedWriteStream` | `HTTP-51`, `BODY-2`, `BODY-6` (composite) | 3a's sync `WriteTo` | Additive |
 | **5** | `LoggingRequestBody` | `BODY-17`–`BODY-21`, `BODY-32`, `BODY-34` (consumer clause), `BODY-37` | 3a's `TeeStream` and tap | Internal only |
 | **6** | `LoggingResponseBody`, `PrefixedReadStream` | `BODY-22`–`BODY-29`, `BODY-32`, `BODY-34` (consumer clause) | 3a's sync `OpenRead`; PR 1 (`Disposal`, the latch) | Internal only |
-| **7** | Close-out: `AotSmoke` over `FromFile` (temp file), `FromForm`, `Multipart` and the latched dispose; `docs/sdk-documentation/bodies.md`; the 3b checklist; dated corrections (design §3.1 for P3b-4/P3b-10 and the variants' "As built", §3.3 and §11 item 43 for P3b-16, §3.7 for `Disposal`'s signature and status, §4.5, §10 entries 5 and 6, §11 item 34, §12's `BODY` row: `BODY-33` addressed, `BODY-32`'s vacuous clause); the P3b-5 entry wherever the lead routes it; `docs/first-release.md`'s `BODY-36` bullet; the 2b checklist's `SEAM-14` correction and phase 1's S9 note; the roadmap status note | all 49 (closing) | 1–6 | Docs close the phase (roadmap step 7) |
+| **7** | Close-out: `AotSmoke` over `FromFile` (temp file), `FromForm`, `Multipart` and the latched dispose; `docs/sdk-documentation/bodies.md`; the 3b checklist; dated corrections (design §3.1 for P3b-4/P3b-10 and the variants' "As built", §3.3 and §11 item 43 for P3b-16, §3.7 for `Disposal`'s signature and status, §4.5, §10 entry 5 (entry 6 is 3a's, P3a-3), §11 item 34, §12's `BODY` row: `BODY-33` addressed, `BODY-32`'s vacuous clause); the new §10 entry for P3b-5 (the lead's routing of 2026-10-02); `docs/first-release.md`'s `BODY-36` bullet; the 2b checklist's `SEAM-14` correction and phase 1's S9 note; the roadmap status note | all 48 (closing) | 1–6 | Docs close the phase (roadmap step 7) |
 
 ---
 
@@ -634,10 +658,10 @@ Each step is one pull request carrying code and tests together, its `PublicAPI.U
 
 | ID | Decision | Touches | Kind | Argued in | Route |
 |---|---|---|---|---|---|
-| P3b-1 | 3b argues both §3.1 verdicts; §10 entries 5 and 6 stand, extended to the 3b variants | `BODY-8`, `BODY-14`, `HTTP-41` | verdicts on existing entries | Positions A, B | Dated corrections to §10 entries 5 and 6 (PR 7) |
-| P3b-3 | `Disposal` reports through `Activity` (and an optional logger) until 4b/5b; silent with neither | §3.7, `XCUT-13` (by way of §3.7) | mechanism, interim | Position C | Dated correction to §3.7 (PR 7); **open for the lead** |
+| P3b-1 | 3b argues `body-stream-ownership`; §10 entry 5 stands, extended to the 3b variants. The reopen verdict (§10 entry 6, `BODY-14`, `HTTP-41`) is 3a's (P3a-3), cited and extended to the new variants | `BODY-8` (argued); `BODY-14`, `HTTP-41` (cited) | verdict on an existing entry | Position A (position B cites 3a) | Dated correction to §10 entry 5 (PR 7); entry 6's correction is 3a's (3a's PR 6), by the lead's ruling of 2026-10-02 |
+| P3b-3 | `Disposal` reports through `Activity` (and an optional logger) until 4b/5b; silent with neither | §3.7, `XCUT-13` (by way of §3.7) | mechanism, interim | Position C | Dated correction to §3.7 (PR 7); accepted as interim by the lead's ruling of 2026-10-02, closing in 5b |
 | P3b-4 | Seekable known-length streams are auto-promoted; every write seeks to the captured start; length never inferred | `BODY-9`, `HTTP-38` | mechanism | Rulings | Dated correction to §3.1 (PR 7) |
-| P3b-5 | "Regular file" enforced only where the shared framework can see it; a Unix FIFO/device uploads as an empty body | `BODY-11`, `HTTP-40` | a MUST clause unmet on a stated domain | Rulings | §10 entry or §11 item, as the lead routes it; **open for the lead** |
-| P3b-10 | The response drain's token is linked from the starting accessor and the lifetime | `BODY-22`, `BODY-26` | mechanism, departs from a §3.1 sentence | Position D | Dated correction to §3.1 (PR 7); **open for the lead** |
+| P3b-5 | "Regular file" enforced only where the shared framework can see it; a Unix FIFO/device uploads as an empty body | `BODY-11`, `HTTP-40` | a MUST clause unmet on a stated domain | Rulings | New design §10 entry (PR 7), by the lead's ruling of 2026-10-02 |
+| P3b-10 | The response drain's token is linked from the starting accessor and the lifetime | `BODY-22`, `BODY-26` | mechanism, departs from a §3.1 sentence | Position D | Dated correction to §3.1 (PR 7); accepted by the lead's ruling of 2026-10-02 |
 | P3b-12 | The BOM strip covers every preamble-bearing encoding | `HTTP-42` | a reading, extending §11 item 34 | Rulings | Dated correction to §11 item 34 (PR 7) |
 | P3b-7, P3b-8 | WHATWG form serializer; multipart rejects controls in part-header values instead of stripping (Node) | `HTTP-38`, `BODY-35`, `HTTP-51` | sibling divergence, not a spec deviation | Rulings | Noted in the vector file and `bodies.md`; no §10 entry |

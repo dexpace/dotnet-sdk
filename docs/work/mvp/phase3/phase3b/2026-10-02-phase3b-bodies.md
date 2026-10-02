@@ -13,8 +13,10 @@ pull-request-sized steps), each with its failing tests, its production change, i
 **Breaking** markings, its `CHANGELOG.md` entry, its requirement IDs and its verification commands. It is not the
 checklist (written from what was built, task 7.3) and it writes no production code.
 
-**Scope.** 49 rows: `BODY-1`–`BODY-37`, `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52`. `HTTP-44`/`HTTP-45` are dispositioned
-(hand-off to 7a), `HTTP-39`/`BODY-10` belong to 3a. Every row maps to a task in the
+**Scope.** 48 rows, by the lead's ruling of 2026-10-02 on P3a-1: `BODY-1`–`BODY-37`, `HTTP-36`–`HTTP-38`,
+`HTTP-40`–`HTTP-45`, `HTTP-51`, `HTTP-52` (3a holds 43; 43 + 48 = 91, the roadmap's count). `HTTP-44`/`HTTP-45` are
+dispositioned (hand-off to 7a); `BODY-10` is ⏳ 3a; `HTTP-39` is 3a's row, and the consumer tests below only cite it.
+`HTTP-36` and `HTTP-52` cite 3a's tests (the sync twin; the drain re-home). Every row maps to a task in the
 [traceability table](#traceability-id--pr--task).
 
 ---
@@ -346,10 +348,16 @@ Red: CS0103 (`TextDecoding`); the BOM cases fail by a leading U+FEFF.
 
 **Production.** New `src/Dexpace.Sdk.Core/Internal/TextDecoding.cs`: `internal static class TextDecoding` with
 `internal static string Decode(ReadOnlySpan<byte> bytes, Encoding? declared)`: resolve `declared ?? Encoding.UTF8`,
-read `encoding.Preamble`, skip it when non-empty and the bytes start with it, `GetString` the rest. 3a's synchronous string
-reader (if it exists) is repointed to this routine in this task; otherwise 3a's merged code is left alone and a one-line
-note in the PR says the sync reader is 3a's to repoint (P3b-12 requires one shared routine: if 3a shipped its own decode,
-**this task replaces it**, because the same file is touched). `ResponseBody.ReadAsBytesAsync` becomes
+read `encoding.Preamble`, skip it when non-empty and the bytes start with it, `GetString` the rest.
+
+**Convergence step (one decode routine, two-way; design Prerequisites and P3b-12).** Check whether 3a's PR 5 has merged
+(`git grep -n "ReadAsString(" -- src/Dexpace.Sdk.Core/Http/Response`). **If it has** (this PR lands second), repoint 3a's
+synchronous `ReadAsString` to `TextDecoding.Decode` and delete 3a's private `Decode`, so both readers share the one routine
+with the preamble strip; add the sync twin of each BOM case above (`ReadAsString` over the same inputs), and run 3a's `IO-13`
+tests (`ReadAsString_decodes_with_the_declared_charset_and_defaults_to_UTF8`, `TextRoundTripTests`) over it unchanged, sync
+and async. **If it has not** (this PR lands first), leave the sync side to 3a: 3a's PR 5 calls `TextDecoding` from its sync
+reader, adds no decode of its own, and runs these BOM cases in the sync form (3a plan task 5.3's convergence step). Record
+which branch was taken in the PR description. No order leaves two decode routines. `ResponseBody.ReadAsBytesAsync` becomes
 `try { … } finally { await DisposeAsync().ConfigureAwait(false); }` (the existing inner `await using` over the stream stays);
 `ReadAsStringAsync` calls `TextDecoding.Decode`. The remarks say "then closes the stream **and the body**" and carry the
 **Breaking** paragraphs (items 3 and 4). `ResponseBodySerdeExtensions.ReadValueAsync` is **not** changed (P3b-13; routed to
@@ -386,6 +394,10 @@ New `tests/Dexpace.Sdk.Core.Tests/Http/Response/ErrorBodyPreviewTests.cs`, class
 `An_empty_error_body_reads_as_an_empty_body_never_null` (§10 entry 30), `Disposing_the_exception_response_twice_is_harmless`.
 Re-run, unedited beyond task 1.2, `EnsureSuccessErrorMappingTests` (`Security`) over the new latch: the checklist cites
 `A_non_error_status_is_returned_with_its_body_intact` for `BODY-31`.
+
+`HTTP-52`'s row also cites 3a's re-home of the drain onto `StreamCopy.DrainUpToAsync` (3a's P3a-13; 3a plan tasks 1.2 and 1.5,
+`StreamCopyTests.DrainUpTo_stops_at_the_cap_and_reports_whether_the_end_was_seen`), under which
+`EnsureSuccessErrorMappingTests` passes unedited.
 
 **Production.** None. **IDs:** `BODY-33`, `HTTP-52` and `BODY-30` (cite; ⏳ 4c for the policy form). **Verify:** V-fast
 `ErrorBodyPreviewTests`, then the `Security` filter run.
@@ -556,8 +568,8 @@ return without opening (P3b-5); otherwise open
 inside `using`/`await using` (**`CA2000`** must be satisfied by the scope, not suppressed), seek to `Offset`, run 3a's exact
 copy of the count, dispose. Async and sync writes share one core with `bool async` (§11 item 12) split under 70 lines.
 Equality: identity (the type is `sealed`, no override). Remarks: the "not zero-copy" statement (`BODY-12`), the FIFO/device
-residue (P3b-5, **open for the lead**: documented as a known domain limit; the code does **not** try to detect special
-files), and the rewrite-between-writes caveat (P3b-6).
+residue (P3b-5, accepted by the lead's ruling of 2026-10-02 and routed as a new design §10 entry: documented as a known
+domain limit; the code does **not** try to detect special files), and the rewrite-between-writes caveat (P3b-6).
 
 **PublicAPI:**
 
@@ -585,7 +597,7 @@ large) and add `FromFile` to `RequestBodyContractTests`' theory. **Production:**
 ### Task 3.3 — Close-out (PR 3)
 
 `CHANGELOG.md` `### Added`: `RequestBody.FromFile`, `FileRequestBody`. `docs/first-release.md` is **not** touched here (the
-P3b-5 residue is routed in task 7.4 once the lead decides). **V-gate.** **Commit:** `feat: file-backed request bodies`.
+P3b-5 residue's new §10 entry is written in task 7.4). **V-gate.** **Commit:** `feat: file-backed request bodies`.
 
 ---
 
@@ -789,7 +801,7 @@ by name and says why). `CHANGELOG.md`: no line. **V-gate.** **Commit:** `feat: i
 
 ## PR 7 — Close-out
 
-**Gate:** PRs 1 to 6 merged. The docs close the phase (roadmap step 7). Rows: all 49 (closing).
+**Gate:** PRs 1 to 6 merged. The docs close the phase (roadmap step 7). Rows: all 48 (closing).
 
 ### Task 7.1 — NativeAOT smoke
 
@@ -822,7 +834,7 @@ the 2b checklist's legend and layout: test file, class, category, and the "exist
 `ModelConstructionArchitectureTests` allow-list entry for the `MultipartPart` constructor (P3b-8), the replaced
 `SyncToAsyncBridgeTests` pin, each `BodyConvenienceTests` adjustment if any). Rows per the design's table with these marks: ✅ for the 36 built or already-met
 rows; ✅ with a clause for `HTTP-52`, `BODY-30`, `BODY-31`, `BODY-34` (⏳ 5b), `BODY-12` (🚫 kernel path, §3.1) and
-`BODY-37` (tee half ⏳ 3a `IO-28`); ⏳ for `HTTP-39`/`BODY-10` (3a), `HTTP-44`/`HTTP-45` (7a), `BODY-4` (6a/6b/6c), `BODY-5` (6a)
+`BODY-37` (tee half ⏳ 3a `IO-28`); ⏳ for `BODY-10` (3a; `HTTP-39` is 3a's row, cross-referenced, not a row here), `HTTP-44`/`HTTP-45` (7a), `BODY-4` (6a/6b/6c), `BODY-5` (6a)
 and `BODY-36` (`docs/first-release.md`); `BODY-32`'s capless clause named **vacuous**. The totals are **recounted against the
 built code**, never copied from the design. Each `Security` class listed as "unedited" except `EnsureSuccessErrorMappingTests`
 (mechanical `TrackingBody` rewrite) with the diff output as evidence. Record the red evidence honestly, the way the 2b
@@ -834,11 +846,13 @@ Frozen documents change only by dated correction (design Migration and Deviation
 
 - **§3.1** (P3b-4 seekable promotion; P3b-10 linked drain token; the variants' "As built"), **§3.3** and **§11 item 43** (P3b-16,
   "until phase 3b" removed), **§3.7** (`Disposal`'s `ILogger?` parameter, its interim status, the 4b/5b repoints), **§4.5**
-  (`FromFile`/`FromForm`/`Multipart` shapes and the new `MultipartPart` public constructor, added to the construction allow-list), **§10 entries 5 and 6** (the verdicts extended to the 3b variants, P3b-1),
+  (`FromFile`/`FromForm`/`Multipart` shapes and the new `MultipartPart` public constructor, added to the construction allow-list), **§10 entry 5** (the ownership verdict extended to the 3b variants, P3b-1; **not** entry 6: its dated correction is 3a's
+  alone, P3a-3 in 3a plan task 6.4, by the lead's ruling of 2026-10-02, and the 3b checklist cites it for `BODY-14`),
   **§11 item 34** (P3b-12), **§12** (`BODY-33` addressed; `BODY-32`'s vacuous clause; `BODY-36` deferred).
-- **P3b-5** (the Unix special-file residue): **routed as the lead decides** (a §10 entry, or a §11 item). The plan does not
-  decide; until told, the checklist row reads ✅ with the stated clause and the docs mention it. **P3b-3's no-listener gap**
-  and **P3b-10's departure** are likewise recorded as the lead's call (the design marks all three open).
+- **P3b-5** (the Unix special-file residue): a **new design §10 entry**, as the lead's ruling of 2026-10-02 routed it (not
+  a §11 item); the checklist row reads ✅ with the stated clause and cites the entry, and the docs mention it. **P3b-3's
+  no-listener gap** is recorded in the §3.7 correction as an accepted interim gap that closes in 5b, and **P3b-10's
+  departure** in the §3.1 correction; both were accepted by the same ruling.
 - The 2b checklist's `SEAM-14` row gets a dated correction pointing at `SystemNetHttpClientDisposeTests` (⏳ 3b → ✅), and the
   phase-1 checklist's row S9 a dated note that its 3b clause is closed by `ResponseDisposeLatchTests` and
   `HttpResponseMessageBodyTests`.
@@ -875,17 +889,17 @@ dotnet run --project .claude/skills/housekeeping/src -- probe --only links,citat
 
 | IDs | PR | Task(s) | Mark (design) |
 |---|---|---|---|
-| `HTTP-36` | 2–4 | 2.2, 2.3, 3.2, 4.4, 5.2 (`RequestBodyContractTests`) | ✅ |
+| `HTTP-36` | 2–4 | 2.2, 2.3, 3.2, 4.4, 5.2 (`RequestBodyContractTests`); cites 3a's sync twin tests (3a plan task 5.2) | ✅ |
 | `HTTP-37`, `BODY-7` | 2 | 2.4 | ✅ |
 | `HTTP-38` | 2–4 | 2.1, 2.2, 2.3, 3.1, 4.3 | ✅ |
-| `HTTP-39`, `BODY-10` | 3a | consumer tests in 2.3, 3.1 | ⏳ 3a |
+| `BODY-10` | 3a | consumer tests in 2.3, 3.1 (`HTTP-39` is 3a's row) | ⏳ 3a |
 | `HTTP-40`, `BODY-11`, `BODY-13` | 3 | 3.1 | ✅ (P3b-5 reading) |
 | `HTTP-41`, `BODY-15` | 1 | 1.2 | ✅ |
 | `HTTP-42` | 1 | 1.4 | ✅ |
 | `HTTP-43` | 1 | 1.3 | ✅ |
 | `HTTP-44`, `HTTP-45` | — | 7.4, 7.5 (hand-off notes) | ⏳ 7a |
 | `HTTP-51`, `BODY-2` | 4 | 4.1–4.3 | ✅ |
-| `HTTP-52`, `BODY-30`, `BODY-31` | 1 | 1.6 (cites) | ✅ ⏳ 4c |
+| `HTTP-52`, `BODY-30`, `BODY-31` | 1 | 1.6 (cites; `HTTP-52` also cites 3a's P3a-13 re-home, 3a plan tasks 1.2, 1.5) | ✅ ⏳ 4c |
 | `BODY-1`, `BODY-3` | 2–4 | 2.2, 2.3, 2.4, 3.2, 4.4 | ✅ |
 | `BODY-4`, `BODY-5` | — | 7.5 | ⏳ 6a/6b/6c |
 | `BODY-6` | 2, 4 | 2.4, 4.3 | ✅ |
@@ -904,7 +918,7 @@ dotnet run --project .claude/skills/housekeeping/src -- probe --only links,citat
 | `BODY-36` | 7 | 7.4 | ⏳ `docs/first-release.md` |
 | inherited `SEAM-14` | 1 | 1.3, 7.4 | ✅ |
 
-All 49 rows are present; the checklist recounts the totals.
+All 48 rows are present; the checklist recounts the totals.
 
 ## Tasks per PR
 
@@ -929,9 +943,10 @@ All 49 rows are present; the checklist recounts the totals.
    flow into `TaskCreationOptions.LongRunning` workers (A3) and gives a fallback if that does not hold on the pinned runtime.
 4. **F4 — `PrefixedReadStream`/drain ordering inside PR 6.** Task 6.2's tests cannot all be green without 6.3's
    `OpenReadAsync`; the plan folds the two into one commit (two test classes stay separate) rather than commit a throwing stub.
-5. **F5 — Open for the lead, not resolved here.** P3b-3 (no-listener reporting gap), P3b-5 (Unix special files upload as an
-   empty body: whether §10 entry or §11 item) and P3b-10 (linked drain token departs from a §3.1 sentence). The plan builds the
-   design's defaults and routes each in task 7.4; if the lead rules otherwise, the affected tasks are 1.1, 3.1 and 6.2.
+5. **F5 — Ruled by the lead, 2026-10-02.** P3b-3 (no-listener reporting gap: accepted as interim, closes in 5b), P3b-5 (Unix
+   special files upload as an empty body: a new design §10 entry) and P3b-10 (linked drain token departs from a §3.1 sentence:
+   accepted) were all accepted as written. The plan builds the design's defaults (tasks 1.1, 3.1, 6.2) and routes each in task
+   7.4. The same ruling gave the reopen verdict and §10 entry 6's correction to 3a, and `HTTP-39` to 3a's rows.
 6. **F6 — Dependency on 3a's names.** All consumer tasks (2.3, 3.1, 4.3, 5.1, 6.x) read 3a's merged surface through task 0.1.
    If 3a's `WriteTo` is abstract rather than virtual, every existing `RequestBody` variant already in the repo (and the test
    fakes) must implement it; that is 3a's change, not 3b's, but the new 3b variants implement both shapes regardless.
