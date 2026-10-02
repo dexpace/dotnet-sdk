@@ -9,8 +9,15 @@ namespace KnowledgeHarvest;
 /// <summary>One stored entry: a statement and its provenance.</summary>
 internal sealed record TopicEntry(string Statement, string Role, string Evidence, string Confidence, string Sha256);
 
-/// <summary>A recorded cross-source contradiction, unresolved until a human decides it.</summary>
-internal sealed record TopicConflict(string Title, string Text, string Sources, string Date);
+/// <summary>A recorded cross-source contradiction: <c>unresolved</c> until a human decides it, or <c>conformed</c>.</summary>
+internal sealed record TopicConflict(string Title, string Text, string Sources, string Date, string Status = TopicConflict.Unresolved)
+{
+    /// <summary>A contradiction nobody has decided; the merge exits 3 while one is on file.</summary>
+    public const string Unresolved = "unresolved";
+
+    /// <summary>A contradiction the port settled by conforming to the styleguide; nothing is owed.</summary>
+    public const string Conformed = "conformed";
+}
 
 /// <summary>A statement that a changed source replaced.</summary>
 internal sealed record SupersededRecord(string Statement, string Date, string OldSha256, string Sha256);
@@ -31,7 +38,7 @@ internal sealed partial class TopicDocument(string topic)
     [GeneratedRegex(@"^- \*\*(.+?)\*\* — (.+?)\s*$", RegexOptions.ECMAScript)]
     private static partial Regex ConflictLine();
 
-    [GeneratedRegex(@"^\s{2}<sub>(.+?)\s*·\s*unresolved ([\d-]+)</sub>\s*$", RegexOptions.ECMAScript)]
+    [GeneratedRegex(@"^\s{2}<sub>(.+?)\s*·\s*(unresolved|conformed) ([\d-]+)</sub>\s*$", RegexOptions.ECMAScript)]
     private static partial Regex ConflictSub();
 
     [GeneratedRegex(@"^- ~~(.+?)~~ source changed ([\d-]+) \(sha ([0-9a-f]+)… → ([0-9a-f]+)…\)\s*$", RegexOptions.ECMAScript)]
@@ -97,7 +104,7 @@ internal sealed partial class TopicDocument(string topic)
                 if (conflict.Success && sub.Success)
                 {
                     document.Conflicts.Add(new TopicConflict(
-                        conflict.Groups[1].Value, conflict.Groups[2].Value, sub.Groups[1].Value, sub.Groups[2].Value));
+                        conflict.Groups[1].Value, conflict.Groups[2].Value, sub.Groups[1].Value, sub.Groups[3].Value, sub.Groups[2].Value));
                     index++;
                 }
             }
@@ -132,7 +139,7 @@ internal sealed partial class TopicDocument(string topic)
         foreach (var conflict in Conflicts)
         {
             output.Append($"- **{conflict.Title}** — {conflict.Text}\n");
-            output.Append($"  <sub>{conflict.Sources} · unresolved {conflict.Date}</sub>\n");
+            output.Append($"  <sub>{conflict.Sources} · {conflict.Status} {conflict.Date}</sub>\n");
         }
 
         output.Append("\n## Superseded\n");

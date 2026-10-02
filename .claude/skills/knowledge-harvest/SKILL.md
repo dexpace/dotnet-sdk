@@ -232,6 +232,7 @@ decisions (`supersede`, `conflict`, `update`) go in `--extra`. The file's shape:
       "action": "conflict",
       "topic": "retry-and-resilience",
       "title": "spec vs styleguide",
+      "status": "unresolved",
       "text": "the spec permits unbounded backoff jitter; the styleguide forbids non-deterministic timing in tests",
       "sources": ["spec `docs/product-spec/09-retry.md:88`", "styleguide `docs/styleguide/csharp/11-testing.md:204`"]
     }
@@ -262,9 +263,12 @@ dotnet run --project .claude/skills/knowledge-harvest/src -- merge "$WORK/entrie
 Exit codes:
 
 - `0` — applied cleanly.
-- `3` — applied, but conflicts are unresolved. Present each one to the user with both
-  statements and both sources, apply their decision as an `update` or `supersede`, and
-  re-run. Conflicts stay in the file until resolved; this is intentional.
+- `3` — applied, but conflicts with status `unresolved` are on file. (`"status": "conformed"` records a
+  contradiction the port settled by conforming to the styleguide; it is shown but does not exit 3.)
+  Present each unresolved one to the user with both statements and both sources, apply their decision as an
+  `update` or `supersede`, and re-run. Conflicts stay in the file until resolved; this is intentional. In this
+  repository a **kept** departure is resolved by a `review`-role note under `docs/knowledge/notes/` that cites
+  the Conflicts entry's key (`docs/knowledge/README.md`), never by editing `harvested/`.
 - `4` — the corpus has uncommitted git changes. Report it and offer `--force`. Do not pass
   `--force` on your own; unreviewed edits under the corpus would be silently overwritten.
 - `2` — malformed `entries.json`. Fix it and re-run.

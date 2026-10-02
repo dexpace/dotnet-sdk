@@ -85,7 +85,7 @@ internal static class Merge
         var sources = decision["sources"] is JsonArray array
             ? string.Join(" · ", array.Select(n => n?.GetValue<string>() ?? string.Empty))
             : Opt(decision, "sources") ?? string.Empty;
-        var conflict = new TopicConflict(Str(decision, "title"), Str(decision, "text"), sources, Opt(decision, "date") ?? date);
+        var conflict = new TopicConflict(Str(decision, "title"), Str(decision, "text"), sources, Opt(decision, "date") ?? date, Opt(decision, "status") ?? TopicConflict.Unresolved);
         var text = TopicDocument.Normalize(conflict.Text);
         if (!document.Conflicts.Any(c => c.Title == conflict.Title && TopicDocument.Normalize(c.Text) == text))
         {
@@ -335,7 +335,7 @@ internal static class Merge
         int Count(string action) => decisions.Count(d => Opt(d!, "action") == action);
         output.WriteLine($"merge: {Count("new")} new, {Count("update")} updated, {Count("supersede")} superseded, {Count("conflict")} conflicts recorded");
 
-        var unresolved = all.SelectMany(t => t.Value.Conflicts.Select(c => (t.Key, Conflict: c))).ToList();
+        var unresolved = all.SelectMany(t => t.Value.Conflicts.Where(c => c.Status == TopicConflict.Unresolved).Select(c => (t.Key, Conflict: c))).ToList();
         if (unresolved.Count == 0)
         {
             return Applied;

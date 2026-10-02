@@ -110,6 +110,25 @@ public sealed class MergeTests
     }
 
     [Fact]
+    public void A_conformed_conflict_is_recorded_with_its_status_and_does_not_fail_the_merge()
+    {
+        using var tree = new TempTree();
+        var conflict = new JsonObject
+        {
+            ["action"] = "conflict",
+            ["topic"] = "retry",
+            ["title"] = "net10.0 floor",
+            ["text"] = "the port conforms",
+            ["sources"] = new JsonArray("styleguide `a.md:1`", "design `b.md:2`"),
+            ["status"] = "conformed",
+        };
+        Assert.Equal(0, Apply(tree, Payload("2026-10-02T00:00:00Z", null, conflict), out var corpus));
+        var text = Topic(corpus);
+        Assert.Contains("styleguide `a.md:1` · design `b.md:2` · conformed 2026-10-02", text, StringComparison.Ordinal);
+        Assert.Equal("conformed", TopicDocument.Parse(text, "retry").Conflicts[0].Status);
+    }
+
+    [Fact]
     public void Applying_the_same_entries_twice_changes_nothing()
     {
         using var tree = new TempTree();
