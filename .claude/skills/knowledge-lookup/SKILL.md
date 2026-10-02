@@ -288,10 +288,10 @@ no section, role, or exact-token ID matching. Two exceptions, both narrow:
 | `--section rules,…` | rules, constraints, conclusions, reference, conflicts, superseded (case-insensitive). |
 | `--role spec\|design\|styleguide\|review` | Provenance role. `review` only ever appears in `notes/`. Today only `spec` has entries. |
 | `--chapter 9` | Styleguide chapter. The only way in from a "styleguide N.M" citation (after a harvest). |
-| `--grep <regex>` / bare words | Case-insensitive; `--grep` is a .NET regex, bare words are literal. |
+| `--grep <regex>` / bare words | Case-insensitive; `--grep` is a .NET regex, bare words are literal. Under `--gaps`, bare words (in any position) are further prefixes instead. |
 | `--phase 5a` | Every ID cited by `docs/work/*/phase5/phase5a/*.md`, queried as one `--req` set, per-document breakdown first. A cited range (`HTTP-1–HTTP-35`, `HTTP-1-HTTP-35`, `HTTP-1..35`, each also with its endpoints in backticks or bold, which is how `docs/work/` mostly writes them: `**HTTP-1**–**HTTP-35**`) counts every appendix-C ID between its ends; a bare number that cannot close a range (`RETRY-12-3 times`) names nothing. Exits 0 with a message when the phase has no documents yet. |
-| `--gaps HTTP` / `--gaps HTTP PAGE` / `--gaps HTTP,PAGE` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited apart. The pointer is checked against the chapters: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line. **Answers without a corpus.** |
-| `--prefix-info HTTP` | One prefix only (a second word exits 2). Subsystem, owning chapter, ID count and level split, from appendix C. **Answers without a corpus.** |
+| `--gaps HTTP` / `--gaps HTTP PAGE` / `--gaps HTTP,PAGE` / `--gaps all` (repeatable; `all` anywhere wins) | Canonical IDs with no substantive entry: roll-up-only and uncited apart. The pointer is checked against the chapters: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line. **Answers without a corpus.** |
+| `--prefix-info HTTP` | One prefix only (a second word, a repeat, or `--gaps` beside it exits 2). Subsystem, owning chapter, ID count and level split, from appendix C. **Answers without a corpus.** |
 | `--brief` | Drop `<sub>` lines, ~30% smaller — but you lose the citation. |
 | `--json` | Records, each with `origin`, `key` and a `rollup` boolean (snake_case fields). |
 | `--list-topics` | Every topic with entry, distinct-ID and note counts. |

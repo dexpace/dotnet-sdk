@@ -29,7 +29,7 @@ internal sealed class QueryOptions
 
     public string? Phase { get; set; }
 
-    public string? Gaps { get; set; }
+    public List<string> Gaps { get; } = [];
 
     public string? PrefixInfo { get; set; }
 

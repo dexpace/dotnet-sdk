@@ -94,6 +94,53 @@ public sealed class GapsTests : KnowledgeFixture
     }
 
     [Fact]
+    public void Gaps_ReadsWordsBeforeTheFlagAsPrefixesToo()
+    {
+        // Position never mattered to the parser, so it cannot matter to the report either.
+        var (stdout, _, status) = Run("HTTP", "--gaps", "SEAM");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("3 of 5 IDs in 2 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Gaps_RepeatedAccumulatesRatherThanKeepingTheLastValue()
+    {
+        var (stdout, _, status) = Run("--gaps", "HTTP", "--gaps", "SEAM", "PAGE");
+        Assert.Equal(0, status);
+        Assert.Contains("HTTP — Core HTTP domain model", stdout, StringComparison.Ordinal);
+        Assert.Contains("PAGE — Pagination", stdout, StringComparison.Ordinal);
+        Assert.Contains("SEAM — Product vision", stdout, StringComparison.Ordinal);
+        Assert.Contains("in 3 prefixes have no substantive entry", stdout, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("HTTP,", "SEAM")]
+    [InlineData("HTTP", ",SEAM")]
+    [InlineData("HTTP,,SEAM")]
+    [InlineData(",HTTP,", ",", "SEAM,")]
+    public void Gaps_DropsEmptyPiecesFromACommaAndASpace(params string[] values)
+    {
+        // `--gaps HTTP, SEAM` is what a person types after a trailing comma; it is two prefixes, not three
+        // of which one is the empty string.
+        var (stdout, stderr, status) = Run(["--gaps", .. values]);
+        Assert.Equal(0, status);
+        Assert.Equal("", stderr);
+        Assert.Equal(Run("--gaps", "HTTP,SEAM").Stdout, stdout);
+    }
+
+    [Fact]
+    public void Gaps_AllAnywhereMeansEveryPrefix_AndStillChecksTheOthers()
+    {
+        var everything = Run("--gaps", "all").Stdout;
+        Assert.Equal(everything, Run("--gaps", "all", "SEAM").Stdout);
+        Assert.Equal(everything, Run("SEAM", "--gaps", "ALL").Stdout);
+        Assert.Equal(everything, Run("--gaps", "SEAM,all").Stdout);
+        Assert.Equal(2, Run("--gaps", "all", "UTF").Status);
+    }
+
+    [Fact]
     public void AnUnknownPrefix_Exits2()
     {
         var (_, stderr, status) = Run("--gaps", "UTF");
@@ -175,8 +222,35 @@ public sealed class PrefixInfoTests : KnowledgeFixture
         Assert.Contains("--prefix-info takes one prefix", stderr, StringComparison.Ordinal);
         Assert.Contains("SEAM", stderr, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PrefixInfo_RepeatedIsRejectedRatherThanKeepingTheLast()
+    {
+        var (stdout, stderr, status) = Run("--prefix-info", "HTTP", "--prefix-info", "PAGE");
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info was given more than once", stderr, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--prefix-info", "PAGE", "--gaps", "HTTP")]
+    [InlineData("--gaps", "HTTP", "--prefix-info", "PAGE")]
+    [InlineData("--prefix-info", "PAGE", "--gaps", "HTTP", "SEAM")]
+    public void PrefixInfo_CombinedWithGaps_IsRejectedNotAnsweredOneSided(params string[] argv)
+    {
+        // Each answers on its own and the other used to vanish; the extra word must not be blamed on --prefix-info.
+        var (stdout, stderr, status) = Run(argv);
+        Assert.Equal(2, status);
+        Assert.Equal("", stdout);
+        Assert.Contains("--prefix-info and --gaps cannot be combined", stderr, StringComparison.Ordinal);
+        Assert.DoesNotContain("also given", stderr, StringComparison.Ordinal);
+    }
 }
 
+/// <summary>
+/// <c>--prefix P --section rules</c> answers a different question from <c>--prefix-info P</c>, so a
+/// narrowed prefix query says which canonical IDs it did NOT cover, and why each is missing.
+/// </summary>
 public sealed class PrefixCoverageTests : KnowledgeFixture
 {
     [Fact]
