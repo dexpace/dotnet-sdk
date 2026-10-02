@@ -1265,3 +1265,25 @@ is back-ported to the documents it changes.
 - **D3: not ruled.** Its two proposals (webhooks as a post-release entry; no second first-party transport) remain
   proposals. `docs/first-release.md` already lists both under *What v1 ships without*, and its webhooks entry names
   D3 as a proposal.
+
+**2026-10-02 — Phase 0, task 8: the harvest and the conflict notes (issue #29).** The `knowledge-harvest` skill was
+ported to C# (`.claude/skills/knowledge-harvest/`; `stats`, `pack`, `collect`, `merge`, with 49 tests, in
+`tools/Dexpace.Tools.sln`), the `knowledge-extractor` agent definition vendored to `.claude/agents/`, and the first
+real harvest run into `docs/knowledge/harvested/`.
+
+- **Harvested:** 48 source files in 38 chunks (`docs/product-spec/` 01–20 and appendices A–B, `docs/sdk-design-dotnet/`
+  00–09, `docs/styleguide/csharp/` 01–15 and its README; the registers 10–12 and appendix C are not sources). 3,342
+  entries in 41 topics; every citation was checked against the manifest and the files, and none was dropped.
+  `spec` 1,373 · `design` 1,368 · `styleguide` 617 (role counts include the eight Conflicts entries).
+- **Conflicts (constraint 6):** each overlay row of `docs/styleguide/README.md` is a Conflicts entry. **Kept**, each
+  with a `review` note citing the harvested key: the `I` prefix and the `Async` suffix
+  (`notes/naming-conventions.md`) and `CA1062` (`notes/methods-and-functions.md`). **Conformed**, no note owed:
+  the `net10.0` floor, xUnit v3 on Microsoft.Testing.Platform, `CA2007`, `ImplicitUsings` and the `MA0051` cap,
+  recorded with status `conformed` so they do not read as open.
+- **Deviation from the card:** the extractors were `general-purpose` agents told to follow
+  `.claude/agents/knowledge-extractor.md` exactly and to write their output to a file, because the read-only
+  `knowledge-extractor` returns its text through the orchestrator's context, where 3,000 entries would have been
+  transcribed twice. `collect` is new in the C# port for the same reason: it parses that output, rejects any entry
+  whose citation does not resolve, and attaches role and whole-file sha.
+- **Gates:** `scripts/knowledge verify-structure` OK, `scripts/knowledge drift` 48 of 48 sources OK, the housekeeping
+  probe clean, and the tools solution builds and tests green.

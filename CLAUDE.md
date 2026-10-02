@@ -238,5 +238,4 @@ bodies, the logging body wrappers, and dispose latches (3); the execution-contex
 chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
-path (12). Phase 0's knowledge harvest for the `design` and `styleguide` roles is also still to run;
-until then `scripts/knowledge` answers from the `spec` role only.
+path (12).
