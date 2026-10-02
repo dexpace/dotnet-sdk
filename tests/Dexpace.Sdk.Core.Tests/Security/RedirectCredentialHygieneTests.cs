@@ -47,7 +47,7 @@ public sealed class RedirectCredentialHygieneTests
 
     private static async Task<IReadOnlyList<Request>> FollowAsync(Request seed, params Response[] script)
     {
-        var transport = new ScriptedTransport([.. script, TestResponses.Create(Status.Ok)]);
+        var transport = new ScriptedTransport([.. script, TestResponses.Create(Status.Ok, seed)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
         using var response = await pipeline.SendAsync(seed, s_options, Ct);
         Assert.Equal(Status.Ok, response.Status);
@@ -64,7 +64,7 @@ public sealed class RedirectCredentialHygieneTests
     {
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
 
-        var sent = await FollowAsync(seed, TestResponses.Redirect(status, "https://example.com/b"));
+        var sent = await FollowAsync(seed, TestResponses.Redirect(status, "https://example.com/b", seed));
 
         Assert.Empty(sent[1].Headers.GetAll("Authorization"));
     }
@@ -81,7 +81,7 @@ public sealed class RedirectCredentialHygieneTests
         // and path, query and fragment never participate.
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
 
-        var sent = await FollowAsync(seed, TestResponses.Redirect(302, location));
+        var sent = await FollowAsync(seed, TestResponses.Redirect(302, location, seed));
 
         Assert.Equal("a=b", sent[1].Headers.Get("Cookie"));
         Assert.Equal("Basic cHJveHk6cHc=", sent[1].Headers.Get("Proxy-Authorization"));
@@ -97,7 +97,7 @@ public sealed class RedirectCredentialHygieneTests
     {
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
         var options = new DexpaceClientOptions { Redirect = new RedirectOptions { AllowHttpsToHttpDowngrade = true } };
-        var transport = new ScriptedTransport(TestResponses.Redirect(302, location), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Redirect(302, location, seed), TestResponses.Create(Status.Ok, seed));
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         using var response = await pipeline.SendAsync(seed, options, Ct);
@@ -120,8 +120,8 @@ public sealed class RedirectCredentialHygieneTests
 
         var sent = await FollowAsync(
             seed,
-            TestResponses.Redirect(307, "https://other.example/b"),
-            TestResponses.Redirect(307, "https://other.example/c"));
+            TestResponses.Redirect(307, "https://other.example/b", seed),
+            TestResponses.Redirect(307, "https://other.example/c", seed));
 
         foreach (var hop in sent.Skip(1))
         {
@@ -138,8 +138,8 @@ public sealed class RedirectCredentialHygieneTests
 
         var sent = await FollowAsync(
             seed,
-            TestResponses.Redirect(302, "https://other.example/b"),
-            TestResponses.Redirect(302, "https://example.com/c"));
+            TestResponses.Redirect(302, "https://other.example/b", seed),
+            TestResponses.Redirect(302, "https://example.com/c", seed));
 
         var back = sent[2];
         Assert.Equal(new Uri("https://example.com/c"), back.Url);
@@ -154,7 +154,9 @@ public sealed class RedirectCredentialHygieneTests
     [InlineData("https://token@example.com/y", "https://example.com/y")]
     public async Task Userinfo_in_the_location_is_dropped_before_re_issue(string location, string expected)
     {
-        var sent = await FollowAsync(Request.Get("https://example.com/a"), TestResponses.Redirect(302, location));
+        var seed = Request.Get("https://example.com/a");
+
+        var sent = await FollowAsync(seed, TestResponses.Redirect(302, location, seed));
 
         var hop = sent[1];
         Assert.Equal(string.Empty, hop.Url.UserInfo);
@@ -168,7 +170,7 @@ public sealed class RedirectCredentialHygieneTests
         // credential. Phase 6b removes the switch (design §6.2).
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
         var options = new DexpaceClientOptions { Redirect = new RedirectOptions { StripSensitiveHeadersOnCrossOrigin = false } };
-        var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://evil.example/b"), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://evil.example/b", seed), TestResponses.Create(Status.Ok, seed));
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
         using var response = await pipeline.SendAsync(seed, options, Ct);

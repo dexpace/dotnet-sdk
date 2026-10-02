@@ -241,10 +241,18 @@ Dexpace.Sdk.Core.Http.Response.Response.Dispose() -> void
 Dexpace.Sdk.Core.Http.Response.Response.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Http.Response.Response.EnsureSuccessAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Http.Response.Response.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Response.Response.IsClientError.get -> bool
+Dexpace.Sdk.Core.Http.Response.Response.IsError.get -> bool
+Dexpace.Sdk.Core.Http.Response.Response.IsInformational.get -> bool
+Dexpace.Sdk.Core.Http.Response.Response.IsRedirect.get -> bool
+Dexpace.Sdk.Core.Http.Response.Response.IsServerError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Response.IsSuccess.get -> bool
 Dexpace.Sdk.Core.Http.Response.Response.Protocol.get -> Dexpace.Sdk.Core.Http.Common.Protocol
-Dexpace.Sdk.Core.Http.Response.Response.Response(Dexpace.Sdk.Core.Http.Response.Status status, Dexpace.Sdk.Core.Http.Common.Headers? headers = null, Dexpace.Sdk.Core.Http.Response.ResponseBody? body = null, Dexpace.Sdk.Core.Http.Common.Protocol protocol = Dexpace.Sdk.Core.Http.Common.Protocol.Http11) -> void
+Dexpace.Sdk.Core.Http.Response.Response.ReasonPhrase.get -> string?
+Dexpace.Sdk.Core.Http.Response.Response.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Response.Response.Response(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Response.Status status, Dexpace.Sdk.Core.Http.Common.Protocol protocol, Dexpace.Sdk.Core.Http.Common.Headers? headers = null, Dexpace.Sdk.Core.Http.Response.ResponseBody? body = null, string? reasonPhrase = null) -> void
 Dexpace.Sdk.Core.Http.Response.Response.Status.get -> Dexpace.Sdk.Core.Http.Response.Status
+Dexpace.Sdk.Core.Http.Response.Response.WithBody(Dexpace.Sdk.Core.Http.Response.ResponseBody! body) -> Dexpace.Sdk.Core.Http.Response.Response!
 Dexpace.Sdk.Core.Http.Response.ResponseBody
 Dexpace.Sdk.Core.Http.Response.ResponseBody.ResponseBody() -> void
 Dexpace.Sdk.Core.Http.Response.Status

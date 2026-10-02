@@ -27,11 +27,12 @@ public static class TestResponses
         ResponseBody? body = null,
         Protocol protocol = Protocol.Http11,
         string? reasonPhrase = null) =>
-        new(status, headers, body, protocol);
+        new(request ?? Request.Get("https://example.test/"), status, protocol, headers, body, reasonPhrase);
 
     /// <summary>A body-less redirect with the given status code and <c>Location</c> header.</summary>
     /// <param name="statusCode">The 3xx status code.</param>
     /// <param name="location">The <c>Location</c> header value, absolute or relative.</param>
-    public static Response Redirect(int statusCode, string location) =>
-        Create(Status.FromCode(statusCode), headers: new Headers.Builder().Set("Location", location).Build());
+    /// <param name="request">The request that produced the redirect, or <see langword="null"/> for the default.</param>
+    public static Response Redirect(int statusCode, string location, Request? request = null) =>
+        Create(Status.FromCode(statusCode), request, new Headers.Builder().Set("Location", location).Build());
 }

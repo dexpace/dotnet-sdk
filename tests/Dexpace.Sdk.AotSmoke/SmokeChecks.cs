@@ -108,7 +108,7 @@ internal static class SmokeChecks
                 await body.WriteToAsync(buffer, cancellationToken);
             }
 
-            return new Response(Status.Ok, body: ResponseBody.FromBytes(buffer.ToArray(), CommonMediaTypes.ApplicationJson));
+            return new Response(request, Status.Ok, Protocol.Http11, body: ResponseBody.FromBytes(buffer.ToArray(), CommonMediaTypes.ApplicationJson));
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

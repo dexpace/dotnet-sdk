@@ -32,8 +32,9 @@ public sealed class ReDriveRequestIsolationTests
     [Fact]
     public async Task A_retry_attempt_does_not_enter_carrying_the_previous_attempts_credential()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/");
         var probe = new ProbePolicy(PipelineStage.PerAttempt);
-        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable, scenarioRequest), TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)
@@ -41,7 +42,7 @@ public sealed class ReDriveRequestIsolationTests
             .Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/"), s_options, TestContext.Current.CancellationToken);
+            scenarioRequest, s_options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal([null, null], probe.SeenAuthorization);
@@ -51,8 +52,9 @@ public sealed class ReDriveRequestIsolationTests
     [Fact]
     public async Task A_retry_after_an_exception_re_sends_the_request_it_held()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/");
         var probe = new ProbePolicy(PipelineStage.PerAttempt);
-        var transport = new ScriptedTransport(new ServiceRequestException("connection refused"), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(new ServiceRequestException("connection refused"), TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)
@@ -60,7 +62,7 @@ public sealed class ReDriveRequestIsolationTests
             .Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/"), s_options, TestContext.Current.CancellationToken);
+            scenarioRequest, s_options, TestContext.Current.CancellationToken);
 
         Assert.Equal([null, null], probe.SeenAuthorization);
     }
@@ -68,10 +70,11 @@ public sealed class ReDriveRequestIsolationTests
     [Fact]
     public async Task A_redirect_hop_is_not_built_from_the_previous_hops_stamped_request()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/start");
         var probe = new ProbePolicy(PipelineStage.PerCall);
         var transport = new ScriptedTransport(
-            TestResponses.Redirect(307, "https://api.example.com/moved"),
-            TestResponses.Create(Status.Ok));
+            TestResponses.Redirect(307, "https://api.example.com/moved", scenarioRequest),
+            TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RedirectPolicy())
             .Add(probe)
@@ -79,7 +82,7 @@ public sealed class ReDriveRequestIsolationTests
             .Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/start"), s_options, TestContext.Current.CancellationToken);
+            scenarioRequest, s_options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal([null, null], probe.SeenAuthorization);
@@ -89,9 +92,10 @@ public sealed class ReDriveRequestIsolationTests
     [Fact]
     public async Task A_downstream_rewrite_does_not_leak_into_the_next_attempt()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/");
         // Any policy below the retry pillar that writes context.Request is undone before the re-drive.
         var probe = new ProbePolicy(PipelineStage.PerAttempt, header: "X-Attempt-Marker");
-        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable, scenarioRequest), TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder()
             .Add(new RetryPolicy(new InstantTimeProvider()))
             .Add(probe)
@@ -99,7 +103,7 @@ public sealed class ReDriveRequestIsolationTests
             .Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/"), s_options, TestContext.Current.CancellationToken);
+            scenarioRequest, s_options, TestContext.Current.CancellationToken);
 
         Assert.Equal([null, null], probe.SeenAuthorization);
         Assert.All(transport.Requests, sent => Assert.Equal("set", sent.Headers.Get("X-Attempt-Marker")));

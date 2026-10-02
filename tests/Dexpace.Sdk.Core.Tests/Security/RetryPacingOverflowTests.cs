@@ -66,6 +66,7 @@ public sealed class RetryPacingOverflowTests
     [Fact]
     public async Task A_backoff_configured_beyond_the_timer_limit_is_clamped_and_chunked()
     {
+        var scenarioRequest = Request.Get("https://api.example.com/");
         // The computed schedule is a pacing delta too: a 400-day backoff must neither throw nor exceed the ceiling.
         var clock = new RecordingTimeProvider();
         var options = new DexpaceClientOptions
@@ -79,14 +80,14 @@ public sealed class RetryPacingOverflowTests
             },
         };
         var transport = new ScriptedTransport(
-            TestResponses.Create(Status.ServiceUnavailable),
-            TestResponses.Create(Status.ServiceUnavailable),
-            TestResponses.Create(Status.ServiceUnavailable),
-            TestResponses.Create(Status.Ok));
+            TestResponses.Create(Status.ServiceUnavailable, scenarioRequest),
+            TestResponses.Create(Status.ServiceUnavailable, scenarioRequest),
+            TestResponses.Create(Status.ServiceUnavailable, scenarioRequest),
+            TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
 
         using var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/"), options, TestContext.Current.CancellationToken);
+            scenarioRequest, options, TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal(4, transport.CallCount);
@@ -97,11 +98,14 @@ public sealed class RetryPacingOverflowTests
     private static async Task<(Response Response, ScriptedTransport Transport)> SendWithHintAsync(
         string retryAfter, TimeProvider clock)
     {
+        var scenarioRequest = Request.Get("https://api.example.com/");
         var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
-        var transport = new ScriptedTransport(TestResponses.Create(Status.ServiceUnavailable, headers: headers), TestResponses.Create(Status.Ok));
+        var transport = new ScriptedTransport(
+            TestResponses.Create(Status.ServiceUnavailable, scenarioRequest, headers),
+            TestResponses.Create(Status.Ok, scenarioRequest));
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
         var response = await pipeline.SendAsync(
-            Request.Get("https://api.example.com/"), new DexpaceClientOptions(), TestContext.Current.CancellationToken);
+            scenarioRequest, new DexpaceClientOptions(), TestContext.Current.CancellationToken);
         return (response, transport);
     }
 

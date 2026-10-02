@@ -43,6 +43,41 @@ public class SystemNetHttpClientTests
     }
 
     [Fact]
+    public async Task The_response_carries_the_request_that_was_sent()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+        var request = Request.Get("https://example.test/ping").WithHeader("X-Trace", "abc");
+
+        await using var response = await transport.ExecuteAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Same(request, response.Request);
+    }
+
+    [Fact]
+    public async Task The_reason_phrase_is_carried_when_it_is_header_safe()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { ReasonPhrase = "All Good" });
+        await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+
+        await using var response = await transport.ExecuteAsync(Request.Get("https://example.test/ping"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("All Good", response.ReasonPhrase);
+    }
+
+    [Fact]
+    public async Task An_unsafe_reason_phrase_from_a_handler_is_dropped_to_null_not_thrown()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { ReasonPhrase = "Fine\u0001X" });
+        await using var transport = new SystemNetHttpClient(new SystemHttpClient(handler));
+
+        await using var response = await transport.ExecuteAsync(Request.Get("https://example.test/ping"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.Null(response.ReasonPhrase);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsRequestBody()
     {
         string? observed = null;

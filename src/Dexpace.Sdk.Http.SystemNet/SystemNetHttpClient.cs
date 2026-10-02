@@ -197,7 +197,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         try
         {
             ThrowIfRedirected(sentUri, response);
-            return ToResponse(response);
+            return ToResponse(response, request);
         }
         catch
         {
@@ -318,7 +318,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return message;
     }
 
-    private Response ToResponse(HttpResponseMessage message)
+    private Response ToResponse(HttpResponseMessage message, Request request)
     {
         var headersBuilder = new Headers.Builder();
         AddInbound(headersBuilder, message.Headers);
@@ -329,7 +329,10 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         var status = Status.FromCode((int)message.StatusCode);
         var headers = headersBuilder.Build();
         var protocol = MapProtocol(message.Version);
-        return new Response(status, headers, new HttpResponseMessageBody(message), protocol);
+
+        // HTTP-6: the reason phrase is carried only when it is header-safe; an unsafe one is dropped, never thrown on.
+        var reason = message.ReasonPhrase is { } phrase && HttpHeaderSyntax.IsValidInboundValue(phrase) ? phrase : null;
+        return new Response(request, status, protocol, headers, new HttpResponseMessageBody(message), reason);
     }
 
     // HTTP-19 / XCUT-18: received headers take the lenient path; one that fails even that is dropped on its own
