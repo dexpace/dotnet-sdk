@@ -3,6 +3,7 @@
 
 using System.Reflection;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Architecture;
@@ -16,10 +17,14 @@ public class LoggingWrapperSurfaceTests
 {
     private const BindingFlags Declared = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
-    // Members the base types force or that are the documented copying snapshots.
-    private static readonly HashSet<string> s_allowed = new(StringComparer.Ordinal) { "Snapshot", "SnapshotAsync" };
+    // The documented copying snapshots, and the two opens the ResponseBody base type requires (they serve a view over the
+    // capture, never the capture buffer itself).
+    private static readonly HashSet<string> s_allowed = new(StringComparer.Ordinal)
+    {
+        "Snapshot", "SnapshotAsync", "OpenRead", "OpenReadAsync",
+    };
 
-    public static TheoryData<Type> Wrappers() => [typeof(LoggingRequestBody)];
+    public static TheoryData<Type> Wrappers() => [typeof(LoggingRequestBody), typeof(LoggingResponseBody)];
 
     private static bool ReturnsBuffer(Type type)
     {
@@ -36,7 +41,7 @@ public class LoggingWrapperSurfaceTests
             .Where(m => !s_allowed.Contains(m.Name))
             .Where(m => m switch
             {
-                MethodInfo method => !method.IsSpecialName && ReturnsBuffer(method.ReturnType),
+                MethodInfo method => !method.IsPrivate && !method.IsSpecialName && ReturnsBuffer(method.ReturnType),
                 PropertyInfo property => ReturnsBuffer(property.PropertyType),
                 FieldInfo field => ReturnsBuffer(field.FieldType) && !field.IsPrivate,
                 _ => false,
