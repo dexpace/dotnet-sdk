@@ -133,9 +133,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   second-open `StreamConsumedException` message now names the buffering route (`BODY-14`).
 - **Breaking (behaviour):** `AsAsync`: a throwing dispose of a response produced after cancellation no longer faults the
   task; the task completes cancelled and the failure is reported on the current activity (design P3b-16).
+- **Breaking:** `RequestBody.FromStream` over a readable, seekable stream with a declared `contentLength` in
+  `[0, Array.MaxLength]` is replayable: it captures the stream's position at construction and seeks to it before every
+  write (the caller's stream position moves; the stream stays open). It used to be single-use. A length of `-1` is still
+  single-use (`BODY-9`, `BODY-35`).
 
 ### Added
 
+- `RequestBody.FromForm`: a replayable `application/x-www-form-urlencoded` body from name/value pairs, encoded with the
+  WHATWG serializer (`HTTP-38`).
 - `docs/sdk-documentation/io.md`; the AOT smoke covers the sync body surface.
 - Synchronous body twins `RequestBody.WriteTo` / `ToReplayable` and `ResponseBody.OpenRead` / `ReadAsBytes` /
   `ReadAsString` (virtual; the base throws `NotSupportedException`, every SDK body overrides), `BodyTooLargeException`,

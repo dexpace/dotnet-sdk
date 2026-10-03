@@ -206,16 +206,30 @@ public abstract class RequestBody
         new BytesRequestBody(FormUrlEncoder.Encode(fields), CommonMediaTypes.ApplicationFormUrlEncoded);
 
     /// <summary>
-    /// Creates a single-use body that streams from <paramref name="source"/>. The source is read
-    /// exactly once; call <see cref="ToReplayableAsync"/> first if retries are needed.
+    /// Creates a body that streams from <paramref name="source"/>: single-use, unless the source is readable and seekable
+    /// and the length is declared, in which case it is replayable (BODY-9).
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Seekable sources (BODY-9, P3b-4).</b> A readable, seekable <paramref name="source"/> with a
+    /// <paramref name="contentLength"/> in <c>[0, Array.MaxLength]</c> gives a replayable body: it captures the stream's
+    /// position at construction, and every write, the first included, seeks to it and copies exactly
+    /// <paramref name="contentLength"/> bytes. The caller's stream position therefore moves, and the stream stays open and
+    /// the caller's to dispose (BODY-8). One write runs at a time: a concurrent second write throws
+    /// <see cref="InvalidOperationException"/> before touching the stream. A length of <c>-1</c> keeps the body single-use,
+    /// because the length is never inferred from <c>Length - Position</c> (that would turn a chunked upload into a
+    /// <c>Content-Length</c> one behind the caller's back). Equality is identity.
+    /// </para>
     /// <para>
     /// With a known <paramref name="contentLength"/> the body writes exactly that many bytes (HTTP-39): a source that ends
     /// early makes the write throw <see cref="EndOfStreamException"/> naming delivered-of-total, so the transport fails the
     /// send instead of framing a short body; a source with more bytes has the remainder left unread, because the body does
     /// not own the stream and reading one byte further could block on a live source (design position F); a length of zero
     /// performs no read. With <c>-1</c> the body copies to the end of the stream.
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> a readable, seekable source with a known length used to give a single-use body; it now gives a
+    /// replayable one that seeks the caller's stream before each write (BODY-9, BODY-35).
     /// </para>
     /// <para>
     /// <b>Breaking:</b> a known <paramref name="contentLength"/> used to be ignored by the copy, which ran to the end of
@@ -227,7 +241,7 @@ public abstract class RequestBody
     /// <param name="source">The stream to read the payload from.</param>
     /// <param name="contentType">The media type, or <see langword="null"/>.</param>
     /// <param name="contentLength">The known length, or <c>-1</c> if unknown.</param>
-    /// <returns>A single-use <see cref="RequestBody"/>.</returns>
+    /// <returns>A single-use <see cref="RequestBody"/>, or a replayable one for a seekable source with a known length.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="contentLength"/> is below <c>-1</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="source"/> is not readable.</exception>
     public static RequestBody FromStream(Stream source, MediaType? contentType = null, long contentLength = -1)
@@ -239,7 +253,9 @@ public abstract class RequestBody
             throw new ArgumentException("The source stream must be readable.", nameof(source));
         }
 
-        return new StreamRequestBody(source, contentType, contentLength);
+        return source.CanSeek && contentLength >= 0 && contentLength <= Array.MaxLength
+            ? new SeekableStreamRequestBody(source, contentType, contentLength)
+            : new StreamRequestBody(source, contentType, contentLength);
     }
 
     private sealed class BytesRequestBody(byte[] bytes, MediaType? contentType) : RequestBody
@@ -323,6 +339,58 @@ public abstract class RequestBody
                 throw new StreamConsumedException(
                     "This request body is single-use and has already been written. "
                     + "Call ToReplayableAsync() or ToReplayable() before the first send if retries are needed.");
+            }
+        }
+    }
+
+    // BODY-9: a readable, seekable stream with a declared length is replayable. Equality is identity (a live source).
+    private sealed class SeekableStreamRequestBody(Stream source, MediaType? contentType, long contentLength) : RequestBody
+    {
+        private readonly long _start = source.Position;
+        private int _inFlight;
+
+        public override MediaType? ContentType { get; } = contentType;
+
+        public override long ContentLength => contentLength;
+
+        public override bool IsReplayable => true;
+
+        public override async Task WriteToAsync(Stream destination, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(destination);
+            Enter();
+            try
+            {
+                source.Seek(_start, SeekOrigin.Begin);
+                await StreamCopy.CopyExactlyAsync(source, destination, contentLength, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Volatile.Write(ref _inFlight, 0);
+            }
+        }
+
+        public override void WriteTo(Stream destination, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(destination);
+            Enter();
+            try
+            {
+                source.Seek(_start, SeekOrigin.Begin);
+                StreamCopy.CopyExactly(source, destination, contentLength, cancellationToken);
+            }
+            finally
+            {
+                Volatile.Write(ref _inFlight, 0);
+            }
+        }
+
+        // At most one write rewinds the stream between two writes: a contender fails before touching it.
+        private void Enter()
+        {
+            if (Interlocked.Exchange(ref _inFlight, 1) != 0)
+            {
+                throw new InvalidOperationException("A seekable-stream body cannot be written concurrently.");
             }
         }
     }

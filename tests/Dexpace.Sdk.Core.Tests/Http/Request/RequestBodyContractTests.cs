@@ -33,6 +33,43 @@ public class RequestBodyContractTests
         _ => throw new ArgumentOutOfRangeException(nameof(variant)),
     };
 
+    // 3b: every replayable factory reports the same triple and writes identical bytes twice (HTTP-36, BODY-1, BODY-3).
+    // Phase 3b's file and multipart bodies are added to this list as they land.
+    public static TheoryData<string> ReplayableFactories => ["bytes", "string", "form", "seekable-stream"];
+
+    private static RequestBody CreateReplayable(string variant) => variant switch
+    {
+        "bytes" => RequestBody.FromBytes(s_payload, MediaType.Of("application", "octet-stream")),
+        "string" => RequestBody.FromString("hello"),
+        "form" => RequestBody.FromForm([new("k", "v v"), new("e", "\u00E9")]),
+        "seekable-stream" => RequestBody.FromStream(new MemoryStream(s_payload), contentLength: s_payload.Length),
+        _ => throw new ArgumentOutOfRangeException(nameof(variant)),
+    };
+
+    [Theory]
+    [MemberData(nameof(ReplayableFactories))]
+    public async Task Every_replayable_factory_reports_its_exact_length_and_writes_identical_bytes_twice(string variant)
+    {
+        var body = CreateReplayable(variant);
+
+        Assert.True(body.IsReplayable);
+        Assert.Same(body, await body.ToReplayableAsync(Token));
+        Assert.Same(body, body.ToReplayable(Token));
+        var writes = new List<byte[]>();
+        for (var i = 0; i < 2; i++)
+        {
+            using var asyncSink = new MemoryStream();
+            await body.WriteToAsync(asyncSink, Token);
+            using var syncSink = new MemoryStream();
+            body.WriteTo(syncSink, Token);
+            writes.Add(asyncSink.ToArray());
+            writes.Add(syncSink.ToArray());
+        }
+
+        Assert.All(writes, w => Assert.Equal(writes[0], w));
+        Assert.Equal(writes[0].LongLength, body.ContentLength);
+    }
+
     [Fact]
     public void A_test_local_subclass_reports_minus_one_and_not_replayable_and_its_unoverridden_WriteTo_throws_NotSupportedException_naming_the_subclass()
     {
