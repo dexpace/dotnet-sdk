@@ -1,0 +1,217 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/io/buffered-source.text.test.ts; product-spec appendix C IO-14. The ruby-sdk gem tests are not in the local clone, so no case is ported from them.",
+  "cases": [
+    {
+      "name": "lf-terminators",
+      "mode": "lf-crlf",
+      "input": "a\nb\n",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "crlf-terminators",
+      "mode": "lf-crlf",
+      "input": "a\r\nb\r\n",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "lone-cr-mid-line",
+      "mode": "lf-crlf",
+      "input": "a\rb\n",
+      "lines": [
+        "a\rb",
+        null
+      ]
+    },
+    {
+      "name": "lone-cr-before-eof",
+      "mode": "lf-crlf",
+      "input": "a\r",
+      "lines": [
+        "a\r",
+        null
+      ]
+    },
+    {
+      "name": "cr-cr-lf",
+      "mode": "lf-crlf",
+      "input": "a\r\r\nb",
+      "lines": [
+        "a\r",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "final-unterminated-line",
+      "mode": "lf-crlf",
+      "input": "a\nb",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "empty-lines",
+      "mode": "lf-crlf",
+      "input": "\n\r\n\n",
+      "lines": [
+        "",
+        "",
+        "",
+        null
+      ]
+    },
+    {
+      "name": "exhausted-before-any-byte",
+      "mode": "lf-crlf",
+      "input": "",
+      "lines": [
+        null
+      ]
+    },
+    {
+      "name": "bom-on-first-line",
+      "mode": "lf-crlf",
+      "input": "﻿a\nb\n",
+      "lines": [
+        "﻿a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "bom-on-a-later-line",
+      "mode": "lf-crlf",
+      "input": "a\n﻿b\n",
+      "lines": [
+        "a",
+        "﻿b",
+        null
+      ]
+    },
+    {
+      "name": "multi-byte-utf-8",
+      "mode": "lf-crlf",
+      "input": "héllo €\n😀\n",
+      "lines": [
+        "héllo €",
+        "😀",
+        null
+      ]
+    },
+    {
+      "name": "malformed-byte-becomes-replacement-character",
+      "mode": "lf-crlf",
+      "inputHex": "61ff620a",
+      "lines": [
+        "a�b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-cr",
+      "mode": "whatwg",
+      "input": "a\rb\r",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-lf",
+      "mode": "whatwg",
+      "input": "a\nb",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-crlf",
+      "mode": "whatwg",
+      "input": "a\r\nb\r\n",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-cr-then-lf",
+      "mode": "whatwg",
+      "input": "a\r\nb",
+      "lines": [
+        "a",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-cr-cr-lf",
+      "mode": "whatwg",
+      "input": "a\r\r\nb",
+      "lines": [
+        "a",
+        "",
+        "b",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-empty-lines",
+      "mode": "whatwg",
+      "input": "\r\n\r",
+      "lines": [
+        "",
+        "",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-bom-is-content",
+      "mode": "whatwg",
+      "input": "﻿a\r",
+      "lines": [
+        "﻿a",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-final-unterminated-line",
+      "mode": "whatwg",
+      "input": "ab",
+      "lines": [
+        "ab",
+        null
+      ]
+    },
+    {
+      "name": "whatwg-exhausted-before-any-byte",
+      "mode": "whatwg",
+      "input": "",
+      "lines": [
+        null
+      ]
+    },
+    {
+      "name": "whatwg-malformed-byte-becomes-replacement-character",
+      "mode": "whatwg",
+      "inputHex": "61ff620d",
+      "lines": [
+        "a�b",
+        null
+      ]
+    }
+  ]
+}
