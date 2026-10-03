@@ -183,6 +183,29 @@ public abstract class RequestBody
     }
 
     /// <summary>
+    /// Creates a replayable <c>application/x-www-form-urlencoded</c> body from <paramref name="fields"/>.
+    /// </summary>
+    /// <remarks>
+    /// The encoding is the WHATWG form serializer (HTTP-38, design P3b-7): each name and value is UTF-8 encoded, the bytes
+    /// <c>A-Z a-z 0-9 * - . _</c> stay literal, a space becomes <c>+</c> and everything else <c>%XX</c> in upper-case hex.
+    /// That differs from <c>Uri.EscapeDataString</c> (RFC 3986: <c>%20</c>, <c>~</c> literal, <c>*</c> encoded) and from
+    /// <c>WebUtility.UrlEncode</c> (<c>!()</c> literal). Order and duplicate names are kept. The content type carries no
+    /// charset, as WHATWG sends none. The result is the in-memory variant, so it compares by value.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var body = RequestBody.FromForm([new("grant_type", "client_credentials"), new("scope", "a b")]);
+    /// // grant_type=client_credentials&amp;scope=a+b
+    /// </code>
+    /// </example>
+    /// <param name="fields">The name/value pairs, in order; a name or value may be empty but not null.</param>
+    /// <returns>A replayable <see cref="RequestBody"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="fields"/> is null, or a name or value is null.</exception>
+    /// <exception cref="ArgumentException">A name or value holds a lone surrogate; the message names the field index only.</exception>
+    public static RequestBody FromForm(IEnumerable<KeyValuePair<string, string>> fields) =>
+        new BytesRequestBody(FormUrlEncoder.Encode(fields), CommonMediaTypes.ApplicationFormUrlEncoded);
+
+    /// <summary>
     /// Creates a single-use body that streams from <paramref name="source"/>. The source is read
     /// exactly once; call <see cref="ToReplayableAsync"/> first if retries are needed.
     /// </summary>

@@ -1,0 +1,23 @@
+{
+  "source": "WHATWG URL Standard, the application/x-www-form-urlencoded serializer (https://url.spec.whatwg.org/#concept-urlencoded-serializer): bytes A-Z a-z 0-9 * - . _ are literal, space is +, everything else is %XX in upper-case hex. nodejs-sdk@c0ff3fd packages/core/src/body/simple-bodies.test.ts encodes with RFC 3986 and then rewrites %20 to +, which differs from WHATWG on ~ (WHATWG: %7E, Node: literal) and on * (WHATWG: literal, Node: %2A); these vectors follow WHATWG.",
+  "note": "fields is a list of [name, value] pairs encoded in order; wire is the exact output. rejects=true means Encode throws ArgumentException; in a rejecting case the marker <U+D800> inside a string stands for the lone high surrogate U+D800, which JSON cannot carry portably.",
+  "cases": [
+    { "name": "design fact 6 line", "fields": [["a b*-._~!'()é", "x"]], "wire": "a+b*-._%7E%21%27%28%29%C3%A9=x" },
+    { "name": "tilde is encoded", "fields": [["k", "~"]], "wire": "k=%7E" },
+    { "name": "star is literal", "fields": [["k", "*"]], "wire": "k=*" },
+    { "name": "space is plus", "fields": [["k", "a b"]], "wire": "k=a+b" },
+    { "name": "literal plus is encoded", "fields": [["k", "a+b"]], "wire": "k=a%2Bb" },
+    { "name": "ampersand is encoded", "fields": [["k", "a&b"]], "wire": "k=a%26b" },
+    { "name": "equals is encoded", "fields": [["k", "a=b"]], "wire": "k=a%3Db" },
+    { "name": "percent is encoded", "fields": [["k", "100%"]], "wire": "k=100%25" },
+    { "name": "two byte character", "fields": [["k", "é"]], "wire": "k=%C3%A9" },
+    { "name": "four byte emoji", "fields": [["k", "😀"]], "wire": "k=%F0%9F%98%80" },
+    { "name": "empty name", "fields": [["", "v"]], "wire": "=v" },
+    { "name": "empty value", "fields": [["k", ""]], "wire": "k=" },
+    { "name": "no fields", "fields": [], "wire": "" },
+    { "name": "duplicates kept in order", "fields": [["a", "1"], ["b", "2"], ["a", "3"]], "wire": "a=1&b=2&a=3" },
+    { "name": "reserved URL characters", "fields": [["k", "/?#[]@!$'()+,;:"]], "wire": "k=%2F%3F%23%5B%5D%40%21%24%27%28%29%2B%2C%3B%3A" },
+    { "name": "lone surrogate in a value", "fields": [["k", "<U+D800>"]], "rejects": true },
+    { "name": "lone surrogate in a name", "fields": [["<U+D800>", "v"]], "rejects": true }
+  ]
+}
