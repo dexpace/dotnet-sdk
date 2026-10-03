@@ -206,6 +206,67 @@ public abstract class RequestBody
         new BytesRequestBody(FormUrlEncoder.Encode(fields), CommonMediaTypes.ApplicationFormUrlEncoded);
 
     /// <summary>
+    /// Creates a replayable body over a byte range of the file at <paramref name="path"/> (HTTP-40, BODY-11).
+    /// </summary>
+    /// <remarks>
+    /// The path, the range and the size are validated now, and the size is captured: a missing file throws
+    /// <see cref="FileNotFoundException"/>, a directory throws <see cref="ArgumentException"/>, and a symbolic link is
+    /// resolved to its target before the size is taken. Nothing is opened until a write. There is no default media type:
+    /// the SDK does not guess one from an extension. See <see cref="FileRequestBody"/> for the handle, sharing and
+    /// special-file rules.
+    /// </remarks>
+    /// <param name="path">The path of the file.</param>
+    /// <param name="contentType">The media type, or <see langword="null"/>.</param>
+    /// <param name="offset">The byte offset at which to start; at most the file size.</param>
+    /// <param name="count">The number of bytes to send, or <c>-1</c> for the rest of the file.</param>
+    /// <returns>A replayable <see cref="FileRequestBody"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty, or names a directory.</exception>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="offset"/> or <paramref name="count"/> lies outside the file.
+    /// </exception>
+    public static FileRequestBody FromFile(string path, MediaType? contentType = null, long offset = 0, long count = -1)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var fullPath = Path.GetFullPath(path);
+        var size = MeasureFile(fullPath);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(offset, size);
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, -1L);
+        var resolved = count == -1 ? size - offset : count;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(resolved, size - offset, nameof(count));
+        return new FileRequestBody(fullPath, offset, resolved, contentType);
+    }
+
+    // The target's length (design fact 3: a link's own Length is its path's), and the type checks the platform can make.
+    private static long MeasureFile(string fullPath)
+    {
+        if (Directory.Exists(fullPath))
+        {
+            throw new ArgumentException("The path names a directory, not a file.");
+        }
+
+        var info = new FileInfo(fullPath);
+        FileSystemInfo target = info.LinkTarget is null ? info : info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
+        if (target is DirectoryInfo)
+        {
+            throw new ArgumentException("The path names a directory, not a file.");
+        }
+
+        if (!target.Exists || target is not FileInfo file)
+        {
+            throw new FileNotFoundException("The file does not exist.", fullPath);
+        }
+
+        if (OperatingSystem.IsWindows() && file.Attributes.HasFlag(FileAttributes.Device))
+        {
+            throw new ArgumentException("The path names a device, not a regular file.");
+        }
+
+        return file.Length;
+    }
+
+    /// <summary>
     /// Creates a body that streams from <paramref name="source"/>: single-use, unless the source is readable and seekable
     /// and the length is declared, in which case it is replayable (BODY-9).
     /// </summary>

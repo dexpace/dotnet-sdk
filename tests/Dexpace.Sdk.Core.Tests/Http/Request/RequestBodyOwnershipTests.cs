@@ -64,4 +64,30 @@ public class RequestBodyOwnershipTests
 
         Assert.Equal(0, source.DisposeCount);
     }
+
+    [Fact]
+    public async Task A_file_body_releases_its_handle_after_each_write_and_after_a_failed_write()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "dexpace-ownership-" + Guid.NewGuid().ToString("N"));
+        await File.WriteAllBytesAsync(path, s_payload, Token);
+        try
+        {
+            var body = RequestBody.FromFile(path);
+            using var failing = new FailingWriteStream(1, new IOException("sink failed"));
+
+            await body.WriteToAsync(new MemoryStream(), Token);
+            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+            }
+
+            await Assert.ThrowsAsync<IOException>(() => body.WriteToAsync(failing, Token));
+            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

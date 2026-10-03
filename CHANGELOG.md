@@ -140,6 +140,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `RequestBody.FromFile` and `FileRequestBody`: a replayable body over a byte range of a file, with a fresh read-only handle
+  per write and the exact length (`HTTP-40`, `BODY-11`–`BODY-13`). On Unix a FIFO or device uploads as an empty body.
 - `RequestBody.FromForm`: a replayable `application/x-www-form-urlencoded` body from name/value pairs, encoded with the
   WHATWG serializer (`HTTP-38`).
 - `docs/sdk-documentation/io.md`; the AOT smoke covers the sync body surface.
