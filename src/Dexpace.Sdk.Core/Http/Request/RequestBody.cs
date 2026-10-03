@@ -206,6 +206,47 @@ public abstract class RequestBody
         new BytesRequestBody(FormUrlEncoder.Encode(fields), CommonMediaTypes.ApplicationFormUrlEncoded);
 
     /// <summary>
+    /// Creates a <c>multipart/form-data</c> body from <paramref name="parts"/> (HTTP-51, BODY-2).
+    /// </summary>
+    /// <remarks>
+    /// The body is replayable when every part is and its length is <c>-1</c> when any part's is; a non-replayable composite
+    /// refuses a second write before any byte. The part headers are computed once and used for both the length and the
+    /// write. The boundary is <c>dexpace-</c> plus 32 random alphanumerics unless one is supplied, and it is sent as a
+    /// quoted string when it is not a bare token. Nothing the body is given (the parts, their bodies or the destination)
+    /// is disposed. Equality is identity.
+    /// </remarks>
+    /// <param name="parts">The parts, in order; at least one (RFC 2046 section 5.1.1).</param>
+    /// <param name="boundary">A boundary of 1 to 70 RFC 2046 characters not ending in a space, or <see langword="null"/> to generate one.</param>
+    /// <returns>A <see cref="RequestBody"/> whose media type carries the boundary.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="parts"/> is null or holds a null part.</exception>
+    /// <exception cref="ArgumentException"><paramref name="parts"/> is empty, or <paramref name="boundary"/> is invalid.</exception>
+    public static RequestBody Multipart(IEnumerable<MultipartPart> parts, string? boundary = null)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        var copy = parts.ToArray();
+        if (copy.Length == 0)
+        {
+            throw new ArgumentException("A multipart body needs at least one part (RFC 2046 section 5.1.1).", nameof(parts));
+        }
+
+        if (copy.Any(p => p is null))
+        {
+            throw new ArgumentNullException(nameof(parts), "A part is null.");
+        }
+
+        if (boundary is null)
+        {
+            boundary = MultipartFraming.GenerateBoundary();
+        }
+        else
+        {
+            MultipartFraming.ValidateBoundary(boundary);
+        }
+
+        return new MultipartRequestBody(copy, boundary);
+    }
+
+    /// <summary>
     /// Creates a replayable body over a byte range of the file at <paramref name="path"/> (HTTP-40, BODY-11).
     /// </summary>
     /// <remarks>

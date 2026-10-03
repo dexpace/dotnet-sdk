@@ -611,3 +611,9 @@ Dexpace.Sdk.Core.Http.Request.FileRequestBody.Offset.get -> long
 override Dexpace.Sdk.Core.Http.Request.FileRequestBody.WriteTo(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 override Dexpace.Sdk.Core.Http.Request.FileRequestBody.WriteToAsync(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromFile(string! path, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long offset = 0, long count = -1) -> Dexpace.Sdk.Core.Http.Request.FileRequestBody!
+Dexpace.Sdk.Core.Http.Request.MultipartPart
+Dexpace.Sdk.Core.Http.Request.MultipartPart.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+Dexpace.Sdk.Core.Http.Request.MultipartPart.FileName.get -> string?
+Dexpace.Sdk.Core.Http.Request.MultipartPart.MultipartPart(string! name, Dexpace.Sdk.Core.Http.Request.RequestBody! body, string? fileName = null) -> void
+Dexpace.Sdk.Core.Http.Request.MultipartPart.Name.get -> string!
+static Dexpace.Sdk.Core.Http.Request.RequestBody.Multipart(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Http.Request.MultipartPart!>! parts, string? boundary = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!

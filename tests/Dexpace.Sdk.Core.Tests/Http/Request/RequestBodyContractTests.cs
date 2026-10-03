@@ -35,7 +35,7 @@ public class RequestBodyContractTests
 
     // 3b: every replayable factory reports the same triple and writes identical bytes twice (HTTP-36, BODY-1, BODY-3).
     // Phase 3b's file and multipart bodies are added to this list as they land.
-    public static TheoryData<string> ReplayableFactories => ["bytes", "string", "form", "seekable-stream", "file"];
+    public static TheoryData<string> ReplayableFactories => ["bytes", "string", "form", "seekable-stream", "file", "multipart"];
 
     private static RequestBody CreateReplayable(string variant) => variant switch
     {
@@ -44,6 +44,7 @@ public class RequestBodyContractTests
         "form" => RequestBody.FromForm([new("k", "v v"), new("e", "\u00E9")]),
         "seekable-stream" => RequestBody.FromStream(new MemoryStream(s_payload), contentLength: s_payload.Length),
         "file" => RequestBody.FromFile(WriteTempFile(), MediaType.Of("text", "plain"), offset: 1, count: 3),
+        "multipart" => RequestBody.Multipart([new MultipartPart("n", RequestBody.FromBytes(s_payload), "f.bin")]),
         _ => throw new ArgumentOutOfRangeException(nameof(variant)),
     };
 

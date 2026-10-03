@@ -90,4 +90,17 @@ public class RequestBodyOwnershipTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public async Task A_multipart_body_disposes_neither_its_parts_sources_nor_the_destination()
+    {
+        var source = new DisposeCountingStream(new MemoryStream(s_payload));
+        var destination = new DisposeCountingStream(new MemoryStream());
+        var body = RequestBody.Multipart([new MultipartPart("a", RequestBody.FromStream(source, contentLength: s_payload.Length))]);
+
+        await body.WriteToAsync(destination, Token);
+
+        Assert.Equal(0, source.DisposeCount);
+        Assert.Equal(0, destination.DisposeCount);
+    }
 }
