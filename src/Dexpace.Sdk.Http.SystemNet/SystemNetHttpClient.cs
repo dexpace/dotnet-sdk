@@ -55,8 +55,9 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </para>
 /// <para>
 /// <b>After dispose (SEAM-15).</b> An owned client throws <see cref="ObjectDisposedException"/> from every call, since
-/// <c>HttpClient</c> does; a borrowed client keeps working, because it is never disposed. Phase 8b's latch makes both
-/// throw.
+/// <c>HttpClient</c> does; a borrowed client keeps working, because it is never disposed. Disposal itself is idempotent
+/// (SEAM-14, latched in 3b); phase 8b adds the <see cref="ObjectDisposedException"/> after dispose for both owned and
+/// borrowed clients (SEAM-15).
 /// </para>
 /// <para>
 /// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,

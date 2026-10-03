@@ -22,7 +22,7 @@ internal sealed class HttpResponseMessageBody : ResponseBody
     // Repeats ResponseBody's second-open message verbatim (BODY-14); a test asserts the two stay equal.
     private const string ConsumedMessage =
         "This response body has already been read. A response body can be opened once; to read it more than once, "
-        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or create a replayable ResponseBody.FromBytes).";
+        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or keep the bytes and wrap them in a new ResponseBody.FromBytes for each read).";
 
     public HttpResponseMessageBody(HttpResponseMessage message)
     {

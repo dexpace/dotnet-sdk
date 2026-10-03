@@ -9,7 +9,9 @@ The scope is 48 rows: `BODY-1`–`BODY-37` and `HTTP-36`–`HTTP-38`, `HTTP-40`�
 below is `[Trait("Category", "Unit")]` and lives in `tests/Dexpace.Sdk.Core.Tests/` unless a project is named; phase 3b adds no `Security`
 class. **Red evidence:** for a new type or a changed signature the red was the compile error (plan convention 1). The production
 types of each step were written in the same sitting as their tests and the full suite was run green after each step; the
-behavioural reds were not each captured separately, and no pin was proven able to fail by a temporary break. A test marked "pin"
+behavioural reds were not each captured separately. Pin proofs (temporary breaks, never committed) were run afterwards: making the request-body
+`ClaimOnce` guard never trip failed 4 of 8 `SingleUseBodyTests`; making the buffered error body single-use (`BytesResponseBody` in place of the
+replayable one) failed 2 of 4 `ErrorBodyPreviewTests`. The other pins (HTTP-37/BODY-7, SEAM-14) were not shown able to fail. A test marked "pin"
 holds behaviour that was already correct.
 
 | Mark | Meaning |

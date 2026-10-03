@@ -63,7 +63,7 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     // The one message every second open throws (BODY-14): it names the buffering route. SystemNet repeats it verbatim.
     internal const string ConsumedMessage =
         "This response body has already been read. A response body can be opened once; to read it more than once, "
-        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or create a replayable ResponseBody.FromBytes).";
+        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or keep the bytes and wrap them in a new ResponseBody.FromBytes for each read).";
 
     /// <summary>The cap the convenience readers apply: 64 MiB (IO-9, P3a-12).</summary>
     public const long DefaultMaxMaterializedBytes = 64L * 1024 * 1024;
@@ -146,8 +146,8 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     {
         try
         {
+            // The body owns the stream (BODY-15): the finally below releases it exactly once.
             var stream = await OpenReadAsync(cancellationToken).ConfigureAwait(false);
-            await using var streamScope = stream.ConfigureAwait(false);
             return await BodyMaterializer.ReadAllAsync(stream, ContentLength, limit, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -161,7 +161,7 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     {
         try
         {
-            using var stream = OpenRead(cancellationToken);
+            var stream = OpenRead(cancellationToken); // released once, by the body, in the finally
             return BodyMaterializer.ReadAll(stream, ContentLength, limit, cancellationToken);
         }
         finally

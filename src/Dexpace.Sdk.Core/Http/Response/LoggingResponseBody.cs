@@ -48,6 +48,8 @@ internal sealed class LoggingResponseBody : ResponseBody
     private readonly int _cap;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
+    // Captured once: a token stays valid after its source is disposed, so a dispose racing a first access cannot throw.
+    private readonly CancellationToken _lifetimeToken;
     private byte[] _captured = [];
     private int _count;
     private byte[]? _pending;
@@ -69,6 +71,7 @@ internal sealed class LoggingResponseBody : ResponseBody
     {
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentOutOfRangeException.ThrowIfNegative(captureCap);
+        _lifetimeToken = _lifetime.Token;
         _inner = inner;
         _cap = Math.Min(captureCap, Array.MaxLength);
     }
@@ -174,7 +177,7 @@ internal sealed class LoggingResponseBody : ResponseBody
                 return;
             }
 
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(starter, _lifetime.Token);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(starter, _lifetimeToken);
             try
             {
                 await DrainAsync(linked.Token).ConfigureAwait(false);
@@ -200,7 +203,7 @@ internal sealed class LoggingResponseBody : ResponseBody
                 return;
             }
 
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(starter, _lifetime.Token);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(starter, _lifetimeToken);
             try
             {
                 Drain(linked.Token);
