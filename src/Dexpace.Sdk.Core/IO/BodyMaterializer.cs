@@ -74,18 +74,28 @@ internal static class BodyMaterializer
     /// <param name="limit">The limit that was exceeded.</param>
     /// <param name="declaredLength">The declared length, or a negative number when unknown.</param>
     /// <returns>The exception to throw.</returns>
-    internal static BodyTooLargeException TooLarge(long limit, long declaredLength)
+    internal static BodyTooLargeException TooLarge(long limit, long declaredLength) =>
+        TooLarge(limit, declaredLength, "read it as a stream with OpenRead or OpenReadAsync instead of buffering it");
+
+    /// <summary>Builds the refusal with a caller-specific remedy (the request side has no stream reader).</summary>
+    /// <param name="limit">The limit that was exceeded.</param>
+    /// <param name="declaredLength">The declared length, or a negative number when unknown.</param>
+    /// <param name="remedy">What the caller can do instead, without a trailing period.</param>
+    /// <returns>The exception to throw.</returns>
+    internal static BodyTooLargeException TooLarge(long limit, long declaredLength, string remedy)
     {
         var declared = declaredLength >= 0 ? $" (declared length {declaredLength} bytes)" : string.Empty;
-        return new BodyTooLargeException(
-            $"The body exceeds the limit of {limit} bytes{declared}; read it as a stream with OpenRead or OpenReadAsync instead of buffering it.");
+        return new BodyTooLargeException($"The body exceeds the limit of {limit} bytes{declared}; {remedy}.");
     }
 
-    internal static void RefuseDeclaredLength(long declaredLength, long limit)
+    internal static void RefuseDeclaredLength(long declaredLength, long limit) =>
+        RefuseDeclaredLength(declaredLength, limit, null);
+
+    internal static void RefuseDeclaredLength(long declaredLength, long limit, string? remedy)
     {
         if (declaredLength > limit)
         {
-            throw TooLarge(limit, declaredLength);
+            throw remedy is null ? TooLarge(limit, declaredLength) : TooLarge(limit, declaredLength, remedy);
         }
     }
 }

@@ -32,6 +32,18 @@ public class PooledChunkTests
     }
 
     [Fact]
+    public void Dispose_clears_the_array_before_it_goes_back_to_the_pool()
+    {
+        var chunk = PooledChunk.Rent(4096);
+        var array = chunk.Array;
+        System.Array.Fill(array, (byte)0xAB);
+
+        chunk.Dispose();
+
+        Assert.All(array, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
     public void Disposing_twice_is_harmless()
     {
         var chunk = PooledChunk.Rent(4096);

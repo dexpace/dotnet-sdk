@@ -122,9 +122,11 @@ public abstract class RequestBody
     internal async Task<RequestBody> ToReplayableBoundedAsync(long limit, CancellationToken cancellationToken) =>
         IsReplayable ? this : await BufferBoundedAsync(limit, cancellationToken).ConfigureAwait(false);
 
+    private const string UnbufferedRemedy = "send the body with WriteTo or WriteToAsync without buffering it, or skip ToReplayable";
+
     private BytesRequestBody BufferBounded(long limit, CancellationToken cancellationToken)
     {
-        BodyMaterializer.RefuseDeclaredLength(ContentLength, limit);
+        BodyMaterializer.RefuseDeclaredLength(ContentLength, limit, UnbufferedRemedy);
         using var buffer = new BoundedBufferStream(limit, ContentLength);
         WriteTo(buffer, cancellationToken);
         return new BytesRequestBody(buffer.ToArray(), ContentType);
@@ -132,7 +134,7 @@ public abstract class RequestBody
 
     private async Task<BytesRequestBody> BufferBoundedAsync(long limit, CancellationToken cancellationToken)
     {
-        BodyMaterializer.RefuseDeclaredLength(ContentLength, limit);
+        BodyMaterializer.RefuseDeclaredLength(ContentLength, limit, UnbufferedRemedy);
         using var buffer = new BoundedBufferStream(limit, ContentLength);
         await WriteToAsync(buffer, cancellationToken).ConfigureAwait(false);
         return new BytesRequestBody(buffer.ToArray(), ContentType);

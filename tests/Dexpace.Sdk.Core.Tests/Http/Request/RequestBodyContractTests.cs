@@ -149,7 +149,8 @@ public class RequestBodyContractTests
         // A known length above the limit is refused before the stream is read.
         using var source = new StrictReadStream(new MemoryStream(new byte[100]));
         var known = RequestBody.FromStream(source, contentLength: 100);
-        Assert.Throws<BodyTooLargeException>(() => known.ToReplayableBounded(50, Token));
+        var refusal = Assert.Throws<BodyTooLargeException>(() => known.ToReplayableBounded(50, Token));
+        Assert.DoesNotContain("OpenRead", refusal.Message, StringComparison.Ordinal);
         Assert.False(source.AnyRead);
     }
 

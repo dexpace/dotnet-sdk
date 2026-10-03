@@ -51,7 +51,8 @@ internal readonly struct PooledChunk : IDisposable
             var returned = Interlocked.Exchange(ref _array, null);
             if (returned is not null)
             {
-                ArrayPool<byte>.Shared.Return(returned);
+                // Bodies may carry secrets (token-endpoint forms), and core cannot tell: clear before the shared pool sees it (styleguide 13.6).
+                ArrayPool<byte>.Shared.Return(returned, clearArray: true);
             }
         }
     }
