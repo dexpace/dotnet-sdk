@@ -134,11 +134,11 @@ public sealed class EnsureSuccessErrorMappingTests
         public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(source);
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             IsDisposed = true;
             source.Dispose();
-            base.Dispose();
+            base.Dispose(disposing);
         }
     }
 

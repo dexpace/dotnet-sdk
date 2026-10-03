@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Client;
 
@@ -74,8 +75,10 @@ public static class HttpClientExtensions
     /// <para>
     /// <b>No orphaned response (SEAM-30).</b> A response produced after the call's token is signalled is disposed and the
     /// call completes cancelled, so design §5.3's "cancel without interruption" mode (the caller stops awaiting through
-    /// <c>WaitAsync</c> while the worker runs on) cannot orphan one. Until phase 3b's quiet disposal, a
-    /// <c>Dispose</c> that throws there faults the task with that exception instead.
+    /// <c>WaitAsync</c> while the worker runs on) cannot orphan one. That dispose is quiet: a
+    /// <c>Dispose</c> that throws there does not replace the cancellation; the failure is reported as an <c>exception</c>
+    /// event on the current activity (and a warning when a logger exists) and the task completes cancelled.
+    /// <para><b>Breaking (behaviour):</b> a throwing dispose there used to fault the task with that exception.</para>
     /// </para>
     /// <para>
     /// <b>Lifecycle (SEAM-14, SEAM-25).</b> The bridge owns neither the scheduler nor the wrapped client, so disposing it
@@ -159,10 +162,10 @@ public static class HttpClientExtensions
                 ?? throw new InvalidOperationException("The wrapped IHttpClient returned null (SEAM-16).");
 
             // SEAM-30, design §5.3: the caller may have stopped awaiting, so a response produced after the token was
-            // signalled is closed here and never surfaces. Direct Dispose, so a failure propagates (3b: DisposeQuietly).
+            // signalled is closed here and never surfaces. Quiet, so a failing dispose cannot replace the cancellation.
             if (cancellationToken.IsCancellationRequested)
             {
-                response.Dispose();
+                Disposal.DisposeQuietly(response);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 

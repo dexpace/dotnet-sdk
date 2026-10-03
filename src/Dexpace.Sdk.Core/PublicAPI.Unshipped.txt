@@ -589,8 +589,10 @@ virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayable(System.Threading.
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayableAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Request.RequestBody!>!
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.WriteTo(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ContentLength.get -> long
-virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose() -> void
-virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose() -> void
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose(bool disposing) -> void
+Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsync() -> System.Threading.Tasks.ValueTask
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsyncCore() -> System.Threading.Tasks.ValueTask
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.OpenRead(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.IO.Stream!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytes(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> byte[]!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!

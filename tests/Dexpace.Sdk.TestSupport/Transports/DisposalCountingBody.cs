@@ -7,16 +7,16 @@ using Dexpace.Sdk.Core.Http.Response;
 namespace Dexpace.Sdk.TestSupport.Transports;
 
 /// <summary>
-/// An empty, readable <see cref="ResponseBody"/> that counts how many times it was disposed, through either
-/// <c>Dispose</c> or <c>DisposeAsync</c> (the base class routes the second through the first). Proves a response is
-/// closed exactly once or never (SEAM-30).
+/// An empty, readable <see cref="ResponseBody"/> that counts how many times it was released. The base class latches
+/// <c>Dispose</c> and <c>DisposeAsync</c> together (P3b-2), so the count is at most one however often the body is
+/// disposed. Proves a response is closed exactly once or never (SEAM-30).
 /// </summary>
 /// <param name="contentType">The media type to carry, or <see langword="null"/> for none.</param>
 public sealed class DisposalCountingBody(MediaType? contentType = null) : ResponseBody
 {
     private int _disposeCount;
 
-    /// <summary>How many times the body has been disposed, by either form.</summary>
+    /// <summary>How many times the body was released: at most one.</summary>
     public int DisposeCount => Volatile.Read(ref _disposeCount);
 
     /// <inheritdoc />
@@ -30,9 +30,9 @@ public sealed class DisposalCountingBody(MediaType? contentType = null) : Respon
         Task.FromResult<Stream>(new MemoryStream([], writable: false));
 
     /// <inheritdoc />
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
         Interlocked.Increment(ref _disposeCount);
-        base.Dispose();
+        base.Dispose(disposing);
     }
 }

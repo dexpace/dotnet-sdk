@@ -132,16 +132,10 @@ public sealed class RedirectPolicyTests
         public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(new MemoryStream());
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             Disposed = true;
-            base.Dispose();
-        }
-
-        public override ValueTask DisposeAsync()
-        {
-            Disposed = true;
-            return base.DisposeAsync();
+            base.Dispose(disposing);
         }
     }
 

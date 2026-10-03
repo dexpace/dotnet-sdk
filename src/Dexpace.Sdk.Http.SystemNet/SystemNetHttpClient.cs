@@ -103,6 +103,8 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     private readonly SystemHttpClient _client;
     private readonly bool _ownsClient;
     private readonly ILogger _logger;
+    private int _disposed;
+    private int _releases;
 
     /// <summary>
     /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects.
@@ -235,11 +237,21 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         if (_ownsClient)
         {
+            Interlocked.Increment(ref _releases);
             _client.Dispose();
         }
     }
+
+    // How many times the owned client was released (at most one, by the latch); lets a test see the latch, which the
+    // HttpClient's own idempotent Dispose would otherwise hide.
+    internal int OwnedClientReleases => Volatile.Read(ref _releases);
 
     /// <inheritdoc/>
     public ValueTask DisposeAsync()

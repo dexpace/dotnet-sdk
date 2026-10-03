@@ -9,13 +9,20 @@ namespace Dexpace.Sdk.Http.SystemNet;
 
 /// <summary>
 /// A <see cref="ResponseBody"/> backed by an <see cref="HttpResponseMessage"/>'s content stream.
-/// Disposing the body disposes the underlying <see cref="HttpResponseMessage"/>, releasing the
-/// connection back to the pool.
+/// Disposing the body (at most once, by the base class's latch) disposes the underlying <see cref="HttpResponseMessage"/>,
+/// releasing the connection back to the pool. A body opened after it was disposed throws
+/// <see cref="StreamClosedException"/> (P3b-11); a body already opened reports <see cref="StreamConsumedException"/> first.
 /// </summary>
 internal sealed class HttpResponseMessageBody : ResponseBody
 {
     private readonly HttpResponseMessage _message;
     private int _consumed;
+    private int _closed;
+
+    // Repeats ResponseBody's second-open message verbatim (BODY-14); a test asserts the two stay equal.
+    private const string ConsumedMessage =
+        "This response body has already been read. A response body can be opened once; to read it more than once, "
+        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or create a replayable ResponseBody.FromBytes).";
 
     public HttpResponseMessageBody(HttpResponseMessage message)
     {
@@ -34,23 +41,32 @@ internal sealed class HttpResponseMessageBody : ResponseBody
 
     public override async Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
     {
+        if (Volatile.Read(ref _consumed) != 0)
+        {
+            throw new StreamConsumedException(ConsumedMessage);
+        }
+
+        if (Volatile.Read(ref _closed) != 0)
+        {
+            throw new StreamClosedException("This response body was disposed before it was opened.");
+        }
+
         if (Interlocked.Exchange(ref _consumed, 1) != 0)
         {
-            throw new StreamConsumedException("This response body has already been read.");
+            throw new StreamConsumedException(ConsumedMessage);
         }
 
         return await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _message.Dispose();
-        base.Dispose();
-    }
+        Volatile.Write(ref _closed, 1);
+        if (disposing)
+        {
+            _message.Dispose();
+        }
 
-    public override async ValueTask DisposeAsync()
-    {
-        _message.Dispose();
-        await base.DisposeAsync().ConfigureAwait(false);
+        base.Dispose(disposing);
     }
 }

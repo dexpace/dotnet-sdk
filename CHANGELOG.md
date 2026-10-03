@@ -121,6 +121,18 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   they were unbounded. `RequestBody.ToReplayableAsync` throws `BodyTooLargeException` above `Array.MaxLength`, before
   writing when the length is known; it failed with an `IOException` or `OutOfMemoryException` after consuming the body.
   A response body's `OpenRead` after `OpenReadAsync` (or the reverse) throws `StreamConsumedException` (`IO-9`, `IO-11`).
+- **Breaking:** `ResponseBody.Dispose()` and `DisposeAsync()` are no longer virtual (`HTTP-41`, `BODY-15`); a subclass
+  overrides the new protected `Dispose(bool)` and `DisposeAsyncCore()`. Both are latched, so the release runs at most once
+  across any mix of the two, and a release that throws propagates once.
+- **Breaking:** `Response.Dispose()` and `DisposeAsync()` share one latch and forward to the body once (`HTTP-43`).
+- **Breaking:** `ReadAsBytesAsync`, `ReadAsStringAsync` and their sync twins dispose the body when they finish, on
+  success and on failure (`BODY-16`).
+- **Breaking:** `ReadAsStringAsync` and `ReadAsString` strip a leading byte-order mark that matches the resolved
+  charset's preamble (UTF-8, UTF-16, UTF-32); a mark that does not match the declared charset is kept (`HTTP-42`).
+- **Breaking:** a stream-backed response body opened after it was disposed throws `StreamClosedException`; the
+  second-open `StreamConsumedException` message now names the buffering route (`BODY-14`).
+- **Breaking (behaviour):** `AsAsync`: a throwing dispose of a response produced after cancellation no longer faults the
+  task; the task completes cancelled and the failure is reported on the current activity (design P3b-16).
 
 ### Added
 
