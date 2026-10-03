@@ -79,9 +79,15 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     /// <param name="contentType">The media type, or <see langword="null"/>.</param>
     /// <param name="contentLength">The declared length, or <c>-1</c>.</param>
     /// <returns>A single-use <see cref="ResponseBody"/>.</returns>
+    /// <remarks>
+    /// <b>Breaking:</b> a <paramref name="contentLength"/> below <c>-1</c> used to be accepted; it now throws
+    /// <see cref="ArgumentOutOfRangeException"/> at construction (IO-3).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="contentLength"/> is below <c>-1</c>.</exception>
     public static ResponseBody FromStream(Stream source, MediaType? contentType = null, long contentLength = -1)
     {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentOutOfRangeException.ThrowIfLessThan(contentLength, -1L);
         return new StreamResponseBody(source, contentType, contentLength);
     }
 

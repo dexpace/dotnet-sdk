@@ -5,6 +5,7 @@ using System.Buffers;
 using System.Text;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.IO;
 using Dexpace.Sdk.Core.Serialization;
 
 namespace Dexpace.Sdk.Core.Http.Request;
@@ -119,13 +120,36 @@ public abstract class RequestBody
     /// Creates a single-use body that streams from <paramref name="source"/>. The source is read
     /// exactly once; call <see cref="ToReplayableAsync"/> first if retries are needed.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// With a known <paramref name="contentLength"/> the body writes exactly that many bytes (HTTP-39): a source that ends
+    /// early makes the write throw <see cref="EndOfStreamException"/> naming delivered-of-total, so the transport fails the
+    /// send instead of framing a short body; a source with more bytes has the remainder left unread, because the body does
+    /// not own the stream and reading one byte further could block on a live source (design position F); a length of zero
+    /// performs no read. With <c>-1</c> the body copies to the end of the stream.
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> a known <paramref name="contentLength"/> used to be ignored by the copy, which ran to the end of
+    /// the stream whatever was declared. A <paramref name="contentLength"/> below <c>-1</c> and a source that is not
+    /// readable used to be accepted and failed later; they now throw <see cref="ArgumentOutOfRangeException"/> and
+    /// <see cref="ArgumentException"/> at construction (HTTP-39, IO-3).
+    /// </para>
+    /// </remarks>
     /// <param name="source">The stream to read the payload from.</param>
     /// <param name="contentType">The media type, or <see langword="null"/>.</param>
     /// <param name="contentLength">The known length, or <c>-1</c> if unknown.</param>
     /// <returns>A single-use <see cref="RequestBody"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="contentLength"/> is below <c>-1</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="source"/> is not readable.</exception>
     public static RequestBody FromStream(Stream source, MediaType? contentType = null, long contentLength = -1)
     {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentOutOfRangeException.ThrowIfLessThan(contentLength, -1L);
+        if (!source.CanRead)
+        {
+            throw new ArgumentException("The source stream must be readable.", nameof(source));
+        }
+
         return new StreamRequestBody(source, contentType, contentLength);
     }
 
@@ -176,7 +200,15 @@ public abstract class RequestBody
                     + "Call ToReplayableAsync() before the first send if retries are needed.");
             }
 
-            await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+            if (contentLength >= 0)
+            {
+                await StreamCopy.CopyExactlyAsync(source, destination, contentLength, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await StreamCopy.CopyToEndAsync(source, destination, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 }

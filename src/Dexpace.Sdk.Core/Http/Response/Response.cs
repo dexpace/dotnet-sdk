@@ -1,8 +1,10 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Buffers;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.IO;
 
 namespace Dexpace.Sdk.Core.Http.Response;
 
@@ -155,8 +157,12 @@ public sealed class Response : IAsyncDisposable, IDisposable
         byte[] rawBytes;
         try
         {
-            rawBytes = await DrainCappedAsync(Body, MaxBufferedErrorBytes, cancellationToken)
+            var stream = await Body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+            await using var streamScope = stream.ConfigureAwait(false);
+            var writer = new ArrayBufferWriter<byte>();
+            await StreamCopy.DrainUpToAsync(stream, writer, MaxBufferedErrorBytes, cancellationToken)
                 .ConfigureAwait(false);
+            rawBytes = writer.WrittenSpan.ToArray();
         }
         finally
         {
@@ -172,35 +178,6 @@ public sealed class Response : IAsyncDisposable, IDisposable
     /// <see cref="EnsureSuccessAsync"/>. Larger bodies are silently truncated to this limit.
     /// </summary>
     public const int MaxBufferedErrorBytes = 1024 * 1024; // 1 MiB
-
-    private static async Task<byte[]> DrainCappedAsync(
-        ResponseBody body,
-        int maxBytes,
-        CancellationToken cancellationToken)
-    {
-        var stream = await body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
-        await using var streamScope = stream.ConfigureAwait(false);
-        using var buffer = new MemoryStream();
-
-        var remaining = maxBytes;
-        var chunk = new byte[Math.Min(81920, maxBytes)];
-
-        while (remaining > 0)
-        {
-            var toRead = Math.Min(chunk.Length, remaining);
-            var read = await stream.ReadAsync(chunk.AsMemory(0, toRead), cancellationToken)
-                .ConfigureAwait(false);
-            if (read == 0)
-            {
-                break;
-            }
-
-            buffer.Write(chunk, 0, read);
-            remaining -= read;
-        }
-
-        return buffer.ToArray();
-    }
 
     private static void ValidateReasonPhrase(string? reasonPhrase)
     {

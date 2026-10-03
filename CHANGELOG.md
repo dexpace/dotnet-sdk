@@ -113,9 +113,14 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   committed `GlobalUsings.cs` per project; every project commits a `packages.lock.json`.
 - `DexpaceClientOptions.BaseAddress` is now read by `OperationDescriptor.BuildRequest(DexpaceClientOptions)`;
   `DexpaceClientOptions.AttemptTimeout` still documents that nothing reads it yet (roadmap phase 6a wires it).
+- **Breaking:** `RequestBody.FromStream` with a known `contentLength` writes exactly that many bytes (a short source
+  throws `EndOfStreamException`; a longer source's remainder is left unread); `FromStream` rejects `contentLength`
+  below -1 on both bodies and a non-readable request source (`HTTP-39`, `IO-3`).
 
 ### Added
 
+- `RS0030` entries for pooled-array rents, stream timeouts and `TextReader.ReadLine` (`IO-14`, `IO-22`, `IO-38`,
+  `IO-40`).
 - `docs/sdk-documentation/seams.md`; the AOT smoke covers the seam surface.
 - `OperationDescriptor` and `BuildRequest` — the operation-input projection, RFC 3986 composed over the base address
   (`SEAM-26`–`SEAM-28`); `DexpaceClientOptions.BaseAddress` is now read.
