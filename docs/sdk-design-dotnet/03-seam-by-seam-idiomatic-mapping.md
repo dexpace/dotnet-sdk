@@ -243,6 +243,27 @@ single-use stream factories and a race-safe consumed flag; missing are the synch
 file, form, multipart and seekable-stream bodies, the exact-length copy, the line reader, the tee and both logging
 wrappers; `MediaType.Charset` throws on `utf-7`; `ReadAsStringAsync` keeps a leading BOM.
 
+**As built (2026-10-03, phase 3a):** partial. Built: the exact-length copy behind `RequestBody.FromStream` (**HTTP-39**), the
+synchronous `WriteTo`, `ToReplayable`, `OpenRead`, `ReadAsBytes` and `ReadAsString`, and the internal helpers in
+`Dexpace.Sdk.Core.IO` (`StreamCopy`, `TeeStream`, `CapturedBytes`, `Utf8LineReader`, `BodyMaterializer`,
+`BoundedBufferStream`, `PooledChunk`). Still unbuilt, phase 3b's: the file, form, multipart and seekable-stream bodies,
+both logging wrappers, the dispose latches and the BOM strip. Four wordings above are corrected, each by the ruling named;
+the text above stands as written. *Dated correction*.
+
+- **The materialisation cap applies to the response-side readers only (P3a-12).** "Applies first to materialising helpers"
+  is read as `ReadAsBytes(Async)` and `ReadAsString(Async)`, which refuse more than `ResponseBody.DefaultMaxMaterializedBytes`
+  (64 MiB, a constant until phase 5a) with the new public `BodyTooLargeException`. `RequestBody.ToReplayable(Async)` is
+  bounded only by `Array.MaxLength` (**IO-9**), because a request's size is the caller's own data and refusing a deliberate
+  100 MiB upload-with-retries after consuming it would leave the caller with neither the stream nor a copy.
+- **The sync members are virtual with a `NotSupportedException` default (P3a-5).** `WriteTo` and `OpenRead` throw, naming the
+  subclass, unless overridden; `ToReplayable`, `ReadAsBytes` and `ReadAsString` are built over them. The precedent is
+  `HttpContent.SerializeToStream`. Every SDK variant overrides both forms and shares one consume latch between them.
+- **"Lazy offset overflow falls out" needs a clamp.** `new MemoryStream(array, index, count)` rejects `index > array.Length`
+  eagerly, so `CapturedBytes.Slice` clamps the offset and count to the window (**IO-21**).
+- **"Never pooled" is mechanised (P3a-8).** `BannedSymbols.txt` bans `ArrayPool<T>.Rent` and `MemoryPool<T>.Rent` in `src/`;
+  the one sanctioned rent is the internal `PooledChunk`, behind a scoped pragma. Two further bans (stream timeouts, P3a-14;
+  `TextReader.ReadLine`, **IO-14**) keep **IO-40** and the line-reader rule honest.
+
 ### 3.2 The synchronous transport seam → kept, as `IHttpClient`, with a real synchronous path
 
 **SEAM-11** specifies a single-operation contract whose response body "MUST NOT be pre-buffered by the transport — the

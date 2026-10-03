@@ -46,6 +46,12 @@ Console.WriteLine(await response.Body.ReadAsStringAsync());
 Dispose every `Response`: a streamed body holds its connection until then. A stream-backed body is single-use;
 call `RequestBody.ToReplayableAsync()` before the first send if the request may be retried.
 
+Every async body member has a synchronous twin (`RequestBody.WriteTo` / `ToReplayable`, `ResponseBody.OpenRead` /
+`ReadAsBytes` / `ReadAsString`); the base members of the two open classes throw `NotSupportedException`, and every body
+the SDK creates overrides them. `RequestBody.FromStream` with a known length writes exactly that many bytes, and
+`ReadAsBytesAsync` / `ReadAsStringAsync` refuse a body above `ResponseBody.DefaultMaxMaterializedBytes` (64 MiB) with
+`BodyTooLargeException`; stream a larger body through `OpenReadAsync`.
+
 ## Links
 
 - Repository and design: <https://github.com/dexpace/dotnet-sdk>

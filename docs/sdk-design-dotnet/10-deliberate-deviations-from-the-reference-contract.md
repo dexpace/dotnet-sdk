@@ -44,7 +44,7 @@ line and in the roadmap.
    install call or discovery. The argument does not lean on `System.IO.Pipelines`, which is a NuGet package on the
    floor. The IO-* invariants are kept, most free on the `Stream` contract and the rest as internal core helpers; no
    Okio-shaped `Source`/`Sink`/`Buffer` vocabulary ships (P11, P14). §3.1.
-4. **End of stream is `Stream.Read` returning 0.** *Touches* **IO-1**, **IO-2**, **IO-11**, **IO-15**, **IO-16**,
+4. **End of stream is `Stream.Read` returning 0.** *Topic label `eof-is-zero-read`, added by dated correction, 2026-10-03 (phase 3a).* *Touches* **IO-1**, **IO-2**, **IO-11**, **IO-15**, **IO-16**,
    **IO-17** and **BODY-10** (their zero-read clauses), **IO-18**, **BODY-25**. *Judged* (P1, P6). `Stream.Read`
    returns 0 both at EOF and for a zero-count request (verified), exactly the collapse **IO-2**'s rationale
    describes, and the port cannot change `Stream`. Core never issues a zero-count read. Because 0 *is* EOF by
@@ -64,6 +64,11 @@ line and in the roadmap.
    replay"; the as-built and designed body throws `StreamConsumedException` on the second request. Handing the same
    partially read `Stream` to a second caller is how two consumers interleave reads silently; throwing is the louder
    form of the same no-replay guarantee and narrows no correctness property (P9). §3.1.
+   *Dated correction, 2026-10-03 (phase 3a, P3a-3):* the verdict covers both forms. Each SDK response variant keeps one
+   consume latch, flipped by whichever of `OpenRead` and `OpenReadAsync` runs first, and the loser throws
+   `StreamConsumedException` whatever its form; the BCL itself is not uniform here (`HttpContent.ReadAsStream` after
+   `ReadAsStreamAsync` throws, while a second `ReadAsStreamAsync` returns the same stream). The replayable error body stays
+   replayable. A transport's own body must flip the latch before it touches `HttpContent` (phase 8b).
 7. **Transport failures are `SdkException`s chaining the native exception, not members of an I/O-error family.**
    *Touches* **TRANSPORT-20**, **XCUT-4** (its "I/O-error family" clause), **RETRY-2**, **RETRY-4**, **RECOV-17**
    (stated in appendix C only). *Judged* (P14). On .NET the existing catch sites for HTTP failures are

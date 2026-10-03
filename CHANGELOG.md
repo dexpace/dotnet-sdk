@@ -124,6 +124,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `docs/sdk-documentation/io.md`; the AOT smoke covers the sync body surface.
 - Synchronous body twins `RequestBody.WriteTo` / `ToReplayable` and `ResponseBody.OpenRead` / `ReadAsBytes` /
   `ReadAsString` (virtual; the base throws `NotSupportedException`, every SDK body overrides), `BodyTooLargeException`,
   `ResponseBody.DefaultMaxMaterializedBytes` (`HTTP-36`, `IO-9`, `IO-11`).

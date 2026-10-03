@@ -35,7 +35,8 @@ exactly as the Python port leans on `bytes` / `BinaryIO` instead of an Okio anal
    `ResponseBody.OpenReadAsync()` / `ReadAsBytesAsync()` / `ReadAsStringAsync()` drain the response.
    Byte- and string-backed bodies are replayable; stream-backed bodies are single-use and throw
    `StreamConsumedException` on a second pass. Call `RequestBody.ToReplayableAsync()` before the
-   first send when retries are needed.
+   first send when retries are needed. Each async member also has a synchronous twin (`WriteTo`,
+   `ToReplayable`, `OpenRead`, `ReadAsBytes`, `ReadAsString`), added by phase 3a.
 2. **HTTP value models** (`Http/Common`) — immutable `Method`, `Protocol`, `MediaType`,
    `HttpHeaderName`, `Headers`, plus `Status` in `Http/Response`. `Headers` is a case-insensitive
    multimap with non-destructive `With` / `Set` / `Without` and a `Builder` for batched edits.
