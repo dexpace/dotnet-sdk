@@ -80,6 +80,25 @@ public class RequestBodyContractTests
         Assert.Equal(writes[0].LongLength, body.ContentLength);
     }
 
+    [Theory]
+    [MemberData(nameof(ReplayableFactories))]
+    public async Task The_logging_wrapper_over_each_replayable_factory_keeps_the_contract(string variant)
+    {
+        var inner = CreateReplayable(variant);
+        var wrapped = new LoggingRequestBody(inner, 4);
+
+        Assert.True(wrapped.IsReplayable);
+        Assert.Equal(inner.ContentLength, wrapped.ContentLength);
+        Assert.Equal(inner.ContentType, wrapped.ContentType);
+        Assert.Same(wrapped, await wrapped.ToReplayableAsync(Token));
+        using var direct = new MemoryStream();
+        await inner.WriteToAsync(direct, Token);
+        using var viaWrapper = new MemoryStream();
+        await wrapped.WriteToAsync(viaWrapper, Token);
+        Assert.Equal(direct.ToArray(), viaWrapper.ToArray());
+        Assert.True(wrapped.Snapshot().Length <= 4);
+    }
+
     [Fact]
     public void A_test_local_subclass_reports_minus_one_and_not_replayable_and_its_unoverridden_WriteTo_throws_NotSupportedException_naming_the_subclass()
     {
