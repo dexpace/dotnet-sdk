@@ -174,6 +174,10 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     `Encoding.UTF8.GetString` does not strip one, so a BOM-prefixed response decodes to a string starting with
     U+FEFF (both verified in §3.1). *Resolved*: core never encodes through a BOM-emitting writer, and decoding strips
     a leading BOM only when it matches the resolved charset's preamble (§3.1).
+    *Dated correction, 2026-10-03 (phase 3b, P3b-12):* "a leading BOM" is read for every encoding that has a preamble, not UTF-8 alone. `Encoding.GetString` keeps a BOM for
+    all of them (`utf-16` `FF FE`, `utf-16be` `FE FF`, UTF-32 `FF FE 00 00` decode to a leading U+FEFF too), so both string readers call one internal routine that resolves the
+    encoding (the declared charset, else UTF-8) and skips `encoding.Preamble` when the bytes start with it. A mark that does not match the declared charset is kept, because the
+    declared charset wins (**HTTP-42**).
 35. **The projection seam does not say what to do with a path-parameter value of `.` or `..`**
    . **SEAM-27** forbids a value injecting extra `/` segments, but `System.Uri` removes dot
     segments — including percent-encoded `%2E%2E` — so a correctly encoded `..` escapes its segment by removal rather
@@ -243,6 +247,8 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     **SEAM-30**'s orphan. *Resolved* (§3.3, §5.3): `AsAsync` checks the token after `Execute` returns, disposes a response
     produced once it is signalled, and completes the task cancelled, so the response is closed exactly once and never
     surfaces. The disposal is direct, so a throwing `Dispose` faults the task until phase 3b's `DisposeQuietly` replaces it.
+    *Dated correction, 2026-10-03 (phase 3b, P3b-16):* the disposal is now quiet. `AsAsync` calls `Disposal.DisposeQuietly`, so a throwing `Dispose` no longer faults the task: it
+    completes cancelled and the failure is reported on the current `Activity` (§3.3, §3.7).
 44. **IO-10 asks `copyTo(offset, count)` to reject an out-of-range window, while IO-21 asks `slice(offset, count)` to accept an
     overflowing offset lazily.** *Added by dated correction, 2026-10-03 (phase 3a, P3a-9).* In the reference these are two
     operations on two types (a `Buffer` and a view). The port ships neither the `Buffer` (**IO-7**) nor a second windowing

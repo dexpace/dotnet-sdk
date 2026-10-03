@@ -59,6 +59,10 @@ line and in the roadmap.
    inconsistency in one direction. `ResponseBody.FromStream` is documented as an ownership transfer, because its
    callers are transports handing over a stream they opened. Internal helpers follow the BCL `leaveOpen` convention.
    §3.1.
+   *Dated correction, 2026-10-03 (phase 3b, P3b-1):* the verdict stands and is extended to the 3b variants. `FromStream`, single-use or seekable, never disposes the
+   caller's stream and moves its position only when seekable; `FromFile` opens and disposes a `FileStream` per write; `FromForm` and `Multipart` open nothing and dispose
+   nothing they were given; the request-logging wrapper's tee leaves the destination open (`leaveOpen`); the response-logging wrapper takes ownership of its delegate, as a
+   `Response` owns its body.
 6. **A second `OpenReadAsync` throws instead of returning the same handle.** *Touches* **BODY-14**, **HTTP-41**.
    *Judged.* **BODY-14** says "requesting the handle repeatedly MUST return the same underlying handle, not a fresh
    replay"; the as-built and designed body throws `StreamConsumedException` on the second request. Handing the same
@@ -277,6 +281,17 @@ Entries 1–28 stand as written.
     *Mechanism*, not a departure: the body is optional at construction and never `null` on read, so a consumer never
     branches on a missing body, and reading it twice yields empty both times. The as-built default was already a
     non-null empty body; phase 2a made it replayable. §4.2.
+
+**Correction (2026-10-03): phase 3b adds entry 31.** Ruled by the lead on 2026-10-02 as a §10 entry, not a §11 reading (the [phase 3b design](../work/mvp/phase3/phase3b/2026-10-02-phase3b-bodies-design.md), P3b-5).
+Entries 1–30 stand as written.
+
+31. **"Regular file" is enforced only where the platform can see it.** *Touches* **BODY-11**, **HTTP-40** (a MUST clause unmet on a stated domain). *Judged*: the clause asks
+    `FromFile` to reject a path that is not a regular file. On Unix the shared framework cannot tell a FIFO or a character device from a regular file (`File.Exists` is true
+    and `FileInfo.Attributes` is `Normal` for a regular file, `/dev/null`, `/dev/zero` and a FIFO), opening a FIFO for reading blocks, and a symbolic link reports its own
+    path length until it is resolved. `FromFile` therefore resolves a link to its final target before taking the size, throws `FileNotFoundException` for a missing path and
+    `ArgumentException` for a directory (and, on Windows, a `Device` path), and does not try to detect special files: they report a size of 0, a **count of 0 never opens
+    the file**, and the write is a legitimate empty write. The residue is that a Unix FIFO or device uploads as an empty body instead of failing at construction. A
+    P/Invoke `stat` was rejected: platform-specific struct layouts and an AOT-visible native dependency for one validation clause. §3.1.
 
 Three things that are deliberately **not** deviations, recorded because a reader may expect them. The fixed-buffer
 encode profile of **SERDE-4** is met, not bent: core derives `Serialize<T>(ISerde, Span<byte>, T)` from the

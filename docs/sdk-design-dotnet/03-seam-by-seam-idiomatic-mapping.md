@@ -264,6 +264,27 @@ the text above stands as written. *Dated correction*.
   the one sanctioned rent is the internal `PooledChunk`, behind a scoped pragma. Two further bans (stream timeouts, P3a-14;
   `TextReader.ReadLine`, **IO-14**) keep **IO-40** and the line-reader rule honest.
 
+**As built (2026-10-03, phase 3b):** built. Request bodies: `RequestBody.FromForm` (the WHATWG serializer, **HTTP-38**), `FromFile` and the public sealed
+`FileRequestBody` (**HTTP-40**, **BODY-11**–**BODY-13**), `Multipart` and `MultipartPart` (**HTTP-51**, **BODY-2**), and the seekable promotion of `FromStream`
+(**BODY-9**). Response side: the latched `ResponseBody` and `Response` disposal (**HTTP-41**, **HTTP-43**, **BODY-15**), readers that dispose the body
+(**BODY-16**), the BOM strip in one shared `TextDecoding` routine (**HTTP-42**), and `StreamClosedException` for a stream body opened after dispose. The two logging
+wrappers are built and internal (`LoggingRequestBody`, `LoggingResponseBody`, **BODY-17**–**BODY-29**, **BODY-32**, **BODY-37**); phase 5b engages them. Not built, by
+design: the kernel file-to-socket path of **BODY-12** (🚫), a memory-mapped view (**BODY-36**, declined). Three wordings above are corrected, each by the ruling named; the
+text above stands as written. *Dated correction*.
+
+- **A readable, seekable stream with a declared length is replayable (P3b-4).** `RequestBody.FromStream` captures the stream's position at construction; every write,
+  the first included, seeks to it and copies exactly the declared length through the exact-length copy, under an in-flight latch that makes a concurrent second write
+  throw `InvalidOperationException`. A length of `-1` stays single-use: the length is never inferred from `Length - Position`, which would turn a chunked upload into a
+  `Content-Length` one behind the caller's back. The caller's stream position moves and the stream stays the caller's (**BODY-8**).
+- **The response-logging drain runs under a linked token (P3b-10).** The sentence "runs under the wrapper's own lifetime token, not the first caller's" is replaced by: a
+  token linked from the accessor that starts the drain and the wrapper's lifetime (cancelled by `Dispose`). Read literally, a hung body would block the first reader with no
+  way to cancel it, and a call's deadline would stop working whenever body logging is on. A cancelled starter fails the drain like any other failure: the partial bytes are
+  kept, the `OperationCanceledException` is cached (**BODY-26**), and later reads rethrow it. "Upstream read exactly once" (**BODY-22**) is kept. The sync and async
+  drains are twins over the same capture state, because core bans blocking on a task.
+- **The variants.** The file body opens a fresh read-only `FileStream` per write with `FileShare.ReadWrite | FileShare.Delete` and `bufferSize: 0`; the multipart body
+  computes its framing once at construction and guards each part's length with an internal non-disposing `BoundedWriteStream`; the over-cap response stream reads at most
+  one byte past the cap, so the overflow is one staged byte.
+
 ### 3.2 The synchronous transport seam → kept, as `IHttpClient`, with a real synchronous path
 
 **SEAM-11** specifies a single-operation contract whose response body "MUST NOT be pre-buffered by the transport — the
@@ -574,6 +595,11 @@ policy sees it. A `Dispose` that throws inside the check after return faults the
 `BannedSymbols.txt` bans `TaskCompletionSource<T>.SetResult`/`TrySetResult` and the five `Task<T>.WaitAsync` overloads
 in `src/`. *Dated correction*.
 
+**Dated correction, 2026-10-03 (phase 3b, P3b-16):** the interim "a `Dispose` that throws inside the check after return faults the task until phase 3b's
+`DisposeQuietly`" is gone. `AsAsync` disposes a response produced after the token is signalled through `Disposal.DisposeQuietly`, so the task completes cancelled and the
+failure is reported as an `exception` event tagged `dexpace.dispose.suppressed` on the current `Activity` (and as a warning when a logger is supplied).
+
+
 ### 3.4 The wire-codec (serde) seam → kept separate, even though embedding is free
 
 **SEAM-19** requires the codec seam to bundle a serializer, a deserializer and the media type its serializer
@@ -859,6 +885,19 @@ a release throwing inside the latched dispose above propagates once (**BODY-27**
 
 **As built (d45e64b):** partial: ownership-aware transport disposal is built; there is no dispose latch on
 `Response`/bodies/transport, no `ObjectDisposedException` after dispose, and no quiet-dispose helper.
+
+**As built (2026-10-03, phase 3b):** partial. Built: the latch on `ResponseBody` (the standard `Dispose(bool)`/`DisposeAsyncCore()` pattern, no finalizer), on `Response` and
+on `SystemNetHttpClient` (**SEAM-14**), and the internal `Disposal`. Still unbuilt: the `ObjectDisposedException` after transport dispose (phase 8b, **SEAM-15**). The text above
+stands as written, with two corrections. *Dated correction*.
+
+- **`Disposal`'s signature gains an optional logger (P3b-3).** It is `DisposeQuietly(IDisposable? resource, Exception? primary = null, ILogger? logger = null)` with an async
+  twin, internal. Neither `ExceptionTrail.AddSuppressed` nor `ExceptionFacts.IsFatal` exists before phase 4b, and core has no logger plumbing before 5b, so until then it
+  reports a non-fatal failure on `Activity.Current` (an `exception` event tagged `dexpace.dispose.suppressed`, plus `dexpace.dispose.primary_type` when a primary is in
+  flight) and, when a logger is supplied, as a `Warning` naming the resource and exception types; the fatal filter is `OutOfMemoryException`. With no listener and no logger
+  the failure is reported to nobody: an **accepted interim gap** (the lead's ruling of 2026-10-02) that closes in 5b. 4b repoints the primary branch and the filter; 5b plumbs the
+  client's logger and owns any counter's name.
+- **A stream-backed response body opened after dispose throws `StreamClosedException` (P3b-11)**, after the consumed check, so a body that was read and then disposed still
+  reports `StreamConsumedException`. In-memory bodies keep serving after dispose.
 
 ### 3.8 The observability, time and configuration seams
 

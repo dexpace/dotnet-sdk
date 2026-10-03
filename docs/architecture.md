@@ -36,7 +36,9 @@ exactly as the Python port leans on `bytes` / `BinaryIO` instead of an Okio anal
    Byte- and string-backed bodies are replayable; stream-backed bodies are single-use and throw
    `StreamConsumedException` on a second pass. Call `RequestBody.ToReplayableAsync()` before the
    first send when retries are needed. Each async member also has a synchronous twin (`WriteTo`,
-   `ToReplayable`, `OpenRead`, `ReadAsBytes`, `ReadAsString`), added by phase 3a.
+   `ToReplayable`, `OpenRead`, `ReadAsBytes`, `ReadAsString`), added by phase 3a. Phase 3b adds the form, file and
+   multipart request bodies, makes a seekable stream with a known length replayable, latches `Dispose` on `Response` and
+   `ResponseBody`, and strips a matching byte-order mark when decoding text.
 2. **HTTP value models** (`Http/Common`) — immutable `Method`, `Protocol`, `MediaType`,
    `HttpHeaderName`, `Headers`, plus `Status` in `Http/Response`. `Headers` is a case-insensitive
    multimap with non-destructive `With` / `Set` / `Without` and a `Builder` for batched edits.

@@ -92,6 +92,9 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 
 - **`HTTP-22` (MAY): the header-name interning pool is not built.** The `WellKnown` statics already share the hot
   names, and the observable contract is value equality (`HTTP-21`). Phase 2a; design §4.1 and §12's deferred list.
+- **`BODY-36` (MAY): no memory-mapped view of a file body.** `FileRequestBody` copies through an unbuffered `FileStream`; a
+  mapped view is offered later only if a signing use case asks for random access over the bytes. Phase 3b; design §3.1 and
+  §12's deferred list.
 
 ### Behavioural asymmetries a consumer must know
 

@@ -1417,3 +1417,40 @@ and §12, and this note. 3a holds 43 rows: 26 ✅, four split rows (`IO-1`, `IO-
   per-transport `HTTP-39` proof. 8b: `SerializeToStream` calling `WriteTo`, and `HttpResponseMessageBody.OpenRead`, flipping the
   latch before touching `HttpContent`.
 - **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
+
+**2026-10-03 — Phase 3b: the bodies are built (seven steps, rulings P3b-1 to P3b-16).** Sub-phase 3b landed on branch
+`50-phase-3b-bodies` (GitHub issue #50, stacked on `49-phase-3a-io`) following the
+[design](phase3/phase3b/2026-10-02-phase3b-bodies-design.md) and the [plan](phase3/phase3b/2026-10-02-phase3b-bodies.md): step 1
+the internal `Disposal`, the `ResponseBody` and `Response` dispose latches, the readers that dispose the body, `TextDecoding` and
+the BOM strip, and quiet disposal in `AsAsync`; step 2 `RequestBody.FromForm` and the seekable promotion of `FromStream`; step 3
+`FromFile` and `FileRequestBody`; step 4 `Multipart` and `MultipartPart`; step 5 the internal `LoggingRequestBody`; step 6 the
+internal `LoggingResponseBody` and `PrefixedReadStream`; step 7 this close-out. Evidence is in the
+[checklist](phase3/phase3b/2026-10-03-phase3b-bodies-checklist.md), the user page
+[`bodies.md`](../../sdk-documentation/bodies.md), the dated corrections to design §3.1, §3.3, §3.7, §4.5, §10 (entry 5, and the new
+entry 31), §11 (items 34 and 43) and §12, the 2b checklist's `SEAM-14` row, phase 1's S9 row, and this note. 3b holds 48 rows: 36 ✅
+outright, six ✅ with a clause another owner holds (`HTTP-52`, `BODY-12`, `BODY-30`, `BODY-31`, `BODY-34`, `BODY-37`) and six ⏳ wholly
+(`BODY-4`, `BODY-5`, `BODY-10`, `BODY-36`, `HTTP-44`, `HTTP-45`).
+
+- **Rulings.** P3b-1 (3b argues `body-stream-ownership`; 3a argues the reopen verdict), P3b-3 (`Disposal` reports through `Activity`
+  until 4b and 5b repoint it; the no-listener, no-logger silence is an accepted interim gap that closes in 5b), P3b-5 (a Unix FIFO
+  or device uploads as an empty body: a new §10 entry, 31) and P3b-10 (the response drain runs under a linked token) were accepted
+  by the lead on 2026-10-02. P3b-4 (seekable promotion), P3b-12 (the BOM strip for every preamble) and P3b-16 (the replaced 2b pin)
+  are carried by the §3.1, §11 item 34 and §3.3 corrections; P3b-7 and P3b-8 (WHATWG forms; multipart rejects controls) diverge from
+  the Node sibling and are recorded in the vector file and `bodies.md`.
+- **Breaking changes** (seven, all in `CHANGELOG.md` `[Unreleased]`): `ResponseBody.Dispose()`/`DisposeAsync()` are no longer virtual;
+  `Response` and `ResponseBody` dispose at most once; the readers dispose the body; `ReadAsStringAsync` strips a matching BOM; a
+  stream body opened after dispose throws `StreamClosedException`; `AsAsync` no longer faults on a throwing dispose after
+  cancellation; a seekable known-length `FromStream` is replayable.
+- **One `Security` class was touched, mechanically.** `EnsureSuccessErrorMappingTests`'s private `TrackingBody` fake moved to the new
+  dispose hook; no assertion changed value. The four SystemNet wire classes and every other Core `Security` class are unedited.
+- **Hand-offs.** 4b: repoints `Disposal`'s primary branch to `ExceptionTrail.AddSuppressed` and its filter to `ExceptionFacts.IsFatal`.
+  4c: builds `ErrorMappingPolicy` and the shared `ErrorBodyBuffer` (`BODY-30`, `BODY-31`, `HTTP-52`) and should move
+  `EnsureSuccessAsync`'s `finally` onto `Disposal.DisposeQuietlyAsync(this, primary)`. 5b: engages both wrappers only at body-level
+  logging with one shared preview size (`BODY-34`, `OBS-34`, `OBS-36`–`OBS-38`), plumbs the client's `ILogger` into `Disposal`
+  call sites and owns any counter's name, and swaps a response's body for the wrapper through `Response.WithBody` (the old
+  response must not be disposed separately). 6a/6b/6c: own `BODY-4`'s three gates and `BODY-5`, and should test the now-replayable
+  seekable streams. 7a: builds `HTTP-44`/`HTTP-45` and decides whether `ReadValueAsync` closes the body (`SERDE`). 8b: keeps
+  `SEAM-15` (`ObjectDisposedException` after transport dispose), writes `RequestBodyContent`'s synchronous `SerializeToStream` over
+  `WriteTo` and `HttpResponseMessageBody.OpenRead` (flipping the latch before touching `HttpContent`), may recognise
+  `FileRequestBody`, and decides between a local equivalent of `Disposal` and making it public for TRANSPORT-22's dispose-on-throw.
+- **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
