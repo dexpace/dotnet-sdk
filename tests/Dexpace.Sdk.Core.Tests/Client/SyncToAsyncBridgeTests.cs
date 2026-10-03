@@ -46,9 +46,9 @@ public sealed class SyncToAsyncBridgeTests
         public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(new MemoryStream());
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            base.Dispose();
+            base.Dispose(disposing);
             throw new InvalidOperationException("dispose failed");
         }
     }
@@ -253,9 +253,17 @@ public sealed class SyncToAsyncBridgeTests
     }
 
     [Fact]
-    public async Task A_throwing_dispose_after_cancellation_faults_the_task_with_that_exception()
+    public async Task A_throwing_dispose_after_cancellation_cancels_the_task_and_reports_the_failure()
     {
-        // Ruling 3's accepted consequence until phase 3b's DisposeQuietly, which replaces this test.
+        // P3b-16: replaces the 2b pin that faulted the task; the dispose is quiet and its failure is reported.
+        using var source = new ActivitySource("Dexpace.Sdk.Core.Tests.Bridge");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == source.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var scope = source.StartActivity("call");
         using var scheduler = new RecordingTaskScheduler();
         using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -274,9 +282,12 @@ public sealed class SyncToAsyncBridgeTests
         release.Set();
         await CompletesOrTimesOut(task);
 
-        Assert.True(task.IsFaulted);
-        Assert.IsType<InvalidOperationException>(task.Exception!.InnerException);
-        Assert.Equal("dispose failed", task.Exception.InnerException.Message);
+        Assert.True(task.IsCanceled);
+        var reported = Assert.Single(scope!.Events);
+        Assert.Equal("exception", reported.Name);
+        var tags = reported.Tags.ToDictionary(t => t.Key, t => t.Value);
+        Assert.Equal(true, tags["dexpace.dispose.suppressed"]);
+        Assert.Equal(typeof(InvalidOperationException).FullName, tags["exception.type"]);
     }
 
     [Fact]

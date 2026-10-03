@@ -198,16 +198,36 @@ public sealed class Response : IAsyncDisposable, IDisposable
         }
     }
 
-    /// <inheritdoc/>
+    private int _disposed;
+
+    /// <summary>Disposes the response and its body, at most once across <see cref="Dispose"/> and <see cref="DisposeAsync"/>.</summary>
+    /// <remarks>
+    /// <b>Breaking:</b> disposing is now latched (HTTP-43, P3b-2). The first call releases the body; a release that throws
+    /// propagates from that call only, and every later call is a no-op.
+    /// </remarks>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         Body.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    /// <inheritdoc/>
+    /// <summary>Disposes the response and its body asynchronously, sharing <see cref="Dispose"/>'s latch.</summary>
+    /// <remarks>
+    /// <b>Breaking:</b> disposing is now latched (HTTP-43, P3b-2); see <see cref="Dispose"/>.
+    /// </remarks>
+    /// <returns>A task that completes when the body has been released.</returns>
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         await Body.DisposeAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }

@@ -324,4 +324,9 @@ BOM (verified: UTF-8 `"a"` is the single byte `61`).
 
 **As built (d45e64b):** partial: see §3.1's status line.
 
+**As built (2026-10-03, phase 3b):** built. The planned factories exist with these shapes: `FromFile(string path, MediaType? contentType = null, long offset = 0, long count = -1)`
+returning the public sealed `FileRequestBody`; `FromForm(IEnumerable<KeyValuePair<string, string>> fields)`; `Multipart(IEnumerable<MultipartPart> parts, string? boundary = null)`.
+`MultipartPart` is a public sealed **class** with a validating constructor, not a record (`with` would bypass the validation), so it is a new entry in the construction
+allow-list of `ModelConstructionArchitectureTests`, on the `Request` precedent (P3b-8). *Dated correction*.
+
 ---

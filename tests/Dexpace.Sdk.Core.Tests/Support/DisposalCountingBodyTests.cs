@@ -12,7 +12,7 @@ namespace Dexpace.Sdk.Core.Tests.Support;
 public sealed class DisposalCountingBodyTests
 {
     [Fact]
-    public async Task Dispose_and_DisposeAsync_each_increment_the_count()
+    public async Task Dispose_and_DisposeAsync_release_once()
     {
         var body = new DisposalCountingBody();
         Assert.Equal(0, body.DisposeCount);
@@ -21,7 +21,7 @@ public sealed class DisposalCountingBodyTests
         Assert.Equal(1, body.DisposeCount);
 
         await body.DisposeAsync();
-        Assert.Equal(2, body.DisposeCount);
+        Assert.Equal(1, body.DisposeCount);
     }
 
     [Fact]

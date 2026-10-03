@@ -183,16 +183,155 @@ public abstract class RequestBody
     }
 
     /// <summary>
-    /// Creates a single-use body that streams from <paramref name="source"/>. The source is read
-    /// exactly once; call <see cref="ToReplayableAsync"/> first if retries are needed.
+    /// Creates a replayable <c>application/x-www-form-urlencoded</c> body from <paramref name="fields"/>.
     /// </summary>
     /// <remarks>
+    /// The encoding is the WHATWG form serializer (HTTP-38, design P3b-7): each name and value is UTF-8 encoded, the bytes
+    /// <c>A-Z a-z 0-9 * - . _</c> stay literal, a space becomes <c>+</c> and everything else <c>%XX</c> in upper-case hex.
+    /// That differs from <c>Uri.EscapeDataString</c> (RFC 3986: <c>%20</c>, <c>~</c> literal, <c>*</c> encoded) and from
+    /// <c>WebUtility.UrlEncode</c> (<c>!()</c> literal). Order and duplicate names are kept. The content type carries no
+    /// charset, as WHATWG sends none. The result is the in-memory variant, so it compares by value.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var body = RequestBody.FromForm([new("grant_type", "client_credentials"), new("scope", "a b")]);
+    /// // grant_type=client_credentials&amp;scope=a+b
+    /// </code>
+    /// </example>
+    /// <param name="fields">The name/value pairs, in order; a name or value may be empty but not null.</param>
+    /// <returns>A replayable <see cref="RequestBody"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="fields"/> is null, or a name or value is null.</exception>
+    /// <exception cref="ArgumentException">A name or value holds a lone surrogate; the message names the field index only.</exception>
+    public static RequestBody FromForm(IEnumerable<KeyValuePair<string, string>> fields) =>
+        new BytesRequestBody(FormUrlEncoder.Encode(fields), CommonMediaTypes.ApplicationFormUrlEncoded);
+
+    /// <summary>
+    /// Creates a <c>multipart/form-data</c> body from <paramref name="parts"/> (HTTP-51, BODY-2).
+    /// </summary>
+    /// <remarks>
+    /// The body is replayable when every part is and its length is <c>-1</c> when any part's is; a non-replayable composite
+    /// refuses a second write before any byte. The part headers are computed once and used for both the length and the
+    /// write. The boundary is <c>dexpace-</c> plus 32 random alphanumerics unless one is supplied, and it is sent as a
+    /// quoted string when it is not a bare token. Nothing the body is given (the parts, their bodies or the destination)
+    /// is disposed. Equality is identity.
+    /// </remarks>
+    /// <param name="parts">The parts, in order; at least one (RFC 2046 section 5.1.1).</param>
+    /// <param name="boundary">A boundary of 1 to 70 RFC 2046 characters not ending in a space, or <see langword="null"/> to generate one.</param>
+    /// <returns>A <see cref="RequestBody"/> whose media type carries the boundary.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="parts"/> is null or holds a null part.</exception>
+    /// <exception cref="ArgumentException"><paramref name="parts"/> is empty, or <paramref name="boundary"/> is invalid.</exception>
+    public static RequestBody Multipart(IEnumerable<MultipartPart> parts, string? boundary = null)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        var copy = parts.ToArray();
+        if (copy.Length == 0)
+        {
+            throw new ArgumentException("A multipart body needs at least one part (RFC 2046 section 5.1.1).", nameof(parts));
+        }
+
+        if (copy.Any(p => p is null))
+        {
+            throw new ArgumentNullException(nameof(parts), "A part is null.");
+        }
+
+        if (boundary is null)
+        {
+            boundary = MultipartFraming.GenerateBoundary();
+        }
+        else
+        {
+            MultipartFraming.ValidateBoundary(boundary);
+        }
+
+        return new MultipartRequestBody(copy, boundary);
+    }
+
+    /// <summary>
+    /// Creates a replayable body over a byte range of the file at <paramref name="path"/> (HTTP-40, BODY-11).
+    /// </summary>
+    /// <remarks>
+    /// The path, the range and the size are validated now, and the size is captured: a missing file throws
+    /// <see cref="FileNotFoundException"/>, a directory throws <see cref="ArgumentException"/>, and a symbolic link is
+    /// resolved to its target before the size is taken. Nothing is opened until a write. There is no default media type:
+    /// the SDK does not guess one from an extension. See <see cref="FileRequestBody"/> for the handle, sharing and
+    /// special-file rules.
+    /// </remarks>
+    /// <param name="path">The path of the file.</param>
+    /// <param name="contentType">The media type, or <see langword="null"/>.</param>
+    /// <param name="offset">The byte offset at which to start; at most the file size.</param>
+    /// <param name="count">The number of bytes to send, or <c>-1</c> for the rest of the file.</param>
+    /// <returns>A replayable <see cref="FileRequestBody"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty, or names a directory.</exception>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="offset"/> or <paramref name="count"/> lies outside the file.
+    /// </exception>
+    public static FileRequestBody FromFile(string path, MediaType? contentType = null, long offset = 0, long count = -1)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var fullPath = Path.GetFullPath(path);
+        var size = MeasureFile(fullPath);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(offset, size);
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, -1L);
+        var resolved = count == -1 ? size - offset : count;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(resolved, size - offset, nameof(count));
+        return new FileRequestBody(fullPath, offset, resolved, contentType);
+    }
+
+    // The target's length (design fact 3: a link's own Length is its path's), and the type checks the platform can make.
+    private static long MeasureFile(string fullPath)
+    {
+        if (Directory.Exists(fullPath))
+        {
+            throw new ArgumentException("The path names a directory, not a file.");
+        }
+
+        var info = new FileInfo(fullPath);
+        FileSystemInfo target = info.LinkTarget is null ? info : info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
+        if (target is DirectoryInfo)
+        {
+            throw new ArgumentException("The path names a directory, not a file.");
+        }
+
+        if (!target.Exists || target is not FileInfo file)
+        {
+            throw new FileNotFoundException("The file does not exist.", fullPath);
+        }
+
+        if (OperatingSystem.IsWindows() && file.Attributes.HasFlag(FileAttributes.Device))
+        {
+            throw new ArgumentException("The path names a device, not a regular file.");
+        }
+
+        return file.Length;
+    }
+
+    /// <summary>
+    /// Creates a body that streams from <paramref name="source"/>: single-use, unless the source is readable and seekable
+    /// and the length is declared, in which case it is replayable (BODY-9).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Seekable sources (BODY-9, P3b-4).</b> A readable, seekable <paramref name="source"/> with a
+    /// <paramref name="contentLength"/> in <c>[0, Array.MaxLength]</c> gives a replayable body: it captures the stream's
+    /// position at construction, and every write, the first included, seeks to it and copies exactly
+    /// <paramref name="contentLength"/> bytes. The caller's stream position therefore moves, and the stream stays open and
+    /// the caller's to dispose (BODY-8). One write runs at a time: a concurrent second write throws
+    /// <see cref="InvalidOperationException"/> before touching the stream. A length of <c>-1</c> keeps the body single-use,
+    /// because the length is never inferred from <c>Length - Position</c> (that would turn a chunked upload into a
+    /// <c>Content-Length</c> one behind the caller's back). Equality is identity.
+    /// </para>
     /// <para>
     /// With a known <paramref name="contentLength"/> the body writes exactly that many bytes (HTTP-39): a source that ends
     /// early makes the write throw <see cref="EndOfStreamException"/> naming delivered-of-total, so the transport fails the
     /// send instead of framing a short body; a source with more bytes has the remainder left unread, because the body does
     /// not own the stream and reading one byte further could block on a live source (design position F); a length of zero
     /// performs no read. With <c>-1</c> the body copies to the end of the stream.
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> a readable, seekable source with a known length used to give a single-use body; it now gives a
+    /// replayable one that seeks the caller's stream before each write (BODY-9, BODY-35).
     /// </para>
     /// <para>
     /// <b>Breaking:</b> a known <paramref name="contentLength"/> used to be ignored by the copy, which ran to the end of
@@ -204,7 +343,7 @@ public abstract class RequestBody
     /// <param name="source">The stream to read the payload from.</param>
     /// <param name="contentType">The media type, or <see langword="null"/>.</param>
     /// <param name="contentLength">The known length, or <c>-1</c> if unknown.</param>
-    /// <returns>A single-use <see cref="RequestBody"/>.</returns>
+    /// <returns>A single-use <see cref="RequestBody"/>, or a replayable one for a seekable source with a known length.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="contentLength"/> is below <c>-1</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="source"/> is not readable.</exception>
     public static RequestBody FromStream(Stream source, MediaType? contentType = null, long contentLength = -1)
@@ -216,7 +355,9 @@ public abstract class RequestBody
             throw new ArgumentException("The source stream must be readable.", nameof(source));
         }
 
-        return new StreamRequestBody(source, contentType, contentLength);
+        return source.CanSeek && contentLength >= 0 && contentLength <= Array.MaxLength
+            ? new SeekableStreamRequestBody(source, contentType, contentLength)
+            : new StreamRequestBody(source, contentType, contentLength);
     }
 
     private sealed class BytesRequestBody(byte[] bytes, MediaType? contentType) : RequestBody
@@ -300,6 +441,58 @@ public abstract class RequestBody
                 throw new StreamConsumedException(
                     "This request body is single-use and has already been written. "
                     + "Call ToReplayableAsync() or ToReplayable() before the first send if retries are needed.");
+            }
+        }
+    }
+
+    // BODY-9: a readable, seekable stream with a declared length is replayable. Equality is identity (a live source).
+    private sealed class SeekableStreamRequestBody(Stream source, MediaType? contentType, long contentLength) : RequestBody
+    {
+        private readonly long _start = source.Position;
+        private int _inFlight;
+
+        public override MediaType? ContentType { get; } = contentType;
+
+        public override long ContentLength => contentLength;
+
+        public override bool IsReplayable => true;
+
+        public override async Task WriteToAsync(Stream destination, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(destination);
+            Enter();
+            try
+            {
+                source.Seek(_start, SeekOrigin.Begin);
+                await StreamCopy.CopyExactlyAsync(source, destination, contentLength, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Volatile.Write(ref _inFlight, 0);
+            }
+        }
+
+        public override void WriteTo(Stream destination, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(destination);
+            Enter();
+            try
+            {
+                source.Seek(_start, SeekOrigin.Begin);
+                StreamCopy.CopyExactly(source, destination, contentLength, cancellationToken);
+            }
+            finally
+            {
+                Volatile.Write(ref _inFlight, 0);
+            }
+        }
+
+        // At most one write rewinds the stream between two writes: a contender fails before touching it.
+        private void Enter()
+        {
+            if (Interlocked.Exchange(ref _inFlight, 1) != 0)
+            {
+                throw new InvalidOperationException("A seekable-stream body cannot be written concurrently.");
             }
         }
     }

@@ -33,6 +33,72 @@ public class RequestBodyContractTests
         _ => throw new ArgumentOutOfRangeException(nameof(variant)),
     };
 
+    // 3b: every replayable factory reports the same triple and writes identical bytes twice (HTTP-36, BODY-1, BODY-3).
+    // Phase 3b's file and multipart bodies are added to this list as they land.
+    public static TheoryData<string> ReplayableFactories => ["bytes", "string", "form", "seekable-stream", "file", "multipart"];
+
+    private static RequestBody CreateReplayable(string variant) => variant switch
+    {
+        "bytes" => RequestBody.FromBytes(s_payload, MediaType.Of("application", "octet-stream")),
+        "string" => RequestBody.FromString("hello"),
+        "form" => RequestBody.FromForm([new("k", "v v"), new("e", "\u00E9")]),
+        "seekable-stream" => RequestBody.FromStream(new MemoryStream(s_payload), contentLength: s_payload.Length),
+        "file" => RequestBody.FromFile(WriteTempFile(), MediaType.Of("text", "plain"), offset: 1, count: 3),
+        "multipart" => RequestBody.Multipart([new MultipartPart("n", RequestBody.FromBytes(s_payload), "f.bin")]),
+        _ => throw new ArgumentOutOfRangeException(nameof(variant)),
+    };
+
+    // The contract theory's files are small and left to the OS temp cleaner; the dedicated file tests clean up after themselves.
+    private static string WriteTempFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "dexpace-contract-" + Guid.NewGuid().ToString("N"));
+        File.WriteAllBytes(path, s_payload);
+        return path;
+    }
+
+    [Theory]
+    [MemberData(nameof(ReplayableFactories))]
+    public async Task Every_replayable_factory_reports_its_exact_length_and_writes_identical_bytes_twice(string variant)
+    {
+        var body = CreateReplayable(variant);
+
+        Assert.True(body.IsReplayable);
+        Assert.Same(body, await body.ToReplayableAsync(Token));
+        Assert.Same(body, body.ToReplayable(Token));
+        var writes = new List<byte[]>();
+        for (var i = 0; i < 2; i++)
+        {
+            using var asyncSink = new MemoryStream();
+            await body.WriteToAsync(asyncSink, Token);
+            using var syncSink = new MemoryStream();
+            body.WriteTo(syncSink, Token);
+            writes.Add(asyncSink.ToArray());
+            writes.Add(syncSink.ToArray());
+        }
+
+        Assert.All(writes, w => Assert.Equal(writes[0], w));
+        Assert.Equal(writes[0].LongLength, body.ContentLength);
+    }
+
+    [Theory]
+    [MemberData(nameof(ReplayableFactories))]
+    public async Task The_logging_wrapper_over_each_replayable_factory_keeps_the_contract(string variant)
+    {
+        var inner = CreateReplayable(variant);
+        var wrapped = new LoggingRequestBody(inner, 4);
+
+        Assert.True(wrapped.IsReplayable);
+        Assert.Equal(inner.ContentLength, wrapped.ContentLength);
+        Assert.Equal(inner.ContentType, wrapped.ContentType);
+        Assert.Same(wrapped, await wrapped.ToReplayableAsync(Token));
+        using var direct = new MemoryStream();
+        await inner.WriteToAsync(direct, Token);
+        using var viaWrapper = new MemoryStream();
+        await wrapped.WriteToAsync(viaWrapper, Token);
+        Assert.Equal(direct.ToArray(), viaWrapper.ToArray());
+        Assert.True(wrapped.Snapshot().Length <= 4);
+    }
+
     [Fact]
     public void A_test_local_subclass_reports_minus_one_and_not_replayable_and_its_unoverridden_WriteTo_throws_NotSupportedException_naming_the_subclass()
     {

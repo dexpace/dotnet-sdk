@@ -121,9 +121,32 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   they were unbounded. `RequestBody.ToReplayableAsync` throws `BodyTooLargeException` above `Array.MaxLength`, before
   writing when the length is known; it failed with an `IOException` or `OutOfMemoryException` after consuming the body.
   A response body's `OpenRead` after `OpenReadAsync` (or the reverse) throws `StreamConsumedException` (`IO-9`, `IO-11`).
+- **Breaking:** `ResponseBody.Dispose()` and `DisposeAsync()` are no longer virtual (`HTTP-41`, `BODY-15`); a subclass
+  overrides the new protected `Dispose(bool)` and `DisposeAsyncCore()`. Both are latched, so the release runs at most once
+  across any mix of the two, and a release that throws propagates once.
+- **Breaking:** `Response.Dispose()` and `DisposeAsync()` share one latch and forward to the body once (`HTTP-43`).
+- **Breaking:** `ReadAsBytesAsync`, `ReadAsStringAsync` and their sync twins dispose the body when they finish, on
+  success and on failure (`BODY-16`).
+- **Breaking:** `ReadAsStringAsync` and `ReadAsString` strip a leading byte-order mark that matches the resolved
+  charset's preamble (UTF-8, UTF-16, UTF-32); a mark that does not match the declared charset is kept (`HTTP-42`).
+- **Breaking:** a stream-backed response body opened after it was disposed throws `StreamClosedException`; the
+  second-open `StreamConsumedException` message now names the buffering route (`BODY-14`).
+- **Breaking (behaviour):** `AsAsync`: a throwing dispose of a response produced after cancellation no longer faults the
+  task; the task completes cancelled and the failure is reported on the current activity (design P3b-16).
+- **Breaking:** `RequestBody.FromStream` over a readable, seekable stream with a declared `contentLength` in
+  `[0, Array.MaxLength]` is replayable: it captures the stream's position at construction and seeks to it before every
+  write (the caller's stream position moves; the stream stays open). It used to be single-use. A length of `-1` is still
+  single-use (`BODY-9`, `BODY-35`).
 
 ### Added
 
+- `docs/sdk-documentation/bodies.md`; the AOT smoke covers the body surface (file, form, multipart, seekable replay, latched dispose).
+- `RequestBody.Multipart` and `MultipartPart`: a `multipart/form-data` body whose framing is computed once, with a random or
+  RFC 2046-validated boundary, a length guard per part, and part names that cannot break the framing (`HTTP-51`, `BODY-2`).
+- `RequestBody.FromFile` and `FileRequestBody`: a replayable body over a byte range of a file, with a fresh read-only handle
+  per write and the exact length (`HTTP-40`, `BODY-11`–`BODY-13`). On Unix a FIFO or device uploads as an empty body.
+- `RequestBody.FromForm`: a replayable `application/x-www-form-urlencoded` body from name/value pairs, encoded with the
+  WHATWG serializer (`HTTP-38`).
 - `docs/sdk-documentation/io.md`; the AOT smoke covers the sync body surface.
 - Synchronous body twins `RequestBody.WriteTo` / `ToReplayable` and `ResponseBody.OpenRead` / `ReadAsBytes` /
   `ReadAsString` (virtual; the base throws `NotSupportedException`, every SDK body overrides), `BodyTooLargeException`,

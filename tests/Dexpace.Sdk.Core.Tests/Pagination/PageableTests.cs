@@ -79,16 +79,10 @@ public class PageableTests
             return Task.FromResult<Stream>(new MemoryStream(Array.Empty<byte>(), writable: false));
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             Disposed = true;
-            base.Dispose();
-        }
-
-        public override ValueTask DisposeAsync()
-        {
-            Disposed = true;
-            return base.DisposeAsync();
+            base.Dispose(disposing);
         }
     }
 

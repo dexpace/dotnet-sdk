@@ -19,7 +19,9 @@ namespace Dexpace.Sdk.Core.Tests.Architecture;
 public sealed class ModelConstructionArchitectureTests
 {
     // The validating constructors (Request, Response), the parameterless records whose every init validates, and the
-    // two multimap builders. Anything else under Http.* is a new construction route and needs a design decision.
+    // two multimap builders, and MultipartPart (phase 3b, P3b-8: a sealed class with a validating constructor, not a record,
+    // so `with` cannot bypass validation; the Request precedent). Anything else under Http.* is a new construction route and
+    // needs a design decision.
     private static readonly string[] s_allowedConstructors =
     [
         "Dexpace.Sdk.Core.Http.Request.Request(Dexpace.Sdk.Core.Http.Common.Method, System.Uri, Dexpace.Sdk.Core.Http.Common.Headers, Dexpace.Sdk.Core.Http.Request.RequestBody)",
@@ -28,6 +30,7 @@ public sealed class ModelConstructionArchitectureTests
         "Dexpace.Sdk.Core.Http.Request.RequestConditions()",
         "Dexpace.Sdk.Core.Http.Common.Headers+Builder()",
         "Dexpace.Sdk.Core.Http.Request.Query+Builder()",
+        "Dexpace.Sdk.Core.Http.Request.MultipartPart(System.String, Dexpace.Sdk.Core.Http.Request.RequestBody, System.String)",
     ];
 
     public static TheoryData<Type> FactoryCreatedTypes() =>

@@ -42,6 +42,7 @@ internal static class SmokeChecks
             CheckSerdeProfiles();
             CheckOperationDescriptor();
             await CheckBodiesAndIoAsync();
+            await CheckPhase3bBodiesAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -268,11 +269,99 @@ internal static class SmokeChecks
         Expect(refused, "BodyTooLargeException is raised through the public path");
     }
 
+    // Phase 3b: the file, form and multipart bodies, the seekable promotion and the latched dispose, inside the published binary.
+    private static async Task CheckPhase3bBodiesAsync()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "dexpace-aot-smoke-" + Guid.NewGuid().ToString("N"));
+        await File.WriteAllBytesAsync(path, "0123456789abcdef"u8.ToArray());
+        try
+        {
+            var file = RequestBody.FromFile(path, offset: 4, count: 6);
+            using var fileAsync = new MemoryStream();
+            await file.WriteToAsync(fileAsync);
+            using var fileSync = new MemoryStream();
+            file.WriteTo(fileSync);
+            Expect(
+                file.IsReplayable && file.ContentLength == 6
+                    && fileAsync.ToArray().AsSpan().SequenceEqual("456789"u8) && fileSync.ToArray().AsSpan().SequenceEqual("456789"u8),
+                "FromFile writes its exact range in both forms");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+
+        // Design fact 6: the WHATWG serializer, not RFC 3986 and not WebUtility.
+        using var form = new MemoryStream();
+        RequestBody.FromForm([new("a b*-._~!'()\u00E9", "x")]).WriteTo(form);
+        Expect(
+            form.ToArray().AsSpan().SequenceEqual("a+b*-._%7E%21%27%28%29%C3%A9=x"u8),
+            "FromForm encodes with the WHATWG serializer");
+
+        var multipart = RequestBody.Multipart(
+            [new MultipartPart("field", RequestBody.FromBytes("value"u8.ToArray())), new MultipartPart("file", RequestBody.FromBytes("A"u8.ToArray(), MediaType.Parse("text/plain")), "a.txt")],
+            "B");
+        using var multipartSink = new MemoryStream();
+        await multipart.WriteToAsync(multipartSink);
+        Expect(
+            multipart.ContentLength == multipartSink.Length
+                && Encoding.UTF8.GetString(multipartSink.ToArray()).StartsWith("--B\r\nContent-Disposition: form-data; name=\"field\"\r\n\r\nvalue\r\n--B\r\n", StringComparison.Ordinal)
+                && Encoding.UTF8.GetString(multipartSink.ToArray()).EndsWith("--B--\r\n", StringComparison.Ordinal),
+            "Multipart frames its parts and reports the exact length");
+
+        var seekable = RequestBody.FromStream(new MemoryStream("seek"u8.ToArray()), contentLength: 4);
+        using var seekFirst = new MemoryStream();
+        using var seekSecond = new MemoryStream();
+        seekable.WriteTo(seekFirst);
+        seekable.WriteTo(seekSecond);
+        Expect(seekable.IsReplayable && seekFirst.Length == 4 && seekSecond.Length == 4, "a seekable known-length stream is replayable");
+
+        var counting = new ReleaseCountingBody();
+        var smoked = new Response(Request.Get("https://smoke.example.test/"), Status.Ok, Protocol.Http11, body: counting);
+        smoked.Dispose();
+        await smoked.DisposeAsync();
+        smoked.Dispose();
+        Expect(counting.Releases == 1, "a Response disposed three times releases its body once");
+
+        var gone = ResponseBody.FromStream(new MemoryStream());
+        await gone.DisposeAsync();
+        var closed = false;
+        try
+        {
+            await gone.OpenReadAsync();
+        }
+        catch (StreamClosedException)
+        {
+            closed = true;
+        }
+
+        Expect(closed, "a stream body opened after dispose throws StreamClosedException");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
         {
             throw new SmokeFailureException(what);
+        }
+    }
+
+    /// <summary>An empty body that counts how many times it was released.</summary>
+    private sealed class ReleaseCountingBody : ResponseBody
+    {
+        private int _releases;
+
+        public int Releases => Volatile.Read(ref _releases);
+
+        public override MediaType? ContentType => null;
+
+        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<Stream>(new MemoryStream());
+
+        protected override void Dispose(bool disposing)
+        {
+            Interlocked.Increment(ref _releases);
+            base.Dispose(disposing);
         }
     }
 

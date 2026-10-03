@@ -530,6 +530,7 @@ static Dexpace.Sdk.Core.Http.Request.Request.operator !=(Dexpace.Sdk.Core.Http.R
 static Dexpace.Sdk.Core.Http.Request.Request.operator ==(Dexpace.Sdk.Core.Http.Request.Request? left, Dexpace.Sdk.Core.Http.Request.Request? right) -> bool
 static Dexpace.Sdk.Core.Http.Request.Request.Post(string! url, Dexpace.Sdk.Core.Http.Request.RequestBody! body) -> Dexpace.Sdk.Core.Http.Request.Request!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromBytes(System.ReadOnlyMemory<byte> bytes, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+static Dexpace.Sdk.Core.Http.Request.RequestBody.FromForm(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! fields) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromStream(System.IO.Stream! source, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long contentLength = -1) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromString(string! text, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, System.Text.Encoding? encoding = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.FromValue<T>(T value, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
@@ -589,8 +590,10 @@ virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayable(System.Threading.
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayableAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Request.RequestBody!>!
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.WriteTo(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ContentLength.get -> long
-virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose() -> void
-virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose() -> void
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose(bool disposing) -> void
+Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsync() -> System.Threading.Tasks.ValueTask
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsyncCore() -> System.Threading.Tasks.ValueTask
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.OpenRead(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.IO.Stream!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytes(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> byte[]!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
@@ -599,3 +602,18 @@ virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsStringAsync(System.Thr
 override Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.Method.Equals(object? obj) -> bool
 ~override Dexpace.Sdk.Core.Http.Response.Status.Equals(object obj) -> bool
+Dexpace.Sdk.Core.Http.Request.FileRequestBody
+override Dexpace.Sdk.Core.Http.Request.FileRequestBody.ContentLength.get -> long
+override Dexpace.Sdk.Core.Http.Request.FileRequestBody.ContentType.get -> Dexpace.Sdk.Core.Http.Common.MediaType?
+Dexpace.Sdk.Core.Http.Request.FileRequestBody.FilePath.get -> string!
+override Dexpace.Sdk.Core.Http.Request.FileRequestBody.IsReplayable.get -> bool
+Dexpace.Sdk.Core.Http.Request.FileRequestBody.Offset.get -> long
+override Dexpace.Sdk.Core.Http.Request.FileRequestBody.WriteTo(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
+override Dexpace.Sdk.Core.Http.Request.FileRequestBody.WriteToAsync(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Dexpace.Sdk.Core.Http.Request.RequestBody.FromFile(string! path, Dexpace.Sdk.Core.Http.Common.MediaType? contentType = null, long offset = 0, long count = -1) -> Dexpace.Sdk.Core.Http.Request.FileRequestBody!
+Dexpace.Sdk.Core.Http.Request.MultipartPart
+Dexpace.Sdk.Core.Http.Request.MultipartPart.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+Dexpace.Sdk.Core.Http.Request.MultipartPart.FileName.get -> string?
+Dexpace.Sdk.Core.Http.Request.MultipartPart.MultipartPart(string! name, Dexpace.Sdk.Core.Http.Request.RequestBody! body, string? fileName = null) -> void
+Dexpace.Sdk.Core.Http.Request.MultipartPart.Name.get -> string!
+static Dexpace.Sdk.Core.Http.Request.RequestBody.Multipart(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Http.Request.MultipartPart!>! parts, string? boundary = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!

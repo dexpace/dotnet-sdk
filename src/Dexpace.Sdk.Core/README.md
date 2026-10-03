@@ -52,6 +52,10 @@ the SDK creates overrides them. `RequestBody.FromStream` with a known length wri
 `ReadAsBytesAsync` / `ReadAsStringAsync` refuse a body above `ResponseBody.DefaultMaxMaterializedBytes` (64 MiB) with
 `BodyTooLargeException`; stream a larger body through `OpenReadAsync`.
 
+`RequestBody` also has `FromForm` (WHATWG form encoding), `FromFile` (a byte range of a file, a fresh handle per write) and
+`Multipart`; `FromStream` over a seekable stream with a known length is replayable. `Response` and `ResponseBody` dispose at
+most once, the readers dispose the body, and a leading byte-order mark matching the charset is stripped from text.
+
 ## Links
 
 - Repository and design: <https://github.com/dexpace/dotnet-sdk>

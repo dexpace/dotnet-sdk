@@ -64,9 +64,9 @@ public sealed class ModelImmutabilityArchitectureTests
     [MemberData(nameof(Models))]
     public void Every_instance_field_is_readonly_except_the_documented_body_state(Type type)
     {
-        // Allow-list: Response's disposal state lives in its ResponseBody (single-use body state, design §4.5), so no
-        // model type has a mutable instance field today. A new entry here is a reviewed decision.
-        var allowed = new HashSet<string>(StringComparer.Ordinal);
+        // Allow-list: a new entry here is a reviewed decision. Response._disposed is the idempotent-close latch
+        // (HTTP-43, P3b-2, phase 3b); every other model type has no mutable instance field.
+        var allowed = new HashSet<string>(StringComparer.Ordinal) { "Response._disposed" };
 
         var mutable = type.GetFields(Declared)
             .Where(field => !field.IsInitOnly)

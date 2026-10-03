@@ -133,7 +133,7 @@ public class ResponseBodyTests
         await Assert.ThrowsAsync<BodyTooLargeException>(
             () => useAsync ? body.ReadAsBytesBoundedAsync(8, Token) : Task.FromResult(body.ReadAsBytesBounded(8, Token)));
 
-        // The reader's finally closed the stream it opened (BODY-16), even though nothing was read.
+        // The reader's finally released the body (BODY-16), even though nothing was read, and the source exactly once (BODY-15).
         Assert.Equal(1, counting.DisposeCount);
     }
 
@@ -267,14 +267,15 @@ public class ResponseBodyTests
     }
 
     [Fact]
-    public async Task ReadAsBytesAsync_disposes_the_stream_it_opened_on_failure()
+    public async Task ReadAsBytesAsync_releases_the_stream_exactly_once_on_failure()
     {
-        // A pin: the existing `await using` scope.
+        // A pin: the body release is the single dispose.
         using var counting = new DisposeCountingStream(new FailingWriteStreamAdapter());
         var body = ResponseBody.FromStream(counting);
 
         await Assert.ThrowsAsync<IOException>(() => body.ReadAsBytesAsync(Token));
 
+        // Exactly once: the reader's body release (BODY-16) is the only dispose of the source (BODY-15).
         Assert.Equal(1, counting.DisposeCount);
     }
 

@@ -181,7 +181,9 @@ Layered, bottom-up:
   fails otherwise. `DexpaceToolchainPackVersion` moves with `global.json`.
 - **Single-use bodies throw on second consumption.** `RequestBody.FromStream` /
   `ResponseBody.FromStream` raise `StreamConsumedException` the second time. Buffer first
-  (`ToReplayableAsync`) when retries are in play.
+  (`ToReplayableAsync`) when retries are in play. The exception: a `RequestBody.FromStream` over a readable, seekable
+  stream with a declared length is replayable (it seeks the caller's stream before each write). Disposal is latched: a
+  `Response` or `ResponseBody` releases at most once, and a `ResponseBody` subclass overrides `Dispose(bool)`, not `Dispose()`.
 - **Transports are ownership-aware, and the SDK is the only redirect authority.** A caller-supplied
   `System.Net.Http.HttpClient` is never disposed by `SystemNetHttpClient`; only an internally created one
   is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails.
@@ -238,9 +240,9 @@ run the probe once more before handing over.
 seams — the transport SPI taking `RequestOptions`, `DelegateHttpClient`, the serde profiles and `OperationDescriptor`,
 with `BaseAddress` now read — and phase 3a's I/O — the exact-length stream body, the sync body twins, the 64 MiB materialisation
 cap and the internal `IO/` helpers — are built, see `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md` and
-`docs/sdk-documentation/io.md`): the body lifecycle — file, form-urlencoded and multipart
-bodies, the logging body wrappers, and dispose latches (3b); the execution-context chain and the recovery
-chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
+`docs/sdk-documentation/io.md`; and phase 3b's bodies — the file, form-urlencoded and multipart bodies, the seekable stream
+promotion, the dispose latches, the BOM strip and the two internal logging wrappers — see `docs/sdk-documentation/bodies.md`):
+the execution-context chain and the recovery chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).
