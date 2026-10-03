@@ -11,6 +11,7 @@ abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Stage.get -> Dexpace.Sdk.C
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredentialAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<(string! HeaderName, string! HeaderValue)>
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.WithheldHeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
+const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
 Dexpace.Sdk.Core.Auth.AccessToken.AccessToken() -> void
 Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token, System.DateTimeOffset expiresOn) -> void
@@ -86,6 +87,10 @@ Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(System.Uri! uri) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor() -> void
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! queryAllowList) -> void
+Dexpace.Sdk.Core.Errors.BodyTooLargeException
+Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException() -> void
+Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException(string! message) -> void
+Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.DeserializationException
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException() -> void
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message) -> void
@@ -580,11 +585,16 @@ static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -
 virtual Dexpace.Sdk.Core.Auth.TokenCredential.GetToken(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Auth.AccessToken
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ContentLength.get -> long
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.IsReplayable.get -> bool
+virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayable(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayableAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Request.RequestBody!>!
+virtual Dexpace.Sdk.Core.Http.Request.RequestBody.WriteTo(System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ContentLength.get -> long
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.Dispose() -> void
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.DisposeAsync() -> System.Threading.Tasks.ValueTask
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.OpenRead(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.IO.Stream!
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytes(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> byte[]!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsBytesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsString(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> string!
 virtual Dexpace.Sdk.Core.Http.Response.ResponseBody.ReadAsStringAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
 override Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.Method.Equals(object? obj) -> bool

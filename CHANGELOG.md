@@ -116,9 +116,17 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `RequestBody.FromStream` with a known `contentLength` writes exactly that many bytes (a short source
   throws `EndOfStreamException`; a longer source's remainder is left unread); `FromStream` rejects `contentLength`
   below -1 on both bodies and a non-readable request source (`HTTP-39`, `IO-3`).
+- **Breaking:** `ResponseBody.ReadAsBytesAsync` and `ReadAsStringAsync` throw `BodyTooLargeException` for a body larger
+  than `ResponseBody.DefaultMaxMaterializedBytes` (64 MiB), before reading when the declared length is already above it;
+  they were unbounded. `RequestBody.ToReplayableAsync` throws `BodyTooLargeException` above `Array.MaxLength`, before
+  writing when the length is known; it failed with an `IOException` or `OutOfMemoryException` after consuming the body.
+  A response body's `OpenRead` after `OpenReadAsync` (or the reverse) throws `StreamConsumedException` (`IO-9`, `IO-11`).
 
 ### Added
 
+- Synchronous body twins `RequestBody.WriteTo` / `ToReplayable` and `ResponseBody.OpenRead` / `ReadAsBytes` /
+  `ReadAsString` (virtual; the base throws `NotSupportedException`, every SDK body overrides), `BodyTooLargeException`,
+  `ResponseBody.DefaultMaxMaterializedBytes` (`HTTP-36`, `IO-9`, `IO-11`).
 - `RS0030` entries for pooled-array rents, stream timeouts and `TextReader.ReadLine` (`IO-14`, `IO-22`, `IO-38`,
   `IO-40`).
 - `docs/sdk-documentation/seams.md`; the AOT smoke covers the seam surface.
