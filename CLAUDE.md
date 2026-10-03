@@ -126,6 +126,7 @@ dotnet-sdk/
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
+│   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
 │   │   └── Errors/                  # SdkException hierarchy, SerdeException
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
@@ -235,8 +236,10 @@ run the probe once more before handing over.
 **What is genuinely unbuilt** (the roadmap schedules each; the phase 2a domain-model rework — the `Headers` rebuild,
 `Request`/`Response` validation, `Query`, `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions` — and the phase 2b
 seams — the transport SPI taking `RequestOptions`, `DelegateHttpClient`, the serde profiles and `OperationDescriptor`,
-with `BaseAddress` now read — are built, see `docs/sdk-documentation/http.md` and `docs/sdk-documentation/seams.md`): the I/O and body lifecycle — file, form-urlencoded and multipart
-bodies, the logging body wrappers, and dispose latches (3); the execution-context chain and the recovery
+with `BaseAddress` now read — and phase 3a's I/O — the exact-length stream body, the sync body twins, the 64 MiB materialisation
+cap and the internal `IO/` helpers — are built, see `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md` and
+`docs/sdk-documentation/io.md`): the body lifecycle — file, form-urlencoded and multipart
+bodies, the logging body wrappers, and dispose latches (3b); the execution-context chain and the recovery
 chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release

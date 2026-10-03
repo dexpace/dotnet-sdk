@@ -67,3 +67,23 @@ M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan);Abandons a Response w
 M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
 M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
 M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+
+# Captured body bytes are never pooled (design §3.1, P3a-8; IO-22, IO-38): the only sanctioned rent is
+# Dexpace.Sdk.Core.IO.PooledChunk, behind a scoped pragma.
+M:System.Buffers.ArrayPool`1.Rent(System.Int32);Captured body bytes are never pooled; rent only through PooledChunk (design §3.1, P3a-8)
+M:System.Buffers.MemoryPool`1.Rent(System.Int32);Captured body bytes are never pooled; rent only through PooledChunk (design §3.1, P3a-8)
+
+# Core never sets stream timeouts; cancel through a CancellationToken (IO-40, design §3.1, P3a-14).
+P:System.IO.Stream.ReadTimeout;Core never sets stream timeouts; cancel through a CancellationToken (IO-40, design §3.1)
+P:System.IO.Stream.WriteTimeout;Core never sets stream timeouts; cancel through a CancellationToken (IO-40, design §3.1)
+
+# StreamReader.ReadLine splits on a lone CR; IO-14 keeps it as content, so use Utf8LineReader (IO-14, design §3.1, P3a-14).
+M:System.IO.TextReader.ReadLine;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.TextReader.ReadLineAsync;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.TextReader.ReadLineAsync(System.Threading.CancellationToken);StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StreamReader.ReadLine;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StreamReader.ReadLineAsync;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StreamReader.ReadLineAsync(System.Threading.CancellationToken);StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StringReader.ReadLine;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StringReader.ReadLineAsync;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+M:System.IO.StringReader.ReadLineAsync(System.Threading.CancellationToken);StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)

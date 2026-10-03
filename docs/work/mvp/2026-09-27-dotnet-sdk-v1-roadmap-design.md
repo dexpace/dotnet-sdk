@@ -264,7 +264,7 @@ ID in the clause is stated in that chapter.
 | 0 | Scaffold, Quality Gates and Repository Hygiene | repository root, `.github/`, `tools/Dexpace.Tools.sln`, all three existing `src/` projects, the new `tests/Dexpace.Sdk.Http.SystemNet.Tests` and `tests/Dexpace.Sdk.AotSmoke` (NativeAOT-published, non-packable), plus a new non-packable `tests/Dexpace.Sdk.TestSupport` for shared fakes | ch.20 — `NFR-1`–`NFR-17` stood up as machinery; none is closed here (phase 10 dispositions them) | §2.3, §2.4, §9, §9.1–§9.4 |
 | 1 | Security and Robustness Fixes (P0) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` | The nine defects S1–S9 below: `HTTP-17`, `HTTP-18`, `HTTP-26`, `XCUT-18`, `TRANSPORT-1`, `TRANSPORT-11`, `TRANSPORT-12`, `TRANSPORT-22`, `TRANSPORT-27`, `REDIR-7`, `REDIR-8`, `REDIR-9`, `REDIR-12`, `XCUT-17`, `AUTH-28`, `XCUT-16`, `OBS-11`–`OBS-15`, `XCUT-19`, `RETRY-44`, `PIPE-16`, `RETRY-18`, `RECOV-26`, `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | §3.2, §4.1, §4.2, §5.1, §6.1–§6.3, §8.1 |
 | 2 | Domain Model and Seam Foundations (2a domain model · 2b seams) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for 2a's `Response` construction, public header predicate and wire casing and 2b's SPI signature change (corrected 2026-09-29, per the lead's ruling of 2026-09-29 on open question 3 of the [phase 2 segmentation design](phase2/2026-09-29-phase2-segmentation-design.md): this cell read "for the SPI signature change only", but 2a also edits the adapter) | ch.02 and ch.04 — `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (41 IDs; corrected 2026-09-29, per the same ruling: this cell read "ch.04", but `HTTP-1` and `HTTP-2` are stated in ch.02); ch.03 and ch.02 — `SEAM-1`–`SEAM-30` (30); the IDs for `SEAM-5`/`SEAM-6`'s DI half travel to phase 9 | §3.4, §3.5, §3.6, §4, §4.1–§4.4, and §1, §3.1–§3.3, §3.7 (corrected 2026-09-29, per the same ruling: this cell omitted the sections that argue `SEAM-3`/`SEAM-4`, `SEAM-11`–`SEAM-18`, `SEAM-24`, `SEAM-25` and `SEAM-30`); segmentation design: [`phase2/2026-09-29-phase2-segmentation-design.md`](phase2/2026-09-29-phase2-segmentation-design.md); 2a design: [`phase2/phase2a/2026-09-29-phase2a-domain-model-design.md`](phase2/phase2a/2026-09-29-phase2a-domain-model-design.md); 2a plan: [`phase2/phase2a/2026-09-30-phase2a-domain-model.md`](phase2/phase2a/2026-09-30-phase2a-domain-model.md); 2b design: [`phase2/phase2b/2026-09-30-phase2b-seams-design.md`](phase2/phase2b/2026-09-30-phase2b-seams-design.md); 2b plan: [`phase2/phase2b/2026-09-30-phase2b-seams.md`](phase2/phase2b/2026-09-30-phase2b-seams.md) |
-| 3 | I/O and Body Lifecycle (3a I/O · 3b bodies) | `Dexpace.Sdk.Core` | ch.05 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` (12), which are numbered jointly into that chapter; the work for `HTTP-44`/`HTTP-45` lands in 7a | §3.1, §3.7, §4.5 |
+| 3 | I/O and Body Lifecycle (3a I/O · 3b bodies) | `Dexpace.Sdk.Core` | ch.05 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` (12), which are numbered jointly into that chapter; the work for `HTTP-44`/`HTTP-45` lands in 7a | §3.1, §3.7, §4.5; [3a design](phase3/phase3a/2026-10-02-phase3a-io-design.md) |
 | 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4 |
 | 5 | Configuration Model and Observability (5a configuration · 5b logging and redaction · 5c tracing and metrics) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for `traceparent` handling | ch.16 — `CFG-8`, `CFG-9`, `CFG-12`, `CFG-13`, `CFG-15`–`CFG-36` (the binding tier travels to phase 9); ch.15 — `OBS-1`–`OBS-40` (40) | §3.8, §8.1–§8.3 |
 | 6 | Retry, Redirect and Authentication Completion (6a retry · 6b redirect · 6c auth) | `Dexpace.Sdk.Core` | ch.09 — `RETRY-1`–`RETRY-45` (45); ch.10 — `REDIR-1`–`REDIR-28` (28); ch.11 — `AUTH-1`–`AUTH-38` (38); plus the work for the recovery-stack IDs `RECOV-17`–`RECOV-30` and `RECOV-34`, whose rows stay in phase 4 as ⏳ | §6.1–§6.3, §8.3 |
@@ -1386,4 +1386,34 @@ phase 9).
   `54aeed4` and `ruby-sdk@5b17395` are not in the local clones. The new `Core.Tests` classes use the namespaces
   `…Tests.Exceptions`, `…Clients` and `…Serdes`, because `…Errors`, `…Client` and `…Serialization` would shadow types for
   the older tests.
+- **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
+
+**2026-10-03 — Phase 3a: the I/O is built (six steps, rulings P3a-1 to P3a-15).** Sub-phase 3a landed on branch
+`49-phase-3a-io` (GitHub issue #49) as six steps, following the [design](phase3/phase3a/2026-10-02-phase3a-io-design.md) and the
+[plan](phase3/phase3a/2026-10-02-phase3a-io.md): PR 1 the copy primitives, the `RS0030` bans and the exact-length stream body;
+PR 2 `CapturedBytes`; PR 3 `TeeStream`; PR 4 `Utf8LineReader` and its vectors; PR 5 the sync body surface, bounded
+materialisation and `BodyTooLargeException`; PR 6 this close-out. Evidence is in the
+[checklist](phase3/phase3a/2026-10-03-phase3a-io-checklist.md), the user page
+[`io.md`](../../sdk-documentation/io.md), the dated corrections to design §3.1, §10 entries 4 and 6, §11 (items 44 and 45)
+and §12, and this note. 3a holds 43 rows: 26 ✅, four split rows (`IO-1`, `IO-2`, `IO-11`, `IO-17`) and 13 N/A.
+
+- **Rulings.** P3a-1 (the 43/48 split with 3b: `HTTP-36` and `HTTP-52` are 3b's rows), P3a-5 (virtual sync members with a
+  `NotSupportedException` default) and P3a-12 (the 64 MiB cap on the response side only) were accepted by the lead on
+  2026-10-02. P3a-3 (a second open throws in either form) amends design §10 entry 6; P3a-8 (captured bytes are never pooled,
+  and the build says so), P3a-9 (no `Buffer`; one windowing operation) and P3a-11 (U+FFFD decoding, BOM as content) are
+  carried by the §3.1 correction and §11 items 44 and 45.
+- **Breaking changes** (five, all in `CHANGELOG.md` `[Unreleased]`): a known-length `RequestBody.FromStream` writes exactly
+  its length; `FromStream` validates `contentLength` and a readable source; `ReadAsBytesAsync` and `ReadAsStringAsync` refuse
+  a body above 64 MiB; `ToReplayableAsync` refuses above `Array.MaxLength` before writing; a second open throws across
+  both forms.
+- **No `Security` class was edited.** `EnsureSuccessErrorMappingTests` passed unedited over the `HTTP-52` drain re-home.
+- **Hand-offs.** 3b: builds the request-logging wrapper on `TeeStream`, the response-logging wrapper on
+  `StreamCopy.DrainUpToAsync` and `CapturedBytes`, the file body on `CopyExactly` and `ShortTransferMessage`, and must give each
+  new variant a sync `WriteTo`/`OpenRead` sharing its consume latch; whichever of 3a's decode and 3b's `TextDecoding`
+  lands second converges both string readers (3a took the no-3b-yet branch: a private `ResponseBody.Decode`). 4c: builds
+  `ErrorBodyBuffer` and `ErrorMappingPolicy` over `DrainUpTo`, and a sync `EnsureSuccess`. 5a: makes
+  `DefaultMaxMaterializedBytes` configurable. 6a: decides retry's own buffering cap. 7a: the sync serde readers over
+  `OpenRead`. 7b: the SSE parser over `Utf8LineReader` in `Whatwg` mode (BOM strip, `InvalidDataException` mapping). 8a: the
+  per-transport `HTTP-39` proof. 8b: `SerializeToStream` calling `WriteTo`, and `HttpResponseMessageBody.OpenRead`, flipping the
+  latch before touching `HttpContent`.
 - **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.

@@ -41,6 +41,7 @@ internal static class SmokeChecks
             await CheckBridgesAndDelegateClientsAsync();
             CheckSerdeProfiles();
             CheckOperationDescriptor();
+            await CheckBodiesAndIoAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -212,6 +213,59 @@ internal static class SmokeChecks
         Expect(
             request.Url.AbsoluteUri == "https://smoke.example.test/v1/pets/a%2Fb?sig=abc&limit=10",
             "OperationDescriptor.BuildRequest composition");
+    }
+
+    // Phase 3a: the sync body twins, the exact-length stream body, the bounded materialisation and BodyTooLargeException,
+    // all through the public surface (the internal helpers are reached through these members; no reflection).
+    private static async Task CheckBodiesAndIoAsync()
+    {
+        using var sink = new MemoryStream();
+        RequestBody.FromBytes("abc"u8.ToArray()).WriteTo(sink);
+        Expect(sink.ToArray().AsSpan().SequenceEqual("abc"u8), "RequestBody.FromBytes WriteTo");
+
+        // A known-length FromStream writes exactly the declared bytes in both forms.
+        using var syncExact = new MemoryStream();
+        RequestBody.FromStream(new MemoryStream("0123456789"u8.ToArray()), contentLength: 4).WriteTo(syncExact);
+        using var asyncExact = new MemoryStream();
+        await RequestBody.FromStream(new MemoryStream("0123456789"u8.ToArray()), contentLength: 4).WriteToAsync(asyncExact);
+        Expect(syncExact.ToArray().AsSpan().SequenceEqual("0123"u8) && asyncExact.ToArray().AsSpan().SequenceEqual("0123"u8),
+            "known-length FromStream writes exactly its length in both forms");
+
+        // A short source is caught as EndOfStreamException.
+        var caughtShort = false;
+        try
+        {
+            RequestBody.FromStream(new MemoryStream("ab"u8.ToArray()), contentLength: 4).WriteTo(new MemoryStream());
+        }
+        catch (EndOfStreamException)
+        {
+            caughtShort = true;
+        }
+
+        Expect(caughtShort, "a short known-length source throws EndOfStreamException");
+
+        var replayable = RequestBody.FromStream(new MemoryStream("xyz"u8.ToArray())).ToReplayable();
+        using var again = new MemoryStream();
+        replayable.WriteTo(again);
+        replayable.WriteTo(again);
+        Expect(replayable.IsReplayable && again.Length == 6, "ToReplayable round trip is replayable");
+
+        var response = ResponseBody.FromBytes("hello"u8.ToArray(), MediaType.Parse("text/plain; charset=utf-8"));
+        Expect(response.ReadAsString() == "hello", "ResponseBody.ReadAsString");
+        Expect(ResponseBody.FromBytes("hello"u8.ToArray()).ReadAsBytes().Length == 5, "ResponseBody.ReadAsBytes");
+
+        // A declared length above the cap is refused before any read, so nothing near 64 MiB is allocated.
+        var refused = false;
+        try
+        {
+            ResponseBody.FromStream(new MemoryStream(), contentLength: ResponseBody.DefaultMaxMaterializedBytes + 1).ReadAsBytes();
+        }
+        catch (BodyTooLargeException)
+        {
+            refused = true;
+        }
+
+        Expect(refused, "BodyTooLargeException is raised through the public path");
     }
 
     private static void Expect(bool condition, string what)

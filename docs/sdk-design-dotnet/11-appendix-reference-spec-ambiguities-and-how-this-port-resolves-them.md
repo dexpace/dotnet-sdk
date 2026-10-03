@@ -243,3 +243,14 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     **SEAM-30**'s orphan. *Resolved* (§3.3, §5.3): `AsAsync` checks the token after `Execute` returns, disposes a response
     produced once it is signalled, and completes the task cancelled, so the response is closed exactly once and never
     surfaces. The disposal is direct, so a throwing `Dispose` faults the task until phase 3b's `DisposeQuietly` replaces it.
+44. **IO-10 asks `copyTo(offset, count)` to reject an out-of-range window, while IO-21 asks `slice(offset, count)` to accept an
+    overflowing offset lazily.** *Added by dated correction, 2026-10-03 (phase 3a, P3a-9).* In the reference these are two
+    operations on two types (a `Buffer` and a view). The port ships neither the `Buffer` (**IO-7**) nor a second windowing
+    operation: it has one, `CapturedBytes.Slice`, whose consumers all want "give me what is there, up to this much". *Resolved*
+    (§3.1): the single operation follows **IO-21**'s lazy rule, and **IO-10**'s copy and clear clauses retire with the
+    `Buffer`. Neither clause's letter has a .NET subject, so this is a reading, not a §10 deviation.
+45. **IO-14 says only "decoded as UTF-8", leaving malformed bytes and a byte-order mark open.** *Added by dated correction,
+    2026-10-03 (phase 3a, P3a-11).* *Resolved* (§3.1): `Utf8LineReader` replaces a malformed sequence with U+FFFD, which is
+    what `Encoding.UTF8.GetString` and WHATWG's decode rule do, rather than throwing, so one bad byte cannot kill an event
+    stream; and it keeps a byte-order mark as ordinary content on every line, in both terminator modes. Phase 7b strips the
+    leading BOM at stream start.
