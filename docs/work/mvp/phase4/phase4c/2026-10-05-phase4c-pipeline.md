@@ -1,11 +1,11 @@
 # Phase 4c — Pipeline Rework: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-05 against `main` at `0332cef` (phases 2a, 2b, 3a and 3b merged; 4a and 4b
-are not in the tree). Design: [phase 4c pipeline design](../specs/2026-10-05-phase4c-pipeline-design.md), the authority for
+are not in the tree). Design: [phase 4c pipeline design](2026-10-05-phase4c-pipeline-design.md), the authority for
 every decision below. The plan cites its rows, positions (A–I), facts (1–12) and rulings (`P4c-1`…`P4c-23`) rather than
 restating them. Scope authority: the roadmap's Phase 4 card and Phase List row 4. Format precedent: the
-[3a plan](../../work/mvp/phase3/phase3a/2026-10-02-phase3a-io.md) and the
-[3b plan](../../work/mvp/phase3/phase3b/2026-10-02-phase3b-bodies.md) (both read first).
+[3a plan](../../phase3/phase3a/2026-10-02-phase3a-io.md) and the
+[3b plan](../../phase3/phase3b/2026-10-02-phase3b-bodies.md) (both read first).
 
 **What this document is.** The roadmap's step 3 for sub-phase 4c: numbered TDD tasks in the design's landing order (six
 pull-request-sized steps), each with its failing tests, production change, `PublicAPI.Unshipped.txt` diff, **Breaking**

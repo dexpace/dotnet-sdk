@@ -1,11 +1,11 @@
 # Phase 4a — Execution Context: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-05 against `main` at `0332cef` (2a, 2b, 3a and 3b merged).
-Design: [phase 4a execution-context design](../specs/2026-10-05-phase4a-context-design.md), the authority for every
+Design: [phase 4a execution-context design](2026-10-05-phase4a-context-design.md), the authority for every
 decision below. The plan cites its rows, positions (A–E), facts (1–8) and rulings (`P4a-1`…`P4a-16`) rather than
 restating them. Scope authority: the roadmap's Phase 4 card and Phase List row 4. Format precedent: the
-[3a plan](../../work/mvp/phase3/phase3a/2026-10-02-phase3a-io.md) and the
-[3b plan](../../work/mvp/phase3/phase3b/2026-10-02-phase3b-bodies.md).
+[3a plan](../../phase3/phase3a/2026-10-02-phase3a-io.md) and the
+[3b plan](../../phase3/phase3b/2026-10-02-phase3b-bodies.md).
 
 **What this document is.** The roadmap's step 3 for sub-phase 4a: numbered TDD tasks in the design's landing order (five
 pull-request-sized steps), each with its failing tests, production change, `PublicAPI.Unshipped.txt` diff,

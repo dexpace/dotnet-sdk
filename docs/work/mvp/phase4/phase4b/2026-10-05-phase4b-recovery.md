@@ -1,12 +1,12 @@
 # Phase 4b — Recovery Chain: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-05 against `main` at `0332cef` (2a, 2b, 3a and 3b merged).
-Design: [phase 4b recovery design](../specs/2026-10-05-phase4b-recovery-design.md), the authority for every decision below.
+Design: [phase 4b recovery design](2026-10-05-phase4b-recovery-design.md), the authority for every decision below.
 The plan cites its rows, positions (A–G), facts (1–10) and rulings (`P4b-1`…`P4b-26`) rather than restating them, and
 changes none. Scope authority: the roadmap's Phase 4 card and Phase List row 4
 (`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`). Format precedent: the
-[3a plan](../../work/mvp/phase3/phase3a/2026-10-02-phase3a-io.md) and the
-[3b plan](../../work/mvp/phase3/phase3b/2026-10-02-phase3b-bodies.md). This file is filed to
+[3a plan](../../phase3/phase3a/2026-10-02-phase3a-io.md) and the
+[3b plan](../../phase3/phase3b/2026-10-02-phase3b-bodies.md). This file is filed to
 `docs/work/mvp/phase4/phase4b/` by the housekeeping `apply` step of task 7.6.
 
 **What this document is.** The roadmap's step 3 for sub-phase 4b: numbered TDD tasks in the design's landing order (seven
