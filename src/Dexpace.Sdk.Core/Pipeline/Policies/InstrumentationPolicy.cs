@@ -52,25 +52,17 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </list>
 /// </para>
 /// <para>
+/// <b>Structure.</b> The attempt is split into an <c>AttemptScope</c> (the lazily redacted URL and the entry timestamp),
+/// <c>AttemptTelemetry</c> (the span and the instruments) and <c>HttpLogEmitter</c> (the log events); this method only
+/// orchestrates them.
+/// </para>
+/// <para>
 /// <b>Logging.</b> Structured <see cref="ILogger"/> events are emitted at
 /// <see cref="LogLevel.Debug"/> with the redacted URL. Secrets are never logged.
 /// </para>
 /// </remarks>
-public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
+public sealed class InstrumentationPolicy : HttpPipelinePolicy
 {
-    // Instruments are created once from the shared Meter.
-    private static readonly Histogram<double> s_requestDuration =
-        DexpaceDiagnostics.Meter.CreateHistogram<double>(
-            "http.client.request.duration",
-            unit: "s",
-            description: "Duration of HTTP client requests.");
-
-    private static readonly UpDownCounter<long> s_activeRequests =
-        DexpaceDiagnostics.Meter.CreateUpDownCounter<long>(
-            "http.client.active_requests",
-            unit: "{request}",
-            description: "Number of HTTP requests currently in flight.");
-
     private static readonly UrlRedactor s_redactor = new();
 
     private readonly ILogger _logger;
@@ -98,119 +90,34 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
     public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
         SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(InstrumentationPolicy));
 
-    // MA0051 waiver: interleaved log, span and metric handling. Roadmap phase 5 (5b's LoggerMessage delegates and
-    // emission guard, 5c's operation-level Activity and metric rework) restructures this method; splitting it now would
-    // be rewritten there.
-#pragma warning disable MA0051
     private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var method = request.Method.Name;
-        var redactedUrl = s_redactor.Redact(request.Url);
-
-        // Start a client-kind Activity only when there are listeners; null if none.
-        using var activity = DexpaceDiagnostics.ActivitySource.StartActivity(
-            method,
-            ActivityKind.Client);
-
-        // The span and its trace-context header travel downstream on a copy of the context and the request passed to
-        // continuation; nothing is restored afterwards because nothing upstream could observe the write (PIPE-16).
-        var outgoing = request;
-        var downstream = context;
-        if (activity is not null)
-        {
-            activity.SetTag("http.request.method", method);
-            activity.SetTag("url.full", redactedUrl);
-            activity.SetTag("url.scheme", request.Url.Scheme);
-            activity.SetTag("server.address", request.Url.Host);
-            activity.SetTag("server.port", request.Url.IsDefaultPort ? -1 : request.Url.Port);
-            activity.SetTag("http.request.resend_count", context.AttemptNumber);
-
-            // Inject W3C trace context onto the request so any transport carries the span.
-            if (activity.IdFormat == ActivityIdFormat.W3C && activity.Id is not null)
-            {
-                var headers = request.Headers.Set("traceparent", activity.Id);
-                if (!string.IsNullOrEmpty(activity.TraceStateString))
-                {
-                    headers = headers.Set("tracestate", activity.TraceStateString);
-                }
-
-                outgoing = request.WithHeaders(headers);
-            }
-
-            downstream = context.WithActivity(activity);
-        }
-
-        LogSendingRequest(_logger, method, redactedUrl);
-
-        var sw = Stopwatch.StartNew();
-        var methodTag = new TagList { { "http.request.method", method } };
-        s_activeRequests.Add(1, methodTag);
-
+        var scope = new AttemptScope(request, context, s_redactor);
+        var telemetry = AttemptTelemetry.Begin(ref scope, request, context);
+        HttpLogEmitter.OnRequest(_logger, ref scope);
         try
         {
             var response = async
-                ? await continuation.RunAsync(outgoing, downstream).ConfigureAwait(false)
-                : continuation.Run(outgoing, downstream);
+                ? await continuation.RunAsync(telemetry.Outgoing, telemetry.Downstream).ConfigureAwait(false)
+                : continuation.Run(telemetry.Outgoing, telemetry.Downstream);
 
-            var statusCode = response.Status.Code;
-            activity?.SetTag("http.response.status_code", statusCode);
-            LogReceivedResponse(_logger, method, statusCode, redactedUrl);
-
-            var durationTags = new TagList
-            {
-                { "http.request.method", method },
-                { "http.response.status_code", statusCode },
-            };
-            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+            telemetry.Succeeded(response, ref scope);
+            HttpLogEmitter.OnResponse(_logger, ref scope, response.Status.Code);
             return response;
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
-            if (activity is not null)
-            {
-                activity.SetTag("error.type", ex.GetType().FullName);
-                activity.SetStatus(ActivityStatusCode.Error, ex.Message);
-            }
-
-            LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
-
-            var durationTags = new TagList
-            {
-                { "http.request.method", method },
-                { "error.type", ex.GetType().FullName },
-            };
-            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-
+            telemetry.Failed(ex, ref scope);
+            HttpLogEmitter.OnFailure(_logger, ref scope, ex);
             throw;
         }
         finally
         {
-            s_activeRequests.Add(-1, methodTag);
+            telemetry.End();
         }
     }
-#pragma warning restore MA0051
-
-    // ─── Source-generated zero-alloc logger messages ──────────────────────────
-
-    [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Debug,
-        Message = "Sending {Method} request to {Url}")]
-    private static partial void LogSendingRequest(ILogger logger, string method, string url);
-
-    [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Debug,
-        Message = "Received {Method} response {StatusCode} from {Url}")]
-    private static partial void LogReceivedResponse(ILogger logger, string method, int? statusCode, string url);
-
-    [LoggerMessage(
-        EventId = 3,
-        Level = LogLevel.Warning,
-        Message = "Request {Method} to {Url} failed with {ErrorType}")]
-    private static partial void LogRequestFailed(ILogger logger, Exception ex, string method, string url, string errorType);
 }
