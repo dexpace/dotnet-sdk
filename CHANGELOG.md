@@ -140,6 +140,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 
 ### Added
 
+- `docs/sdk-documentation/execution-context.md`.
+- The AOT smoke covers the execution-context chain.
+- The execution-context chain: `DispatchContext`, `RequestContext`, `ExchangeContext` (`PromoteToRequest`/`PromoteToExchange`,
+  `Close`), the bounded context store and `DexpaceCallContexts.TryGet` (`CTX-1`-`CTX-3`, `CTX-5`, `CTX-7`-`CTX-10`,
+  `CTX-16`-`CTX-18`).
+- `CallKey` and `InstrumentationContext` in `Dexpace.Sdk.Core.Execution`: the call key and the correlation bundle (`CTX-4`,
+  `CTX-6`, `CTX-14`, `CTX-15`, `CTX-20`).
+- `RS0030` entry for `AsyncLocal<T>` in the library projects (design §5.4); internal `BoundedMap`, the SDK's one
+  bounded-map implementation (`CTX-11`, `CTX-12`).
 - `docs/sdk-documentation/bodies.md`; the AOT smoke covers the body surface (file, form, multipart, seekable replay, latched dispose).
 - `RequestBody.Multipart` and `MultipartPart`: a `multipart/form-data` body whose framing is computed once, with a random or
   RFC 2046-validated boundary, a length guard per part, and part names that cannot break the framing (`HTTP-51`, `BODY-2`).

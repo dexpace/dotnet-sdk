@@ -125,8 +125,10 @@ dotnet-sdk/
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor
+│   │   ├── Execution/               # CallKey, InstrumentationContext, the three context records, DexpaceCallContexts
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
+│   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
 │   │   └── Errors/                  # SdkException hierarchy, SerdeException
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
@@ -241,8 +243,8 @@ seams — the transport SPI taking `RequestOptions`, `DelegateHttpClient`, the s
 with `BaseAddress` now read — and phase 3a's I/O — the exact-length stream body, the sync body twins, the 64 MiB materialisation
 cap and the internal `IO/` helpers — are built, see `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md` and
 `docs/sdk-documentation/io.md`; and phase 3b's bodies — the file, form-urlencoded and multipart bodies, the seekable stream
-promotion, the dispose latches, the BOM strip and the two internal logging wrappers — see `docs/sdk-documentation/bodies.md`):
-the execution-context chain and the recovery chain (4), layered configuration and body/header logging (5), the auth resolver with RFC 7235
+promotion, the dispose latches, the BOM strip and the two internal logging wrappers — see `docs/sdk-documentation/bodies.md`; and phase 4a's execution-context chain, see `docs/sdk-documentation/execution-context.md`):
+the recovery chain and the pipeline rework (4b, 4c), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

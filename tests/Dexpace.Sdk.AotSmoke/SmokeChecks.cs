@@ -9,6 +9,7 @@ using System.Text;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
@@ -43,6 +44,7 @@ internal static class SmokeChecks
             CheckOperationDescriptor();
             await CheckBodiesAndIoAsync();
             await CheckPhase3bBodiesAsync();
+            CheckExecutionContext();
         }
         catch (SmokeFailureException failure)
         {
@@ -267,6 +269,22 @@ internal static class SmokeChecks
         }
 
         Expect(refused, "BodyTooLargeException is raised through the public path");
+    }
+
+    // Phase 4a: mint, promote twice, look up, close, look up again; no reflection.
+    private static void CheckExecutionContext()
+    {
+        var key = CallKey.Next();
+        var request = new Request(Method.Get, s_endpoint);
+        using var response = new Response(request, Status.Ok, Protocol.Http11);
+        var dispatch = new DispatchContext(InstrumentationContext.None, key);
+        var exchange = dispatch.PromoteToRequest(request, "smoke").PromoteToExchange(response);
+
+        Expect(DexpaceCallContexts.TryGet(key, out var found) && ReferenceEquals(found, exchange), "TryGet returns the exchange link");
+        exchange.Close();
+        Expect(!DexpaceCallContexts.TryGet(key, out _), "TryGet is absent after Close");
+        exchange.Close();
+        Expect(InstrumentationContext.None.StartActivity("smoke") is null, "None starts no activity");
     }
 
     // Phase 3b: the file, form and multipart bodies, the seekable promotion and the latched dispose, inside the published binary.

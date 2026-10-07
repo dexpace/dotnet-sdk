@@ -56,6 +56,13 @@ the SDK creates overrides them. `RequestBody.FromStream` with a known length wri
 `Multipart`; `FromStream` over a seekable stream with a known length is replayable. `Response` and `ResponseBody` dispose at
 most once, the readers dispose the body, and a leading byte-order mark matching the charset is stripped from text.
 
+## Execution context
+
+`Dexpace.Sdk.Core.Execution` holds the per-call context chain: `DispatchContext`, promoted one way to `RequestContext` and
+`ExchangeContext` (`PromoteToRequest`, `PromoteToExchange`), a `CallKey` shared by every link, the `InstrumentationContext`
+correlation bundle, and `DexpaceCallContexts.TryGet` over a bounded registry. Call `Close()` on the furthest link when the
+call ends.
+
 ## Links
 
 - Repository and design: <https://github.com/dexpace/dotnet-sdk>
