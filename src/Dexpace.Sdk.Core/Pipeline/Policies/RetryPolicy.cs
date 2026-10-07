@@ -39,10 +39,9 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// is used; otherwise the delay is drawn from a uniform random distribution over
 /// <c>[0, min(BaseDelay × 2^attempt, MaxDelay)]</c> (full jitter). The
 /// <see cref="TimeProvider"/> passed to the constructor drives both the current-time lookup
-/// (for HTTP-date parsing) and the <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/>
-/// overload so tests can control delays without real sleeps. Every delay, hinted or computed, is clamped to 365
-/// days, and a delay longer than <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/> accepts is
-/// waited as successive shorter waits.
+/// (for HTTP-date parsing) and both waits, <see cref="TimeProviderWaits.DelayAsync"/> and
+/// <see cref="TimeProviderWaits.Sleep"/>, so tests can control delays without real sleeps. Every delay, hinted or
+/// computed, is clamped to 365 days, and a delay longer than a timer accepts is waited as successive shorter waits.
 /// </para>
 /// <para>
 /// <b>Request isolation:</b> every attempt is driven with the request held at entry, so a retry never carries what a
@@ -69,7 +68,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     /// </summary>
     /// <param name="timeProvider">
     /// The time source used to obtain the current UTC instant (for <c>Retry-After</c> HTTP-date
-    /// parsing) and to drive <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/>.
+    /// parsing) and to drive <see cref="TimeProviderWaits"/>.
     /// Defaults to <see cref="TimeProvider.System"/> when <see langword="null"/>.
     /// </param>
     public RetryPolicy(TimeProvider? timeProvider = null)
@@ -252,21 +251,23 @@ public sealed class RetryPolicy : HttpPipelinePolicy
         return delay > s_maxPacingDelay ? s_maxPacingDelay : delay;
     }
 
-    // The async path awaits Task.Delay over the TimeProvider; the sync path is a genuine blocking wait. Both run a delay
-    // above the timer's ceiling as successive bounded waits (S7).
+    // Both paths run through TimeProviderWaits (CFG-15, CFG-18): the async path awaits a timer, the sync path is a genuine
+    // blocking wait, and each runs a delay above the timer's ceiling as successive bounded waits (S7). A non-positive
+    // delay is skipped so a hinted zero never arms a timer.
     private async ValueTask SleepAsync(TimeSpan delay, bool async, CancellationToken cancellationToken)
     {
-        if (!async)
+        if (delay <= TimeSpan.Zero)
         {
-            BlockingWait.Wait(delay, _timeProvider, cancellationToken);
             return;
         }
 
-        while (delay > TimeSpan.Zero)
+        if (async)
         {
-            var wait = delay < BlockingWait.MaxSingleWait ? delay : BlockingWait.MaxSingleWait;
-            await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
-            delay -= wait;
+            await _timeProvider.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            _timeProvider.Sleep(delay, cancellationToken);
         }
     }
 }

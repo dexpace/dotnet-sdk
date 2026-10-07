@@ -19,8 +19,8 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// both follow redirects (PIPE-32, REDIR-25; design §10 entry 14, topic <c>async-redirect-pillar</c>). A caller who
 /// wants the 3xx verbatim sets <c>MaxRedirects</c> to zero or builds without <see cref="RedirectPolicy"/>.
 /// Because <see cref="PipelineBuilder"/> sorts by stage, the insertion order of the <c>Add</c> calls does not affect the
-/// final ordering. The async backoff is <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/> over the
-/// <see cref="TimeProvider"/>, and the synchronous wait is a genuine blocking wait (PIPE-39).
+/// final ordering. The async backoff is <see cref="Configuration.TimeProviderWaits.DelayAsync"/> over the
+/// <see cref="TimeProvider"/>, and the synchronous wait is <see cref="Configuration.TimeProviderWaits.Sleep"/>, a genuine blocking wait (PIPE-39).
 /// </remarks>
 public static class DexpacePipeline
 {

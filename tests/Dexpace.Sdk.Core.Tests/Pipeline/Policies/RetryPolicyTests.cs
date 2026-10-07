@@ -610,4 +610,62 @@ public sealed class RetryPolicyTests
 
         Assert.True(started.Elapsed < TimeSpan.FromMinutes(1));
     }
+
+    // -------------------------------------------------------------------------
+    // The waits (CFG-15, CFG-18; RETRY-26, XCUT-3) — a pin, proven able to fail by waiting outside the TimeProvider.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_sync_and_async_waits_use_the_policys_TimeProvider_and_the_same_delay()
+    {
+        var headers = new Headers.Builder().Set("Retry-After", "7").Build();
+        var asyncClock = new RecordingClock();
+        var syncClock = new RecordingClock();
+
+        foreach (var (clock, async) in new[] { (asyncClock, true), (syncClock, false) })
+        {
+            var transport = new ScriptedTransport(
+                TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+                TestResponses.Create(Status.Ok, MakeGetRequest()));
+            var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+            var token = TestContext.Current.CancellationToken;
+
+            using var response = async
+                ? await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), token)
+                : pipeline.Send(MakeGetRequest(), MakeOptions(), token);
+
+            Assert.Equal(Status.Ok, response.Status);
+        }
+
+        Assert.Equal([TimeSpan.FromSeconds(7)], asyncClock.DueTimes);
+        Assert.Equal([TimeSpan.FromSeconds(7)], syncClock.DueTimes);
+    }
+
+    private sealed class RecordingClock : TimeProvider
+    {
+        private readonly List<TimeSpan> _dueTimes = [];
+
+        public IReadOnlyList<TimeSpan> DueTimes
+        {
+            get
+            {
+                lock (_dueTimes)
+                {
+                    return [.. _dueTimes];
+                }
+            }
+        }
+
+        public override DateTimeOffset GetUtcNow() => InstantTimeProvider.DefaultUtcNow;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            lock (_dueTimes)
+            {
+                _dueTimes.Add(dueTime);
+            }
+
+            return base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+        }
+    }
 }

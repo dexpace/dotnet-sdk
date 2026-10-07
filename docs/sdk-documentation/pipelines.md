@@ -131,7 +131,7 @@ kept by the transport (S3). A caller who wants the 3xx verbatim sets `MaxRedirec
 ## The synchronous path, and its residuals
 
 `Send` drives `Process` all the way down; the retry policy waits with a genuine blocking wait over the `TimeProvider`
-(`BlockingWait`, no task under it). Two residuals remain, both documented bridges: `BearerTokenAuthPolicy` resolves its
+(`TimeProviderWaits.Sleep`, no task under it). Two residuals remain, both documented bridges: `BearerTokenAuthPolicy` resolves its
 token through the async token cache until phase 6c gives `AccessTokenCache` a synchronous path, and
 `SystemNetHttpClient.Execute` blocks on the async send until phase 8b (`PIPE-28`).
 

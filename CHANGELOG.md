@@ -208,6 +208,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `DexpaceClientOptions.BaseAddress` is validated when it is set (absolute `http`/`https`, no fragment): an
   `ArgumentException` at the assignment, not at `OperationDescriptor.BuildRequest`; `UserAgent`, `Retry` and `Redirect`
   reject `null`. Phase 5b's `DexpaceClientOptions.Logging` is an `init` property too (ruling P5b-5), still rejecting `null`.
+- Internal gate: `BannedSymbols.txt` bans `Thread.Sleep`, every `Task.Delay` overload, `DateTime`/`DateTimeOffset`
+  `Now`/`UtcNow`/`Today` and the `Environment` variable readers in `src/` (`CFG-15`, `CFG-16`, `CFG-28`); no
+  consumer-visible change.
 
 ### Added
 
@@ -338,5 +341,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   internal ownership-moving `Response.ReplaceBody` that keeps the exchange link across the swap (P5b-13).
 - `docs/sdk-documentation/logging-and-redaction.md`; the AOT smoke covers body-level logging; `docs/knowledge/notes/observability.md`
   records the departure from styleguide 6.2.
+- `TimeProviderWaits.Sleep` and `DelayAsync`: the blocking interruptible sleep and the awaitable delay over
+  `TimeProvider`, both rejecting a negative delay (the BCL's `-1 ms` means "wait forever") and chunking past ~49.7 days
+  (`CFG-15`, `CFG-17`, `CFG-18`). `RetryPolicy` waits through them. Internal: `LateResult`, the cooperative form of
+  `CFG-21` and the one `Task<T>.WaitAsync` site.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

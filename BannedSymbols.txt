@@ -62,13 +62,13 @@ T:System.Console;Libraries never write to the console; log through ILogger (styl
 # caller that stopped awaiting. TaskCompletionSource<T>.SetResult/TrySetResult and every Task<T>.WaitAsync overload
 # are the two ways to build that race, so reintroducing either needs a scoped `#pragma warning disable RS0030` citing
 # SEAM-30. The non-generic TaskCompletionSource and Task.WaitAsync carry no Response and stay allowed.
-M:System.Threading.Tasks.TaskCompletionSource`1.SetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30 (design §3.3, §3.7)
-M:System.Threading.Tasks.TaskCompletionSource`1.TrySetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30 (design §3.3, §3.7)
-M:System.Threading.Tasks.Task`1.WaitAsync(System.Threading.CancellationToken);Abandons a Response when the token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
-M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
-M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
-M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
-M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30 (design §3.3, §5.3)
+M:System.Threading.Tasks.TaskCompletionSource`1.SetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §3.7)
+M:System.Threading.Tasks.TaskCompletionSource`1.TrySetResult(`0);Can orphan a Response against a cancelled caller; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §3.7)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.Threading.CancellationToken);Abandons a Response when the token fires first; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider);Abandons a Response when the timeout fires first; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §5.3)
+M:System.Threading.Tasks.Task`1.WaitAsync(System.TimeSpan,System.TimeProvider,System.Threading.CancellationToken);Abandons a Response when the timeout or token fires first; needs a #pragma citing SEAM-30, or go through LateResult (design §3.3, §5.3)
 
 # Captured body bytes are never pooled (design §3.1, P3a-8; IO-22, IO-38): the only sanctioned rent is
 # Dexpace.Sdk.Core.IO.PooledChunk, behind a scoped pragma.
@@ -89,3 +89,24 @@ M:System.IO.StreamReader.ReadLineAsync(System.Threading.CancellationToken);Strea
 M:System.IO.StringReader.ReadLine;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
 M:System.IO.StringReader.ReadLineAsync;StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
 M:System.IO.StringReader.ReadLineAsync(System.Threading.CancellationToken);StreamReader.ReadLine splits on a lone CR; use Utf8LineReader (IO-14, design §3.1)
+
+# Clock, delay and environment discipline (CFG-15, CFG-16, CFG-17, CFG-18, CFG-28; design §8.3, P5a-8). Stopwatch is not
+# banned: it is monotonic, so it does not violate CFG-16. The one sanctioned Task.Delay site is TimeProviderWaits; the
+# one sanctioned environment read is ProxyOptions' default lookup.
+M:System.Threading.Thread.Sleep(System.Int32);Not cancellable and no fake clock; use TimeProviderWaits.Sleep (CFG-15, design §8.3)
+M:System.Threading.Thread.Sleep(System.TimeSpan);Not cancellable and no fake clock; use TimeProviderWaits.Sleep (CFG-15, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.Int32);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.Int32,System.Threading.CancellationToken);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.Threading.CancellationToken);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.TimeProvider);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.TimeProvider,System.Threading.CancellationToken);-1 ms waits forever and no overload chunks past ~49.7 days; use TimeProviderWaits.DelayAsync (CFG-17, CFG-18, design §8.3)
+P:System.DateTime.Now;Wall clock outside the seam; use TimeProvider.GetUtcNow or GetTimestamp (CFG-15, CFG-16)
+P:System.DateTime.UtcNow;Wall clock outside the seam; use TimeProvider.GetUtcNow or GetTimestamp (CFG-15, CFG-16)
+P:System.DateTime.Today;Wall clock outside the seam; use TimeProvider.GetUtcNow or GetTimestamp (CFG-15, CFG-16)
+P:System.DateTimeOffset.Now;Wall clock outside the seam; use TimeProvider.GetUtcNow or GetTimestamp (CFG-15, CFG-16)
+P:System.DateTimeOffset.UtcNow;Wall clock outside the seam; use TimeProvider.GetUtcNow or GetTimestamp (CFG-15, CFG-16)
+M:System.Environment.GetEnvironmentVariable(System.String);Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
+M:System.Environment.GetEnvironmentVariable(System.String,System.EnvironmentVariableTarget);Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
+M:System.Environment.GetEnvironmentVariables;Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
+M:System.Environment.GetEnvironmentVariables(System.EnvironmentVariableTarget);Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
