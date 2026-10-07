@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics;
+using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Internal;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -132,20 +133,61 @@ public sealed class DisposalTests : IDisposable
     }
 
     [Fact]
-    public void With_a_primary_in_flight_the_report_carries_the_primary_type_and_the_primary_is_untouched()
+    public void With_a_primary_in_flight_the_failure_lands_on_the_primary_trail_and_nothing_else()
     {
         using var activity = _source.StartActivity("scope");
         var primary = new TimeoutException("primary");
-        primary.Data["k"] = "v";
+        var failure = new InvalidOperationException("boom");
 
-        Disposal.DisposeQuietly(new Resource(new InvalidOperationException("boom")), primary);
+        Disposal.DisposeQuietly(new Resource(failure), primary);
 
-        var tags = activity!.Events.Single().Tags.ToDictionary(t => t.Key, t => t.Value);
-        Assert.Equal(typeof(TimeoutException).FullName, tags["dexpace.dispose.primary_type"]);
         Assert.Equal("primary", primary.Message);
-        Assert.Equal("v", primary.Data["k"]);
-        Assert.Single(primary.Data);
         Assert.Null(primary.InnerException);
+        Assert.Same(failure, Assert.Single(ExceptionTrail.GetSuppressed(primary)));
+        Assert.Empty(activity!.Events);
+    }
+
+    [Fact]
+    public void With_a_primary_in_flight_and_a_logger_nothing_is_logged()
+    {
+        var logger = new ListLogger();
+
+        Disposal.DisposeQuietly(new Resource(new InvalidOperationException("boom")), new TimeoutException("p"), logger);
+
+        Assert.Empty(logger.Entries);
+    }
+
+    [Fact]
+    public async Task A_fatal_dispose_exception_still_propagates_with_a_primary()
+    {
+        var primary = new TimeoutException("primary");
+
+        Assert.Throws<InsufficientMemoryException>(
+            () => Disposal.DisposeQuietly(new Resource(new InsufficientMemoryException()), primary));
+        await Assert.ThrowsAsync<InsufficientMemoryException>(
+            async () => await Disposal.DisposeQuietlyAsync(new Resource(new InsufficientMemoryException()), primary));
+        Assert.Empty(ExceptionTrail.GetSuppressed(primary));
+    }
+
+    [Fact]
+    public async Task The_async_form_with_a_primary_attaches_to_the_trail()
+    {
+        var primary = new TimeoutException("primary");
+        var failure = new InvalidOperationException("boom");
+
+        await Disposal.DisposeQuietlyAsync(new Resource(failure), primary);
+
+        Assert.Same(failure, Assert.Single(ExceptionTrail.GetSuppressed(primary)));
+    }
+
+    [Fact]
+    public void The_no_primary_branch_is_unchanged()
+    {
+        using var activity = _source.StartActivity("scope");
+
+        Disposal.DisposeQuietly(new Resource(new InvalidOperationException("boom")));
+
+        Assert.Single(activity!.Events);
     }
 
     [Fact]

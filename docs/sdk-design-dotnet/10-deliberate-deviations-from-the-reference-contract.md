@@ -133,6 +133,10 @@ line and in the roadmap.
     unwinding, so a fatal exception propagates with its stack untouched. On the async path the runtime captures it
     into the faulted task, so **PIPE-30**'s "propagate synchronously" holds only in the sense that no SDK frame
     catches it. §5.2, §5.3.
+    *Topic label:* `fatal-exception-filter`. *Dated amendment (2026-10-07, phase 4b, P4b-8):* the filter sits at exactly four
+    sites (the dispatcher's request-chain and transport calls, the response chain's two step calls), and
+    `OperationCanceledException` is converted like any non-fatal exception, against styleguide 8.8's exclusion, because the
+    recovery hooks must observe it and the token stays cancelled.
 13. **Suppressed exceptions are an SDK-owned trail, stored in `Exception.Data` on foreign exceptions.** *Touches*
     **RECOV-12**, **RETRY-34**, **PAGE-13**, **SSE-29**, **SSE-36** and every clause that says "attach as
     suppressed". *Judged* (P8, P10). .NET has no suppressed list: `InnerException` is a single causal parent, and
@@ -141,6 +145,9 @@ line and in the roadmap.
     exception, to a list under a namespaced `Data` key readable through `ExceptionTrail.GetSuppressed`, and applies
     **RETRY-34**'s self-suppression guard. *Residual (P6):* a foreign exception's `ToString()` does not render the
     trail (verified). §5.2.
+    *Topic label:* `suppressed-trail`. *Dated amendment (2026-10-07, phase 4b, P4b-14):* the trail is a snapshot; a foreign
+    exception whose `Exception.Data` is read-only drops the secondary instead of throwing, because throwing would replace
+    the primary (*residual*, verified: `Data` is virtual and an override can return a read-only dictionary).
 14. **The async standard pipeline follows redirects, as the sync one does.** *Touches* **PIPE-32**, **REDIR-25**.
     **Sanctioned in part**: **REDIR-25** lists "(c) let callers install their own async redirect step" and ends "This
     asymmetry with the synchronous pipeline ... MUST be preserved or explicitly documented if changed"; *judged*

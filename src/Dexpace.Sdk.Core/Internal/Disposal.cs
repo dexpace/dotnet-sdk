@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics;
+using Dexpace.Sdk.Core.Errors;
 using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Core.Internal;
@@ -14,13 +15,14 @@ namespace Dexpace.Sdk.Core.Internal;
 /// A non-fatal exception from the dispose is reported and swallowed: it is recorded as an <c>exception</c> event on
 /// <see cref="Activity.Current"/> tagged <c>dexpace.dispose.suppressed</c> and, when a logger is supplied, logged at
 /// <see cref="LogLevel.Warning"/> with the resource and exception type names (never a message or a value). When a
-/// primary exception is in flight the report also carries <c>dexpace.dispose.primary_type</c> and the primary is never
-/// replaced or modified. A fatal exception (<see cref="OutOfMemoryException"/> and its subtypes) propagates.
+/// primary exception is in flight the failure is attached to the primary's trail instead
+/// (<see cref="ExceptionTrail.AddSuppressed"/>) and reported nowhere else: exactly one of the two ways, never a third
+/// (design §3.7, P4b-15). The primary is never replaced. A fatal exception (<see cref="ExceptionFacts.IsFatal"/>)
+/// propagates.
 /// </para>
 /// <para>
 /// <b>Interim gap (accepted, P3b-3).</b> With no listener and no logger the failure is reported to nobody. The gap closes
-/// in phase 5b, which plumbs the client's logger to the call sites. Phase 4b repoints the primary branch to
-/// <c>ExceptionTrail.AddSuppressed</c> and the filter to <c>ExceptionFacts.IsFatal</c>.
+/// in phase 5b, which plumbs the client's logger to the call sites.
 /// </para>
 /// </remarks>
 internal static class Disposal
@@ -45,9 +47,16 @@ internal static class Disposal
         {
             resource.Dispose();
         }
-        catch (Exception ex) when (!IsFatal(ex))
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            Report(ex, resource.GetType().Name, primary, logger);
+            if (primary is not null)
+            {
+                ExceptionTrail.AddSuppressed(primary, ex);
+            }
+            else
+            {
+                Report(ex, resource.GetType().Name, logger);
+            }
         }
     }
 
@@ -70,26 +79,25 @@ internal static class Disposal
         {
             await resource.DisposeAsync().ConfigureAwait(false);
         }
-        catch (Exception ex) when (!IsFatal(ex))
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            Report(ex, resource.GetType().Name, primary, logger);
+            if (primary is not null)
+            {
+                ExceptionTrail.AddSuppressed(primary, ex);
+            }
+            else
+            {
+                Report(ex, resource.GetType().Name, logger);
+            }
         }
     }
 
-    // Phase 4b repoints this to ExceptionFacts.IsFatal, which has the same set (design §5.2).
-    private static bool IsFatal(Exception ex) => ex is OutOfMemoryException;
-
-    private static void Report(Exception ex, string resourceType, Exception? primary, ILogger? logger)
+    private static void Report(Exception ex, string resourceType, ILogger? logger)
     {
         var activity = Activity.Current;
         if (activity is not null)
         {
             var tags = new TagList { { "dexpace.dispose.suppressed", true } };
-            if (primary is not null)
-            {
-                tags.Add("dexpace.dispose.primary_type", primary.GetType().FullName);
-            }
-
             activity.AddException(ex, tags);
         }
 

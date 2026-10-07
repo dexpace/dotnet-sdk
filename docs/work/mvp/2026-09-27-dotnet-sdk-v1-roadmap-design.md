@@ -265,7 +265,7 @@ ID in the clause is stated in that chapter.
 | 1 | Security and Robustness Fixes (P0) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` | The nine defects S1–S9 below: `HTTP-17`, `HTTP-18`, `HTTP-26`, `XCUT-18`, `TRANSPORT-1`, `TRANSPORT-11`, `TRANSPORT-12`, `TRANSPORT-22`, `TRANSPORT-27`, `REDIR-7`, `REDIR-8`, `REDIR-9`, `REDIR-12`, `XCUT-17`, `AUTH-28`, `XCUT-16`, `OBS-11`–`OBS-15`, `XCUT-19`, `RETRY-44`, `PIPE-16`, `RETRY-18`, `RECOV-26`, `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | §3.2, §4.1, §4.2, §5.1, §6.1–§6.3, §8.1 |
 | 2 | Domain Model and Seam Foundations (2a domain model · 2b seams) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for 2a's `Response` construction, public header predicate and wire casing and 2b's SPI signature change (corrected 2026-09-29, per the lead's ruling of 2026-09-29 on open question 3 of the [phase 2 segmentation design](phase2/2026-09-29-phase2-segmentation-design.md): this cell read "for the SPI signature change only", but 2a also edits the adapter) | ch.02 and ch.04 — `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (41 IDs; corrected 2026-09-29, per the same ruling: this cell read "ch.04", but `HTTP-1` and `HTTP-2` are stated in ch.02); ch.03 and ch.02 — `SEAM-1`–`SEAM-30` (30); the IDs for `SEAM-5`/`SEAM-6`'s DI half travel to phase 9 | §3.4, §3.5, §3.6, §4, §4.1–§4.4, and §1, §3.1–§3.3, §3.7 (corrected 2026-09-29, per the same ruling: this cell omitted the sections that argue `SEAM-3`/`SEAM-4`, `SEAM-11`–`SEAM-18`, `SEAM-24`, `SEAM-25` and `SEAM-30`); segmentation design: [`phase2/2026-09-29-phase2-segmentation-design.md`](phase2/2026-09-29-phase2-segmentation-design.md); 2a design: [`phase2/phase2a/2026-09-29-phase2a-domain-model-design.md`](phase2/phase2a/2026-09-29-phase2a-domain-model-design.md); 2a plan: [`phase2/phase2a/2026-09-30-phase2a-domain-model.md`](phase2/phase2a/2026-09-30-phase2a-domain-model.md); 2b design: [`phase2/phase2b/2026-09-30-phase2b-seams-design.md`](phase2/phase2b/2026-09-30-phase2b-seams-design.md); 2b plan: [`phase2/phase2b/2026-09-30-phase2b-seams.md`](phase2/phase2b/2026-09-30-phase2b-seams.md) |
 | 3 | I/O and Body Lifecycle (3a I/O · 3b bodies) | `Dexpace.Sdk.Core` | ch.05 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` (12), which are numbered jointly into that chapter; the work for `HTTP-44`/`HTTP-45` lands in 7a | §3.1, §3.7, §4.5; [3a design](phase3/phase3a/2026-10-02-phase3a-io-design.md) |
-| 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4; [4a design](phase4/phase4a/2026-10-05-phase4a-context-design.md) |
+| 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4; [4a design](phase4/phase4a/2026-10-05-phase4a-context-design.md), [4b design](phase4/phase4b/2026-10-05-phase4b-recovery-design.md) |
 | 5 | Configuration Model and Observability (5a configuration · 5b logging and redaction · 5c tracing and metrics) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for `traceparent` handling | ch.16 — `CFG-8`, `CFG-9`, `CFG-12`, `CFG-13`, `CFG-15`–`CFG-36` (the binding tier travels to phase 9); ch.15 — `OBS-1`–`OBS-40` (40) | §3.8, §8.1–§8.3 |
 | 6 | Retry, Redirect and Authentication Completion (6a retry · 6b redirect · 6c auth) | `Dexpace.Sdk.Core` | ch.09 — `RETRY-1`–`RETRY-45` (45); ch.10 — `REDIR-1`–`REDIR-28` (28); ch.11 — `AUTH-1`–`AUTH-38` (38); plus the work for the recovery-stack IDs `RECOV-17`–`RECOV-30` and `RECOV-34`, whose rows stay in phase 4 as ⏳ | §6.1–§6.3, §8.3 |
 | 7 | Serde, SSE and Pagination (7a serde · 7b SSE · 7c pagination) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Serialization.SystemTextJson` | ch.14 — `SERDE-1`–`SERDE-30` (30); ch.13 — `SSE-1`–`SSE-41` (41); ch.12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3 |
@@ -548,7 +548,7 @@ each fix belongs to the phase named in the table, and must keep the test green (
 | S5 | **URL redaction is a deny-list.** Any secret under an unlisted name leaks (`X-Amz-Signature`, `client_secret`). Userinfo is removed rather than masked, value-less parameters are dropped, and there is no failure sentinel (§8.1) | `OBS-11`–`OBS-15`, `XCUT-19` | Flip `UrlRedactor` to default-deny, with allow-list `{api-version}` and marker `***`. Userinfo becomes `***:***@`, fragment `key=value` tokens are scrubbed, the empty `?` and value-less parameters are preserved, nothing is re-encoded, and failures return the `[malformed url]` sentinel | 5b (header redaction `OBS-16`–`OBS-18`, emission guard) |
 | S6 | **The mutable `PipelineContext` leaks `Authorization` across attempts.** A probe above `Auth` saw attempt 2 enter carrying the credential that attempt 1's `BasicAuthPolicy` stamped; redirect hop n+1 is built from hop n's stamped request (§5.1) | `RETRY-44`, `PIPE-16` | `RetryPolicy` and `RedirectPolicy` snapshot the request at entry, and restore it before each re-drive. No other policy may write `context.Request` upward | 4c (request-in/response-out signature) |
 | S7 | **A `Retry-After` overflow crashes the call.** An unclamped hint is fed to `Task.Delay`, and a hint above about 49.7 days throws `ArgumentOutOfRangeException`, which is not an SDK exception (gap analysis runtime fact 3) | `RETRY-18`, `RECOV-26` | Clamp every pacing delta to 365 days in ticks, and chunk waits above `Task.Delay`'s ceiling | 6a (the pacing parser, `-ms` and rate-limit headers) |
-| S8 | **`EnsureSuccessAsync` throws on 304 and on unfollowed 3xx.** The buffered error body is also single-use, and the original response is never disposed (§4.2, §5.1) | `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | Map 400..599 only. Buffer into a **replayable** body capped at 1 MiB, and dispose the original | 4c (`ErrorMappingPolicy`, the shared `ErrorBodyBuffer`) |
+| S8 | **`EnsureSuccessAsync` throws on 304 and on unfollowed 3xx.** The buffered error body is also single-use, and the original response is never disposed (§4.2, §5.1) | `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | Map 400..599 only. Buffer into a **replayable** body capped at 1 MiB, and dispose the original | 4b (`ErrorBodyBuffer`, `ErrorMappingStep` and the `EnsureSuccessAsync` re-home; dated correction 2026-10-07, P4b-16), 4c (`ErrorMappingPolicy`, the sync `EnsureSuccess`) |
 | S9 | **A malformed inbound `Content-Type` throws and leaks the connection.** `text/plain; foo` makes `ExecuteAsync` throw a raw `ArgumentException`, and the `HttpResponseMessage` is never disposed (gap analysis runtime fact 2) | `TRANSPORT-22`, `TRANSPORT-27` | `MediaType.TryParse`, with an unparseable value becoming "no media type", and dispose-on-throw around response adaptation | 8b (inbound adaptation), 3b (dispose latches) |
 
 **Not in phase 1, and owned elsewhere.** These are real but not exploit-shaped, or they need the rework to fix
@@ -1416,6 +1416,9 @@ and §12, and this note. 3a holds 43 rows: 26 ✅, four split rows (`IO-1`, `IO-
   `OpenRead`. 7b: the SSE parser over `Utf8LineReader` in `Whatwg` mode (BOM strip, `InvalidDataException` mapping). 8a: the
   per-transport `HTTP-39` proof. 8b: `SerializeToStream` calling `WriteTo`, and `HttpResponseMessageBody.OpenRead`, flipping the
   latch before touching `HttpContent`.
+- **Dated correction (2026-10-07, phase 4b, P4b-16).** The 4c hand-off above and P3a-13's "`ErrorBodyBuffer` and `ErrorMappingPolicy` stay 4c's" are
+  corrected: 4b builds `ErrorBodyBuffer` (sync and async) and `ErrorMappingStep`, and re-homes `Response.EnsureSuccessAsync` onto the buffer; 4c keeps
+  `ErrorMappingPolicy`, `XCUT-8`'s factory rejection, `PIPE-37`'s placement and the public sync `Response.EnsureSuccess` (over `ErrorBodyBuffer.Capture`).
 - **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
 
 **2026-10-03 — Phase 3b: the bodies are built (seven steps, rulings P3b-1 to P3b-16).** Sub-phase 3b landed on branch
@@ -1461,3 +1464,35 @@ tests; and this close-out. All 20 `CTX` rows are built. Rulings P4a-3, P4a-6, P4
 the lead until ruled. Hand-offs: 4c wires the chain and the `Response`-closes-its-`ExchangeContext` hook; 5a may make the
 capacity configurable; 5c populates the bundle and owns `OBS-25`/`OBS-26`; 6c builds the `AUTH-19` store over `BoundedMap`;
 8b stamps the `HttpRequestOptionsKey<CallKey>`.
+
+**2026-10-07 — Phase 4b: the recovery chain is built (seven steps, rulings P4b-1 to P4b-26).** Sub-phase 4b landed on branch
+`phase-4b-recovery` following the [design](phase4/phase4b/2026-10-05-phase4b-recovery-design.md) and the
+[plan](phase4/phase4b/2026-10-05-phase4b-recovery.md): PR 1 `ExceptionFacts`, `ExceptionTrail`, `SdkException.Suppressed` and the
+`Disposal` and `LoggingResponseBody` repoints; PR 2 `Outcome`, the internal `SyncPath` and the `ValueTask<T>.Result` ban; PR 3 the
+step contracts, `RequestRecoveryChain`, `ResponseRecoveryChain`, `StepFailure` and `RecoveryLayerArchitectureTests`; PR 4
+`RecoveryDispatcher`; PR 5 `ErrorBodyBuffer`, `ErrorMappingStep` and the `EnsureSuccessAsync` re-home; PR 6 `IdempotencyKeyStep`,
+`ClientIdentityStep`, `ClientIdentityMode` and the two policies delegating to them; PR 7 this close-out. Evidence is in the
+[checklist](phase4/phase4b/2026-10-07-phase4b-recovery-checklist.md), the user page
+[`recovery.md`](../../sdk-documentation/recovery.md), the dated corrections to design §3.7, §5.1, §5.2, §10 (entries 12 and 13), §11 (the
+new item 46) and §12, the 3a note and phase 1's S8 row above, and this note. 4b holds 34 rows: 17 ✅ (`RECOV-1`–`RECOV-15`, `RECOV-32`,
+`RECOV-33`), `RECOV-16` ✅ with its re-sent-response clause ⏳ 6a, `RECOV-26` ✅ for phase 1's S7 clause and ⏳ 6a for the engine, and fifteen ⏳ 6a
+(`RECOV-17`–`RECOV-25`, `RECOV-27`–`RECOV-31`, `RECOV-34`). The census: 4a 20 + 4b 34 + 4c 40 = 94.
+
+- **Rulings.** P4b-3 (`Outcome` is an abstract class: a record's synthesised protected copy constructor leaves the hierarchy open; a
+  styleguide 6.3 departure recorded in the SDK overlay and `notes/data-modeling.md`), P4b-6 (both forms over one `bool async` core), P4b-8
+  (cancellation is converted, `null` from a step is a throw), P4b-14 (the trail's snapshot, swallow and rendering rules) and P4b-16
+  (`ErrorBodyBuffer` is 4b's) are the deviation-ledger rulings; each is open for the lead to accept or reverse.
+  P4b-1 (the partition) and P4b-2 (`RECOV-31` ⏳ 6a with `RETRY-38`) were built as designed.
+- **Breaking changes** (five, all in `CHANGELOG.md` `[Unreleased]`): `IdempotencyPolicy` stamps PUT and PATCH by default and takes
+  an `IdempotencyKeyStep`; `ClientIdentityPolicy` appends after a caller-supplied `User-Agent` by default; `SdkException.ToString()`
+  renders the trail; `Response.EnsureSuccessAsync` attaches a dispose failure after a failed drain to the drain's exception.
+- **No `Security` class was edited.** `EnsureSuccessErrorMappingTests` passed unedited over the `ErrorBodyBuffer` re-home.
+- **Hand-offs.** 4c: `ErrorMappingPolicy` over `ErrorMappingStep` and `ErrorBodyBuffer`; the signature rework of the two policies
+  (4b kept today's signature and stage); `SyncPath` for its shipped policies' sync path; the public sync `Response.EnsureSuccess`; and the
+  `InstrumentationPolicy` fatal-filter finding (its two `catch (Exception ex)` blocks have no fatal filter, which `RETRY-25` forbids; 4c's rework adds
+  `when (!ExceptionFacts.IsFatal(ex))`, or 5c if 4c lands first, P4b-23). 5b: plumbs the client's logger into `Disposal`'s no-primary branch. 6a: the
+  recovery-stack engine as an `IRecoveryStep` (and its open question: a recovery step sees only an `Outcome`, so a retrying step needs the request
+  and the transport per call), flips the fifteen ⏳ rows, decides `RECOV-31` with `RETRY-38`, and calls `ErrorBodyBuffer` for `RETRY-36`. 7b: reuses
+  `Outcome` in its own namespace. 7c: `ExceptionTrail` for `PAGE-13`.
+- **Knowledge corpus.** `retry-and-resilience/302d143d` (the "record hierarchy closed by a private constructor") is superseded by a note in
+  `docs/knowledge/notes/retry-and-resilience.md`, and a `notes/data-modeling.md` entry records the styleguide 6.3 departure.

@@ -19,7 +19,8 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
 | `Dexpace.Sdk.Core.Configuration` | `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions` |
 | `Dexpace.Sdk.Core.Diagnostics` | The `Dexpace.Sdk` `ActivitySource` and `Meter`, and the default-deny `UrlRedactor` |
-| `Dexpace.Sdk.Core.Errors` | `SdkException` and its subclasses |
+| `Dexpace.Sdk.Core.Recovery` | The recovery layer: `Outcome`, `IRequestStep` / `IResponseStep` / `IRecoveryStep`, `RequestRecoveryChain`, `ResponseRecoveryChain`, `RecoveryDispatcher`, and the shipped steps `ErrorMappingStep`, `IdempotencyKeyStep` and `ClientIdentityStep` |
+| `Dexpace.Sdk.Core.Errors` | `SdkException` and its subclasses, `ExceptionFacts` (`IsFatal`, `EnumerateCauses`) and `ExceptionTrail` (`AddSuppressed`, `GetSuppressed`) |
 
 Its one runtime dependency is `Microsoft.Extensions.Logging.Abstractions`, for `ILogger`.
 
@@ -62,6 +63,11 @@ most once, the readers dispose the body, and a leading byte-order mark matching 
 `ExchangeContext` (`PromoteToRequest`, `PromoteToExchange`), a `CallKey` shared by every link, the `InstrumentationContext`
 correlation bundle, and `DexpaceCallContexts.TryGet` over a bounded registry. Call `Close()` on the furthest link when the
 call ends.
+A call can also run through the recovery layer: a `RecoveryDispatcher` applies a `RequestRecoveryChain`, sends over any
+transport, folds the `Outcome` through a `ResponseRecoveryChain` (response steps, then recovery steps; a throwing step becomes a
+failure, never an escape), and rethrows the terminal failure as the same exception instance. Every step contract has a sync and an
+async form. A failure while closing a response lands on the primary exception's trail, readable with
+`ExceptionTrail.GetSuppressed`. See `docs/sdk-documentation/recovery.md` in the repository.
 
 ## Links
 

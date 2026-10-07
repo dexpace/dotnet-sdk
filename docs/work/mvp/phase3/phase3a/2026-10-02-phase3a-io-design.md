@@ -764,6 +764,7 @@ Taken by this design in the absence of a human reviewer. Each lists the options 
 13. **P3a-13 — `HTTP-52`'s drain is re-homed, not redesigned.** `Response` drains through `StreamCopy.DrainUpToAsync` with
     a pooled chunk; `EnsureSuccessErrorMappingTests` stays unedited; `ErrorBodyBuffer` and `ErrorMappingPolicy` stay 4c's.
     The row is 3b's (P3a-1), and cites this re-home.
+    *Dated correction (2026-10-07, phase 4b, P4b-16):* `ErrorBodyBuffer` is built by 4b; `ErrorMappingPolicy` stays 4c's.
 14. **P3a-14 — Three new tripwires in `BannedSymbols.txt`:** `Stream.set_ReadTimeout`/`set_WriteTimeout` (`IO-40`);
     `TextReader.ReadLine`/`ReadLineAsync` and their `StreamReader`/`StringReader` overrides (`IO-14`, fact 12); and
     P3a-8's pool entries. Each message cites its design section, as the existing entries do.

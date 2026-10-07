@@ -182,7 +182,7 @@ internal sealed class LoggingResponseBody : ResponseBody
             {
                 await DrainAsync(linked.Token).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
+            catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
             {
                 Volatile.Write(ref _failure, ExceptionDispatchInfo.Capture(ex));
             }
@@ -208,7 +208,7 @@ internal sealed class LoggingResponseBody : ResponseBody
             {
                 Drain(linked.Token);
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
+            catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
             {
                 Volatile.Write(ref _failure, ExceptionDispatchInfo.Capture(ex));
             }

@@ -899,6 +899,12 @@ stands as written, with two corrections. *Dated correction*.
 - **A stream-backed response body opened after dispose throws `StreamClosedException` (P3b-11)**, after the consumed check, so a body that was read and then disposed still
   reports `StreamConsumedException`. In-memory bodies keep serving after dispose.
 
+**As built (2026-10-07, phase 4b):** the 3b *dated correction* above is closed. `Disposal` now filters with
+`ExceptionFacts.IsFatal` and, with a primary exception in flight, attaches the failure to the primary's trail
+(`ExceptionTrail.AddSuppressed`) and reports it nowhere else: exactly one of two ways, never a third (P4b-15). Without a
+primary it keeps the `Activity` event and the optional logger; `dexpace.dispose.primary_type` is gone, since that branch no
+longer reports. `LoggingResponseBody`'s two filters use `ExceptionFacts.IsFatal` too (same set).
+
 ### 3.8 The observability, time and configuration seams
 
 The reference routes logging, tracing, metrics, time and configuration through SDK-owned facades so that core stays

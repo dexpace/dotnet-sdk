@@ -1,24 +1,30 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Recovery;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
 /// <summary>
-/// A per-call pipeline policy that attaches an <c>Idempotency-Key</c> header to outgoing
-/// requests for configured HTTP methods, enabling safe retries on transient failures.
+/// A per-call pipeline policy that attaches an <c>Idempotency-Key</c> header to outgoing requests, enabling safe retries
+/// on transient failures. It delegates the rule to an <see cref="IdempotencyKeyStep"/> (RECOV-32).
 /// </summary>
 /// <remarks>
 /// <para>
-/// By default only <c>POST</c> requests receive the header. The key is a GUID v4 generated
-/// once per logical call and stashed in the <see cref="PipelineContext"/> property bag under
-/// the key <c>"dexpace.idempotency-key"</c>. Redirect hops and retry attempts that re-enter
-/// the policy on the same context reuse the same GUID, satisfying the idempotency contract.
+/// By default <c>POST</c>, <c>PUT</c> and <c>PATCH</c> requests receive the header. The key is minted by the step's
+/// strategy once per logical call and stashed in the <see cref="PipelineContext"/> property bag under the key
+/// <c>"dexpace.idempotency-key"</c>. Redirect hops and retry attempts that re-enter the policy on the same context reuse
+/// the same key, so the strategy runs at most once per call.
 /// </para>
 /// <para>
-/// If the request already carries an <c>Idempotency-Key</c> header (set by the caller or a
-/// previous pass), the policy does not overwrite it.
+/// If the request already carries an <c>Idempotency-Key</c> header, the policy does not overwrite it (unless the step is
+/// configured with <see cref="IdempotencyKeyStep.RespectExisting"/> set to <see langword="false"/>).
+/// </para>
+/// <para>
+/// <b>Breaking:</b> the constructor was <c>IdempotencyPolicy(IEnumerable&lt;Method&gt;? methods = null)</c>; it is now
+/// <c>IdempotencyPolicy()</c> and <c>IdempotencyPolicy(IdempotencyKeyStep)</c>, so the method set is configured on the
+/// step. <b>Breaking:</b> the default method set was <c>POST</c> only; it is now <c>POST</c>, <c>PUT</c> and
+/// <c>PATCH</c> (RECOV-32).
 /// </para>
 /// </remarks>
 public sealed class IdempotencyPolicy : HttpPipelinePolicy
@@ -26,20 +32,21 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
     /// <summary>Context property-bag key under which the generated idempotency key is stored.</summary>
     internal const string PropertyKey = "dexpace.idempotency-key";
 
-    private readonly HashSet<Method> _methods;
+    private readonly IdempotencyKeyStep _step;
 
-    /// <summary>
-    /// Initializes a new <see cref="IdempotencyPolicy"/>.
-    /// </summary>
-    /// <param name="methods">
-    /// The HTTP methods that should receive an idempotency key. Defaults to
-    /// <c>POST</c> when <see langword="null"/>.
-    /// </param>
-    public IdempotencyPolicy(IEnumerable<Method>? methods = null)
+    /// <summary>Initializes a policy over a default <see cref="IdempotencyKeyStep"/>.</summary>
+    public IdempotencyPolicy()
+        : this(new IdempotencyKeyStep())
     {
-        _methods = methods is not null
-            ? new HashSet<Method>(methods)
-            : [Method.Post];
+    }
+
+    /// <summary>Initializes a policy over <paramref name="step"/>.</summary>
+    /// <param name="step">The step that decides which requests get a key, and mints it.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="step"/> is <see langword="null"/>.</exception>
+    public IdempotencyPolicy(IdempotencyKeyStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        _step = step;
     }
 
     /// <inheritdoc/>
@@ -50,22 +57,26 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (_methods.Contains(context.Request.Method)
-            && !context.Request.Headers.Contains(HttpHeaderName.WellKnown.IdempotencyKey))
-        {
-            // Reuse a key that was already generated for this context (e.g. retry re-entering here),
-            // or generate a fresh one and stash it.
-            var key = context.GetProperty<string>(PropertyKey);
-            if (key is null)
-            {
-                key = Guid.NewGuid().ToString();
-                context.SetProperty(PropertyKey, key);
-            }
-
-            context.Request = context.Request.WithHeaders(
-                context.Request.Headers.Set(HttpHeaderName.WellKnown.IdempotencyKey, key));
-        }
+        context.Request = _step.Apply(context.Request, () => KeyFor(context));
 
         await continuation.RunAsync(context).ConfigureAwait(false);
+    }
+
+    // Reuse a key already minted for this call (a retry or redirect hop re-entering here), else mint and stash one.
+    private string KeyFor(PipelineContext context)
+    {
+        var key = context.GetProperty<string>(PropertyKey);
+        if (key is not null)
+        {
+            return key;
+        }
+
+        key = _step.KeyStrategy();
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            context.SetProperty(PropertyKey, key);
+        }
+
+        return key;
     }
 }

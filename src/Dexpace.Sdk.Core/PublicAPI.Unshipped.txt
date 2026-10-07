@@ -378,7 +378,6 @@ Dexpace.Sdk.Core.Pipeline.Policies.BearerTokenAuthPolicy.BearerTokenAuthPolicy(D
 Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ClientIdentityPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy
-Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Http.Common.Method!>? methods = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.InstrumentationPolicy(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy
@@ -694,3 +693,83 @@ static Dexpace.Sdk.Core.Execution.RequestContext.operator ==(Dexpace.Sdk.Core.Ex
 virtual Dexpace.Sdk.Core.Execution.CallContext.EqualityContract.get -> System.Type!
 virtual Dexpace.Sdk.Core.Execution.CallContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
 virtual Dexpace.Sdk.Core.Execution.CallContext.PrintMembers(System.Text.StringBuilder! builder) -> bool
+Dexpace.Sdk.Core.Errors.ExceptionFacts
+Dexpace.Sdk.Core.Errors.ExceptionTrail
+Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
+static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
+static Dexpace.Sdk.Core.Errors.ExceptionFacts.IsFatal(System.Exception! exception) -> bool
+static Dexpace.Sdk.Core.Errors.ExceptionTrail.AddSuppressed(System.Exception! primary, System.Exception! secondary) -> void
+static Dexpace.Sdk.Core.Errors.ExceptionTrail.GetSuppressed(System.Exception! exception) -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+Dexpace.Sdk.Core.Recovery.Outcome
+Dexpace.Sdk.Core.Recovery.Outcome.Failure
+Dexpace.Sdk.Core.Recovery.Outcome.Failure.Error.get -> System.Exception!
+Dexpace.Sdk.Core.Recovery.Outcome.Failure.Failure(System.Exception! error) -> void
+Dexpace.Sdk.Core.Recovery.Outcome.IsFailure.get -> bool
+Dexpace.Sdk.Core.Recovery.Outcome.IsSuccess.get -> bool
+Dexpace.Sdk.Core.Recovery.Outcome.Match<T>(System.Func<Dexpace.Sdk.Core.Http.Response.Response!, T>! onSuccess, System.Func<System.Exception!, T>! onFailure) -> T
+Dexpace.Sdk.Core.Recovery.Outcome.Success
+Dexpace.Sdk.Core.Recovery.Outcome.Success.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Recovery.Outcome.Success.Success(Dexpace.Sdk.Core.Http.Response.Response! response) -> void
+Dexpace.Sdk.Core.Recovery.Outcome.TryGetError(out System.Exception? error) -> bool
+Dexpace.Sdk.Core.Recovery.Outcome.TryGetResponse(out Dexpace.Sdk.Core.Http.Response.Response? response) -> bool
+override Dexpace.Sdk.Core.Recovery.Outcome.ToString() -> string!
+Dexpace.Sdk.Core.Recovery.IRecoveryStep
+Dexpace.Sdk.Core.Recovery.IRecoveryStep.ApplyAsync(Dexpace.Sdk.Core.Recovery.Outcome! outcome, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Recovery.Outcome!>
+Dexpace.Sdk.Core.Recovery.IRecoveryStep.Apply(Dexpace.Sdk.Core.Recovery.Outcome! outcome, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Recovery.Outcome!
+Dexpace.Sdk.Core.Recovery.IRequestStep
+Dexpace.Sdk.Core.Recovery.IRequestStep.ApplyAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Request.Request!>
+Dexpace.Sdk.Core.Recovery.IRequestStep.Apply(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Recovery.IResponseStep
+Dexpace.Sdk.Core.Recovery.IResponseStep.ApplyAsync(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Recovery.IResponseStep.Apply(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Recovery.RequestRecoveryChain
+Dexpace.Sdk.Core.Recovery.RequestRecoveryChain.ApplyAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Request.Request!>
+Dexpace.Sdk.Core.Recovery.RequestRecoveryChain.Apply(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Recovery.RequestRecoveryChain.RequestRecoveryChain(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Recovery.IRequestStep!>! steps) -> void
+Dexpace.Sdk.Core.Recovery.RequestRecoveryChain.Steps.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Recovery.IRequestStep!>!
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.ApplyAsync(Dexpace.Sdk.Core.Recovery.Outcome! outcome, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Recovery.Outcome!>
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.Apply(Dexpace.Sdk.Core.Recovery.Outcome! outcome, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Recovery.Outcome!
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.RecoverySteps.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Recovery.IRecoveryStep!>!
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.ResponseRecoveryChain(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Recovery.IResponseStep!>! responseSteps, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Recovery.IRecoveryStep!>! recoverySteps) -> void
+Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.ResponseSteps.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Recovery.IResponseStep!>!
+static Dexpace.Sdk.Core.Recovery.RequestRecoveryChain.Empty.get -> Dexpace.Sdk.Core.Recovery.RequestRecoveryChain!
+static Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain.Empty.get -> Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain!
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.DispatchAsync(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.Dispatch(Dexpace.Sdk.Core.Client.IHttpClient! transport, Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.RecoveryDispatcher(Dexpace.Sdk.Core.Recovery.RequestRecoveryChain! requestChain, Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain! responseChain) -> void
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.RequestChain.get -> Dexpace.Sdk.Core.Recovery.RequestRecoveryChain!
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.ResponseChain.get -> Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain!
+Dexpace.Sdk.Core.Recovery.ErrorMappingStep
+Dexpace.Sdk.Core.Recovery.ErrorMappingStep.ApplyAsync(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Recovery.ErrorMappingStep.Apply(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+static Dexpace.Sdk.Core.Recovery.ErrorMappingStep.Instance.get -> Dexpace.Sdk.Core.Recovery.ErrorMappingStep!
+Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ClientIdentityPolicy(Dexpace.Sdk.Core.Recovery.ClientIdentityMode mode) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep! step) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
+Dexpace.Sdk.Core.Recovery.ClientIdentityMode
+Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Append = 0 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
+Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Replace = 1 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.ApplyAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Request.Request!>
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.Apply(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.ClientIdentityStep(System.Collections.Generic.IEnumerable<string!>! tokens) -> void
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.HeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.HeaderName.init -> void
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.Mode.get -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.Mode.init -> void
+Dexpace.Sdk.Core.Recovery.ClientIdentityStep.Tokens.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.ApplyAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Request.Request!>
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Apply(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.HeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.HeaderName.init -> void
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.IdempotencyKeyStep() -> void
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.KeyStrategy.get -> System.Func<string!>!
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.KeyStrategy.init -> void
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.get -> System.Collections.Generic.IReadOnlySet<Dexpace.Sdk.Core.Http.Common.Method!>!
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.init -> void
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.get -> bool
+Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.init -> void
