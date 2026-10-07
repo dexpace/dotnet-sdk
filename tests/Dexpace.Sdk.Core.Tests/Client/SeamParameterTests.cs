@@ -12,6 +12,7 @@ namespace Dexpace.Sdk.Core.Tests.Clients;
 /// parameter, so zero candidates is a compile error and a null one is rejected by name. The DI half is phase 9's.
 /// </summary>
 [Trait("Category", "Unit")]
+[Collection("Instrumentation")]
 public sealed class SeamParameterTests
 {
     [Fact]

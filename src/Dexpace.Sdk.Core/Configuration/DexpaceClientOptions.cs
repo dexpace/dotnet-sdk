@@ -3,7 +3,6 @@
 
 using System.Text;
 using Dexpace.Sdk.Core.Diagnostics;
-using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Configuration;
 
@@ -52,8 +51,13 @@ public sealed record DexpaceClientOptions
 
     /// <summary>
     /// The <c>User-Agent</c> header value sent with every request.
-    /// Defaults to <c>dexpace-dotnet/&lt;assembly-version&gt;</c>. A blank value means "send no header".
+    /// Defaults to <c>dexpace-dotnet/&lt;sdk-version&gt; dotnet/&lt;runtime-version&gt;</c>, the <see cref="BuildInfo.IdentityTokens"/>
+    /// joined (CFG-36). A blank value means "send no header".
     /// </summary>
+    /// <remarks>
+    /// <b>Breaking (behaviour):</b> the default was the one token <c>dexpace-dotnet/&lt;assembly-version&gt;</c>. A consuming
+    /// SDK that composes its own line through <c>ClientIdentityPolicy</c> is unaffected.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
     public string UserAgent
     {
@@ -124,8 +128,7 @@ public sealed record DexpaceClientOptions
         }
     } = HttpLoggingOptions.Default;
 
-    private static string BuildDefaultUserAgent() =>
-        $"dexpace-dotnet/{SdkVersion.Value}";
+    private static string BuildDefaultUserAgent() => string.Join(' ', BuildInfo.IdentityTokens);
 
     private static Uri? RequireUsable(Uri? value)
     {

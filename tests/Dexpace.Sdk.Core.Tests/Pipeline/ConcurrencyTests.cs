@@ -13,6 +13,7 @@ using Xunit;
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
 [Trait("Category", "Unit")]
+[Collection("Instrumentation")]
 public sealed class ConcurrencyTests
 {
     [Fact]

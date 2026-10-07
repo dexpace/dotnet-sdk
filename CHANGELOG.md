@@ -214,6 +214,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking (behaviour):** `RetryPolicy` honours HTTP-date `Retry-After` values it used to ignore (lower case, a weekday
   inconsistent with the date, the `UTC`/`+0000`/`+00:00` zones, a single-digit day). `SetDatePolicy` and
   `RequestConditions` format through `HttpDate`; their output is unchanged.
+- **Breaking (behaviour):** the default `User-Agent` is `dexpace-dotnet/<version> dotnet/<runtime>` (the
+  `BuildInfo.IdentityTokens` joined; was the one token `dexpace-dotnet/<version>`), and an undeterminable SDK version
+  reads `unknown` (was `0.0.0`), which also changes the `ActivitySource` and `Meter` version in that case.
 
 ### Added
 
@@ -355,5 +358,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   bypass list, credentials, a challenge-credentials slot, a credential-masking `ToString`) and an environment resolver
   that reads `HTTPS_PROXY`/`HTTP_PROXY` (either case) and `NO_PROXY`, never throws, and warns without echoing the value
   (`CFG-22`..`CFG-28`). Installing it in the transport is phase 8b's.
+- `BuildInfo`: the SDK version and runtime identity (`SdkVersion`, `RuntimeVersion`, `RuntimeDescription`, `OSName`,
+  `IdentityTokens`), resolved once, each field falling back to `unknown` and every token header-safe (`CFG-36`).
+  Internal: `RetryFacts.IsRetryableStatus` and `IsRetryableCause` (`CFG-35`, wired by phase 6a) and `DeepValue`
+  (`CFG-33`, `CFG-34`); no consumer-visible change.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

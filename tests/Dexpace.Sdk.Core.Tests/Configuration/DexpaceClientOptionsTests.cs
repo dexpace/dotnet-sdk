@@ -35,6 +35,16 @@ public class DexpaceClientOptionsTests
     }
 
     [Fact]
+    public void The_default_user_agent_is_the_identity_tokens_joined()
+    {
+        var userAgent = new DexpaceClientOptions().UserAgent;
+
+        Assert.Equal(string.Join(' ', BuildInfo.IdentityTokens), userAgent);
+        Assert.Contains(" dotnet/", userAgent, StringComparison.Ordinal);
+        Assert.DoesNotContain("0.0.0", userAgent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RetryOptions_Defaults_AreCorrect()
     {
         var retry = new RetryOptions();

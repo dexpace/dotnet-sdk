@@ -120,6 +120,7 @@ public sealed class ClientIdentityPolicyTests
         var ua = transport.LastRequest!.Headers.Get("User-Agent");
         Assert.NotNull(ua);
         Assert.StartsWith("dexpace-dotnet/", ua, StringComparison.Ordinal);
+        Assert.Equal(string.Join(' ', BuildInfo.IdentityTokens), ua);
     }
 
     [Fact]

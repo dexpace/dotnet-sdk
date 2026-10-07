@@ -38,6 +38,7 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseHeaderPrefix = "ht
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseStatusCode = "http.response.status_code" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedactedHeaderValue = "REDACTED" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string!
+const Dexpace.Sdk.Core.Configuration.BuildInfo.Unknown = "unknown" -> string!
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
@@ -75,6 +76,7 @@ Dexpace.Sdk.Core.Client.IAsyncHttpClient
 Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Core.Client.IHttpClient
 Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Configuration.BuildInfo
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.get -> System.TimeSpan?
@@ -596,6 +598,11 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sd
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.BuildInfo.IdentityTokens.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.OSName.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.RuntimeDescription.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.RuntimeVersion.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.SdkVersion.get -> string!
 static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator !=(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator ==(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment() -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
