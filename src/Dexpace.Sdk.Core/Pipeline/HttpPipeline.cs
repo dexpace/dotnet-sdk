@@ -39,6 +39,14 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// (SEAM-15 is a MAY), so disposal never suggests a release that did not happen.
 /// </para>
 /// <para>
+/// <b>Operation span (OBS-29).</b> When <c>Dexpace.Sdk</c>'s activity source has a listener, every call opens one
+/// <see cref="System.Diagnostics.ActivityKind.Internal"/> operation span at entry, before the call context exists, and ends
+/// it exactly once when the response is returned (at headers, not when its body is consumed) or the call throws. A listener
+/// that throws while the span ends propagates, after the response, if any, has been disposed (P5c-13). The bundle in
+/// <see cref="PipelineContext.Instrumentation"/> is that span's, or <see cref="Execution.InstrumentationContext.None"/> when
+/// untraced.
+/// </para>
+/// <para>
 /// <b>Sync path.</b> <see cref="Send(Request, CancellationToken)"/> drives <see cref="HttpPipelinePolicy.Process"/> and the
 /// transport's synchronous entry point; it never blocks on the async chain (PIPE-28).
 /// </para>

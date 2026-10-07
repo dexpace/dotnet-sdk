@@ -67,8 +67,14 @@ public sealed class PipelineContext
     public CallKey CallKey => _state.Dispatch.Key;
 
     /// <summary>
-    /// The instrumentation bundle of this call (CTX-14, CTX-15).
+    /// The instrumentation bundle of this call (CTX-14, CTX-15): the operation span's when the call is traced, or the shared
+    /// <see cref="InstrumentationContext.None"/> when <c>Dexpace.Sdk</c>'s <see cref="System.Diagnostics.ActivitySource"/>
+    /// has no listener, even under an ambient <see cref="System.Diagnostics.Activity"/>.
     /// </summary>
+    /// <remarks>
+    /// <b>Breaking:</b> the bundle was built from the caller's ambient activity; it is now the operation span's, so
+    /// <see cref="CallKey"/> carries the operation span's ids when traced and all-zero ids when untraced (phase 5c, P5c-3).
+    /// </remarks>
     public InstrumentationContext Instrumentation => _state.Dispatch.Instrumentation;
 
     /// <summary>
@@ -78,7 +84,9 @@ public sealed class PipelineContext
     public CancellationToken CancellationToken { get; }
 
     /// <summary>
-    /// The SDK tracing span the instrumentation policy opened for its downstream, or <see langword="null"/>.
+    /// The attempt span the instrumentation policy opened for its downstream, or <see langword="null"/>. It is set only
+    /// below the <c>Diagnostics</c> stage; the call's operation span is <see cref="Instrumentation"/>'s
+    /// <see cref="InstrumentationContext.ActiveSpan"/>.
     /// </summary>
     public Activity? Activity { get; }
 

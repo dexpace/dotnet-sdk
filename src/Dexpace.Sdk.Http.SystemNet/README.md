@@ -17,6 +17,14 @@ The reference transport for the dexpace .NET SDK. It adapts `System.Net.Http.Htt
 - **Headers.** `Host` and the framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`, …) are
   dropped from the request so `HttpClient` computes them, and every other header is re-validated at the wire.
 - **Errors.** Transport faults are mapped onto the SDK's `SdkException` hierarchy.
+- **Trace context.** The pipeline stamps the attempt span's `traceparent` (and `tracestate`) on the request. When a
+  `System.Net.Http` listener exists and runtime propagation is on (`System.Net.Http.EnableActivityPropagation`), the
+  adapter drops that stamp, recognised by equality with `Activity.Current`'s id, so the wire carries the runtime's own
+  child span id; a `traceparent` the caller set is sent unchanged. For a caller-supplied client whose handler chain does
+  not propagate (no `SocketsHttpHandler` at its root, or an `ActivityHeadersPropagator` that injects nothing), a traced call
+  then sends no `traceparent`; the remedies are to leave runtime propagation on, or not to listen to `System.Net.Http`.
+- **Metrics.** Enable the `Dexpace.Sdk` meter **or** `System.Net.Http`'s for HTTP client duration, not both: each attempt is
+  reported under `http.client.request.duration` by both.
 - **Logging.** The constructors that take an `ILogger` log dropped headers by name, never by value.
 
 ## Usage

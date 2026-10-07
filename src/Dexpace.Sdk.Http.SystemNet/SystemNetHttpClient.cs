@@ -3,6 +3,7 @@
 
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -70,6 +71,19 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
 /// carrying a control character is dropped. An unparseable <c>Content-Type</c> becomes "no media type"
 /// (TRANSPORT-27), and if adapting the response throws, the native response is disposed first (TRANSPORT-22).
+/// </para>
+/// <para>
+/// <b>Trace context (design §8.1, phase 5c P5c-11).</b> <c>InstrumentationPolicy</c> stamps the attempt span's
+/// <c>traceparent</c> (and <c>tracestate</c>) on the request. When a <c>System.Net.Http</c> listener exists and runtime
+/// propagation is on, this adapter drops that stamp, recognised by equality with <see cref="Activity.Current"/>'s id, so the
+/// wire carries the runtime's recorded child span id; with no such listener the stamp stays and names the attempt span. A
+/// <c>traceparent</c> the caller set that is not the current id is sent unchanged. The rule applies to owned and borrowed
+/// clients alike; a borrowed client whose handler chain does not propagate (no <c>SocketsHttpHandler</c> at its root, or
+/// an <c>ActivityHeadersPropagator</c> that injects nothing) sends no <c>traceparent</c> for a traced call while a
+/// <c>System.Net.Http</c> listener exists. Enable the
+/// <c>Dexpace.Sdk</c> meter or <c>System.Net.Http</c>'s, not both: each attempt is otherwise measured twice under
+/// <c>http.client.request.duration</c>.
+/// <b>Breaking</b> (phase 5c): the SDK's own <c>traceparent</c> no longer reaches the wire through this transport.
 /// </para>
 /// </remarks>
 public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
@@ -315,8 +329,17 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             message.Content = new RequestBodyContent(body);
         }
 
+        var (stripTraceparent, stripTracestate) = StripTraceContext(request);
         foreach (var (name, values) in request.Headers)
         {
+            // Design §8.1, P5c-11: the SDK's own stamp for the current attempt is dropped so the runtime writes its child
+            // span's id. Nothing the caller intended is lost, so the drop is silent.
+            if ((stripTraceparent && TraceContextStripping.IsTraceparent(name))
+                || (stripTracestate && TraceContextStripping.IsTracestate(name)))
+            {
+                continue;
+            }
+
             if (s_framingHeaders.Contains(name))
             {
                 s_framingHeaderDropped(_logger, name, null);
@@ -347,6 +370,21 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         }
 
         return message;
+    }
+
+    // Decided once, before the header loop: the loop order is not guaranteed, and the tracestate decision follows the
+    // traceparent's. Nothing is allocated when there is no ambient activity.
+    private static (bool Traceparent, bool Tracestate) StripTraceContext(Request request)
+    {
+        if (Activity.Current is not { Id: { } currentId } current
+            || request.Headers.Get("traceparent") is not { } carried
+            || !TraceContextStripping.ShouldStripTraceparent(carried, currentId, TraceContextStripping.RuntimeInjects()))
+        {
+            return (false, false);
+        }
+
+        var tracestate = request.Headers.Get("tracestate");
+        return (true, tracestate is not null && TraceContextStripping.ShouldStripTracestate(tracestate, current.TraceStateString, traceparentStripped: true));
     }
 
     private Response ToResponse(HttpResponseMessage message, Request request)

@@ -29,8 +29,9 @@ namespace Dexpace.Sdk.Core.Pipeline;
 public enum PipelineStage
 {
     /// <summary>
-    /// Outermost stage. Runs once per logical operation — opens the operation span and applies
-    /// the overall deadline. Pillar: at most one policy.
+    /// Outermost stage. Runs once per logical operation and applies the overall deadline. The pipeline itself opens the
+    /// operation span around this stage (phase 5c, P5c-2), so the span exists for every pipeline shape and encloses the
+    /// stage's policy. Pillar: at most one policy.
     /// </summary>
     Operation = 100,
 
