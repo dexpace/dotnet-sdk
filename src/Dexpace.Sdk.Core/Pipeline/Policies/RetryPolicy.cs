@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
@@ -55,6 +56,11 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// blocking wait over the <see cref="TimeProvider"/>, not sync-over-async (PIPE-28).
 /// </para>
 /// <para>
+/// <b>Diagnostic events (OBS-28, OBS-29):</b> the policy reports each retried failure, with the wait before the next
+/// attempt, and a spent budget through the operation span's events (<c>dexpace.attempt.failed</c>,
+/// <c>dexpace.retry.exhausted</c>; design 5c position E). Phase 6a's engine keeps the same calls at the same decisions.
+/// </para>
+/// <para>
 /// <b>Response disposal:</b> when a retryable response is going to be retried, the response
 /// is disposed before sleeping to release the connection promptly.
 /// </para>
@@ -103,6 +109,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
 
         var options = context.Options.Retry;
         var attempt = 0;
+        OperationTelemetry.RetrySequenceStarted(context);
 
         // RETRY-44 / PIPE-16: every attempt re-sends the request this policy received; a downstream stamp (auth, a
         // per-attempt header) is on the callee's copy and there is nothing to restore.
@@ -130,10 +137,17 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 // Exception path: re-throw if exhausted or not retryable.
                 if (attempt >= options.MaxRetryAttempts || !canRetryRequest)
                 {
+                    if (IsExhausted(options, attempt, canRetryRequest))
+                    {
+                        OperationTelemetry.RetriesExhausted(context, attempt + 1);
+                    }
+
                     System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(caughtException);
                 }
 
-                await SleepAsync(DelayFor(null, attempt, options), async, context.CancellationToken).ConfigureAwait(false);
+                var exceptionDelay = DelayFor(null, attempt, options);
+                OperationTelemetry.AttemptFailed(context, response: null, caughtException, exceptionDelay);
+                await SleepAsync(exceptionDelay, async, context.CancellationToken).ConfigureAwait(false);
                 attempt++;
                 continue;
             }
@@ -143,6 +157,11 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 || !canRetryRequest
                 || !IsRetryableStatus(response!.Status.Code))
             {
+                if (IsExhausted(options, attempt, canRetryRequest) && IsRetryableStatus(response!.Status.Code))
+                {
+                    OperationTelemetry.RetriesExhausted(context, attempt + 1);
+                }
+
                 return response!;
             }
 
@@ -153,6 +172,9 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 var retryAfterHeader = response.Headers.Get(HttpHeaderName.WellKnown.RetryAfter);
                 retryAfterDelay = ParseRetryAfter(retryAfterHeader);
             }
+
+            var statusDelay = DelayFor(retryAfterDelay, attempt, options);
+            OperationTelemetry.AttemptFailed(context, response, failure: null, statusDelay);
 
             // PIPE-40: dispose the superseded response before sleeping, to release the connection promptly; a throwing
             // dispose is suppressed and cannot mask the continuation attempt's outcome.
@@ -165,11 +187,16 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 Disposal.DisposeQuietly(response, logger: context.State.Logger);
             }
 
-            await SleepAsync(DelayFor(retryAfterDelay, attempt, options), async, context.CancellationToken).ConfigureAwait(false);
+            await SleepAsync(statusDelay, async, context.CancellationToken).ConfigureAwait(false);
             attempt++;
         }
     }
 #pragma warning restore MA0051
+
+    // P5c-6 interim predicate: a failure that would otherwise be retried met a spent, non-zero budget. A budget of zero means
+    // retries are off, and "exhausted" with no retry is noise. Phase 6a owns the final predicate and keeps the call sites.
+    private static bool IsExhausted(RetryOptions options, int attempt, bool canRetryRequest) =>
+        options.MaxRetryAttempts > 0 && attempt >= options.MaxRetryAttempts && canRetryRequest;
 
     private static bool IsRetryableException(Exception ex) =>
         ex is ServiceRequestException or ServiceResponseException;

@@ -25,13 +25,10 @@ namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 /// </summary>
 [Collection("Instrumentation")]
 [Trait("Category", "Unit")]
-public sealed class InstrumentationPolicyTests : IDisposable
+public sealed class InstrumentationPolicyTests
 {
-    private readonly ActivityRecorder _listener = new("Dexpace.Sdk");
-
-    private IReadOnlyList<Activity> Activities => _listener.Started;
-
-    public void Dispose() => _listener.Dispose();
+    // Every HttpPipeline call opens an operation span (OBS-29); these tests assert on the Client-kind attempt spans.
+    private static IReadOnlyList<Activity> ClientSpans(ActivityRecorder recorder) => recorder.StartedOfKind(ActivityKind.Client);
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
@@ -63,39 +60,42 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_StartsActivity_WithClientKind()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         Assert.Equal(ActivityKind.Client, activity.Kind);
     }
 
     [Fact]
     public async Task ProcessAsync_ActivityName_IsHttpMethod()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         Assert.Equal("GET", activity.DisplayName);
     }
 
     [Fact]
     public async Task ProcessAsync_Activity_HasExpectedOtelTags()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com:8443/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         Assert.Equal("GET", activity.GetTagItem("http.request.method"));
         Assert.NotNull(activity.GetTagItem("url.full"));
         Assert.Equal("api.example.com", activity.GetTagItem("server.address"));
@@ -106,6 +106,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_UrlFull_IsSensitiveParamRedacted()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         // Default-deny: neither "api_key" nor "page" is in UrlRedactor.DefaultQueryAllowList
@@ -113,7 +114,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         var urlFull = activity.GetTagItem("url.full") as string;
         Assert.NotNull(urlFull);
         Assert.DoesNotContain("SECRET123", urlFull);
@@ -125,6 +126,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task The_url_full_tag_honours_the_calls_allowed_query_parameters()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
         var request = MakeRequest(new Uri("https://api.example.com/v1/items?keep=1&drop=2"));
@@ -135,13 +137,14 @@ public sealed class InstrumentationPolicyTests : IDisposable
             TestContext.Current.CancellationToken);
         using var defaulted = await pipeline.SendAsync(request, DefaultOptions(), TestContext.Current.CancellationToken);
 
-        Assert.Equal("https://api.example.com/v1/items?keep=1&drop=***", Activities[0].GetTagItem("url.full"));
-        Assert.Equal("https://api.example.com/v1/items?keep=***&drop=***", Activities[1].GetTagItem("url.full"));
+        Assert.Equal("https://api.example.com/v1/items?keep=1&drop=***", ClientSpans(recorder)[0].GetTagItem("url.full"));
+        Assert.Equal("https://api.example.com/v1/items?keep=***&drop=***", ClientSpans(recorder)[1].GetTagItem("url.full"));
     }
 
     [Fact]
     public async Task The_default_url_full_tag_is_unchanged()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
 
         using var response = await RunAsync(
@@ -149,12 +152,13 @@ public sealed class InstrumentationPolicyTests : IDisposable
             MakeRequest(new Uri("https://api.example.com/v1/items?api-version=2&token=T")),
             transport);
 
-        Assert.Equal("https://api.example.com/v1/items?api-version=2&token=***", Assert.Single(Activities).GetTagItem("url.full"));
+        Assert.Equal("https://api.example.com/v1/items?api-version=2&token=***", Assert.Single(ClientSpans(recorder)).GetTagItem("url.full"));
     }
 
     [Fact]
-    public async Task ProcessAsync_AttemptNumber_SetOnResendCountTag()
+    public async Task Resend_count_is_absent_on_the_first_transmission_and_counts_retries()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // Use RetryPolicy + InstrumentationPolicy so AttemptNumber increments
         var transport = new ScriptedTransport([
             TestResponses.Create(Status.ServiceUnavailable),
@@ -167,15 +171,16 @@ public sealed class InstrumentationPolicyTests : IDisposable
 
         await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
-        // Two activities should have been started: attempt 0 and attempt 1
-        Assert.Equal(2, Activities.Count);
-        Assert.Equal(0, Activities[0].GetTagItem("http.request.resend_count"));
-        Assert.Equal(1, Activities[1].GetTagItem("http.request.resend_count"));
+        // Two attempt spans: the first transmission carries no resend count (the convention's SHOULD NOT), the second 1.
+        Assert.Equal(2, ClientSpans(recorder).Count);
+        Assert.Null(ClientSpans(recorder)[0].GetTagItem("http.request.resend_count"));
+        Assert.Equal(1, ClientSpans(recorder)[1].GetTagItem("http.request.resend_count"));
     }
 
     [Fact]
     public async Task ProcessAsync_ActivitySetOnContext_DuringContinuation()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // CapturingPolicy must run AFTER InstrumentationPolicy sets the activity on the context it passes downstream.
         // InstrumentationPolicy is at Diagnostics=600; the Serde stage (700) sorts after it.
         Activity? capturedActivity = null;
@@ -195,6 +200,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_Exception_SetsErrorTypeTag_AndActivityStatusError()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var ex = new InvalidOperationException("boom");
         await using var transport = new RecordingTransport(_ => throw ex);
         var policy = new InstrumentationPolicy();
@@ -204,7 +210,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
 
         Assert.Same(ex, thrown);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         var errorType = activity.GetTagItem("error.type") as string;
         Assert.NotNull(errorType);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
@@ -213,8 +219,9 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_NoListener_DoesNotThrow()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // Dispose the listener — now no listener is active, StartActivity returns null.
-        _listener.Dispose();
+        recorder.Dispose();
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
@@ -229,11 +236,12 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_RecordsDurationHistogram()
     {
-        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
+        var host = TestHosts.Unique();
+        using var meterListener = MetricRecorder.ForServer("Dexpace.Sdk", host, "http.client.request.duration");
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
-        await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+        await RunAsync(policy, MakeRequest(new Uri($"https://{host}/")), transport);
 
         meterListener.RecordObservableInstruments();
         var recordedDuration = meterListener.For("http.client.request.duration") is [.., var lastDuration]
@@ -246,11 +254,12 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_ActiveRequestsCounter_IncrementsThenDecrements()
     {
-        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.active_requests");
+        var host = TestHosts.Unique();
+        using var meterListener = MetricRecorder.ForServer("Dexpace.Sdk", host, "http.client.active_requests");
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
-        await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+        await RunAsync(policy, MakeRequest(new Uri($"https://{host}/")), transport);
 
         meterListener.RecordObservableInstruments();
         long maxObserved = 0;
@@ -309,6 +318,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_W3CActivity_InjectsTraceparentHeader()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // Arrange: capture the request the transport receives.
         Request? capturedRequest = null;
         var transport = new RecordingTransport(req =>
@@ -322,7 +332,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         await RunAsync(policy, MakeRequest(url), transport);
 
         // The listener fixture uses W3C format (the .NET default).
-        var started = Assert.Single(Activities);
+        var started = Assert.Single(ClientSpans(recorder));
         Assert.Equal(ActivityIdFormat.W3C, started.IdFormat);
         Assert.NotNull(capturedRequest);
         var traceparent = capturedRequest.Headers.Get("traceparent");
@@ -333,6 +343,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_W3CActivity_InjectsTracestateHeader_WhenNonEmpty()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // Arrange: start a parent activity with tracestate so the child inherits it.
         using var parentActivity = new Activity("parent");
         parentActivity.TraceStateString = "vendor=value";
@@ -364,8 +375,9 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_NoListener_DoesNotInjectTraceparentHeader()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // Dispose the listener so StartActivity returns null.
-        _listener.Dispose();
+        recorder.Dispose();
 
         Request? capturedRequest = null;
         var transport = new RecordingTransport(req =>
@@ -387,20 +399,26 @@ public sealed class InstrumentationPolicyTests : IDisposable
     public async Task ProcessAsync_DurationHistogram_CarriesMethodAndStatusTags()
     {
         // The recorder materialises each measurement's tag span, so the tags can be inspected after the call.
-        using var meterListener = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration");
+        var host = TestHosts.Unique();
+        using var meterListener = MetricRecorder.ForServer("Dexpace.Sdk", host, "http.client.request.duration");
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
-        await RunAsync(policy, MakeRequest(new Uri("https://api.example.com/")), transport);
+        await RunAsync(policy, MakeRequest(new Uri($"https://{host}/")), transport);
 
         meterListener.RecordObservableInstruments();
         var capturedTags = meterListener.For("http.client.request.duration") is [.., var last] ? last.Tags : null;
         Assert.NotNull(capturedTags);
 
+        // OBS-32: the stable attribute set.
         var tagDict = capturedTags.ToDictionary(kv => kv.Key, kv => kv.Value);
-        Assert.True(tagDict.ContainsKey("http.request.method"), "Missing http.request.method tag");
-        Assert.True(tagDict.ContainsKey("http.response.status_code"), "Missing http.response.status_code tag");
         Assert.Equal("GET", tagDict["http.request.method"]);
+        Assert.Equal(host, tagDict["server.address"]);
+        Assert.Equal(443, tagDict["server.port"]);
+        Assert.Equal("https", tagDict["url.scheme"]);
+        Assert.Equal(200, tagDict["http.response.status_code"]);
+        Assert.Equal("1.1", tagDict["network.protocol.version"]);
+        Assert.False(tagDict.ContainsKey("error.type"));
     }
 
     // ─── url.scheme tag ───────────────────────────────────────────────────────
@@ -408,13 +426,14 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_Activity_HasUrlSchemeTag()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var policy = new InstrumentationPolicy();
         var url = new Uri("https://api.example.com/v1/items");
 
         await RunAsync(policy, MakeRequest(url), transport);
 
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         Assert.Equal("https", activity.GetTagItem("url.scheme"));
     }
 
@@ -423,6 +442,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task The_downstream_sees_the_activity_and_the_upstream_does_not()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         // The write cannot reach upward: the policy above instrumentation holds its own context and sees no span set by
         // the policy below it, so there is nothing to restore.
         Activity? upstreamAfter = new Activity("untouched");
@@ -454,14 +474,130 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public void Process_sync_records_activity_and_returns_the_response()
     {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
 
         using var response = pipeline.Send(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, response.Status);
-        var activity = Assert.Single(Activities);
+        var activity = Assert.Single(ClientSpans(recorder));
         Assert.Equal(200, activity.GetTagItem("http.response.status_code"));
+    }
+
+    // ─── phase 5c: the attempt span follows the HTTP client conventions ───────
+
+    [Theory]
+    [InlineData("https://api.example.com/", 443)]
+    [InlineData("http://api.example.com/", 80)]
+    [InlineData("https://api.example.com:8443/", 8443)]
+    public async Task Server_port_is_the_port_number_for_a_default_port(string url, int port)
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+
+        using var response = await RunAsync(new InstrumentationPolicy(), MakeRequest(new Uri(url)), transport);
+
+        Assert.Equal(port, Assert.Single(ClientSpans(recorder)).GetTagItem("server.port"));
+    }
+
+    [Fact]
+    public async Task A_4xx_response_sets_error_type_and_Error_status_on_the_attempt_span()
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.NotFound));
+
+        using var response = await RunAsync(new InstrumentationPolicy(), MakeRequest(new Uri("https://api.example.com/")), transport);
+
+        var activity = Assert.Single(ClientSpans(recorder));
+        Assert.Equal("404", activity.GetTagItem("error.type"));
+        Assert.Equal(404, activity.GetTagItem("http.response.status_code"));
+        Assert.Equal(ActivityStatusCode.Error, activity.Status);
+        Assert.Null(activity.StatusDescription);
+    }
+
+    [Fact]
+    public async Task A_redirect_hop_continues_the_resend_count()
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new ScriptedTransport([
+            () => TestResponses.Redirect(302, "https://api.example.com/next"),
+            () => TestResponses.Create(Status.Ok),
+        ]);
+        var pipeline = new PipelineBuilder()
+            .Add(new RedirectPolicy())
+            .Add(new InstrumentationPolicy())
+            .Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
+
+        var spans = ClientSpans(recorder);
+        Assert.Equal(2, spans.Count);
+        Assert.Null(spans[0].GetTagItem("http.request.resend_count"));
+        Assert.Equal(1, spans[1].GetTagItem("http.request.resend_count"));
+    }
+
+    [Fact]
+    public async Task An_unknown_method_is_OTHER_and_the_span_is_named_HTTP()
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+
+        using var response = await RunAsync(
+            new InstrumentationPolicy(),
+            new Request(Method.Of("PURGE"), new Uri("https://api.example.com/")),
+            transport);
+
+        var activity = Assert.Single(ClientSpans(recorder));
+        Assert.Equal("HTTP", activity.DisplayName);
+        Assert.Equal("_OTHER", activity.GetTagItem("http.request.method"));
+        Assert.Equal("PURGE", activity.GetTagItem("http.request.method_original"));
+    }
+
+    [Fact]
+    public async Task The_attempt_span_is_a_child_of_the_operation_span_not_of_the_ambient_activity()
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+
+        using var response = await RunAsync(new InstrumentationPolicy(), MakeRequest(new Uri("https://api.example.com/")), transport);
+
+        var operation = Assert.Single(recorder.StartedOfKind(ActivityKind.Internal));
+        Assert.Equal(operation.Id, Assert.Single(ClientSpans(recorder)).ParentId);
+        Assert.Equal(recorder.Root!.Id, operation.ParentId);
+    }
+
+    [Fact]
+    public async Task Spans_and_metrics_record_at_the_default_log_level()
+    {
+        // OBS-34 (5b's row): the span lifecycle and the instruments run whatever the log level; the default is None.
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var host = TestHosts.Unique();
+        using var metrics = MetricRecorder.ForServer("Dexpace.Sdk", host, "http.client.request.duration");
+        var logger = new RecordingLogger();
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy(logger)).Build(new RecordingTransport());
+
+        using var response = await pipeline.SendAsync(MakeRequest(new Uri($"https://{host}/")), DefaultOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Empty(logger.Entries);
+        Assert.Single(ClientSpans(recorder));
+        Assert.Single(metrics.For("http.client.request.duration"));
+    }
+
+    [Fact]
+    public void The_sync_path_fills_the_same_tags_as_the_async_path()
+    {
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.NotFound));
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
+
+        using var response = pipeline.Send(MakeRequest(new Uri("https://api.example.com:8443/v1/items?x=1")), DefaultOptions(), TestContext.Current.CancellationToken);
+
+        var activity = Assert.Single(ClientSpans(recorder));
+        Assert.Equal(8443, activity.GetTagItem("server.port"));
+        Assert.Equal("https", activity.GetTagItem("url.scheme"));
+        Assert.Equal("404", activity.GetTagItem("error.type"));
+        Assert.Equal("1.1", activity.GetTagItem("network.protocol.version"));
     }
 
     // ─── Nested helpers ──────────────────────────────────────────────────────
