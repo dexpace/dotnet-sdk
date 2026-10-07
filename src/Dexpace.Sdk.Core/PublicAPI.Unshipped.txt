@@ -10,6 +10,34 @@ abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Stage.get -> Dexpace.Sdk.C
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredentialAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<(string! HeaderName, string! HeaderValue)>
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.WithheldHeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+const Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.DefaultBodyPreviewSize = 8192 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.BodyCaptureFailed = "http.instrumentation.body_capture_failed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.BodyCaptureFailedId = 121 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.DisposeSuppressed = "dexpace.dispose.suppressed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.DisposeSuppressedId = 130 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpFailureId = 102 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpRequest = "http.request" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpRequestId = 100 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpResponse = "http.response" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpResponseId = 101 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.LogFailed = "http.instrumentation.log_failed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.LogFailedId = 120 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.ErrorType = "error.type" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.FailedEvent = "dexpace.instrumentation.failed_event" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestBodyPreview = "http.request.body.preview" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestBodyPreviewSize = "http.request.body.preview.size" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestBodySize = "http.request.body.size" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestHeaderPrefix = "http.request.header." -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestMethod = "http.request.method" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestResendCount = "http.request.resend_count" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseBodyPreview = "http.response.body.preview" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseBodyPreviewSize = "http.response.body.preview.size" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseBodySize = "http.response.body.size" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseDurationMs = "http.response.duration_ms" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseHeaderPrefix = "http.response.header." -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseStatusCode = "http.response.status_code" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedactedHeaderValue = "REDACTED" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string!
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
@@ -53,6 +81,8 @@ Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.set -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.get -> System.Uri?
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.set -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.DexpaceClientOptions() -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.set -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.get -> System.TimeSpan?
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.set -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.get -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
@@ -61,6 +91,26 @@ Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.get -> Dexpace.Sdk.Cor
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.set -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.get -> string!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.set -> void
+Dexpace.Sdk.Core.Configuration.HttpLogLevel
+Dexpace.Sdk.Core.Configuration.HttpLogLevel.Body = 2 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
+Dexpace.Sdk.Core.Configuration.HttpLogLevel.Headers = 1 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
+Dexpace.Sdk.Core.Configuration.HttpLogLevel.None = 0 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.AllowedHeaderNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.AllowedHeaderNames.init -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.AllowedQueryParameters.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.AllowedQueryParameters.init -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.BodyPreviewSize.get -> int
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.BodyPreviewSize.init -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.HttpLoggingOptions() -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Level.get -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Level.init -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.get -> bool
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.init -> void
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.get -> bool
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.set -> void
@@ -82,9 +132,12 @@ Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.get
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.set -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
+Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents
+Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(System.Uri! uri) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
+Dexpace.Sdk.Core.Diagnostics.UrlRedactor.RedactHeaderValue(string! value) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor() -> void
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! queryAllowList) -> void
 Dexpace.Sdk.Core.Errors.BodyTooLargeException
@@ -425,6 +478,9 @@ Dexpace.Sdk.Core.Serialization.IStringSerde
 Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
+override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
@@ -492,6 +548,9 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Cor
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsBlocking(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.Execute(this Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
+static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationFormUrlEncoded.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJson.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJsonLines.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
@@ -621,6 +680,7 @@ static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
+static readonly Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.DefaultAllowedHeaderNames -> System.Collections.Generic.IReadOnlyCollection<string!>!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
 static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!

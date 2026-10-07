@@ -1,0 +1,250 @@
+{
+  "source": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb (every header_value case, found by grep) and nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts (the redactHeaderValue cases); the .NET adaptations are noted per case",
+  "cases": [
+    {
+      "input": "https://u:p@h/cb?code=S&api-version=1",
+      "expected": "https://***:***@h/cb?code=***&api-version=1",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb HeaderValueTest: a parseable absolute value is redacted like a request URL"
+    },
+    {
+      "input": "https://h/p?a=1",
+      "expected": "https://h/p?a=***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb HeaderValueTest (policy-exploding case, default redactor form)"
+    },
+    {
+      "input": "https://h/p",
+      "expected": "https://h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb HeaderValueTest (policy-exploding case, no query)"
+    },
+    {
+      "input": "https://example.com/cb?token=SECRET",
+      "expected": "https://example.com/cb?token=***",
+      "note": "nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts Content-Location carrying an absolute URL"
+    },
+    {
+      "input": "/cb?code=SECRET",
+      "expected": "/cb?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative value keeps path, drops query; nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts Location carrying a query"
+    },
+    {
+      "input": "/cb#access_token=T",
+      "expected": "/cb?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative: fragment"
+    },
+    {
+      "input": "/cb?a=1#b=2",
+      "expected": "/cb?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative: query and fragment"
+    },
+    {
+      "input": "/cb?",
+      "expected": "/cb?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative: present-but-empty query is a query"
+    },
+    {
+      "input": "#frag",
+      "expected": "?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative: fragment-only value"
+    },
+    {
+      "input": "/callback?code=SECRET",
+      "expected": "/callback?***",
+      "note": "nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts Location carrying a query"
+    },
+    {
+      "input": "/static/path",
+      "expected": "/static/path",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative value with neither query nor fragment; nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts"
+    },
+    {
+      "input": "relative/no/slash",
+      "expected": "relative/no/slash",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb relative value with neither query nor fragment"
+    },
+    {
+      "input": "",
+      "expected": "",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb empty value"
+    },
+    {
+      "input": "//h/x",
+      "expected": "//h/x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb network-path reference without userinfo"
+    },
+    {
+      "input": "//[::1]:8443/x",
+      "expected": "//[::1]:8443/x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb network-path reference, IPv6 literal"
+    },
+    {
+      "input": "//h:8443/x#f",
+      "expected": "//h:8443/x?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb network-path reference with a fragment"
+    },
+    {
+      "input": "//example.com/path?secret=123",
+      "expected": "//example.com/path?***",
+      "note": "nodejs-sdk@54aeed4 packages/core/src/observability/redaction.test.ts protocol-relative header URLs redact properly"
+    },
+    {
+      "input": "//user:secret@h/x",
+      "expected": "//***:***@h/x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-100: relative route redacts a network-path reference's userinfo"
+    },
+    {
+      "input": "//user:secret@h/x?code=S",
+      "expected": "//***:***@h/x?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-100"
+    },
+    {
+      "input": "//user:pw@[::1]:80/x?q=1",
+      "expected": "//***:***@[::1]:80/x?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-100"
+    },
+    {
+      "input": "//user@h",
+      "expected": "//***:***@h",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-100"
+    },
+    {
+      "input": "http://user:secret@h/p x",
+      "expected": "http://***:***@h/p x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest P5-100"
+    },
+    {
+      "input": "http://user:secret@h/p x?code=S",
+      "expected": "http://***:***@h/p x?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest P5-100"
+    },
+    {
+      "input": "//user:pw@h/p x",
+      "expected": "//***:***@h/p x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest P5-100"
+    },
+    {
+      "input": "HTTP://us er:pw@h/p",
+      "expected": "HTTP://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest P5-100"
+    },
+    {
+      "input": "http://a@b@h/p x?q",
+      "expected": "http://***:***@h/p x?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest: the LAST @ of the authority"
+    },
+    {
+      "input": "http://us/er:pw@h/p x",
+      "expected": "http://us/er:pw@h/p x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb SurgeryRouteTest: an @ after the first / is in the path"
+    },
+    {
+      "input": " http://user:secret@h/p",
+      "expected": " http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-105 leading whitespace"
+    },
+    {
+      "input": "\thttp://user:secret@h/p",
+      "expected": "\thttp://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-105 leading tab"
+    },
+    {
+      "input": "  http://user:secret@h/p?code=S",
+      "expected": "  http://***:***@h/p?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-105"
+    },
+    {
+      "input": " //user:secret@h/x",
+      "expected": " //***:***@h/x",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-105"
+    },
+    {
+      "input": "<http://user:secret@h/p>",
+      "expected": "<http://***:***@h/p>",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 RFC 3986 appendix C angle brackets"
+    },
+    {
+      "input": "'http://user:secret@h/p'",
+      "expected": "'http://***:***@h/p'",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 quotes"
+    },
+    {
+      "input": "(http://user:secret@h/p)",
+      "expected": "(http://***:***@h/p)",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 parentheses"
+    },
+    {
+      "input": "x http://user:secret@h/p",
+      "expected": "x http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 a word before the URL"
+    },
+    {
+      "input": "%20http://user:secret@h/p",
+      "expected": "%20http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 an encoded space"
+    },
+    {
+      "input": "+http://user:secret@h/p",
+      "expected": "+http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107"
+    },
+    {
+      "input": "@http://user:secret@h/p",
+      "expected": "@http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107"
+    },
+    {
+      "input": " http://user:secret@h/p",
+      "expected": " http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 NBSP"
+    },
+    {
+      "input": "http://user:secret@proxy.corp:3128http://user:secret@proxy.corp:3128",
+      "expected": "http://***:***@proxy.corp:3128http://***:***@proxy.corp:3128",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107 doubled proxy URL"
+    },
+    {
+      "input": "http://user:secret@h/phttp://user:secret@h/p",
+      "expected": "http://***:***@h/phttp://user:secret@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-107: a parseable URL whose path spells a second authority (OBS-14 keeps the path)"
+    },
+    {
+      "input": "bad path?secret=1",
+      "expected": "bad path?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-28 string surgery"
+    },
+    {
+      "input": "bad path#frag?x",
+      "expected": "bad path?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-28"
+    },
+    {
+      "input": "bad path",
+      "expected": "bad path",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-28"
+    },
+    {
+      "input": "https://h/a b?c=1",
+      "expected": "https://h/a b?***",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb P5-28 absolute but unparseable"
+    },
+    {
+      "input": "user:secret@h/p",
+      "expected": "user:secret@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb no // before the @: a path or an opaque part, written back as given"
+    },
+    {
+      "input": "\\\\user:secret@h/p",
+      "expected": "\\\\user:secret@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb a backslash is not a URI character: written back as given"
+    },
+    {
+      "input": "http:///user:secret@h/p",
+      "expected": "http:///user:secret@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb an empty authority with the credential in the path"
+    },
+    {
+      "input": "/http://user:secret@h/p",
+      "expected": "/http://***:***@h/p",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb path-absolute reference whose path spells an authority (differs from Ruby, which keeps it: here the // scan is unconditional and OBS-11 wins)"
+    }
+  ]
+}

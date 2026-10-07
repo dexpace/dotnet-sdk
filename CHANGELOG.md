@@ -177,6 +177,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   their `= default` token (no overload of the family carries an optional token); pass `CancellationToken.None`.
 - `DexpacePipeline.CreateDefault` is built from `PipelineBuilder.AddStandardResilience`; the async and the sync standard
   pipelines both follow redirects (`PIPE-32`, `REDIR-25`; design §10 entry 14, topic `async-redirect-pillar`).
+- The `url.full` span tag is redacted with the call's `HttpLoggingOptions.AllowedQueryParameters`, the same redactor the log
+  events use (`OBS-12`, P5b-10); the default (`api-version` only) is unchanged, so this is behaviour-preserving until a
+  caller widens the list.
 
 ### Added
 
@@ -295,5 +298,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Repository hygiene (roadmap phase 0): `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`,
   issue and pull-request templates, and Dependabot for NuGet and GitHub Actions. Each package now ships its
   `README.md` (`PackageReadmeFile`).
+- Phase 5b logging surface, step 2: `HttpLogLevel`, `HttpLoggingOptions` (level, body preview size, header allow-list,
+  query allow-list, URL-valued header names, omit-versus-redact switch) and `DexpaceClientOptions.Logging`;
+  `UrlRedactor.RedactHeaderValue` (`OBS-16`, total and never the malformed-URL sentinel); the stable `DexpaceLogEvents` and
+  `DexpaceLogKeys` vocabulary (`OBS-39`). Only `AllowedQueryParameters` is read so far (by the `url.full` span tag); the emitter lands in the next step.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

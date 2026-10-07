@@ -48,6 +48,7 @@ public sealed class UrlRedactor
     private const string RedactedValue = "***";
     private const string RedactedUserInfo = "***:***@";
     private const string MalformedUrl = "[malformed url]";
+    private const string RelativeMarker = "?***";
 
     private readonly HashSet<string> _allowList;
 
@@ -120,6 +121,122 @@ public sealed class UrlRedactor
         }
 
         return Redact(parsed);
+    }
+
+    /// <summary>
+    /// Redacts the value of a URL-valued response or request header such as <c>Location</c> (OBS-16, OBS-11, P5b-9).
+    /// </summary>
+    /// <param name="value">The raw header value.</param>
+    /// <returns>
+    /// The redacted value. A value that starts with a URI scheme and parses is redacted exactly like a request URL
+    /// (<see cref="Redact(Uri)"/>). Anything else keeps its text up to the first <c>?</c> or <c>#</c>, has every
+    /// <c>//authority</c> userinfo replaced with <c>***:***@</c>, and gains a trailing <c>?***</c> when a query or fragment
+    /// was cut. The method is total and, unlike <see cref="Redact(string)"/>, never returns the malformed-URL sentinel: a
+    /// header value a reader cannot see the path of is a useless log line.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// "Absolute" is decided by a scheme prefix in the text, never by <see cref="Uri.IsAbsoluteUri"/>: on Unix
+    /// <see cref="Uri"/> reads a rooted path such as <c>/cb?code=x</c> as an absolute <c>file:</c> URI.
+    /// </remarks>
+    public string RedactHeaderValue(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        // OBS-16, XCUT-20: total, and never the sentinel; the relative marker is the safe floor.
+#pragma warning disable CA1031 // A redaction failure must yield the marker, never an exception (OBS-16, XCUT-20).
+        try
+        {
+            if (HasSchemePrefix(value) && IsVerbatimSafe(value)
+                && Uri.TryCreate(value, UriKind.Absolute, out var parsed))
+            {
+                var redacted = Redact(parsed);
+                if (!string.Equals(redacted, MalformedUrl, StringComparison.Ordinal))
+                {
+                    return redacted;
+                }
+            }
+
+            return RedactBySurgery(value);
+        }
+        catch (Exception)
+        {
+            return RelativeMarker;
+        }
+#pragma warning restore CA1031
+    }
+
+    // The route for a value the parser did not take: cut at the first '?' or '#', then mask the userinfo of every
+    // "//authority" in what is left (OBS-11 is unconditional and overrides OBS-16's "verbatim").
+    private static string RedactBySurgery(string value)
+    {
+        var cut = value.AsSpan().IndexOfAny('?', '#');
+        var head = cut < 0 ? value : value[..cut];
+        var masked = MaskEveryAuthority(head);
+        return cut < 0 ? masked : masked + RelativeMarker;
+    }
+
+    private static string MaskEveryAuthority(string text)
+    {
+        var builder = (StringBuilder?)null;
+        var copiedTo = 0;
+        var i = 0;
+        while (i + 1 < text.Length)
+        {
+            if (text[i] != '/' || text[i + 1] != '/')
+            {
+                i++;
+                continue;
+            }
+
+            var start = i + 2;
+            var end = start;
+            while (end < text.Length && text[end] is not ('/' or '?' or '#'))
+            {
+                end++;
+            }
+
+            var at = text.AsSpan(start, end - start).LastIndexOf('@');
+            if (at >= 0)
+            {
+                builder ??= new StringBuilder(text.Length + 8);
+                builder.Append(text, copiedTo, start - copiedTo).Append(RedactedUserInfo);
+                copiedTo = start + at + 1;
+            }
+
+            i = start;
+        }
+
+        return builder is null ? text : builder.Append(text, copiedTo, text.Length - copiedTo).ToString();
+    }
+
+    // RFC 3986 scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":".
+    private static bool HasSchemePrefix(string text)
+    {
+        if (text.Length == 0 || !char.IsAsciiLetter(text[0]))
+        {
+            return false;
+        }
+
+        for (var i = 1; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == ':')
+            {
+                return true;
+            }
+
+            if (!char.IsAsciiLetterOrDigit(c) && c is not ('+' or '-' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private string RedactParsed(Uri uri)

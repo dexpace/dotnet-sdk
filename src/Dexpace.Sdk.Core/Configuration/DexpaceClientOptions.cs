@@ -59,6 +59,21 @@ public sealed class DexpaceClientOptions
     /// </summary>
     public RedirectOptions Redirect { get; set; } = new();
 
+    /// <summary>
+    /// Gets or sets how much of each request and response the SDK logs, and how it redacts what it logs. Defaults to
+    /// <see cref="HttpLoggingOptions.Default"/>: logging is off (OBS-34).
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    public HttpLoggingOptions Logging
+    {
+        get;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = HttpLoggingOptions.Default;
+
     private static string BuildDefaultUserAgent() =>
         $"dexpace-dotnet/{SdkVersion.Value}";
 }

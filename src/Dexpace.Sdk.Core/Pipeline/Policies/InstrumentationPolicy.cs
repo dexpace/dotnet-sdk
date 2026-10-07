@@ -22,7 +22,9 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <b>Tracing.</b> A client-kind <see cref="Activity"/> is started from
 /// <see cref="DexpaceDiagnostics.ActivitySource"/> for each attempt. The activity name is the
 /// HTTP method (low cardinality). OTel HTTP semantic-convention tags are attached:
-/// <c>http.request.method</c>, <c>url.full</c> (redacted), <c>url.scheme</c>,
+/// <c>http.request.method</c>, <c>url.full</c> (redacted with the call's
+/// <see cref="Configuration.HttpLoggingOptions.AllowedQueryParameters"/>, the same value the log events carry; default
+/// <c>api-version</c> only, P5b-10), <c>url.scheme</c>,
 /// <c>server.address</c>, <c>server.port</c>, <c>http.response.status_code</c>, and
 /// <c>http.request.resend_count</c>. On exception, <c>error.type</c> is set and the activity
 /// status is <see cref="ActivityStatusCode.Error"/>. When no listener is registered,
@@ -63,8 +65,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </remarks>
 public sealed class InstrumentationPolicy : HttpPipelinePolicy
 {
-    private static readonly UrlRedactor s_redactor = new();
-
+    private readonly RedactionCache _redaction = new();
     private readonly ILogger _logger;
 
     /// <summary>
@@ -95,7 +96,7 @@ public sealed class InstrumentationPolicy : HttpPipelinePolicy
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var scope = new AttemptScope(request, context, s_redactor);
+        var scope = new AttemptScope(request, context, _redaction.Get(context.Options.Logging).Redactor);
         var telemetry = AttemptTelemetry.Begin(ref scope, request, context);
         HttpLogEmitter.OnRequest(_logger, ref scope);
         try

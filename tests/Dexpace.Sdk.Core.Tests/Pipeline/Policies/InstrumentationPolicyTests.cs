@@ -123,6 +123,36 @@ public sealed class InstrumentationPolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task The_url_full_tag_honours_the_calls_allowed_query_parameters()
+    {
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
+        var request = MakeRequest(new Uri("https://api.example.com/v1/items?keep=1&drop=2"));
+
+        using var configured = await pipeline.SendAsync(
+            request,
+            new DexpaceClientOptions { Logging = new HttpLoggingOptions { AllowedQueryParameters = ["keep"] } },
+            TestContext.Current.CancellationToken);
+        using var defaulted = await pipeline.SendAsync(request, DefaultOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("https://api.example.com/v1/items?keep=1&drop=***", Activities[0].GetTagItem("url.full"));
+        Assert.Equal("https://api.example.com/v1/items?keep=***&drop=***", Activities[1].GetTagItem("url.full"));
+    }
+
+    [Fact]
+    public async Task The_default_url_full_tag_is_unchanged()
+    {
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+
+        using var response = await RunAsync(
+            new InstrumentationPolicy(),
+            MakeRequest(new Uri("https://api.example.com/v1/items?api-version=2&token=T")),
+            transport);
+
+        Assert.Equal("https://api.example.com/v1/items?api-version=2&token=***", Assert.Single(Activities).GetTagItem("url.full"));
+    }
+
+    [Fact]
     public async Task ProcessAsync_AttemptNumber_SetOnResendCountTag()
     {
         // Use RetryPolicy + InstrumentationPolicy so AttemptNumber increments
