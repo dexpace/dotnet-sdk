@@ -2,8 +2,10 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Internal;
+using Dexpace.Sdk.TestSupport.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -225,5 +227,32 @@ public sealed class DisposalTests : IDisposable
         var resource = new AsyncOnly();
         await Disposal.DisposeQuietlyAsync(resource);
         Assert.Equal(1, resource.Disposals);
+    }
+
+    [Fact]
+    public void The_suppressed_event_is_dexpace_dispose_suppressed_id_130_at_Warning()
+    {
+        var logger = new RecordingLogger();
+
+        Disposal.DisposeQuietly(new Resource(new InvalidOperationException("boom")), logger: logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(130, entry.EventId.Id);
+        Assert.Equal("dexpace.dispose.suppressed", entry.EventId.Name);
+    }
+
+    [Fact]
+    public async Task The_event_carries_resource_type_and_error_type_keys_never_a_message()
+    {
+        var logger = new RecordingLogger();
+
+        await Disposal.DisposeQuietlyAsync(new Resource(new InvalidOperationException("SECRET-MESSAGE")), logger: logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(nameof(Resource), entry[InternalLogKeys.DisposeResourceType]);
+        Assert.Equal(typeof(InvalidOperationException).FullName, entry[DexpaceLogKeys.ErrorType]);
+        Assert.DoesNotContain("SECRET-MESSAGE", entry.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(entry.State, p => p.Value is string text && text.Contains("SECRET-MESSAGE", StringComparison.Ordinal));
     }
 }

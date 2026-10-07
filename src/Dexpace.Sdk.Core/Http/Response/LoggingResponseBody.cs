@@ -6,6 +6,7 @@ using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Internal;
 using Dexpace.Sdk.Core.IO;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Core.Http.Response;
 
@@ -46,6 +47,7 @@ internal sealed class LoggingResponseBody : ResponseBody
 
     private readonly ResponseBody _inner;
     private readonly int _cap;
+    private readonly ILogger? _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
     // Captured once: a token stays valid after its source is disposed, so a dispose racing a first access cannot throw.
@@ -66,14 +68,19 @@ internal sealed class LoggingResponseBody : ResponseBody
     /// <summary>Initializes a new wrapper that takes ownership of <paramref name="inner"/>.</summary>
     /// <param name="inner">The body to capture.</param>
     /// <param name="captureCap">The most bytes captured; 0 captures nothing. Above <see cref="Array.MaxLength"/> is clamped.</param>
+    /// <param name="logger">
+    /// An optional logger for the quiet closes: a failing dispose of the delegate is reported to it as
+    /// <c>dexpace.dispose.suppressed</c> (P3b-3, P5b-6).
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="captureCap"/> is negative (BODY-32).</exception>
-    internal LoggingResponseBody(ResponseBody inner, int captureCap)
+    internal LoggingResponseBody(ResponseBody inner, int captureCap, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentOutOfRangeException.ThrowIfNegative(captureCap);
         _lifetimeToken = _lifetime.Token;
         _inner = inner;
         _cap = Math.Min(captureCap, Array.MaxLength);
+        _logger = logger;
     }
 
     public override MediaType? ContentType => _inner.ContentType;
@@ -112,6 +119,18 @@ internal sealed class LoggingResponseBody : ResponseBody
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxBytes);
         await EnsureDrainedAsync(cancellationToken).ConfigureAwait(false);
+        return CopyCaptured(Math.Min(maxBytes, _count));
+    }
+
+    /// <summary>The synchronous twin of <see cref="SnapshotAsync(int, CancellationToken)"/> (OBS-17: both paths log).</summary>
+    /// <param name="maxBytes">The most bytes to return; above <see cref="Array.MaxLength"/> is clamped.</param>
+    /// <param name="cancellationToken">Cancels this accessor's wait, or the drain it starts.</param>
+    /// <returns>A new array; the partial bytes after a failed drain, whose failure <see cref="DrainFailure"/> exposes.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxBytes"/> is negative (BODY-32).</exception>
+    internal byte[] Snapshot(int maxBytes, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxBytes);
+        EnsureDrained(cancellationToken);
         return CopyCaptured(Math.Min(maxBytes, _count));
     }
 
@@ -363,8 +382,8 @@ internal sealed class LoggingResponseBody : ResponseBody
 
         if (quiet)
         {
-            Disposal.DisposeQuietly(_stream);
-            Disposal.DisposeQuietly(_inner);
+            Disposal.DisposeQuietly(_stream, logger: _logger);
+            Disposal.DisposeQuietly(_inner, logger: _logger);
             return;
         }
 
@@ -387,8 +406,8 @@ internal sealed class LoggingResponseBody : ResponseBody
 
         if (quiet)
         {
-            await Disposal.DisposeQuietlyAsync(_stream).ConfigureAwait(false);
-            await Disposal.DisposeQuietlyAsync(_inner).ConfigureAwait(false);
+            await Disposal.DisposeQuietlyAsync(_stream, logger: _logger).ConfigureAwait(false);
+            await Disposal.DisposeQuietlyAsync(_inner, logger: _logger).ConfigureAwait(false);
             return;
         }
 

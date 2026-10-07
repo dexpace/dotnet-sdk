@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Request;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
@@ -96,13 +97,15 @@ public sealed class PipelineContext
         DexpaceClientOptions options,
         RequestOptions requestOptions,
         DispatchContext dispatch,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(seedRequest);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(requestOptions);
         ArgumentNullException.ThrowIfNull(dispatch);
-        return new PipelineContext(new CallState(seedRequest, options, requestOptions, dispatch), null, 0, 0, cancellationToken);
+        ArgumentNullException.ThrowIfNull(logger);
+        return new PipelineContext(new CallState(seedRequest, options, requestOptions, dispatch, logger), null, 0, 0, cancellationToken);
     }
 
     internal CallState State => _state;

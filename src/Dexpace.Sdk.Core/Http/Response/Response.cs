@@ -214,6 +214,44 @@ public sealed class Response : IAsyncDisposable, IDisposable
     private readonly List<ExchangeContext> _exchanges = [];
 
     /// <summary>
+    /// Returns a new response over <paramref name="body"/> that takes this response's place: it owns the new body, carries this
+    /// response's exchange links, and this response is latched as disposed <b>without</b> disposing its body (BODY-34, CTX-9,
+    /// P5b-13).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The caller passes a body that already owns this response's body (a logging wrapper), so disposing the new response
+    /// releases the old body exactly once, through the wrapper. Unlike the public <see cref="WithBody"/>, which leaves the
+    /// original to be disposed and its exchange links behind, nothing is left to dispose separately and the links close when
+    /// the new response is disposed.
+    /// </para>
+    /// <para>This response must not have been disposed; afterwards it is, and a second dispose is a no-op.</para>
+    /// </remarks>
+    /// <param name="body">The new body; it must own <see cref="Body"/>.</param>
+    /// <returns>The new response.</returns>
+    /// <exception cref="ObjectDisposedException">This response was already disposed.</exception>
+    internal Response ReplaceBody(ResponseBody body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        ObjectDisposedException.ThrowIf(Interlocked.Exchange(ref _disposed, 1) != 0, this);
+
+        var next = new Response(Request, Status, Protocol, Headers, body, ReasonPhrase);
+        ExchangeContext[] links;
+        lock (_exchangeGate)
+        {
+            links = [.. _exchanges];
+            _exchanges.Clear();
+        }
+
+        foreach (var link in links)
+        {
+            next.AttachExchange(link);
+        }
+
+        return next;
+    }
+
+    /// <summary>
     /// Attaches the exchange link a pipeline promoted for this response, so disposing the response closes it
     /// (design §5.4). A pipeline used as another pipeline's transport attaches a second link; every link is closed, in
     /// reverse order of attachment, when the response is disposed.

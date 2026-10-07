@@ -8,6 +8,8 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.TestSupport.Transports;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
@@ -21,12 +23,14 @@ internal static class TestContexts
         Request? seed = null,
         DexpaceClientOptions? options = null,
         RequestOptions? requestOptions = null,
-        DispatchContext? dispatch = null) =>
+        DispatchContext? dispatch = null,
+        ILogger? logger = null) =>
         PipelineContext.Create(
             seed ?? Request.Get("https://api.example.com/v1/resource"),
             options ?? new DexpaceClientOptions(),
             requestOptions ?? RequestOptions.Empty,
             dispatch ?? new DispatchContext(),
+            logger ?? NullLogger.Instance,
             CancellationToken.None);
 
     /// <summary>A runner over <paramref name="downstream"/> policies (in the order given) and <paramref name="transport"/>.</summary>

@@ -123,6 +123,36 @@ public sealed class InstrumentationPolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task The_url_full_tag_honours_the_calls_allowed_query_parameters()
+    {
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
+        var request = MakeRequest(new Uri("https://api.example.com/v1/items?keep=1&drop=2"));
+
+        using var configured = await pipeline.SendAsync(
+            request,
+            new DexpaceClientOptions { Logging = new HttpLoggingOptions { AllowedQueryParameters = ["keep"] } },
+            TestContext.Current.CancellationToken);
+        using var defaulted = await pipeline.SendAsync(request, DefaultOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("https://api.example.com/v1/items?keep=1&drop=***", Activities[0].GetTagItem("url.full"));
+        Assert.Equal("https://api.example.com/v1/items?keep=***&drop=***", Activities[1].GetTagItem("url.full"));
+    }
+
+    [Fact]
+    public async Task The_default_url_full_tag_is_unchanged()
+    {
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+
+        using var response = await RunAsync(
+            new InstrumentationPolicy(),
+            MakeRequest(new Uri("https://api.example.com/v1/items?api-version=2&token=T")),
+            transport);
+
+        Assert.Equal("https://api.example.com/v1/items?api-version=2&token=***", Assert.Single(Activities).GetTagItem("url.full"));
+    }
+
+    [Fact]
     public async Task ProcessAsync_AttemptNumber_SetOnResendCountTag()
     {
         // Use RetryPolicy + InstrumentationPolicy so AttemptNumber increments
@@ -247,19 +277,21 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         var logger = new RecordingLogger();
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
-        var policy = new InstrumentationPolicy(logger);
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy(logger)).Build(transport);
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET&x=1");
 
-        await RunAsync(policy, MakeRequest(url), transport);
+        // Logging is opt-in (OBS-34): nothing is logged at the default level.
+        using var silent = await pipeline.SendAsync(MakeRequest(url), DefaultOptions(), TestContext.Current.CancellationToken);
+        Assert.Empty(logger.Entries);
+
+        using var response = await pipeline.SendAsync(
+            MakeRequest(url),
+            new DexpaceClientOptions { Logging = new HttpLoggingOptions { Level = HttpLogLevel.Headers } },
+            TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(logger.Entries);
-        // Verify that no log entry contains the secret
-        foreach (var (_, message) in logger.Entries)
-        {
-            Assert.DoesNotContain("SECRET", message);
-        }
-        // Verify the redacted marker is present in at least one entry
-        Assert.Contains(logger.Entries, e => e.Message.Contains("api_key=***"));
+        Assert.All(logger.Entries, e => Assert.DoesNotContain("SECRET", e.Message, StringComparison.Ordinal));
+        Assert.All(logger.Entries, e => Assert.Contains("api_key=***", (string)e[DexpaceLogKeys.UrlFull]!, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -442,24 +474,6 @@ public sealed class InstrumentationPolicyTests : IDisposable
         {
             capture(context);
             return continuation.RunAsync(request, context);
-        }
-    }
-
-    private sealed class RecordingLogger : ILogger
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            Entries.Add((logLevel, formatter(state, exception)));
         }
     }
 }

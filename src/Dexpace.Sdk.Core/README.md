@@ -17,8 +17,8 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | `Dexpace.Sdk.Core.Auth` | `TokenCredential`, `AccessTokenCache`, `ApiKeyCredential`, `BasicCredential` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
-| `Dexpace.Sdk.Core.Configuration` | `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions` |
-| `Dexpace.Sdk.Core.Diagnostics` | The `Dexpace.Sdk` `ActivitySource` and `Meter`, and the default-deny `UrlRedactor` |
+| `Dexpace.Sdk.Core.Configuration` | `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `HttpLoggingOptions` and `HttpLogLevel` (logging is off by default) |
+| `Dexpace.Sdk.Core.Diagnostics` | The `Dexpace.Sdk` `ActivitySource` and `Meter`, the default-deny `UrlRedactor` (including `RedactHeaderValue`), and the stable log vocabulary `DexpaceLogEvents` / `DexpaceLogKeys` |
 | `Dexpace.Sdk.Core.Recovery` | The recovery layer: `Outcome`, `IRequestStep` / `IResponseStep` / `IRecoveryStep`, `RequestRecoveryChain`, `ResponseRecoveryChain`, `RecoveryDispatcher`, and the shipped steps `ErrorMappingStep`, `IdempotencyKeyStep` and `ClientIdentityStep` |
 | `Dexpace.Sdk.Core.Errors` | `SdkException` and its subclasses, `ExceptionFacts` (`IsFatal`, `EnumerateCauses`) and `ExceptionTrail` (`AddSuppressed`, `GetSuppressed`) |
 

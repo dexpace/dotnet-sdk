@@ -222,6 +222,9 @@ line and in the roadmap.
     structured value stays `null` (verified). Precedence and global context (**OBS-5**, **OBS-9**) belong to the
     provider and host. Emit-once (**OBS-8**) and the reserved-key collision diagnostic (**OBS-4**, **OBS-40**) are
     vacuous, because `EventId.Name` carries the category outside the key/value state. §8.1.
+    *Correction 2026-10-07 (phase 5b, P5b-18):* **OBS-10** (the diagnostic-context fold) and **OBS-24** (context flow) rest on entry 23 and
+    §8.1 rather than on this entry: the fold is `LoggerFactoryOptions.ActivityTrackingOptions`, a host allow-list, and the flow is the
+    runtime's `AsyncLocal`, pinned by a test. **OBS-5**, **OBS-8**, **OBS-9** and **OBS-40** are N/A on this entry. No new entry is opened.
 23. **Tracing is `System.Diagnostics.Activity`: its no-op is `null`, and log correlation is the host's.** *Touches*
     **OBS-25** (the shared no-op span), **OBS-21** (the recording flag's form), **OBS-23** and **OBS-10** (the key
     names and default allow-list), **OBS-28** (the vocabulary as spans and events). *Judged* (P2, P14).

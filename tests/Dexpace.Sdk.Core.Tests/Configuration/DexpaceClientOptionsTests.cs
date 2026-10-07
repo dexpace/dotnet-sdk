@@ -24,6 +24,16 @@ public class DexpaceClientOptionsTests
     }
 
     [Fact]
+    public void Logging_defaults_to_HttpLoggingOptions_Default()
+    {
+        var opts = new DexpaceClientOptions();
+
+        Assert.Same(HttpLoggingOptions.Default, opts.Logging);
+        Assert.Equal(HttpLogLevel.None, opts.Logging.Level);
+        Assert.Throws<ArgumentNullException>(() => opts.Logging = null!);
+    }
+
+    [Fact]
     public void RetryOptions_Defaults_AreCorrect()
     {
         var retry = new RetryOptions();

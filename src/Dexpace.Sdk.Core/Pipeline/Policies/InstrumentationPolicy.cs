@@ -22,7 +22,9 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <b>Tracing.</b> A client-kind <see cref="Activity"/> is started from
 /// <see cref="DexpaceDiagnostics.ActivitySource"/> for each attempt. The activity name is the
 /// HTTP method (low cardinality). OTel HTTP semantic-convention tags are attached:
-/// <c>http.request.method</c>, <c>url.full</c> (redacted), <c>url.scheme</c>,
+/// <c>http.request.method</c>, <c>url.full</c> (redacted with the call's
+/// <see cref="Configuration.HttpLoggingOptions.AllowedQueryParameters"/>, the same value the log events carry; default
+/// <c>api-version</c> only, P5b-10), <c>url.scheme</c>,
 /// <c>server.address</c>, <c>server.port</c>, <c>http.response.status_code</c>, and
 /// <c>http.request.resend_count</c>. On exception, <c>error.type</c> is set and the activity
 /// status is <see cref="ActivityStatusCode.Error"/>. When no listener is registered,
@@ -52,27 +54,43 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </list>
 /// </para>
 /// <para>
-/// <b>Logging.</b> Structured <see cref="ILogger"/> events are emitted at
-/// <see cref="LogLevel.Debug"/> with the redacted URL. Secrets are never logged.
+/// <b>Structure.</b> The attempt is split into an <c>AttemptScope</c> (the lazily redacted URL and the entry timestamp),
+/// <c>AttemptTelemetry</c> (the span and the instruments) and <c>HttpLogEmitter</c> (the log events); this method only
+/// orchestrates them.
+/// </para>
+/// <para>
+/// <b>Logging (OBS-1 to OBS-4, OBS-6, OBS-20, OBS-34, OBS-39).</b> Logging is opt-in per call through
+/// <see cref="Configuration.DexpaceClientOptions.Logging"/>: at <see cref="Configuration.HttpLogLevel.None"/> (the default)
+/// no <c>http.request</c> or <c>http.response</c> event is emitted, nothing is allocated and no body wrapper is
+/// constructed, while the span and the instruments still record. At <see cref="Configuration.HttpLogLevel.Headers"/> the
+/// policy writes <c>http.request</c> (id 100) before the continuation and <c>http.response</c> (id 101, or 102 at
+/// <see cref="LogLevel.Warning"/> when the attempt threw) after it, at <see cref="LogLevel.Information"/>, with the
+/// OpenTelemetry keys of <see cref="DexpaceLogKeys"/>, the always-redacted URL, and the allow-listed headers (the rest are
+/// <c>REDACTED</c>). Secrets are never logged. A logger that throws never fails the request: the failure surfaces as one
+/// <c>http.instrumentation.log_failed</c> event, and span and meter callbacks are not wrapped by that guard.
+/// </para>
+/// <para>
+/// <b>Body level (OBS-34, OBS-36 to OBS-38, BODY-34).</b> At <see cref="Configuration.HttpLogLevel.Body"/> the request body
+/// is tapped on the request passed downstream (never on the one a retry or redirect policy holds) and a response with a
+/// known-length body that is not <c>text/event-stream</c> comes back with a logging wrapper: up to
+/// <see cref="Configuration.HttpLoggingOptions.BodyPreviewSize"/> bytes are read before the call returns, a body that fits
+/// is then served from memory and can be opened again, and a larger one is served as the captured prefix followed by the
+/// live remainder, so the caller always receives every byte. Unknown-length and event-stream bodies are never wrapped, so
+/// no capture waits on a slow producer. <b>Breaking:</b> the wrapped body, the added latency of that read and
+/// <c>ContentLength</c> following BODY-29. The request preview rides on the response (or failure) event because the body is
+/// written inside the continuation, after <c>http.request</c>. <b>Body level logs payloads verbatim up to the preview
+/// size: it is for diagnosis, not for production.</b>
+/// </para>
+/// <para>
+/// <b>Breaking (5b):</b> the policy used to log at <see cref="LogLevel.Debug"/> on every call, with generated event names
+/// (ids 1 to 3) and <c>{Method}</c>, <c>{Url}</c>, <c>{StatusCode}</c> keys, <c>error.type</c> as the short type name, and
+/// unguarded log calls (a throwing logger failed the request). It now logs nothing unless asked, under the names, ids,
+/// levels and keys above, <c>error.type</c> is the full type name, and the log calls are guarded.
 /// </para>
 /// </remarks>
-public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
+public sealed class InstrumentationPolicy : HttpPipelinePolicy
 {
-    // Instruments are created once from the shared Meter.
-    private static readonly Histogram<double> s_requestDuration =
-        DexpaceDiagnostics.Meter.CreateHistogram<double>(
-            "http.client.request.duration",
-            unit: "s",
-            description: "Duration of HTTP client requests.");
-
-    private static readonly UpDownCounter<long> s_activeRequests =
-        DexpaceDiagnostics.Meter.CreateUpDownCounter<long>(
-            "http.client.active_requests",
-            unit: "{request}",
-            description: "Number of HTTP requests currently in flight.");
-
-    private static readonly UrlRedactor s_redactor = new();
-
+    private readonly RedactionCache _redaction = new();
     private readonly ILogger _logger;
 
     /// <summary>
@@ -87,6 +105,9 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
         _logger = logger ?? NullLogger.Instance;
     }
 
+    // The logger this policy writes to; the pipeline hands it to the call (CallState.Logger, P5b-6).
+    internal ILogger Logger => _logger;
+
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Diagnostics;
 
@@ -98,119 +119,43 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
     public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
         SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(InstrumentationPolicy));
 
-    // MA0051 waiver: interleaved log, span and metric handling. Roadmap phase 5 (5b's LoggerMessage delegates and
-    // emission guard, 5c's operation-level Activity and metric rework) restructures this method; splitting it now would
-    // be rewritten there.
-#pragma warning disable MA0051
     private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var method = request.Method.Name;
-        var redactedUrl = s_redactor.Redact(request.Url);
-
-        // Start a client-kind Activity only when there are listeners; null if none.
-        using var activity = DexpaceDiagnostics.ActivitySource.StartActivity(
-            method,
-            ActivityKind.Client);
-
-        // The span and its trace-context header travel downstream on a copy of the context and the request passed to
-        // continuation; nothing is restored afterwards because nothing upstream could observe the write (PIPE-16).
-        var outgoing = request;
-        var downstream = context;
-        if (activity is not null)
-        {
-            activity.SetTag("http.request.method", method);
-            activity.SetTag("url.full", redactedUrl);
-            activity.SetTag("url.scheme", request.Url.Scheme);
-            activity.SetTag("server.address", request.Url.Host);
-            activity.SetTag("server.port", request.Url.IsDefaultPort ? -1 : request.Url.Port);
-            activity.SetTag("http.request.resend_count", context.AttemptNumber);
-
-            // Inject W3C trace context onto the request so any transport carries the span.
-            if (activity.IdFormat == ActivityIdFormat.W3C && activity.Id is not null)
-            {
-                var headers = request.Headers.Set("traceparent", activity.Id);
-                if (!string.IsNullOrEmpty(activity.TraceStateString))
-                {
-                    headers = headers.Set("tracestate", activity.TraceStateString);
-                }
-
-                outgoing = request.WithHeaders(headers);
-            }
-
-            downstream = context.WithActivity(activity);
-        }
-
-        LogSendingRequest(_logger, method, redactedUrl);
-
-        var sw = Stopwatch.StartNew();
-        var methodTag = new TagList { { "http.request.method", method } };
-        s_activeRequests.Add(1, methodTag);
-
+        var token = context.CancellationToken;
+        var logging = context.Options.Logging;
+        var redaction = _redaction.Get(logging);
+        var scope = new AttemptScope(request, context, redaction.Redactor);
+        var telemetry = AttemptTelemetry.Begin(ref scope, request, context);
+        var log = new RequestLog(telemetry.Outgoing);
         try
         {
-            var response = async
-                ? await continuation.RunAsync(outgoing, downstream).ConfigureAwait(false)
-                : continuation.Run(outgoing, downstream);
-
-            var statusCode = response.Status.Code;
-            activity?.SetTag("http.response.status_code", statusCode);
-            LogReceivedResponse(_logger, method, statusCode, redactedUrl);
-
-            var durationTags = new TagList
+            log = HttpLogEmitter.OnRequest(_logger, ref scope, telemetry.Outgoing, logging, redaction, token);
+            Response response;
+            try
             {
-                { "http.request.method", method },
-                { "http.response.status_code", statusCode },
-            };
-            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-            return response;
-        }
-        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
-        {
-            // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
-            if (activity is not null)
+                response = async
+                    ? await continuation.RunAsync(log.Request, telemetry.Downstream).ConfigureAwait(false)
+                    : continuation.Run(log.Request, telemetry.Downstream);
+                telemetry.Succeeded(response, ref scope);
+            }
+            catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
             {
-                activity.SetTag("error.type", ex.GetType().FullName);
-                activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+                // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
+                telemetry.Failed(ex, ref scope);
+                HttpLogEmitter.OnFailure(_logger, ref scope, log, ex, token);
+                throw;
             }
 
-            LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
-
-            var durationTags = new TagList
-            {
-                { "http.request.method", method },
-                { "error.type", ex.GetType().FullName },
-            };
-            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-
-            throw;
+            return async
+                ? await HttpLogEmitter.CompleteAsync(_logger, scope, log, response, token).ConfigureAwait(false)
+                : HttpLogEmitter.Complete(_logger, ref scope, log, response, token);
         }
         finally
         {
-            s_activeRequests.Add(-1, methodTag);
+            telemetry.End();
         }
     }
-#pragma warning restore MA0051
-
-    // ─── Source-generated zero-alloc logger messages ──────────────────────────
-
-    [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Debug,
-        Message = "Sending {Method} request to {Url}")]
-    private static partial void LogSendingRequest(ILogger logger, string method, string url);
-
-    [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Debug,
-        Message = "Received {Method} response {StatusCode} from {Url}")]
-    private static partial void LogReceivedResponse(ILogger logger, string method, int? statusCode, string url);
-
-    [LoggerMessage(
-        EventId = 3,
-        Level = LogLevel.Warning,
-        Message = "Request {Method} to {Url} failed with {ErrorType}")]
-    private static partial void LogRequestFailed(ILogger logger, Exception ex, string method, string url, string errorType);
 }

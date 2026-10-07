@@ -206,6 +206,22 @@ preview, header redaction.
 **Correction 2026-10-07 (phase 4a, P4a-3).** "The correlation bundle is `Activity`" names `InstrumentationContext` as the composing
 type, and the shared untraced sentinel's `TraceState` is `null` on `default(ActivityContext)`, normalised to `""` there.
 
+**Correction 2026-10-07 (phase 5b, P5b-3, P5b-4).** (1) "it moves to `Define` delegates with the semconv keys" is true of the fixed-key
+events only (`http.instrumentation.log_failed`, `http.instrumentation.body_capture_failed`, `dexpace.dispose.suppressed`). The two
+header-bearing events, `http.request` and `http.response`, carry a dynamic key set (one `http.request.header.<name>` key per logged
+header), which neither the generator nor a `Define` template can express; they are written through `ILogger.Log<TState>` with an
+internal read-only list of key/value pairs built only after the level and `IsEnabled` checks. `CA1848` did not fire on that call
+(SDK 10.0.401), and the departure from styleguide 6.2 is recorded in `docs/knowledge/notes/observability.md` and the SDK overlay.
+(2) "**OBS-2**'s mapping puts request/response events at `Debug` and failures at `Warning`, as built" is replaced by `Information` for
+`http.request` and `http.response` and `Warning` for the failure event and the diagnostics: `HttpLogLevel` is already the opt-in, and a
+failed attempt is a recoverable anomaly (the operation's outcome is the span's status). (3) The **As built** line gains the 5b
+verdict: **as built by 5b:** structured semconv-keyed events with default-deny header and URL redaction, an emission guard
+(**OBS-20**, `Activity` and `Meter` calls outside it), the disabled path allocating and emitting nothing (**OBS-1**, **OBS-34**) and
+bounded body previews; **OBS-19** (transport header-drop verbosity) is ⏳ 8b and **OBS-35** (layered level resolution) is ⏳ 9. The
+operation span and the metrics rework remain 5c's. The `AttemptScope` described in the phase 5b design's position A is a struct passed by
+`ref`, not a `readonly struct` (a lazily filled cache cannot live in a readonly struct without allocating); the disposal event's
+`dexpace.dispose.resource_type` key is internal to core (P5b-3 plan readings R8 and R9).
+
 ### 8.2 Configuration
 
 **CFG-1** fixes four tiers: explicit override, environment by exact key, a system-property source by normalised key,

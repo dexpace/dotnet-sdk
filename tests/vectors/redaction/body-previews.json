@@ -1,0 +1,239 @@
+{
+  "source": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb and nodejs-sdk@54aeed4 packages/core/src/observability/logging-step.test.ts (OBS-38 cases; each names its origin in note)",
+  "cases": [
+    {
+      "mediaType": null,
+      "bytesBase64": "",
+      "expected": "",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb empty input, no media type"
+    },
+    {
+      "mediaType": "text/plain",
+      "bytesBase64": "",
+      "expected": "",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb empty input, text"
+    },
+    {
+      "mediaType": "image/png",
+      "bytesBase64": "",
+      "expected": "",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb empty input, binary type"
+    },
+    {
+      "mediaType": null,
+      "bytesBase64": "cmF3AGJpbmFyef8=",
+      "expected": "[binary 11 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb no media type renders the size-only marker"
+    },
+    {
+      "mediaType": "image/png",
+      "bytesBase64": "cmF3AGJpbmFyef8=",
+      "expected": "[binary 11 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb image/png"
+    },
+    {
+      "mediaType": "application/octet-stream",
+      "bytesBase64": "cmF3AGJpbmFyef8=",
+      "expected": "[binary 11 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb application/octet-stream"
+    },
+    {
+      "mediaType": "application/octet-stream",
+      "bytesBase64": "//4A",
+      "expected": "[binary 3 bytes captured]",
+      "note": "nodejs-sdk@54aeed4 packages/core/src/observability/logging-step.test.ts a binary body renders as a size-only marker, never decoded"
+    },
+    {
+      "mediaType": "text/plain; charset=iso-8859-1",
+      "bytesBase64": "Y2Fm6SCgIPw=",
+      "expected": "café   ü",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb an ISO-8859-1 text body decodes through its declared charset"
+    },
+    {
+      "mediaType": "text/plain",
+      "bytesBase64": "bmHDr3ZlIOKAkyDinJM=",
+      "expected": "naïve – ✓",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb an absent charset is UTF-8"
+    },
+    {
+      "mediaType": "text/plain; charset=no-such",
+      "bytesBase64": "bmHDr3ZlIOKAkyDinJM=",
+      "expected": "naïve – ✓",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb an unrecognised charset falls back to UTF-8"
+    },
+    {
+      "mediaType": "application/json; charset=utf-8",
+      "bytesBase64": "eyJrIjoi5L0=",
+      "expected": "{\"k\":\"�",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb a cut multibyte tail yields the replacement character"
+    },
+    {
+      "mediaType": "application/json; charset=utf-8",
+      "bytesBase64": "//5vaw==",
+      "expected": "��ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb malformed input yields replacement characters"
+    },
+    {
+      "mediaType": "text/plain; charset=utf-7",
+      "bytesBase64": "K0FHRUFZZy0=",
+      "expected": "+AGEAYg-",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb P5-106: a charset with no converter falls back to UTF-8 (utf-7 is not available in .NET either)"
+    },
+    {
+      "mediaType": "text/plain; charset=iso-2022-jp-2",
+      "bytesBase64": "Y2Fm6Q==",
+      "expected": "caf�",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb P5-106: iso-2022-jp-2 has no converter without a provider: UTF-8 with replacement"
+    },
+    {
+      "mediaType": "text/plain; charset=utf-16",
+      "bytesBase64": "//5vAGsA",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb a charset with a converter keeps its own decode; UTF-16 reads its BOM"
+    },
+    {
+      "mediaType": "text/plain; charset=utf-8",
+      "bytesBase64": "77u/aGVsbG8=",
+      "expected": "hello",
+      "note": "TextDecoding: a matching BOM is stripped (3b BODY rule)"
+    },
+    {
+      "mediaType": "text/plain; charset=utf-8",
+      "bytesBase64": "4oI=",
+      "expected": "�",
+      "note": "nodejs-sdk@54aeed4 packages/core/src/observability/logging-step.test.ts a preview cut inside a multibyte character"
+    },
+    {
+      "mediaType": "text/html",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: text/html"
+    },
+    {
+      "mediaType": "text/csv",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: text/csv"
+    },
+    {
+      "mediaType": "application/json",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/json"
+    },
+    {
+      "mediaType": "application/xml",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/xml"
+    },
+    {
+      "mediaType": "application/yaml",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/yaml"
+    },
+    {
+      "mediaType": "application/javascript",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/javascript"
+    },
+    {
+      "mediaType": "application/graphql",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/graphql"
+    },
+    {
+      "mediaType": "application/x-www-form-urlencoded",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/x-www-form-urlencoded"
+    },
+    {
+      "mediaType": "application/x-ndjson",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/x-ndjson"
+    },
+    {
+      "mediaType": "application/problem+json",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/problem+json"
+    },
+    {
+      "mediaType": "application/atom+xml",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/atom+xml"
+    },
+    {
+      "mediaType": "image/svg+xml",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: image/svg+xml"
+    },
+    {
+      "mediaType": "application/vnd.api+json",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/vnd.api+json"
+    },
+    {
+      "mediaType": "application/foo+yaml",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: application/foo+yaml"
+    },
+    {
+      "mediaType": "text/plain; charset=utf-8",
+      "bytesBase64": "b2s=",
+      "expected": "ok",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb text media types: text/plain; charset=utf-8"
+    },
+    {
+      "mediaType": "image/png",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: image/png"
+    },
+    {
+      "mediaType": "application/octet-stream",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: application/octet-stream"
+    },
+    {
+      "mediaType": "application/pdf",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: application/pdf"
+    },
+    {
+      "mediaType": "audio/ogg",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: audio/ogg"
+    },
+    {
+      "mediaType": "application/jsonx",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: application/jsonx"
+    },
+    {
+      "mediaType": "application/x-json-stream",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: application/x-json-stream"
+    },
+    {
+      "mediaType": "multipart/form-data; boundary=x",
+      "bytesBase64": "b2s=",
+      "expected": "[binary 2 bytes captured]",
+      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/preview_test.rb non-text media types: multipart/form-data; boundary=x (multipart is binary by P5b-14)"
+    }
+  ]
+}

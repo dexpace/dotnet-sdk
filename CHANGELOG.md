@@ -177,6 +177,31 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   their `= default` token (no overload of the family carries an optional token); pass `CancellationToken.None`.
 - `DexpacePipeline.CreateDefault` is built from `PipelineBuilder.AddStandardResilience`; the async and the sync standard
   pipelines both follow redirects (`PIPE-32`, `REDIR-25`; design §10 entry 14, topic `async-redirect-pillar`).
+- The `url.full` span tag is redacted with the call's `HttpLoggingOptions.AllowedQueryParameters`, the same redactor the log
+  events use (`OBS-12`, P5b-10); the default (`api-version` only) is unchanged, so this is behaviour-preserving until a
+  caller widens the list.
+- **Breaking:** `InstrumentationPolicy` emits no request or response log event unless
+  `DexpaceClientOptions.Logging.Level` is `Headers` or `Body` (it used to log at `Debug` on every call); at the default
+  `None` it also allocates nothing and computes no redacted URL, while spans and instruments still record (`OBS-1`,
+  `OBS-34`).
+- **Breaking:** the HTTP log events are renamed and re-keyed to `http.request` (id 100) and `http.response` (ids 101 and
+  102) with OpenTelemetry keys (`http.request.method`, `url.full`, `http.response.status_code`,
+  `http.response.duration_ms`, `error.type`, one `http.request.header.<name>` / `http.response.header.<name>` key per
+  logged header, body sizes) instead of the generated names (ids 1 to 3) and `{Method}`, `{Url}`, `{StatusCode}` keys; they
+  are written at `Information` (a failed attempt at `Warning`) instead of `Debug`; `error.type` is the full type name
+  (`OBS-2`, `OBS-39`, P5b-4, P5b-7). Headers outside the 26-name allow-list are logged as `REDACTED`, and URL-valued
+  ones are redacted as URLs (`OBS-16` to `OBS-18`).
+- **Breaking:** a logger that throws no longer fails the request it describes; the failure is reported as one
+  `http.instrumentation.log_failed` event (id 120) and a second failure is swallowed. A fatal exception and the cancellation
+  of the call's own token still propagate (`OBS-20`, `XCUT-20`).
+- **Breaking:** the dispose-suppressed warning is `dexpace.dispose.suppressed` (id 130, keys
+  `dexpace.dispose.resource_type` and `error.type`) instead of `DisposeSuppressed` (id 1), and it now reaches the
+  pipeline's logger from the retry and redirect policies (the logger of the pipeline's `InstrumentationPolicy`; P5b-6).
+- **Breaking, opt-in:** at `HttpLogLevel.Body` a response with a known-length body that is not `text/event-stream` comes back with a
+  wrapped body: up to the preview size is read before `SendAsync`/`Send` returns (added latency), a body that fits is served
+  from memory and can be opened again, a larger one is served as the captured prefix then the live remainder (the caller still
+  receives every byte), and `ContentLength` follows `BODY-29`. Unknown-length and `text/event-stream` bodies are never wrapped
+  (`OBS-36`, `OBS-37`, `OBS-38`, `BODY-34`, P5b-12). `Body` logs payloads verbatim: it is for diagnosis, not for production.
 
 ### Added
 
@@ -295,5 +320,17 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Repository hygiene (roadmap phase 0): `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`,
   issue and pull-request templates, and Dependabot for NuGet and GitHub Actions. Each package now ships its
   `README.md` (`PackageReadmeFile`).
+- Phase 5b logging surface, step 2: `HttpLogLevel`, `HttpLoggingOptions` (level, body preview size, header allow-list,
+  query allow-list, URL-valued header names, omit-versus-redact switch) and `DexpaceClientOptions.Logging`;
+  `UrlRedactor.RedactHeaderValue` (`OBS-16`, total and never the malformed-URL sentinel); the stable `DexpaceLogEvents` and
+  `DexpaceLogKeys` vocabulary (`OBS-39`). Only `AllowedQueryParameters` is read so far (by the `url.full` span tag); the emitter lands in the next step.
+- Phase 5b logging step 3: the `http.request` / `http.response` events, the emission guard and the logger carried on the call
+  (`OBS-1` to `OBS-4`, `OBS-6`, `OBS-20`, `OBS-24`, `OBS-34`, `OBS-39`); `RecordingLogger`, `ProviderLikeLogger`,
+  `ThrowingLogger` and `DisabledLogger` in `Dexpace.Sdk.TestSupport`.
+- Phase 5b body-level logging step: bounded request and response body previews (`http.request.body.preview`,
+  `http.response.body.preview` and their `.preview.size`), the `http.instrumentation.body_capture_failed` diagnostic, and an
+  internal ownership-moving `Response.ReplaceBody` that keeps the exchange link across the swap (P5b-13).
+- `docs/sdk-documentation/logging-and-redaction.md`; the AOT smoke covers body-level logging; `docs/knowledge/notes/observability.md`
+  records the departure from styleguide 6.2.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
