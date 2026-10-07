@@ -93,15 +93,14 @@ public sealed class ClientIdentityPolicyTests
     }
 
     [Fact]
-    public async Task The_option_is_read_per_call()
+    public async Task A_per_call_options_value_wins_over_the_captured_one()
     {
         var options = new DexpaceClientOptions { UserAgent = "first/1" };
         var transport = new RecordingTransport();
         var pipeline = new PipelineBuilder().Add(new ClientIdentityPolicy()).Build(transport);
 
         await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
-        options.UserAgent = "second/2";
-        await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
+        await pipeline.SendAsync(MakeRequest(), options with { UserAgent = "second/2" }, TestContext.Current.CancellationToken);
 
         Assert.Equal("first/1", transport.Requests[0].Headers.Get("User-Agent"));
         Assert.Equal("second/2", transport.Requests[1].Headers.Get("User-Agent"));

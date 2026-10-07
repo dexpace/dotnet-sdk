@@ -247,18 +247,6 @@ public sealed class OperationBuildRequestTests
         Assert.Equal("options", ex.ParamName);
     }
 
-    [Theory]
-    [InlineData("/relative")]
-    [InlineData("https://host/c#frag")]
-    [InlineData("ftp://host/")]
-    public void BuildRequest_from_options_applies_the_same_base_rules(string baseAddress)
-    {
-        var descriptor = new OperationDescriptor { Method = Method.Get, PathTemplate = "/pets" };
-        var options = new DexpaceClientOptions { BaseAddress = new Uri(baseAddress, UriKind.RelativeOrAbsolute) };
-
-        Assert.Throws<ArgumentException>(() => descriptor.BuildRequest(options));
-    }
-
     [Fact]
     public void BuildRequest_from_options_rejects_null_options()
     {

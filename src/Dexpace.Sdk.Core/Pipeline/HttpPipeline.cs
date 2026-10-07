@@ -28,8 +28,8 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// <b>Two kinds of options.</b> The seam carries <see cref="RequestOptions"/> (per call); the policies read
 /// <see cref="DexpaceClientOptions"/> (retry, redirect, user agent, deadline). A pipeline captures the client options at
 /// build, so a call through <see cref="IAsyncHttpClient"/> or <see cref="IHttpClient"/> runs with them. The overloads taking
-/// a <see cref="DexpaceClientOptions"/> override the captured options for one call; phase 5a, which makes that record
-/// immutable, decides their future.
+/// a <see cref="DexpaceClientOptions"/> run one call with that immutable value; derive it with <c>with</c>.
+/// <see cref="RequestOptions"/> remains the seam's per-call carrier (timeout, retry cap, tags) (phase 5a, P5a-6).
 /// </para>
 /// <para>
 /// <b>As a transport (PIPE-26).</b> The pipeline implements <see cref="IAsyncHttpClient"/> and <see cref="IHttpClient"/>

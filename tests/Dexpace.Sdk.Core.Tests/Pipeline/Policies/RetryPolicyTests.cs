@@ -584,10 +584,16 @@ public sealed class RetryPolicyTests
     public void Sync_send_honours_cancellation_during_the_wait()
     {
         var transport = new SyncFirstTransport(request => TestResponses.Create(Status.ServiceUnavailable, request));
-        var options = MakeOptions();
-        options.Retry.BaseDelay = TimeSpan.FromMinutes(5);
-        options.Retry.MaxDelay = TimeSpan.FromMinutes(5);
-        options.Retry.HonorRetryAfter = false;
+        var baseOptions = MakeOptions();
+        var options = baseOptions with
+        {
+            Retry = baseOptions.Retry with
+            {
+                BaseDelay = TimeSpan.FromMinutes(5),
+                MaxDelay = TimeSpan.FromMinutes(5),
+                HonorRetryAfter = false,
+            },
+        };
         var pipeline = new PipelineBuilder().Add(new RetryPolicy()).Build(transport);
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 

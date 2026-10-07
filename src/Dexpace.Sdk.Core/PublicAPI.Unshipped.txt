@@ -76,21 +76,22 @@ Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Requ
 Dexpace.Sdk.Core.Client.IHttpClient
 Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.get -> System.TimeSpan?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.get -> System.Uri?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.DexpaceClientOptions() -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.init -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Equals(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.get -> System.TimeSpan?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.get -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.get -> Dexpace.Sdk.Core.Configuration.RetryOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.get -> string!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.set -> void
 Dexpace.Sdk.Core.Configuration.HttpLogLevel
 Dexpace.Sdk.Core.Configuration.HttpLogLevel.Body = 2 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
 Dexpace.Sdk.Core.Configuration.HttpLogLevel.Headers = 1 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
@@ -111,25 +112,30 @@ Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.get -> b
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.init -> void
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.init -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions
+Dexpace.Sdk.Core.Configuration.RedirectOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.get -> bool
-Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.init -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(Dexpace.Sdk.Core.Configuration.RedirectOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.get -> int
-Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.RedirectOptions() -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.get -> bool
-Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions
+Dexpace.Sdk.Core.Configuration.RetryOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RetryOptions!
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.get -> System.TimeSpan
-Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(Dexpace.Sdk.Core.Configuration.RetryOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.get -> System.TimeSpan
-Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.get -> int
-Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents
@@ -481,6 +487,15 @@ Dexpace.Sdk.Core.Serialization.SerdeExtensions
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.RetryOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.RetryOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
@@ -551,6 +566,12 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sd
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator !=(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator ==(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator !=(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator ==(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RetryOptions.operator !=(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RetryOptions.operator ==(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationFormUrlEncoded.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJson.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJsonLines.get -> Dexpace.Sdk.Core.Http.Common.MediaType!

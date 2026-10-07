@@ -202,6 +202,12 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   from memory and can be opened again, a larger one is served as the captured prefix then the live remainder (the caller still
   receives every byte), and `ContentLength` follows `BODY-29`. Unknown-length and `text/event-stream` bodies are never wrapped
   (`OBS-36`, `OBS-37`, `OBS-38`, `BODY-34`, P5b-12). `Body` logs payloads verbatim: it is for diagnosis, not for production.
+- **Breaking:** `DexpaceClientOptions`, `RetryOptions` and `RedirectOptions` are sealed records with `init` accessors
+  (`CFG-8`, `CFG-9`). Assigning a property after construction no longer compiles (derive with `with`); equality and
+  `GetHashCode` are by value (was: by reference); `ToString` renders the members, the base address redacted.
+- **Breaking:** `DexpaceClientOptions.BaseAddress` is validated when it is set (absolute `http`/`https`, no fragment): an
+  `ArgumentException` at the assignment, not at `OperationDescriptor.BuildRequest`; `UserAgent`, `Retry` and `Redirect`
+  reject `null`. Phase 5b's `DexpaceClientOptions.Logging` is an `init` property too (ruling P5b-5), still rejecting `null`.
 
 ### Added
 
