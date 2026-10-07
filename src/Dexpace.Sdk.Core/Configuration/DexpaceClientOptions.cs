@@ -1,7 +1,8 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Internal;
+using System.Text;
+using Dexpace.Sdk.Core.Diagnostics;
 
 namespace Dexpace.Sdk.Core.Configuration;
 
@@ -10,9 +11,22 @@ namespace Dexpace.Sdk.Core.Configuration;
 /// </summary>
 /// <remarks>
 /// All properties carry sensible defaults; the client is fully usable with <c>new DexpaceClientOptions()</c>.
-/// Per-policy sub-options are exposed as nested objects (<see cref="Retry"/>, <see cref="Redirect"/>).
+/// Per-policy sub-options are exposed as nested records (<see cref="Retry"/>, <see cref="Redirect"/>).
+/// <para>
+/// This is a sealed record with <see langword="init"/> accessors (CFG-8): derive a modified copy with
+/// <see langword="with"/>, for example <c>options with { Retry = options.Retry with { MaxRetryAttempts = 5 } }</c>,
+/// which leaves the source unchanged (CFG-9). Single-property invariants are checked in the accessors, so a
+/// <see langword="with"/> expression cannot bypass them; numeric and cross-property rules are not checked here
+/// (P5a-4). <see cref="ToString"/> renders <see cref="BaseAddress"/> through <see cref="UrlRedactor"/>.
+/// </para>
+/// <para>
+/// <b>Breaking:</b> this was a mutable class. Assigning a property after construction no longer compiles (use
+/// <see langword="with"/>); equality and the hash code are by value (was: by reference); <see cref="BaseAddress"/> is
+/// validated when set (was: at <c>BuildRequest</c>); <see cref="UserAgent"/>, <see cref="Retry"/> and
+/// <see cref="Redirect"/> reject <see langword="null"/>.
+/// </para>
 /// </remarks>
-public sealed class DexpaceClientOptions
+public sealed record DexpaceClientOptions
 {
     private static readonly string s_defaultUserAgent = BuildDefaultUserAgent();
 
@@ -22,22 +36,44 @@ public sealed class DexpaceClientOptions
     /// </summary>
     /// <remarks>
     /// Read by <see cref="Operations.OperationDescriptor.BuildRequest(DexpaceClientOptions)"/>: it must be an absolute
-    /// <c>http</c> or <c>https</c> URI with no fragment, checked at <c>BuildRequest</c> (phase 5a may check at
-    /// construction when it makes the options a record, CFG-8, CFG-9). No policy or transport consults it.
+    /// <c>http</c> or <c>https</c> URI with no fragment, checked when the value is set (P5a-4). No policy or
+    /// transport consults it. <para><b>Breaking:</b> was checked at <c>BuildRequest</c>.</para>
     /// </remarks>
-    public Uri? BaseAddress { get; set; }
+    /// <exception cref="ArgumentException">
+    /// The value is relative, not <c>http</c> or <c>https</c>, or carries a fragment; the message carries the value
+    /// through <see cref="UrlRedactor"/>.
+    /// </exception>
+    public Uri? BaseAddress
+    {
+        get;
+        init => field = RequireUsable(value);
+    }
 
     /// <summary>
     /// The <c>User-Agent</c> header value sent with every request.
-    /// Defaults to <c>dexpace-dotnet/&lt;assembly-version&gt;</c>.
+    /// Defaults to <c>dexpace-dotnet/&lt;sdk-version&gt; dotnet/&lt;runtime-version&gt;</c>, the <see cref="BuildInfo.IdentityTokens"/>
+    /// joined (CFG-36). A blank value means "send no header".
     /// </summary>
-    public string UserAgent { get; set; } = s_defaultUserAgent;
+    /// <remarks>
+    /// <b>Breaking (behaviour):</b> the default was the one token <c>dexpace-dotnet/&lt;assembly-version&gt;</c>. A consuming
+    /// SDK that composes its own line through <c>ClientIdentityPolicy</c> is unaffected.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    public string UserAgent
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = s_defaultUserAgent;
 
     /// <summary>
     /// The wall-clock deadline for an entire operation (all redirect hops and retry attempts
     /// combined), or <see langword="null"/> for no overall deadline.
     /// </summary>
-    public TimeSpan? OverallTimeout { get; set; }
+    public TimeSpan? OverallTimeout { get; init; }
 
     /// <summary>
     /// The deadline for a single send attempt, or <see langword="null"/> for no per-attempt deadline.
@@ -47,94 +83,84 @@ public sealed class DexpaceClientOptions
     /// attempt, and only <see cref="OverallTimeout"/> is enforced. Roadmap phase 6a wires it
     /// (design §6.1).
     /// </remarks>
-    public TimeSpan? AttemptTimeout { get; set; }
+    public TimeSpan? AttemptTimeout { get; init; }
 
     /// <summary>
     /// Retry-policy options. Defaults to <see cref="RetryOptions"/> with its built-in defaults.
     /// </summary>
-    public RetryOptions Retry { get; set; } = new();
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    public RetryOptions Retry
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = new();
 
     /// <summary>
     /// Redirect-policy options. Defaults to <see cref="RedirectOptions"/> with its built-in defaults.
     /// </summary>
-    public RedirectOptions Redirect { get; set; } = new();
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    public RedirectOptions Redirect
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = new();
 
     /// <summary>
-    /// Gets or sets how much of each request and response the SDK logs, and how it redacts what it logs. Defaults to
+    /// How much of each request and response the SDK logs, and how it redacts what it logs. Defaults to
     /// <see cref="HttpLoggingOptions.Default"/>: logging is off (OBS-34).
     /// </summary>
     /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
     public HttpLoggingOptions Logging
     {
         get;
-        set
+        init
         {
             ArgumentNullException.ThrowIfNull(value);
             field = value;
         }
     } = HttpLoggingOptions.Default;
 
-    private static string BuildDefaultUserAgent() =>
-        $"dexpace-dotnet/{SdkVersion.Value}";
-}
+    private static string BuildDefaultUserAgent() => string.Join(' ', BuildInfo.IdentityTokens);
 
-/// <summary>
-/// Options for the retry policy.
-/// </summary>
-public sealed class RetryOptions
-{
-    /// <summary>
-    /// The number of retry attempts after the initial send. Defaults to <c>3</c>.
-    /// Matches the Polly v8 / <c>Microsoft.Extensions.Http.Resilience</c> naming convention.
-    /// </summary>
-    public int MaxRetryAttempts { get; set; } = 3;
+    private static Uri? RequireUsable(Uri? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
 
-    /// <summary>
-    /// The base delay for exponential back-off. Defaults to <c>200 ms</c>.
-    /// </summary>
-    public TimeSpan BaseDelay { get; set; } = TimeSpan.FromMilliseconds(200);
+        var usable = value.IsAbsoluteUri
+            && (value.Scheme == Uri.UriSchemeHttp || value.Scheme == Uri.UriSchemeHttps)
+            && value.Fragment.Length == 0;
+        if (!usable)
+        {
+            throw new ArgumentException(
+                "The base address must be an absolute http or https URI with no fragment: "
+                + UrlRedactor.Default.Redact(value),
+                nameof(value));
+        }
 
-    /// <summary>
-    /// The maximum back-off delay cap. Defaults to <c>30 s</c>.
-    /// </summary>
-    public TimeSpan MaxDelay { get; set; } = TimeSpan.FromSeconds(30);
+        return value;
+    }
 
-    /// <summary>
-    /// When <see langword="true"/>, the retry policy respects a <c>Retry-After</c> response
-    /// header. Defaults to <see langword="true"/>.
-    /// </summary>
-    public bool HonorRetryAfter { get; set; } = true;
-
-    /// <summary>
-    /// When <see langword="true"/>, the retry policy may retry non-idempotent methods (e.g.
-    /// <c>POST</c>) if the request body is replayable. Defaults to <see langword="false"/>.
-    /// </summary>
-    public bool RetryNonIdempotentWhenReplayable { get; set; }
-}
-
-/// <summary>
-/// Options for the redirect-following policy.
-/// </summary>
-public sealed class RedirectOptions
-{
-    /// <summary>
-    /// The maximum number of redirect hops to follow. Defaults to <c>20</c>,
-    /// matching browser and <c>HttpClient</c> norms.
-    /// </summary>
-    public int MaxRedirects { get; set; } = 20;
-
-    /// <summary>
-    /// When <see langword="true"/>, the policy follows <c>https → http</c> downgrade redirects.
-    /// Defaults to <see langword="false"/> for security.
-    /// </summary>
-    public bool AllowHttpsToHttpDowngrade { get; set; }
-
-    /// <summary>
-    /// No longer has any effect. <see cref="Pipeline.Policies.RedirectPolicy"/> always strips
-    /// <c>Authorization</c> on every hop and <c>Cookie</c> and <c>Proxy-Authorization</c> on a
-    /// cross-origin hop, because REDIR-7 and REDIR-9 are MUSTs that a switch must not narrow.
-    /// <b>Breaking</b> (phase 1): setting it to <see langword="false"/> used to keep those headers.
-    /// Roadmap phase 6b removes the property (design §6.2).
-    /// </summary>
-    public bool StripSensitiveHeadersOnCrossOrigin { get; set; } = true;
+    // The synthesised ToString calls this. BaseAddress goes through the redactor, never Uri.ToString() (design §3.5).
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("BaseAddress = ").Append(BaseAddress is null ? "(none)" : UrlRedactor.Default.Redact(BaseAddress));
+        builder.Append(", UserAgent = ").Append(UserAgent);
+        builder.Append(", OverallTimeout = ").Append(OverallTimeout?.ToString() ?? "(none)");
+        builder.Append(", AttemptTimeout = ").Append(AttemptTimeout?.ToString() ?? "(none)");
+        builder.Append(", Retry = ").Append(Retry);
+        builder.Append(", Redirect = ").Append(Redirect);
+        builder.Append(", Logging = ").Append(Logging);
+        return true;
+    }
 }

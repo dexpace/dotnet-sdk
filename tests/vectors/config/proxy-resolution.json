@@ -1,0 +1,865 @@
+{
+  "source": "nodejs-sdk@54aeed4 packages/core/src/config/proxy.test.ts (URL layer); ruby-sdk phase 5a design (resolution case list); design 5a P5a-15, R6 to R8. layer=url: the single HTTPS_PROXY value through the URL grammar; layer=selection: variable choice, CGI guard and NO_PROXY.",
+  "cases": [
+    {
+      "name": "https scheme is invalid",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "https://secure.example.com:9090"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "scheme"
+      },
+      "note": "Node accepts https as a proxy scheme; the design rejects it rather than silently downgrade (P5a-15 item 3)"
+    },
+    {
+      "name": "http",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://proxy.example.com:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "proxy.example.com",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "scheme is case-insensitive, host kept as written",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "HTTP://Proxy.Example.com:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "Proxy.Example.com",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "socks5",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "socks5://proxy.example.com:1080"
+      },
+      "expected": {
+        "type": "Socks5",
+        "host": "proxy.example.com",
+        "port": 1080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "socks5h maps to Socks5",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "socks5h://p:1080"
+      },
+      "expected": {
+        "type": "Socks5",
+        "host": "p",
+        "port": 1080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "socks4a maps to Socks4",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "socks4a://p:1080"
+      },
+      "expected": {
+        "type": "Socks4",
+        "host": "p",
+        "port": 1080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "socks4",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "socks4://p:1080"
+      },
+      "expected": {
+        "type": "Socks4",
+        "host": "p",
+        "port": 1080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "ftp scheme",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "ftp://proxy.example.com:21"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "scheme"
+      }
+    },
+    {
+      "name": "no scheme",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "proxy.example.com:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "scheme"
+      },
+      "note": "the platform accepts it as http; CFG-24 names scheme://"
+    },
+    {
+      "name": "no port",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://proxy.example.com"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      },
+      "note": "never guess"
+    },
+    {
+      "name": "empty port",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://proxy.example.com:"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "explicit port 80",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p.example.com:80"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p.example.com",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null,
+      "note": "fact 7: read from the raw text, not Uri.Port"
+    },
+    {
+      "name": "explicit port 443",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p.example.com:443"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p.example.com",
+        "port": 443,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "invalid port '70000'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:70000"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '65536'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:65536"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '-1'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:-1"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '+80'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:+80"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '0x50'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:0x50"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '8_0'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:8_0"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '80.0'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:80.0"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "invalid port '\u0661\u0662'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:\u0661\u0662"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "port 0",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:0"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 0,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "port 65535",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:65535"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 65535,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "bare ipv6 host",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://[2001:db8::1]:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "2001:db8::1",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null,
+      "note": "R6"
+    },
+    {
+      "name": "ipv6 without port",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://[2001:db8::1]"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "port"
+      }
+    },
+    {
+      "name": "unclosed ipv6",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://[2001:db8::1:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      }
+    },
+    {
+      "name": "percent-decoded credentials",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://us%40er:p%3Ass@proxy.example.com:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "proxy.example.com",
+        "port": 8080,
+        "userName": "us@er",
+        "password": "p:ss",
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "a plus stays a plus",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://u:p+q@proxy:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "proxy",
+        "port": 8080,
+        "userName": "u",
+        "password": "p+q",
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "empty user means no credentials",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://:secret@p.example.com:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p.example.com",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null,
+      "note": "R7"
+    },
+    {
+      "name": "user without password",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://user@p.example.com:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p.example.com",
+        "port": 8080,
+        "userName": "user",
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "lone percent in password",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://u:pa%ss@h.example.com:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "credentials"
+      },
+      "note": "R7"
+    },
+    {
+      "name": "truncated percent escape",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://u:p%2@h:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "credentials"
+      }
+    },
+    {
+      "name": "second at-sign in userinfo",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://a@b:c@proxy:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      },
+      "note": "a literal @ must be written %40"
+    },
+    {
+      "name": "a bare slash path is accepted",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:8080/"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "path",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:8080/x"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "path"
+      }
+    },
+    {
+      "name": "query",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:8080?x=1"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "path"
+      }
+    },
+    {
+      "name": "fragment",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p:8080#f"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "path"
+      }
+    },
+    {
+      "name": "unparseable 'not a url at all'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "not a url at all"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      }
+    },
+    {
+      "name": "unparseable 'http://'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      }
+    },
+    {
+      "name": "unparseable '://p:80'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "://p:80"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      }
+    },
+    {
+      "name": "unparseable 'http:///x:80'",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http:///x:80"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "unparseable"
+      }
+    },
+    {
+      "name": "space in host",
+      "layer": "url",
+      "env": {
+        "HTTPS_PROXY": "http://p q:80"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "host"
+      }
+    },
+    {
+      "name": "HTTPS_PROXY preferred over HTTP_PROXY",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://s:9090",
+        "HTTP_PROXY": "http://p:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "s",
+        "port": 9090,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "only HTTP_PROXY",
+      "layer": "selection",
+      "env": {
+        "HTTP_PROXY": "http://p:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "https_proxy lower-case fallback",
+      "layer": "selection",
+      "env": {
+        "https_proxy": "http://l:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "l",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "http_proxy lower-case fallback",
+      "layer": "selection",
+      "env": {
+        "http_proxy": "http://l:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "l",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "upper-case wins over lower-case",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://u:80",
+        "https_proxy": "http://l:80"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "u",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "an empty value is absent",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "",
+        "HTTP_PROXY": "http://p:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "a whitespace-only value is absent",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "   ",
+        "HTTP_PROXY": "http://p:8080"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null,
+      "note": "R8"
+    },
+    {
+      "name": "no fallthrough on a malformed chosen value",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "ftp://x:21",
+        "HTTP_PROXY": "http://p:8080"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTPS_PROXY",
+        "reason": "scheme"
+      }
+    },
+    {
+      "name": "httpoxy guard skips upper-case HTTP_PROXY under CGI",
+      "layer": "selection",
+      "env": {
+        "HTTP_PROXY": "http://p:8080",
+        "GATEWAY_INTERFACE": "CGI/1.1"
+      },
+      "expected": null,
+      "warning": {
+        "variable": "HTTP_PROXY",
+        "reason": "cgi"
+      }
+    },
+    {
+      "name": "the guard skips only upper-case HTTP_PROXY",
+      "layer": "selection",
+      "env": {
+        "http_proxy": "http://p:8080",
+        "GATEWAY_INTERFACE": "CGI/1.1"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null
+    },
+    {
+      "name": "NO_PROXY list",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://p:80",
+        "NO_PROXY": "a.test,b.test"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": [
+          "a.test",
+          "b.test"
+        ]
+      },
+      "warning": null
+    },
+    {
+      "name": "no_proxy lower-case fallback",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://p:80",
+        "no_proxy": "a.test,b.test"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": [
+          "a.test",
+          "b.test"
+        ]
+      },
+      "warning": null
+    },
+    {
+      "name": "NO_PROXY wins over no_proxy",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://p:80",
+        "NO_PROXY": "a.test",
+        "no_proxy": "b.test"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": [
+          "a.test"
+        ]
+      },
+      "warning": null
+    },
+    {
+      "name": "NO_PROXY=* routes directly",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://p:80",
+        "NO_PROXY": "*"
+      },
+      "expected": null,
+      "warning": null,
+      "note": "CFG-27; not a failure, so no warning"
+    },
+    {
+      "name": "a star in a longer list is a glob",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "http://p:80",
+        "NO_PROXY": "*,x.test"
+      },
+      "expected": {
+        "type": "Http",
+        "host": "p",
+        "port": 80,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": [
+          "*",
+          "x.test"
+        ]
+      },
+      "warning": null
+    },
+    {
+      "name": "nothing set",
+      "layer": "selection",
+      "env": {},
+      "expected": null,
+      "warning": null
+    },
+    {
+      "name": "NO_PROXY without a proxy variable",
+      "layer": "selection",
+      "env": {
+        "NO_PROXY": "a.test"
+      },
+      "expected": null,
+      "warning": null
+    },
+    {
+      "name": "surrounding whitespace is trimmed",
+      "layer": "selection",
+      "env": {
+        "HTTPS_PROXY": "  http://proxy.example.com:8080  "
+      },
+      "expected": {
+        "type": "Http",
+        "host": "proxy.example.com",
+        "port": 8080,
+        "userName": null,
+        "password": null,
+        "nonProxyHosts": []
+      },
+      "warning": null,
+      "note": "R8"
+    }
+  ]
+}

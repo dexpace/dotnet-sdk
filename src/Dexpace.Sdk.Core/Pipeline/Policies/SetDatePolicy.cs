@@ -49,7 +49,7 @@ public sealed class SetDatePolicy : HttpPipelinePolicy
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var dateValue = _timeProvider.GetUtcNow().ToString("r");
+        var dateValue = HttpDate.Format(_timeProvider.GetUtcNow());
         var stamped = request.WithHeaders(request.Headers.Set(HttpHeaderName.WellKnown.Date, dateValue));
 
         return async

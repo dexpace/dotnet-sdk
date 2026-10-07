@@ -34,15 +34,20 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// set GET, HEAD, OPTIONS, PUT, DELETE (HTTP-9).
 /// </para>
 /// <para>
+/// <b>Breaking (behaviour):</b> an HTTP-date <c>Retry-After</c> is parsed by <see cref="HttpDate"/> (CFG-30, RETRY-15;
+/// phase 5a). Values the BCL parser rejected are now honoured: lower case, a weekday inconsistent with the date, the
+/// <c>UTC</c>, <c>+0000</c> and <c>+00:00</c> zones, and a single-digit day. RFC 850 and asctime are still ignored (a
+/// rejected date is "no hint", never a wrong wait; design §11 item 27).
+/// </para>
+/// <para>
 /// <b>Delay:</b> when <c>Retry-After</c> is present and
 /// <see cref="RetryOptions.HonorRetryAfter"/> is <see langword="true"/>, the parsed value
 /// is used; otherwise the delay is drawn from a uniform random distribution over
 /// <c>[0, min(BaseDelay × 2^attempt, MaxDelay)]</c> (full jitter). The
 /// <see cref="TimeProvider"/> passed to the constructor drives both the current-time lookup
-/// (for HTTP-date parsing) and the <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/>
-/// overload so tests can control delays without real sleeps. Every delay, hinted or computed, is clamped to 365
-/// days, and a delay longer than <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/> accepts is
-/// waited as successive shorter waits.
+/// (for HTTP-date parsing) and both waits, <see cref="TimeProviderWaits.DelayAsync"/> and
+/// <see cref="TimeProviderWaits.Sleep"/>, so tests can control delays without real sleeps. Every delay, hinted or
+/// computed, is clamped to 365 days, and a delay longer than a timer accepts is waited as successive shorter waits.
 /// </para>
 /// <para>
 /// <b>Request isolation:</b> every attempt is driven with the request held at entry, so a retry never carries what a
@@ -69,7 +74,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     /// </summary>
     /// <param name="timeProvider">
     /// The time source used to obtain the current UTC instant (for <c>Retry-After</c> HTTP-date
-    /// parsing) and to drive <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/>.
+    /// parsing) and to drive <see cref="TimeProviderWaits"/>.
     /// Defaults to <see cref="TimeProvider.System"/> when <see langword="null"/>.
     /// </param>
     public RetryPolicy(TimeProvider? timeProvider = null)
@@ -206,13 +211,8 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             return TimeSpan.FromSeconds(seconds);
         }
 
-        // HTTP-date form (RFC 1123 / "r" format).
-        if (DateTimeOffset.TryParseExact(
-                headerValue,
-                "r",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var httpDate))
+        // HTTP-date form (RFC 1123), through the shared parser (CFG-30, RETRY-15).
+        if (HttpDate.TryParse(headerValue, out var httpDate))
         {
             var delta = httpDate - _timeProvider.GetUtcNow();
             return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
@@ -252,21 +252,23 @@ public sealed class RetryPolicy : HttpPipelinePolicy
         return delay > s_maxPacingDelay ? s_maxPacingDelay : delay;
     }
 
-    // The async path awaits Task.Delay over the TimeProvider; the sync path is a genuine blocking wait. Both run a delay
-    // above the timer's ceiling as successive bounded waits (S7).
+    // Both paths run through TimeProviderWaits (CFG-15, CFG-18): the async path awaits a timer, the sync path is a genuine
+    // blocking wait, and each runs a delay above the timer's ceiling as successive bounded waits (S7). A non-positive
+    // delay is skipped so a hinted zero never arms a timer.
     private async ValueTask SleepAsync(TimeSpan delay, bool async, CancellationToken cancellationToken)
     {
-        if (!async)
+        if (delay <= TimeSpan.Zero)
         {
-            BlockingWait.Wait(delay, _timeProvider, cancellationToken);
             return;
         }
 
-        while (delay > TimeSpan.Zero)
+        if (async)
         {
-            var wait = delay < BlockingWait.MaxSingleWait ? delay : BlockingWait.MaxSingleWait;
-            await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
-            delay -= wait;
+            await _timeProvider.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            _timeProvider.Sleep(delay, cancellationToken);
         }
     }
 }

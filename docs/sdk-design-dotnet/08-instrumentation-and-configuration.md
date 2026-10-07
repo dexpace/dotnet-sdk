@@ -333,6 +333,17 @@ where the requirement says a non-blank `unknown`.
 `HttpClient` defaults (**CFG-22**–**CFG-28**); version fallback `0.0.0` (**CFG-36**); not built: the DI package's
 binding, validation and duration/integer converters, `ProxyOptions`, the date parser as a shared utility.
 
+**As built (2026-10-07, phase 5a):** built in core. The text above stands as written, with five *dated corrections*: *records (P5a-3, P5a-4, P5a-5)*:
+`DexpaceClientOptions`, `RetryOptions` and `RedirectOptions` are sealed records with `init` accessors, nested records and a redacting
+`ToString`; `BaseAddress` is validated when set, and the binding tier (**CFG-1**-**CFG-7**, **CFG-10**, **CFG-11**, **CFG-14**) stays
+phase 9's. *Proxy (P5a-13 to P5a-15)*: `ProxyOptions` and `ProxyOptions.FromEnvironment` are built in core with the challenge slot
+typed `ICredentials?`; the resolver reads the upper- and lower-case names, guards `HTTP_PROXY` under CGI, serves one proxy for every
+target and never falls through on a malformed value; installing it in the transport is phase 8b's. *Identity (P5a-22)*:
+**CFG-36**'s descriptor is `BuildInfo`, whose runtime token is `Environment.Version` because `RuntimeInformation.FrameworkDescription`
+contains a space; the version fallback is `unknown`, and the default `User-Agent` joins `BuildInfo.IdentityTokens`. *Dates (P5a-11,
+P5a-12)*: `HttpDate` is the shared RFC 1123 formatter and parser. *Equality (P5a-20)*: `DeepValue` is internal and recursion-bounded
+(128 levels) because a self-referential array would end the process.
+
 ### 8.3 The clock, the wait, and the prohibition
 
 **CFG-15** requires the time seam to expose a wall clock, a monotonic elapsed counter and a blocking interruptible
@@ -379,5 +390,11 @@ cancellation MUSTs it shares a cause with (**ASYNC-3**, **ASYNC-4**) are argued 
 
 **As built (d45e64b):** built (`TimeProvider` throughout, non-negative delay guard); missing: the sync-path wait,
 the banned-API gate, the late-`Response` disposal rule as a shared helper.
+
+**As built (2026-10-07, phase 5a):** built. The text above stands as written, with a *dated correction* (P5a-7 to P5a-9): the sync wait is the public
+`TimeProviderWaits.Sleep` beside `DelayAsync` (both reject a negative delay and chunk past 49 days); the late-`Response` rule is the
+internal `LateResult`, the one sanctioned `Task<T>.WaitAsync` site; and the banned-API gate bans `Thread.Sleep`, every `Task.Delay`
+overload, `DateTime`/`DateTimeOffset` `Now`/`UtcNow`/`Today` and the `Environment` variable readers, with one pragma each for the delay
+(`TimeProviderWaits`) and the environment read (`ProxyResolution`).
 
 ---

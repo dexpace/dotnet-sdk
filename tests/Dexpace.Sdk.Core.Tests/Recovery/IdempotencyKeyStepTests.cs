@@ -173,4 +173,29 @@ public sealed class IdempotencyKeyStepTests
         Assert.Equal("from-source", result.Headers.Get("Idempotency-Key"));
         Assert.Equal(0, strategyCalls);
     }
+
+    // ---- CFG-32 (P5a-19): a pin on Guid.NewGuid() as the default strategy; no UUID type is added ----
+
+    [Fact]
+    public void The_default_key_strategy_mints_a_version_4_IETF_variant_uuid()
+    {
+        var key = new IdempotencyKeyStep().KeyStrategy();
+
+        Assert.Equal(36, key.Length);
+        Assert.All([8, 13, 18, 23], index => Assert.Equal('-', key[index]));
+        Assert.Equal('4', key[14]);
+        Assert.Contains(key[19], "89ab");
+        Assert.Matches("^[0-9a-f-]{36}$", key);
+    }
+
+    [Fact]
+    public void The_default_key_strategy_yields_no_collision_across_parallel_minting()
+    {
+        var strategy = new IdempotencyKeyStep().KeyStrategy;
+        var keys = new System.Collections.Concurrent.ConcurrentBag<string>();
+
+        Parallel.For(0, 100_000, new ParallelOptions { MaxDegreeOfParallelism = 8 }, _ => keys.Add(strategy()));
+
+        Assert.Equal(100_000, keys.Distinct(StringComparer.Ordinal).Count());
+    }
 }

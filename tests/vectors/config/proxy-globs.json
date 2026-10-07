@@ -1,0 +1,177 @@
+{
+  "source": "nodejs-sdk@54aeed4 packages/core/src/config/proxy.test.ts; ruby-sdk phase 5a design (glob case list); design 5a P5a-14",
+  "cases": [
+    {
+      "name": "00 ['*.internal.example.com'] vs 'API.internal.example.com'",
+      "patterns": [
+        "*.internal.example.com"
+      ],
+      "host": "API.internal.example.com",
+      "expected": true,
+      "note": "case-insensitive"
+    },
+    {
+      "name": "01 ['*.internal.example.com'] vs 'internal.example.com'",
+      "patterns": [
+        "*.internal.example.com"
+      ],
+      "host": "internal.example.com",
+      "expected": false,
+      "note": "the apex is not a subdomain"
+    },
+    {
+      "name": "02 ['*.internal.example.com'] vs 'a.internal.example.com.evil.test'",
+      "patterns": [
+        "*.internal.example.com"
+      ],
+      "host": "a.internal.example.com.evil.test",
+      "expected": false,
+      "note": "full-string"
+    },
+    {
+      "name": "03 ['a.b'] vs 'axb'",
+      "patterns": [
+        "a.b"
+      ],
+      "host": "axb",
+      "expected": false,
+      "note": "a dot is literal"
+    },
+    {
+      "name": "04 ['ho?t.example.com'] vs 'host.example.com'",
+      "patterns": [
+        "ho?t.example.com"
+      ],
+      "host": "host.example.com",
+      "expected": true,
+      "note": "? is one character"
+    },
+    {
+      "name": "05 ['ho?t.example.com'] vs 'hoost.example.com'",
+      "patterns": [
+        "ho?t.example.com"
+      ],
+      "host": "hoost.example.com",
+      "expected": false
+    },
+    {
+      "name": "06 ['a+b'] vs 'aab'",
+      "patterns": [
+        "a+b"
+      ],
+      "host": "aab",
+      "expected": false,
+      "note": "metacharacters escaped"
+    },
+    {
+      "name": "07 ['a+b'] vs 'a+b'",
+      "patterns": [
+        "a+b"
+      ],
+      "host": "a+b",
+      "expected": true
+    },
+    {
+      "name": "08 ['a\\\\*b'] vs 'a\\\\*b'",
+      "patterns": [
+        "a\\*b"
+      ],
+      "host": "a\\*b",
+      "expected": true,
+      "note": "a backslash is an ordinary literal (no escape in the dialect)"
+    },
+    {
+      "name": "09 ['a\\\\*b'] vs 'aXXXb'",
+      "patterns": [
+        "a\\*b"
+      ],
+      "host": "aXXXb",
+      "expected": false
+    },
+    {
+      "name": "10 ['*', 'x.test'] vs 'anything.test'",
+      "patterns": [
+        "*",
+        "x.test"
+      ],
+      "host": "anything.test",
+      "expected": true,
+      "note": "a star in a list of two or more is a glob"
+    },
+    {
+      "name": "11 ['localhost'] vs 'LOCALHOST'",
+      "patterns": [
+        "localhost"
+      ],
+      "host": "LOCALHOST",
+      "expected": true
+    },
+    {
+      "name": "12 ['localhost'] vs 'localhost\\n'",
+      "patterns": [
+        "localhost"
+      ],
+      "host": "localhost\n",
+      "expected": false,
+      "note": "\\z, not $ (fact 10)"
+    },
+    {
+      "name": "13 ['*.example.com'] vs 'evil.com\\n.example.com'",
+      "patterns": [
+        "*.example.com"
+      ],
+      "host": "evil.com\n.example.com",
+      "expected": false,
+      "note": ". does not cross a newline"
+    },
+    {
+      "name": "14 [] vs 'example.com'",
+      "patterns": [],
+      "host": "example.com",
+      "expected": false
+    },
+    {
+      "name": "15 [''] vs ''",
+      "patterns": [
+        ""
+      ],
+      "host": "",
+      "expected": true,
+      "note": "an empty pattern matches only the empty host"
+    },
+    {
+      "name": "16 [''] vs 'a'",
+      "patterns": [
+        ""
+      ],
+      "host": "a",
+      "expected": false
+    },
+    {
+      "name": "17 ['.internal.example.com'] vs 'a.internal.example.com'",
+      "patterns": [
+        ".internal.example.com"
+      ],
+      "host": "a.internal.example.com",
+      "expected": false,
+      "note": "curl treats a leading dot as a domain suffix; the specification's letter does not (P5a-14, open for the lead)"
+    },
+    {
+      "name": "18 ['.internal.example.com'] vs '.internal.example.com'",
+      "patterns": [
+        ".internal.example.com"
+      ],
+      "host": ".internal.example.com",
+      "expected": true,
+      "note": "literal glob"
+    },
+    {
+      "name": "19 ['10.0.0.*'] vs '10.0.0.7'",
+      "patterns": [
+        "10.0.0.*"
+      ],
+      "host": "10.0.0.7",
+      "expected": true
+    }
+  ]
+}

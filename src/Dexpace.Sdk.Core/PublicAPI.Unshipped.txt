@@ -38,6 +38,7 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseHeaderPrefix = "ht
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseStatusCode = "http.response.status_code" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedactedHeaderValue = "REDACTED" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string!
+const Dexpace.Sdk.Core.Configuration.BuildInfo.Unknown = "unknown" -> string!
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
@@ -75,22 +76,24 @@ Dexpace.Sdk.Core.Client.IAsyncHttpClient
 Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Core.Client.IHttpClient
 Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Configuration.BuildInfo
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.get -> System.TimeSpan?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.AttemptTimeout.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.get -> System.Uri?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.BaseAddress.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.DexpaceClientOptions() -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Logging.init -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Equals(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.get -> System.TimeSpan?
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.OverallTimeout.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.get -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Redirect.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.get -> Dexpace.Sdk.Core.Configuration.RetryOptions!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.set -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Retry.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.get -> string!
-Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.set -> void
 Dexpace.Sdk.Core.Configuration.HttpLogLevel
 Dexpace.Sdk.Core.Configuration.HttpLogLevel.Body = 2 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
 Dexpace.Sdk.Core.Configuration.HttpLogLevel.Headers = 1 -> Dexpace.Sdk.Core.Configuration.HttpLogLevel
@@ -111,26 +114,57 @@ Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.get -> b
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.init -> void
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.init -> void
+Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions
+Dexpace.Sdk.Core.Configuration.ProxyOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.ProxyOptions!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.BypassAll.get -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.BypassAll.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ChallengeCredentials.get -> System.Net.ICredentials?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ChallengeCredentials.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Equals(Dexpace.Sdk.Core.Configuration.ProxyOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Host.get -> string!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Host.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.IsBypassed(string! host) -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.NonProxyHosts.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.NonProxyHosts.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Password.get -> string?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Password.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Port.get -> int
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Port.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ProxyOptions() -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Type.get -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Type.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.UserName.get -> string?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.UserName.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Http = 0 -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Socks4 = 1 -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Socks5 = 2 -> Dexpace.Sdk.Core.Configuration.ProxyType
 Dexpace.Sdk.Core.Configuration.RedirectOptions
+Dexpace.Sdk.Core.Configuration.RedirectOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.get -> bool
-Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.init -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(Dexpace.Sdk.Core.Configuration.RedirectOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.get -> int
-Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.RedirectOptions() -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.get -> bool
-Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.set -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions
+Dexpace.Sdk.Core.Configuration.RetryOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RetryOptions!
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.get -> System.TimeSpan
-Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(Dexpace.Sdk.Core.Configuration.RetryOptions? other) -> bool
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.get -> System.TimeSpan
-Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.get -> int
-Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.set -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
+Dexpace.Sdk.Core.Configuration.TimeProviderWaits
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys
@@ -232,6 +266,7 @@ Dexpace.Sdk.Core.Http.Common.Headers.With(Dexpace.Sdk.Core.Http.Common.HttpHeade
 Dexpace.Sdk.Core.Http.Common.Headers.With(string! name, string! value) -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Common.Headers.Without(Dexpace.Sdk.Core.Http.Common.HttpHeaderName! name) -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Common.Headers.Without(string! name) -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Common.HttpDate
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.<Clone>$() -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.CanonicalName.get -> string!
@@ -481,6 +516,18 @@ Dexpace.Sdk.Core.Serialization.SerdeExtensions
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.RedirectOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.RetryOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.RetryOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Http.Common.ETag.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Http.Common.ETag.GetHashCode() -> int
 override Dexpace.Sdk.Core.Http.Common.ETag.ToString() -> string!
@@ -551,6 +598,24 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sd
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.BuildInfo.IdentityTokens.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.OSName.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.RuntimeDescription.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.RuntimeVersion.get -> string!
+static Dexpace.Sdk.Core.Configuration.BuildInfo.SdkVersion.get -> string!
+static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator !=(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator ==(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment() -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment(Microsoft.Extensions.Logging.ILogger! logger) -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment(System.Func<string!, string?>! environment, Microsoft.Extensions.Logging.ILogger! logger) -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.operator !=(Dexpace.Sdk.Core.Configuration.ProxyOptions? left, Dexpace.Sdk.Core.Configuration.ProxyOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.operator ==(Dexpace.Sdk.Core.Configuration.ProxyOptions? left, Dexpace.Sdk.Core.Configuration.ProxyOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator !=(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator ==(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RetryOptions.operator !=(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.RetryOptions.operator ==(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.TimeProviderWaits.DelayAsync(this System.TimeProvider! timeProvider, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+static Dexpace.Sdk.Core.Configuration.TimeProviderWaits.Sleep(this System.TimeProvider! timeProvider, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken) -> void
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationFormUrlEncoded.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJson.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJsonLines.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
@@ -569,6 +634,9 @@ static Dexpace.Sdk.Core.Http.Common.ETag.operator ==(Dexpace.Sdk.Core.Http.Commo
 static Dexpace.Sdk.Core.Http.Common.Headers.Empty.get -> Dexpace.Sdk.Core.Http.Common.Headers!
 static Dexpace.Sdk.Core.Http.Common.Headers.operator !=(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.Headers.operator ==(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
+static Dexpace.Sdk.Core.Http.Common.HttpDate.Format(System.DateTimeOffset instant) -> string!
+static Dexpace.Sdk.Core.Http.Common.HttpDate.Parse(string! value) -> System.DateTimeOffset
+static Dexpace.Sdk.Core.Http.Common.HttpDate.TryParse(string? value, out System.DateTimeOffset instant) -> bool
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Of(string! name) -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.IdempotencyKey.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.IfMatch.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!

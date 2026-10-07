@@ -190,7 +190,8 @@ public sealed record OperationDescriptor
     /// <returns>A new request.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
     /// <exception cref="ArgumentException">
-    /// <see cref="DexpaceClientOptions.BaseAddress"/> is null, or fails the rules of <see cref="BuildRequest(Uri)"/>.
+    /// <see cref="DexpaceClientOptions.BaseAddress"/> is null. (An unusable address cannot reach here: the options
+    /// validate it when it is set, P5a-4.)
     /// </exception>
     public Request BuildRequest(DexpaceClientOptions options)
     {

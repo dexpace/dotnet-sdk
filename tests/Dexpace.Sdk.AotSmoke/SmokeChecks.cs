@@ -23,6 +23,7 @@ using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet;
 using Dexpace.Sdk.Serialization.SystemTextJson;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Dexpace.Sdk.AotSmoke;
 
@@ -53,6 +54,7 @@ internal static class SmokeChecks
             await CheckPhase4bRecoveryAsync();
             await CheckPipelineReworkAsync();
             await CheckHttpLoggingAsync();
+            await CheckPhase5aConfigurationAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -484,6 +486,52 @@ internal static class SmokeChecks
         Expect(logger.Events.TrueForAll(e => !e.Text.Contains("smoke-secret", StringComparison.Ordinal)), "no event carries the secret");
 
         Expect(new UrlRedactor().RedactHeaderValue("/cb?code=smoke-secret") == "/cb?***", "UrlRedactor.RedactHeaderValue");
+    }
+
+    // Phase 5a (CFG-8, CFG-9, CFG-15 to CFG-18, CFG-22 to CFG-25, CFG-29 to CFG-31, CFG-36): the configuration surface
+    // under NativeAOT, including the hand-written glob matcher behind the proxy bypass list.
+    private static async Task CheckPhase5aConfigurationAsync()
+    {
+        var options = new DexpaceClientOptions { BaseAddress = new Uri("https://api.example.test/v1?sig=secret") };
+        var derived = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
+        Expect(options.Retry.MaxRetryAttempts == 3 && derived.Retry.MaxRetryAttempts == 5, "options derive with `with`");
+        Expect(!options.ToString().Contains("secret", StringComparison.Ordinal), "options ToString redacts the base address");
+        var relativeRejected = false;
+        try
+        {
+            _ = new DexpaceClientOptions { BaseAddress = new Uri("/relative", UriKind.Relative) };
+        }
+        catch (ArgumentException)
+        {
+            relativeRejected = true;
+        }
+
+        Expect(relativeRejected, "a relative base address is rejected at init");
+
+        var instant = new DateTimeOffset(2026, 1, 1, 0, 0, 10, TimeSpan.Zero);
+        Expect(HttpDate.TryParse(HttpDate.Format(instant), out var back) && back == instant, "HttpDate round trip");
+        Expect(HttpDate.TryParse("Thu, 01 Jan 2026 00:00:10 utc", out _), "HttpDate accepts a lower-case UTC zone");
+        Expect(!HttpDate.TryParse("Sunday, 06-Nov-94 08:49:37 GMT", out _), "HttpDate rejects RFC 850");
+
+        var proxy = new ProxyOptions
+        {
+            Host = "proxy.example.test",
+            Port = 3128,
+            Password = "hunter2",
+            NonProxyHosts = ["*.internal.example.com"],
+        };
+        Expect(proxy.IsBypassed("a.internal.example.com") && !proxy.IsBypassed("internal.example.com"), "proxy globs under AOT");
+        Expect(!proxy.ToString().Contains("hunter2", StringComparison.Ordinal), "ProxyOptions ToString masks the password");
+        var resolved = ProxyOptions.FromEnvironment(
+            key => key == "HTTPS_PROXY" ? "http://p.example.test:3128" : null,
+            NullLogger.Instance);
+        Expect(resolved is { Host: "p.example.test", Port: 3128 }, "ProxyOptions.FromEnvironment resolves host and port");
+
+        Expect(BuildInfo.IdentityTokens.Count == 2 && BuildInfo.IdentityTokens[0].Length > 0 && BuildInfo.IdentityTokens[1].Length > 0, "BuildInfo identity tokens");
+        Expect(BuildInfo.RuntimeVersion != BuildInfo.Unknown, "BuildInfo runtime version under AOT");
+
+        TimeProvider.System.Sleep(TimeSpan.Zero, CancellationToken.None);
+        await TimeProvider.System.DelayAsync(TimeSpan.Zero, CancellationToken.None);
     }
 
     private static void Expect(bool condition, string what)

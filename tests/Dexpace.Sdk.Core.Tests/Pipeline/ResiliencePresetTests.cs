@@ -16,6 +16,7 @@ using Xunit;
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
 
 [Trait("Category", "Unit")]
+[Collection("Instrumentation")]
 public sealed class ResiliencePresetTests
 {
     private static Request MakeRequest() => Request.Get("https://api.example.com/v1/items");

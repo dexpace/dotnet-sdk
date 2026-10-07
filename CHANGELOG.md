@@ -202,6 +202,21 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   from memory and can be opened again, a larger one is served as the captured prefix then the live remainder (the caller still
   receives every byte), and `ContentLength` follows `BODY-29`. Unknown-length and `text/event-stream` bodies are never wrapped
   (`OBS-36`, `OBS-37`, `OBS-38`, `BODY-34`, P5b-12). `Body` logs payloads verbatim: it is for diagnosis, not for production.
+- **Breaking:** `DexpaceClientOptions`, `RetryOptions` and `RedirectOptions` are sealed records with `init` accessors
+  (`CFG-8`, `CFG-9`). Assigning a property after construction no longer compiles (derive with `with`); equality and
+  `GetHashCode` are by value (was: by reference); `ToString` renders the members, the base address redacted.
+- **Breaking:** `DexpaceClientOptions.BaseAddress` is validated when it is set (absolute `http`/`https`, no fragment): an
+  `ArgumentException` at the assignment, not at `OperationDescriptor.BuildRequest`; `UserAgent`, `Retry` and `Redirect`
+  reject `null`. Phase 5b's `DexpaceClientOptions.Logging` is an `init` property too (ruling P5b-5), still rejecting `null`.
+- Internal gate: `BannedSymbols.txt` bans `Thread.Sleep`, every `Task.Delay` overload, `DateTime`/`DateTimeOffset`
+  `Now`/`UtcNow`/`Today` and the `Environment` variable readers in `src/` (`CFG-15`, `CFG-16`, `CFG-28`); no
+  consumer-visible change.
+- **Breaking (behaviour):** `RetryPolicy` honours HTTP-date `Retry-After` values it used to ignore (lower case, a weekday
+  inconsistent with the date, the `UTC`/`+0000`/`+00:00` zones, a single-digit day). `SetDatePolicy` and
+  `RequestConditions` format through `HttpDate`; their output is unchanged.
+- **Breaking (behaviour):** the default `User-Agent` is `dexpace-dotnet/<version> dotnet/<runtime>` (the
+  `BuildInfo.IdentityTokens` joined; was the one token `dexpace-dotnet/<version>`), and an undeterminable SDK version
+  reads `unknown` (was `0.0.0`), which also changes the `ActivitySource` and `Meter` version in that case.
 
 ### Added
 
@@ -332,5 +347,21 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   internal ownership-moving `Response.ReplaceBody` that keeps the exchange link across the swap (P5b-13).
 - `docs/sdk-documentation/logging-and-redaction.md`; the AOT smoke covers body-level logging; `docs/knowledge/notes/observability.md`
   records the departure from styleguide 6.2.
+- `TimeProviderWaits.Sleep` and `DelayAsync`: the blocking interruptible sleep and the awaitable delay over
+  `TimeProvider`, both rejecting a negative delay (the BCL's `-1 ms` means "wait forever") and chunking past ~49.7 days
+  (`CFG-15`, `CFG-17`, `CFG-18`). `RetryPolicy` waits through them. Internal: `LateResult`, the cooperative form of
+  `CFG-21` and the one `Task<T>.WaitAsync` site.
+- `HttpDate` (`Format`, `Parse`, `TryParse`): the RFC 1123 HTTP-date formatter and a hand-written span parser (zone and
+  month case-insensitive; `GMT`, `UTC`, `+0000`, `+00:00`; the weekday is stripped, never validated; RFC 850 and
+  asctime rejected) (`CFG-29`, `CFG-30`, `CFG-31`).
+- `ProxyOptions`, `ProxyType` and `ProxyOptions.FromEnvironment`: an immutable proxy model (host, port, ordered glob
+  bypass list, credentials, a challenge-credentials slot, a credential-masking `ToString`) and an environment resolver
+  that reads `HTTPS_PROXY`/`HTTP_PROXY` (either case) and `NO_PROXY`, never throws, and warns without echoing the value
+  (`CFG-22`..`CFG-28`). Installing it in the transport is phase 8b's.
+- `BuildInfo`: the SDK version and runtime identity (`SdkVersion`, `RuntimeVersion`, `RuntimeDescription`, `OSName`,
+  `IdentityTokens`), resolved once, each field falling back to `unknown` and every token header-safe (`CFG-36`).
+  Internal: `RetryFacts.IsRetryableStatus` and `IsRetryableCause` (`CFG-35`, wired by phase 6a) and `DeepValue`
+  (`CFG-33`, `CFG-34`); no consumer-visible change.
+- `docs/sdk-documentation/configuration.md`; the AOT smoke covers the options records, `HttpDate`, `ProxyOptions` and `BuildInfo`.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

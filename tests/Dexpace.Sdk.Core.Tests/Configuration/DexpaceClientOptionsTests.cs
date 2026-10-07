@@ -30,7 +30,18 @@ public class DexpaceClientOptionsTests
 
         Assert.Same(HttpLoggingOptions.Default, opts.Logging);
         Assert.Equal(HttpLogLevel.None, opts.Logging.Level);
-        Assert.Throws<ArgumentNullException>(() => opts.Logging = null!);
+        Assert.Throws<ArgumentNullException>(() => opts with { Logging = null! });
+        Assert.Throws<ArgumentNullException>(() => new DexpaceClientOptions { Logging = null! });
+    }
+
+    [Fact]
+    public void The_default_user_agent_is_the_identity_tokens_joined()
+    {
+        var userAgent = new DexpaceClientOptions().UserAgent;
+
+        Assert.Equal(string.Join(' ', BuildInfo.IdentityTokens), userAgent);
+        Assert.Contains(" dotnet/", userAgent, StringComparison.Ordinal);
+        Assert.DoesNotContain("0.0.0", userAgent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,8 +71,8 @@ public class DexpaceClientOptionsTests
     {
         var opts = new DexpaceClientOptions();
 
-        // Property bag objects must be initialized — not null — so callers can do
-        // opts.Retry.MaxRetryAttempts = 5 without a null ref.
+        // Property bag objects must be initialized — not null — so callers can derive with
+        // opts with { Retry = opts.Retry with { MaxRetryAttempts = 5 } } without a null ref.
         Assert.NotNull(opts.Retry);
         Assert.NotNull(opts.Redirect);
     }
@@ -74,5 +85,63 @@ public class DexpaceClientOptionsTests
         var descriptor = new Dexpace.Sdk.Core.Operations.OperationDescriptor { Method = Dexpace.Sdk.Core.Http.Common.Method.Get, PathTemplate = "/pets" };
 
         Assert.Equal("https://api.example.com/v1/pets", descriptor.BuildRequest(options).Url.AbsoluteUri);
+    }
+
+    [Theory]
+    [InlineData("http://h")]
+    [InlineData("https://h/v1")]
+    [InlineData("https://h:8443/a/b?x=1")]
+    public void BaseAddress_accepts_an_absolute_http_or_https_uri_without_a_fragment(string address)
+    {
+        var options = new DexpaceClientOptions { BaseAddress = new Uri(address) };
+
+        Assert.Equal(new Uri(address), options.BaseAddress);
+        Assert.Null(new DexpaceClientOptions { BaseAddress = null }.BaseAddress);
+    }
+
+    [Theory]
+    [InlineData("/relative")]
+    [InlineData("https://host/c#frag")]
+    [InlineData("https://host/#")]
+    [InlineData("ftp://host/")]
+    [InlineData("https://host/c?sig=secret#f")]
+    public void BaseAddress_rejects_what_BuildRequest_used_to_reject(string address)
+    {
+        var uri = new Uri(address, UriKind.RelativeOrAbsolute);
+
+        var error = Assert.Throws<ArgumentException>(() => new DexpaceClientOptions { BaseAddress = uri });
+
+        Assert.DoesNotContain("secret", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToString_renders_the_members_and_redacts_the_base_address()
+    {
+        var options = new DexpaceClientOptions { BaseAddress = new Uri("https://h/v1?sig=abc123") };
+
+        var text = options.ToString();
+
+        Assert.DoesNotContain("abc123", text, StringComparison.Ordinal);
+        Assert.Contains("BaseAddress", text, StringComparison.Ordinal);
+        Assert.Contains("UserAgent", text, StringComparison.Ordinal);
+        Assert.Contains("Retry", text, StringComparison.Ordinal);
+        Assert.Contains("Redirect", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToString_of_the_nested_records_renders_every_member()
+    {
+        var retry = new RetryOptions().ToString();
+        var redirect = new RedirectOptions().ToString();
+
+        foreach (var name in new[] { "MaxRetryAttempts", "BaseDelay", "MaxDelay", "HonorRetryAfter", "RetryNonIdempotentWhenReplayable" })
+        {
+            Assert.Contains(name, retry, StringComparison.Ordinal);
+        }
+
+        foreach (var name in new[] { "MaxRedirects", "AllowHttpsToHttpDowngrade", "StripSensitiveHeadersOnCrossOrigin" })
+        {
+            Assert.Contains(name, redirect, StringComparison.Ordinal);
+        }
     }
 }

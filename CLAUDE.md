@@ -113,7 +113,7 @@ dotnet-sdk/
 ├── nuget.config
 ├── src/
 │   ├── Dexpace.Sdk.Core/                        # toolkit; no transport, no concrete codec
-│   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers
+│   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers, HttpDate
 │   │   ├── Http/Request/            # Request, RequestBody
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
@@ -125,7 +125,7 @@ dotnet-sdk/
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
-│   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions, HttpLogLevel
+│   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions (sealed records), HttpLogLevel, ProxyOptions, TimeProviderWaits, BuildInfo
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter
 │   │   ├── Execution/               # CallKey, InstrumentationContext, the three context records, DexpaceCallContexts
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
@@ -250,10 +250,12 @@ execution-context chain, see `docs/sdk-documentation/execution-context.md`; and 
 recovery layer — `Outcome`, the step contracts, the two chains, `RecoveryDispatcher`, `ErrorBodyBuffer`/`ErrorMappingStep`, the idempotency and
 client-identity steps, `ExceptionFacts` and `ExceptionTrail` — see `docs/sdk-documentation/recovery.md`; and phase 4c's
 pipeline rework — the request-in/response-out policy signature, the call-scoped `PipelineContext`, the builder rules, `HttpPipeline` as a transport,
-`ErrorMappingPolicy` and the real sync path — see `docs/sdk-documentation/pipelines.md`; and phase 5b's logging and redaction — `HttpLoggingOptions`,
+`ErrorMappingPolicy` and the real sync path — see `docs/sdk-documentation/pipelines.md`; and phase 5a's configuration — the options as sealed records, `ProxyOptions`
+and `FromEnvironment`, `TimeProviderWaits`, `HttpDate`, `BuildInfo` and the clock, delay and environment bans — see `docs/sdk-documentation/configuration.md`;
+and phase 5b's logging and redaction — `HttpLoggingOptions`,
 the `http.request`/`http.response` events, header and URL redaction, the emission guard and body previews — see
 `docs/sdk-documentation/logging-and-redaction.md`):
-the retry engine over the recovery chain (6a), layered configuration (5a) and the operation span and metrics (5c), the auth resolver with RFC 7235
+the retry engine over the recovery chain (6a), the operation span and metrics (5c), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

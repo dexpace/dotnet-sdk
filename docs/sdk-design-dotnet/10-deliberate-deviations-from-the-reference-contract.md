@@ -249,6 +249,8 @@ line and in the roadmap.
     **CFG-10**'s override removal are vacuous; the process-wide slot of **CFG-13** is not provided (the
     service-locator pattern the house guide rejects). The explicit `ProxyOptions` argument replaces **CFG-24**'s
     system-property layer — the same substitution applied twice. §8.2.
+    *Dated correction, 2026-10-07, phase 5a (P5a-15):* `FromEnvironment` reads the upper- and lower-case names, skips upper-case
+    `HTTP_PROXY` when `GATEWAY_INTERFACE` is present, serves one proxy for every target, and never falls through on a malformed value.
 26. **Unparseable configuration fails at startup instead of falling back silently.** *Touches* **CFG-5**, **CFG-6**,
     **CFG-7** (their never-throw letters; the **CFG-6** and **CFG-7** grammars are kept). *Judged, against the
     specification's letter and with the house guide* (`docs/styleguide/csharp-aspnetcore/01-host-and-configuration.md`

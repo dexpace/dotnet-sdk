@@ -276,3 +276,12 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     the user slots; there is none after `Auth`, `Diagnostics` or `Serde`. The keys are sparse (100 apart, with 150 and 250 between),
     so the first consumer that must run after authentication, a request signer, adds one (a `PostAuth = 550`) additively. `PIPE-3`
     is a SHOULD, met in part. A reading, not a §10 deviation.
+49. **`CFG-31` is silent on a single-digit day, and `RETRY-15` requires it.** *Added by dated correction, 2026-10-07 (phase 5a, P5a-11).*
+    *Resolved* (§8.2): `HttpDate` accepts a one- or two-digit day; `CFG-31` names blank input and a missing comma as its failures and
+    does not demand two digits. The zone and month names are case-insensitive, a superset of **CFG-30**. A reading, not a §10 deviation.
+50. **`CFG-23`'s globs disagree with curl's leading-dot convention.** *Added by dated correction, 2026-10-07 (phase 5a, P5a-14).*
+    *Resolved* (§8.2): `NO_PROXY=.internal.example.com` is a literal glob that matches only that host, where curl and
+    `HttpClient.DefaultProxy` read a domain suffix; write `*.internal.example.com`. The lead may add the suffix reading as a superset.
+51. **`CFG-12` asks for a builder that is safe to share while unfinished; core has no configuration builder.** *Added by dated
+    correction, 2026-10-07 (phase 5a, P5a-25).* *Resolved* (§8.2): an object initializer runs on an instance no other code can reach, so
+    the clause is vacuous and the row is N/A.

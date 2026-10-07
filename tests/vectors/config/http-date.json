@@ -1,0 +1,177 @@
+{
+  "source": "nodejs-sdk@54aeed4 packages/core/src/config/http-date.test.ts; ruby-sdk phase 5a design (RFC 1123 case list); design 5a position C and P5a-11. Expected is the UTC instant, or null when the value must be rejected.",
+  "cases": [
+    {
+      "name": "canonical",
+      "input": "Thu, 01 Jan 2026 00:00:10 GMT",
+      "expected": "2026-01-01T00:00:10Z"
+    },
+    {
+      "name": "the RFC example",
+      "input": "Sun, 06 Nov 1994 08:49:37 GMT",
+      "expected": "1994-11-06T08:49:37Z"
+    },
+    {
+      "name": "upper-case month",
+      "input": "Thu, 01 JAN 2026 00:00:10 GMT",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "CFG-30"
+    },
+    {
+      "name": "lower-case month",
+      "input": "Thu, 01 jan 2026 00:00:10 GMT",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "CFG-30"
+    },
+    {
+      "name": "lower-case zone",
+      "input": "Thu, 01 Jan 2026 00:00:10 gmt",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "superset of CFG-30 (P5a-11)"
+    },
+    {
+      "name": "UTC zone",
+      "input": "Thu, 01 Jan 2026 00:00:10 UTC",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "CFG-30"
+    },
+    {
+      "name": "+0000 zone",
+      "input": "Thu, 01 Jan 2026 00:00:10 +0000",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "CFG-30"
+    },
+    {
+      "name": "+00:00 zone",
+      "input": "Thu, 01 Jan 2026 00:00:10 +00:00",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "CFG-30"
+    },
+    {
+      "name": "contradicting weekday",
+      "input": "Mon, 01 Jan 2026 00:00:10 GMT",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "weekday informational (CFG-30)"
+    },
+    {
+      "name": "single-digit day",
+      "input": "Thu, 1 Jan 2026 00:00:10 GMT",
+      "expected": "2026-01-01T00:00:10Z",
+      "note": "RETRY-15; Ruby rejects, .NET accepts (P5a-11)"
+    },
+    {
+      "name": "blank",
+      "input": "",
+      "expected": null,
+      "note": "CFG-31"
+    },
+    {
+      "name": "whitespace only",
+      "input": "   ",
+      "expected": null,
+      "note": "CFG-31"
+    },
+    {
+      "name": "missing comma",
+      "input": "Mon 01 Jan 2024 00:00:00 GMT",
+      "expected": null,
+      "note": "CFG-31"
+    },
+    {
+      "name": "surrounding whitespace",
+      "input": "  Thu, 01 Jan 2026 00:00:10 GMT  ",
+      "expected": null,
+      "note": "Node tolerates; the design applies no trimming (R11)"
+    },
+    {
+      "name": "leap second",
+      "input": "Thu, 01 Jan 2026 00:00:60 GMT",
+      "expected": null,
+      "note": "Node rolls the second over; the design rejects 60 (R11)"
+    },
+    {
+      "name": "day 32",
+      "input": "Thu, 32 Jan 2026 00:00:10 GMT",
+      "expected": null
+    },
+    {
+      "name": "31 February",
+      "input": "Thu, 31 Feb 2026 00:00:10 GMT",
+      "expected": null
+    },
+    {
+      "name": "hour 24",
+      "input": "Thu, 01 Jan 2026 24:00:10 GMT",
+      "expected": null
+    },
+    {
+      "name": "unknown month",
+      "input": "Thu, 01 Foo 2026 00:00:10 GMT",
+      "expected": null
+    },
+    {
+      "name": "non-zero offset",
+      "input": "Thu, 01 Jan 2026 00:00:10 +0100",
+      "expected": null
+    },
+    {
+      "name": "two-digit year",
+      "input": "Thu, 01 Jan 26 00:00:10 GMT",
+      "expected": null,
+      "note": "four digits required"
+    },
+    {
+      "name": "year 0026",
+      "input": "Sun, 01 Jan 0026 00:00:00 GMT",
+      "expected": "0026-01-01T00:00:00Z",
+      "note": "read literally"
+    },
+    {
+      "name": "year 0000",
+      "input": "Sat, 01 Jan 0000 00:00:00 GMT",
+      "expected": null,
+      "note": "Node accepts; DateTimeOffset has no year 0 (R11)"
+    },
+    {
+      "name": "RFC 850",
+      "input": "Sunday, 06-Nov-94 08:49:37 GMT",
+      "expected": null,
+      "note": "design section 11 item 27"
+    },
+    {
+      "name": "asctime",
+      "input": "Sun Nov  6 08:49:37 1994",
+      "expected": null,
+      "note": "design section 11 item 27"
+    },
+    {
+      "name": "double space",
+      "input": "Thu,  01 Jan 2026 00:00:10 GMT",
+      "expected": null,
+      "note": "one space only"
+    },
+    {
+      "name": "trailing junk",
+      "input": "Thu, 01 Jan 2026 00:00:10 GMT x",
+      "expected": null,
+      "note": "end of input"
+    },
+    {
+      "name": "embedded CR/LF",
+      "input": "Thu, 01 Jan 2026 00:00:10 GMT\r\n",
+      "expected": null
+    },
+    {
+      "name": "non-ASCII digit",
+      "input": "Thu, 0\u0661 Jan 2026 00:00:10 GMT",
+      "expected": null,
+      "note": "culture and digit safety"
+    },
+    {
+      "name": "the 9999 boundary",
+      "input": "Fri, 31 Dec 9999 23:59:59 GMT",
+      "expected": "9999-12-31T23:59:59Z",
+      "note": "the S7 case"
+    }
+  ]
+}

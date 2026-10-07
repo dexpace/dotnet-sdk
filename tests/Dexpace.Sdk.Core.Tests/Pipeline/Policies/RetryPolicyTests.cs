@@ -584,10 +584,16 @@ public sealed class RetryPolicyTests
     public void Sync_send_honours_cancellation_during_the_wait()
     {
         var transport = new SyncFirstTransport(request => TestResponses.Create(Status.ServiceUnavailable, request));
-        var options = MakeOptions();
-        options.Retry.BaseDelay = TimeSpan.FromMinutes(5);
-        options.Retry.MaxDelay = TimeSpan.FromMinutes(5);
-        options.Retry.HonorRetryAfter = false;
+        var baseOptions = MakeOptions();
+        var options = baseOptions with
+        {
+            Retry = baseOptions.Retry with
+            {
+                BaseDelay = TimeSpan.FromMinutes(5),
+                MaxDelay = TimeSpan.FromMinutes(5),
+                HonorRetryAfter = false,
+            },
+        };
         var pipeline = new PipelineBuilder().Add(new RetryPolicy()).Build(transport);
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
@@ -603,5 +609,115 @@ public sealed class RetryPolicyTests
         }
 
         Assert.True(started.Elapsed < TimeSpan.FromMinutes(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // The waits (CFG-15, CFG-18; RETRY-26, XCUT-3) — a pin, proven able to fail by waiting outside the TimeProvider.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_sync_and_async_waits_use_the_policys_TimeProvider_and_the_same_delay()
+    {
+        var headers = new Headers.Builder().Set("Retry-After", "7").Build();
+        var asyncClock = new RecordingClock();
+        var syncClock = new RecordingClock();
+
+        foreach (var (clock, async) in new[] { (asyncClock, true), (syncClock, false) })
+        {
+            var transport = new ScriptedTransport(
+                TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+                TestResponses.Create(Status.Ok, MakeGetRequest()));
+            var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+            var token = TestContext.Current.CancellationToken;
+
+            using var response = async
+                ? await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), token)
+                : pipeline.Send(MakeGetRequest(), MakeOptions(), token);
+
+            Assert.Equal(Status.Ok, response.Status);
+        }
+
+        Assert.Equal([TimeSpan.FromSeconds(7)], asyncClock.DueTimes);
+        Assert.Equal([TimeSpan.FromSeconds(7)], syncClock.DueTimes);
+    }
+
+    // -------------------------------------------------------------------------
+    // HTTP-date Retry-After through HttpDate (CFG-30, RETRY-15; P5a-12) — Breaking (behaviour)
+    // -------------------------------------------------------------------------
+
+    private static readonly DateTimeOffset s_dateNow = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    [Theory]
+    [InlineData("thu, 01 jan 2026 00:00:30 gmt")]
+    [InlineData("Mon, 01 Jan 2026 00:00:30 GMT")]
+    [InlineData("Thu, 01 Jan 2026 00:00:30 UTC")]
+    [InlineData("Thu, 01 Jan 2026 00:00:30 +0000")]
+    [InlineData("Thu, 1 Jan 2026 00:00:30 GMT")]
+    public async Task A_retry_after_http_date_the_BCL_parser_rejected_is_now_honoured(string retryAfter)
+    {
+        foreach (var async in new[] { true, false })
+        {
+            var clock = new RecordingClock(s_dateNow);
+            var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
+            var transport = new ScriptedTransport(
+                TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+                TestResponses.Create(Status.Ok, MakeGetRequest()));
+            var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+            var token = TestContext.Current.CancellationToken;
+
+            using var response = async
+                ? await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), token)
+                : pipeline.Send(MakeGetRequest(), MakeOptions(), token);
+
+            Assert.Equal(Status.Ok, response.Status);
+            Assert.Equal([TimeSpan.FromSeconds(30)], clock.DueTimes);
+        }
+    }
+
+    [Theory]
+    [InlineData("Sunday, 06-Nov-94 08:49:37 GMT")]
+    [InlineData("Sun Nov  6 08:49:37 1994")]
+    public async Task An_rfc850_or_asctime_retry_after_is_ignored_and_the_computed_delay_is_used(string retryAfter)
+    {
+        var clock = new RecordingClock(s_dateNow);
+        var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
+        var transport = new ScriptedTransport(
+            TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+            TestResponses.Create(Status.Ok, MakeGetRequest()));
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        // A rejected date is "no hint", never a wrong wait: the delay is the jittered back-off, capped at MaxDelay (10 ms).
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.All(clock.DueTimes, due => Assert.InRange(due, TimeSpan.Zero, TimeSpan.FromMilliseconds(10)));
+    }
+
+    private sealed class RecordingClock(DateTimeOffset? now = null) : TimeProvider
+    {
+        private readonly List<TimeSpan> _dueTimes = [];
+
+        public IReadOnlyList<TimeSpan> DueTimes
+        {
+            get
+            {
+                lock (_dueTimes)
+                {
+                    return [.. _dueTimes];
+                }
+            }
+        }
+
+        public override DateTimeOffset GetUtcNow() => now ?? InstantTimeProvider.DefaultUtcNow;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            lock (_dueTimes)
+            {
+                _dueTimes.Add(dueTime);
+            }
+
+            return base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+        }
     }
 }

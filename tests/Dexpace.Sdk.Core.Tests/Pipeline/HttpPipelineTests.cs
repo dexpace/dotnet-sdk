@@ -104,6 +104,36 @@ public class HttpPipelineTests
     }
 
     [Fact]
+    public async Task A_per_call_DexpaceClientOptions_overrides_the_captured_options_for_that_call_only()
+    {
+        // PIPE-17, P5a-6: the per-call overloads run one call with an immutable value derived with `with`; the sync
+        // twin behaves the same. A pin: it passes before 5a and is proven able to fail by ignoring the per-call options.
+        var seen = new List<string>();
+        var probe = new DelegatePolicy(
+            PipelineStage.PerAttempt,
+            (request, context, next) =>
+            {
+                seen.Add(context.Options.UserAgent);
+                return next.RunAsync(request, context);
+            },
+            (request, context, next) =>
+            {
+                seen.Add(context.Options.UserAgent);
+                return next.Run(request, context);
+            });
+        var built = new DexpaceClientOptions { UserAgent = "built/1" };
+        var pipeline = new PipelineBuilder().Add(probe).Build(new RecordingTransport(), built);
+        var token = TestContext.Current.CancellationToken;
+
+        using var a = await pipeline.SendAsync(MakeRequest(), built with { UserAgent = "call/2" }, token);
+        using var b = await pipeline.SendAsync(MakeRequest(), token);
+        using var c = pipeline.Send(MakeRequest(), built with { UserAgent = "call/3" }, token);
+        using var d = pipeline.Send(MakeRequest(), token);
+
+        Assert.Equal(["call/2", "built/1", "call/3", "built/1"], seen);
+    }
+
+    [Fact]
     public async Task The_DexpaceClientOptions_overloads_override_the_build_time_options_for_one_call()
     {
         // P4c-15: the build-time options are captured, and the per-call overload wins for one call only.
