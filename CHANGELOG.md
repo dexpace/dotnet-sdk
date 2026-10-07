@@ -137,6 +137,16 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `[0, Array.MaxLength]` is replayable: it captures the stream's position at construction and seeks to it before every
   write (the caller's stream position moves; the stream stays open). It used to be single-use. A length of `-1` is still
   single-use (`BODY-9`, `BODY-35`).
+- **Breaking:** `SdkException.ToString()` renders the suppressed trail: after the base rendering it appends one
+  `---> (Suppressed Exception #n) ...<---` block per suppressed exception, with a `(cycle)` guard and an 8-level cap
+  (phase 4b, `RECOV-12`).
+- **Breaking:** `Response.EnsureSuccessAsync`: a dispose failure after a failed drain is attached to the drain's exception
+  instead of replacing it (`RECOV-16`).
+- **Breaking:** `IdempotencyPolicy` stamps PUT and PATCH as well as POST by default, and its constructor is
+  `IdempotencyPolicy()` / `IdempotencyPolicy(IdempotencyKeyStep)` (`RECOV-32`).
+- **Breaking:** `ClientIdentityPolicy` appends the SDK line after a caller-supplied `User-Agent` by default
+  (`new ClientIdentityPolicy(ClientIdentityMode.Replace)` restores the old behaviour); a blank `UserAgent` emits no header
+  (`RECOV-33`).
 
 ### Added
 
@@ -149,6 +159,14 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `CTX-6`, `CTX-14`, `CTX-15`, `CTX-20`).
 - `RS0030` entry for `AsyncLocal<T>` in the library projects (design §5.4); internal `BoundedMap`, the SDK's one
   bounded-map implementation (`CTX-11`, `CTX-12`).
+- `docs/sdk-documentation/recovery.md`; the AOT smoke covers the recovery layer.
+- `IdempotencyKeyStep`, `ClientIdentityStep`, `ClientIdentityMode` (`RECOV-32`, `RECOV-33`).
+- `ErrorMappingStep` (`RECOV-15`); the one error-body capture in core is the internal `ErrorBodyBuffer` (`RECOV-16`).
+- `RecoveryDispatcher` (`RECOV-2`, `RECOV-10`, `RECOV-11`).
+- The recovery step contracts and chains (`RECOV-3`–`RECOV-9`, `RECOV-12`–`RECOV-14`).
+- `Dexpace.Sdk.Core.Recovery.Outcome`, the closed success-or-failure carrier (`RECOV-1`).
+- `RS0030` entry for `ValueTask<T>.Result` outside the internal `SyncPath`.
+- `ExceptionFacts` and `ExceptionTrail`; `SdkException.Suppressed` (phase 4b, `RECOV-12`).
 - `docs/sdk-documentation/bodies.md`; the AOT smoke covers the body surface (file, form, multipart, seekable replay, latched dispose).
 - `RequestBody.Multipart` and `MultipartPart`: a `multipart/form-data` body whose framing is computed once, with a random or
   RFC 2046-validated boundary, a length guard per part, and part names that cannot break the framing (`HTTP-51`, `BODY-2`).

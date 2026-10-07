@@ -1,7 +1,6 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Buffers;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.IO;
@@ -139,6 +138,11 @@ public sealed class Response : IAsyncDisposable, IDisposable
     /// <see cref="HttpResponseException.Response"/> or <see cref="HttpResponseException.GetErrorAsync{T}"/> instead.
     /// Disposing this response again, for example from an enclosing <c>using</c>, is safe.
     /// </para>
+    /// <para>
+    /// <b>Breaking:</b> a dispose failure after a failed drain is attached to the drain's exception
+    /// (<see cref="ExceptionTrail.AddSuppressed"/>) instead of replacing it (RECOV-16, P4b-16). The capture itself is the
+    /// one error-body buffer in core, shared with <c>ErrorMappingStep</c>.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token that can cancel the body-drain operation.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the check has been performed.</returns>
@@ -153,24 +157,8 @@ public sealed class Response : IAsyncDisposable, IDisposable
             return;
         }
 
-        // Drain and cap the body inside this response's dispose scope, so a failed drain still releases it.
-        byte[] rawBytes;
-        try
-        {
-            var stream = await Body.OpenReadAsync(cancellationToken).ConfigureAwait(false);
-            await using var streamScope = stream.ConfigureAwait(false);
-            var writer = new ArrayBufferWriter<byte>();
-            await StreamCopy.DrainUpToAsync(stream, writer, MaxBufferedErrorBytes, cancellationToken)
-                .ConfigureAwait(false);
-            rawBytes = writer.WrittenSpan.ToArray();
-        }
-        finally
-        {
-            await DisposeAsync().ConfigureAwait(false);
-        }
-
-        var bufferedBody = ResponseBody.FromReplayableBytes(rawBytes, Body.ContentType);
-        throw new HttpResponseException(WithBody(bufferedBody));
+        throw new HttpResponseException(
+            await ErrorBodyBuffer.CaptureAsync(this, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>

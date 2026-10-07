@@ -15,6 +15,7 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Operations;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.Core.Recovery;
 using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet;
 using Dexpace.Sdk.Serialization.SystemTextJson;
@@ -45,6 +46,7 @@ internal static class SmokeChecks
             await CheckBodiesAndIoAsync();
             await CheckPhase3bBodiesAsync();
             CheckExecutionContext();
+            await CheckPhase4bRecoveryAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -356,6 +358,51 @@ internal static class SmokeChecks
         Expect(closed, "a stream body opened after dispose throws StreamClosedException");
     }
 
+    // Phase 4b: the closed outcome, a dispatch through the error-mapping step, and the suppressed trail on a foreign
+    // exception through Exception.Data. No reflection anywhere on these paths.
+    private static async Task CheckPhase4bRecoveryAsync()
+    {
+        using var okResponse = new Response(Request.Get("https://smoke.example.test/"), Status.Ok, Protocol.Http11);
+        Outcome ok = new Outcome.Success(okResponse);
+        Outcome bad = new Outcome.Failure(new IOException("smoke"));
+        Expect(
+            ok.Match(_ => "s", _ => "f") == "s" && bad.Match(_ => "s", _ => "f") == "f" && ok.IsSuccess && bad.IsFailure,
+            "Outcome folds to exactly one branch");
+
+        var dispatcher = new RecoveryDispatcher(
+            RequestRecoveryChain.Empty,
+            new ResponseRecoveryChain([ErrorMappingStep.Instance], []));
+        await using var transport = new ServiceUnavailableTransport();
+        HttpResponseException? mapped = null;
+        try
+        {
+            await dispatcher.DispatchAsync(transport, Request.Get("https://smoke.example.test/"), RequestOptions.Empty);
+        }
+        catch (HttpResponseException ex)
+        {
+            mapped = ex;
+        }
+
+        Expect(
+            mapped is not null && mapped.Status.Code == 503
+                && Encoding.UTF8.GetString(await mapped.Response.Body.ReadAsBytesAsync()) == "unavailable",
+            "a dispatch through ErrorMappingStep throws HttpResponseException over the buffered body");
+
+        var primary = new InvalidOperationException("primary");
+        var secondary = new IOException("secondary");
+        var causes = 0;
+        foreach (var cause in ExceptionFacts.EnumerateCauses(new AggregateException(primary)))
+        {
+            causes += cause is null ? 0 : 1;
+        }
+
+        ExceptionTrail.AddSuppressed(primary, secondary);
+        Expect(
+            ExceptionTrail.GetSuppressed(primary).Count == 1 && ReferenceEquals(ExceptionTrail.GetSuppressed(primary)[0], secondary)
+                && causes == 2,
+            "ExceptionTrail attaches to a foreign exception through Data");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
@@ -381,6 +428,15 @@ internal static class SmokeChecks
             Interlocked.Increment(ref _releases);
             base.Dispose(disposing);
         }
+    }
+
+    /// <summary>An in-process transport that answers every request with a 503 and a small body.</summary>
+    private sealed class ServiceUnavailableTransport : IAsyncHttpClient
+    {
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult(new Response(request, Status.ServiceUnavailable, Protocol.Http11, body: ResponseBody.FromBytes("unavailable"u8.ToArray())));
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     /// <summary>An in-process transport that echoes the request body back as a 200 JSON response.</summary>

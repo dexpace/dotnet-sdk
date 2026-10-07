@@ -6,6 +6,7 @@ using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.Recovery;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
@@ -108,6 +109,77 @@ public sealed class IdempotencyPolicyTests
     }
 
     // -------------------------------------------------------------------------
+    // RECOV-32: POST, PUT and PATCH by default; the strategy runs once per call
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("PUT")]
+    [InlineData("PATCH")]
+    public async Task ProcessAsync_PutAndPatch_SetIdempotencyKeyHeader(string method)
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new IdempotencyPolicy()).Build(transport);
+
+        await pipeline.SendAsync(
+            Request.Create(Method.Of(method), "https://api.example.com/v1/items/1"),
+            MakeOptions(),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(transport.LastRequest!.Headers.Get("Idempotency-Key"));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_Delete_DoesNotSetIdempotencyKeyHeader()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new IdempotencyPolicy()).Build(transport);
+
+        await pipeline.SendAsync(
+            Request.Create(Method.Delete, "https://api.example.com/v1/items/1"),
+            MakeOptions(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(transport.LastRequest!.Headers.Get("Idempotency-Key"));
+    }
+
+    [Fact]
+    public async Task A_redirect_hop_or_retry_re_entering_the_policy_reuses_the_call_scoped_key_and_the_strategy_runs_once()
+    {
+        var calls = 0;
+        var step = new IdempotencyKeyStep { KeyStrategy = () => "key-" + Interlocked.Increment(ref calls) };
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new DoubleCallPolicy()).Add(new IdempotencyPolicy(step)).Build(transport);
+
+        await pipeline.SendAsync(
+            Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty)),
+            MakeOptions(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, calls);
+        Assert.Equal("key-1", transport.Requests[0].Headers.Get("Idempotency-Key"));
+    }
+
+    [Fact]
+    public async Task The_constructor_accepting_a_step_uses_that_steps_configuration()
+    {
+        var step = new IdempotencyKeyStep
+        {
+            HeaderName = HttpHeaderName.Of("X-Request-Key"),
+            KeyStrategy = () => "fixed",
+        };
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new IdempotencyPolicy(step)).Build(transport);
+
+        await pipeline.SendAsync(
+            Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty)),
+            MakeOptions(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("fixed", transport.LastRequest!.Headers.Get("X-Request-Key"));
+        Assert.Null(transport.LastRequest!.Headers.Get("Idempotency-Key"));
+    }
+
+    // -------------------------------------------------------------------------
     // Existing header is preserved (caller-supplied key)
     // -------------------------------------------------------------------------
 
@@ -139,7 +211,7 @@ public sealed class IdempotencyPolicyTests
         var transport = new RecordingTransport();
         // Only PATCH configured, not POST
         var pipeline = new PipelineBuilder()
-            .Add(new IdempotencyPolicy([Method.Patch]))
+            .Add(new IdempotencyPolicy(new IdempotencyKeyStep { Methods = new HashSet<Method> { Method.Patch } }))
             .Build(transport);
 
         var patchRequest = Request.Create(Method.Patch, "https://api.example.com/v1/items/1");
@@ -156,7 +228,7 @@ public sealed class IdempotencyPolicyTests
         var transport = new RecordingTransport();
         // Only PATCH configured
         var pipeline = new PipelineBuilder()
-            .Add(new IdempotencyPolicy([Method.Patch]))
+            .Add(new IdempotencyPolicy(new IdempotencyKeyStep { Methods = new HashSet<Method> { Method.Patch } }))
             .Build(transport);
 
         // POST is NOT in the custom set

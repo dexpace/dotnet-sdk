@@ -260,3 +260,9 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     what `Encoding.UTF8.GetString` and WHATWG's decode rule do, rather than throwing, so one bad byte cannot kill an event
     stream; and it keeps a byte-order mark as ordinary content on every line, in both terminator modes. Phase 7b strips the
     leading BOM at stream start.
+46. **Section 8.3 says "the recovery layer is synchronous", but the .NET async path is primary.** *Added by dated
+    correction, 2026-10-07 (phase 4b, P4b-6).* *Resolved* (§5.2): the sentence describes the reference's primary runtime. The
+    port gives every recovery step contract a required `Apply` and `ApplyAsync`, and every chain and the dispatcher one
+    `bool async` body; the sync entry point reads the already-completed `ValueTask` through the internal `SyncPath`, the one
+    sanctioned `ValueTask<T>.Result` read. The normative part of the paragraph, the two-layer prohibition, is kept: an
+    architecture test forbids a `Recovery` to `Pipeline` reference (P4b-5). A reading, not a §10 deviation.

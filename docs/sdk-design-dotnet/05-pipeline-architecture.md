@@ -171,6 +171,13 @@ rather than through `context.Response`, "superseded" is simply "a local the poli
 re-drives; pillar collision checked late and unnamed; no prepend/bulk/cross-stage rules; stage slots misnamed or
 missing; `EnsureSuccessAsync` maps non-2xx instead of 400..599.
 
+**Dated correction (2026-10-07, phase 4b).** *Three shipped steps*: the logic lives once in the recovery steps
+(`IdempotencyKeyStep`, `ClientIdentityStep`) and the policies delegate to them (P4b-17, P4b-18); `IdempotencyPolicy`
+defaults to POST, PUT and PATCH and takes an `IdempotencyKeyStep`, and `ClientIdentityPolicy` appends by default and takes a
+`ClientIdentityMode`. *The bounded error-body copy*: `ErrorBodyBuffer` (sync and async) and `ErrorMappingStep` are built by
+4b (P4b-16), and `Response.EnsureSuccessAsync` is re-homed onto the buffer; `ErrorMappingPolicy`, `XCUT-8`'s factory
+rejection and the public sync `Response.EnsureSuccess` stay 4c's, over `ErrorBodyBuffer.Capture`.
+
 ### 5.2 The recovery-chain primitives
 
 **RECOV-1**'s closed two-variant outcome is a record hierarchy closed by a private constructor — the styleguide's
@@ -260,6 +267,29 @@ as cycle-safe (a depth cap of 64), because rule 9 of the house style bounds ever
 
 **As built (d45e64b):** not built — no `Outcome`, no recovery chain, no suppressed trail, no shared cause walker; the
 fatal filter and dispatch-info rethrow appear only inside `RetryPolicy`.
+
+**As built (2026-10-07, phase 4b):** built. The recovery layer lives in `Dexpace.Sdk.Core.Recovery`: `Outcome`, the three step
+contracts, `RequestRecoveryChain`, `ResponseRecoveryChain` and `RecoveryDispatcher`, with `ExceptionFacts` and
+`ExceptionTrail` in `Dexpace.Sdk.Core.Errors`. The retry engine (the recovery-stack engine, **RECOV-17**–**RECOV-30**,
+**RECOV-34**) stays phase 6a's. The text above stands as written, with six *dated corrections*:
+
+- **`Outcome` is an abstract class with nested sealed classes, not a record (P4b-3).** A non-sealed record gets a
+  synthesised `protected` copy constructor that any record outside the assembly can call, and C# forbids making it
+  private, so `abstract record Outcome` with a private constructor is not closed (verified on 10.0.401). An abstract class
+  with a private constructor is. The accessors are the Try-pattern (`IsSuccess`, `IsFailure`, `TryGetResponse`,
+  `TryGetError` with `[NotNullWhen(true)]`, P4b-4) and one fold, `Match<T>`.
+- **The layer has both forms over one core (P4b-6).** Every step contract declares `Apply` and `ApplyAsync`; each chain and
+  the dispatcher run one private `bool async` body, and the sync entry point reads the already-completed `ValueTask`
+  through the internal `SyncPath` (P4b-7, §11 item 46).
+- **`EnumerateCauses` yields the root first (P4b-13)**, then the causes breadth-first; the name reads the other way.
+- **The trail (P4b-14).** `SdkException.Suppressed` and `ExceptionTrail.GetSuppressed` return immutable snapshots; a foreign
+  exception whose `Data` is read-only drops the secondary rather than throw (the one deliberate swallow); no attachment
+  involves a fatal exception, the primary itself, or the same secondary twice; `SdkException.ToString()` renders
+  `(Suppressed Exception #n)` blocks with a cycle guard and an 8-level cap.
+- **Conversion boundary (P4b-8).** `when (!ExceptionFacts.IsFatal(ex))` at four sites; `OperationCanceledException` is
+  converted like any other (the token stays cancelled, **RECOV-11**), and a `null` from a step or a transport is a throw of
+  `InvalidOperationException` naming the type.
+- **`ErrorBodyBuffer` is 4b's (P4b-16)**; see §5.1.
 
 ### 5.3 The async mirror and the two bridges
 

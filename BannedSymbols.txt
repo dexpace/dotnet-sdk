@@ -23,6 +23,7 @@ M:System.Threading.Tasks.Task.Wait(System.Int32,System.Threading.CancellationTok
 M:System.Threading.Tasks.Task.Wait(System.TimeSpan,System.Threading.CancellationToken);Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
 M:System.Runtime.CompilerServices.TaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
 M:System.Runtime.CompilerServices.TaskAwaiter`1.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
+P:System.Threading.Tasks.ValueTask`1.Result;Sync-over-async: read a ValueTask<T> only through SyncPath (design §5.3, P4b-7)
 M:System.Runtime.CompilerServices.ValueTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
 M:System.Runtime.CompilerServices.ValueTaskAwaiter`1.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
 M:System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter.GetResult;Sync-over-async: await instead, or go through a documented sync bridge (design §3.3, §5.3)
