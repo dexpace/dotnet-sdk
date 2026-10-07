@@ -330,5 +330,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Phase 5b body-level logging step: bounded request and response body previews (`http.request.body.preview`,
   `http.response.body.preview` and their `.preview.size`), the `http.instrumentation.body_capture_failed` diagnostic, and an
   internal ownership-moving `Response.ReplaceBody` that keeps the exchange link across the swap (P5b-13).
+- `docs/sdk-documentation/logging-and-redaction.md`; the AOT smoke covers body-level logging; `docs/knowledge/notes/observability.md`
+  records the departure from styleguide 6.2.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

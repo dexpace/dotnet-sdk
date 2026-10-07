@@ -125,8 +125,8 @@ dotnet-sdk/
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
-│   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions
-│   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor
+│   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions, HttpLogLevel
+│   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter
 │   │   ├── Execution/               # CallKey, InstrumentationContext, the three context records, DexpaceCallContexts
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
@@ -250,8 +250,10 @@ execution-context chain, see `docs/sdk-documentation/execution-context.md`; and 
 recovery layer — `Outcome`, the step contracts, the two chains, `RecoveryDispatcher`, `ErrorBodyBuffer`/`ErrorMappingStep`, the idempotency and
 client-identity steps, `ExceptionFacts` and `ExceptionTrail` — see `docs/sdk-documentation/recovery.md`; and phase 4c's
 pipeline rework — the request-in/response-out policy signature, the call-scoped `PipelineContext`, the builder rules, `HttpPipeline` as a transport,
-`ErrorMappingPolicy` and the real sync path — see `docs/sdk-documentation/pipelines.md`):
-the retry engine over the recovery chain (6a), layered configuration and body/header logging (5), the auth resolver with RFC 7235
+`ErrorMappingPolicy` and the real sync path — see `docs/sdk-documentation/pipelines.md`; and phase 5b's logging and redaction — `HttpLoggingOptions`,
+the `http.request`/`http.response` events, header and URL redaction, the emission guard and body previews — see
+`docs/sdk-documentation/logging-and-redaction.md`):
+the retry engine over the recovery chain (6a), layered configuration (5a) and the operation span and metrics (5c), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

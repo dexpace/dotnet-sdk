@@ -66,7 +66,7 @@ itself a conformance claim.
 | PAGE | 36 | 35 | §1, §3.7, §7.1 (+1) | **PAGE-7** (MUST, forward-only, on-demand fetching; idempotent end probes) — substance in §7.1 (`null` as the single end signal), not argued by ID. *Notes:* §10 entries 17, 18, 19 |
 | SSE | 41 | 40 | §1, §7.1, §7.2 (+5) | *Deferred:* **SSE-41** (MAY, reactive-adapter error latitude) — no reactive adapter ships. *Notes:* no strict-WHATWG mode (§11 item 17); **SSE-19**'s cap is sanctioned (§10 entry 20) |
 | SERDE | 30 | 30 | §1, §3.4, §7.3 (+3) | *Notes:* **SERDE-4**'s fixed-buffer profile is met by a core derivation (§3.4, §7.3); **SERDE-14**'s covariance SHOULD is §10 entry 21 |
-| OBS | 40 | 40 | §8.1, §9.3 | *Notes:* §10 entries 22, 23, 24; **OBS-32**'s naming conflict is §11 item 38 |
+| OBS | 40 | 40 | §8.1, §9.3 | *Notes:* §10 entries 22, 23, 24; **OBS-32**'s naming conflict is §11 item 38. *Correction 2026-10-07 (phase 5b):* the roadmap's 5b owns 28 rows and 5c 12; the HTTP events are `ILogger.Log<TState>` records for the header-bearing pair and `Define` for the fixed-key ones (§8.1, P5b-3); **OBS-19** is ⏳ 8b and **OBS-35** ⏳ 9 |
 | CFG | 38 | 38 | §6.1, §8.2, §8.3 (+3) | *Deferred:* **CFG-13** (declined), **CFG-20** (retired). *Notes:* §10 entries 25, 26; **CFG-34**'s floating-point clause is live on .NET (§11 item 15) |
 | TRANSPORT | 30 | 30 | §3.2, §3.3, §3.7, §9.3 (+5) | *Notes:* **TRANSPORT-3**'s interrupt shape is §10 entry 8 and **TRANSPORT-20**'s I/O family §10 entry 7; **TRANSPORT-18** binds the SystemNet transport (§11 item 18) |
 | ASYNC | 22 | 22 | §1, §3.3, §3.7, §8.1, §8.3, §9.3 (+3) | *Vacuous:* **ASYNC-4**, **ASYNC-21**. *Notes:* **ASYNC-3** is met cooperatively (§10 entry 8) |
