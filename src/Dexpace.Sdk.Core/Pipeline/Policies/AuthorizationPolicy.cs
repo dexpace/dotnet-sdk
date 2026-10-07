@@ -3,6 +3,9 @@
 
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -12,99 +15,114 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <remarks>
 /// <para>
 /// This base class implements the cross-origin withholding contract: credentials are stamped only
-/// when the current request's origin (scheme + host + port) matches the origin of the first
-/// invocation. If a redirect has moved the request to a different origin, the credential header is
-/// actively removed from the request before the continuation is called — providing defense-in-depth
+/// when the current request's origin (scheme + host + port) matches the origin of the
+/// <see cref="PipelineContext.SeedRequest"/>. If a redirect has moved the request to a different origin, the credential
+/// header is actively removed from the request before the continuation policy is called — providing defense-in-depth
 /// independent of <see cref="RedirectPolicy"/>. A consumer who composes an auth policy without
 /// <see cref="RedirectPolicy"/>, or with a custom redirect policy, cannot accidentally forward a
 /// stale credential to a foreign origin.
 /// </para>
 /// <para>
-/// The recorded origin is stored in <see cref="PipelineContext"/>'s property bag under the key
-/// <c>"dexpace.auth.origin"</c>. On the very first invocation for a given context, the key is
-/// absent: the base class records the current origin and proceeds to stamp. On each subsequent
-/// invocation (redirect loop, retry) the base class compares the current origin to the recorded
-/// one before stamping.
+/// The origin is the one of the request handed to <c>Send</c>/<c>SendAsync</c>, fixed on the call-scoped context at
+/// entry (REDIR-24, AUTH-29, design §6.2); no policy can overwrite it.
 /// </para>
 /// <para>
 /// <b>HTTPS only.</b> Whenever a credential would be attached, a request URL whose scheme is not <c>https</c>
 /// (compared case-insensitively) is rejected with an <see cref="SdkException"/> naming the policy and the scheme,
-/// before <see cref="GetCredentialAsync"/> runs — so no token is fetched and no header is written. There is no
-/// loopback exemption. A cross-origin hop, which carries no credential, is not checked.
+/// before <see cref="GetCredentialAsync"/> or <see cref="GetCredential"/> runs — so no token is fetched and no header is
+/// written. There is no loopback exemption. A cross-origin hop, which carries no credential, is not checked. Both entry
+/// points are sealed, so a subclass cannot skip the guard on either path (AUTH-28).
 /// </para>
 /// <para>
 /// Derived classes must implement <see cref="GetCredentialAsync"/> to supply the header name
 /// and value to stamp, and <see cref="WithheldHeaderName"/> to identify the header to remove on a
 /// cross-origin hop. The base class performs the <c>Headers.Set</c> / <c>Headers.Without</c>
-/// writes and the <c>continuation.RunAsync</c> call. <see cref="WithheldHeaderName"/> is
+/// writes and the <c>continuation</c> call. <see cref="WithheldHeaderName"/> is
 /// accessed only on the cross-origin branch; it must not trigger credential resolution (e.g. a
-/// token-cache lookup).
+/// token-cache lookup). A subclass with a synchronous credential overrides <see cref="GetCredential"/> too.
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> the origin compared against was the first origin the policy saw on the context, stored
+/// under the public string key <c>"dexpace.auth.origin"</c> that any policy could overwrite; it is now the seed
+/// request's. <b>Breaking:</b> the signature moved to <c>ProcessAsync(Request, PipelineContext, PipelineRunner)</c>, and
+/// <see cref="HttpPipelinePolicy.Process"/> is sealed here as well.
 /// </para>
 /// </remarks>
 public abstract class AuthorizationPolicy : HttpPipelinePolicy
 {
-    // Property-bag key used to record the origin seen on the first invocation.
-    private const string OriginKey = "dexpace.auth.origin";
-
     /// <inheritdoc/>
     public sealed override PipelineStage Stage => PipelineStage.Auth;
 
     /// <summary>
-    /// The name of the HTTP header that this policy stamps on same-origin requests.
-    /// On a cross-origin hop the base class removes this header from the outgoing request
-    /// before calling the continuation — no credential resolution is performed.
+    /// The name of the credential header to remove when a request leaves the seed origin.
     /// </summary>
     protected abstract HttpHeaderName WithheldHeaderName { get; }
 
     /// <inheritdoc/>
-    /// <exception cref="SdkException">
-    /// A credential would be attached to a request whose URL scheme is not <c>https</c>.
-    /// </exception>
-    public sealed override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public sealed override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public sealed override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(AuthorizationPolicy));
+
+    /// <summary>
+    /// Resolves the credential header to stamp, asynchronously.
+    /// </summary>
+    /// <param name="context">The call-scoped context.</param>
+    /// <returns>The header name and value.</returns>
+    protected abstract ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
+        PipelineContext context);
+
+    /// <summary>
+    /// Resolves the credential header to stamp, synchronously.
+    /// </summary>
+    /// <param name="context">The call-scoped context.</param>
+    /// <returns>The header name and value.</returns>
+    /// <remarks>
+    /// The default is the documented blocking bridge over <see cref="GetCredentialAsync"/> (design §5.3), because the
+    /// token cache has no synchronous path until phase 6c; a credential that is available without I/O overrides it.
+    /// </remarks>
+    protected virtual (string HeaderName, string HeaderValue) GetCredential(PipelineContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var currentOrigin = GetOrigin(context.Request.Url);
+        // The documented sync bridge until 6c gives AccessTokenCache a synchronous path (design §5.3, P4c-13).
+#pragma warning disable RS0030
+        return GetCredentialAsync(context).AsTask().GetAwaiter().GetResult();
+#pragma warning restore RS0030
+    }
 
-        var recordedOrigin = context.GetProperty<string>(OriginKey);
-        if (recordedOrigin is null)
-        {
-            // First invocation for this context: record the origin, then stamp.
-            context.SetProperty(OriginKey, currentOrigin);
-        }
-        else if (!string.Equals(recordedOrigin, currentOrigin, StringComparison.OrdinalIgnoreCase))
-        {
-            // Request has been redirected to a different origin — strip the credential header
-            // (defense-in-depth: removes any stale value carried over from the original request)
-            // and forward the request without credential.
-            context.Request = context.Request.WithHeaders(context.Request.Headers.Without(WithheldHeaderName));
+    private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
 
-            await continuation.RunAsync(context).ConfigureAwait(false);
-            return;
+        // REDIR-24 / AUTH-29: the origin is the seed request's, fixed at call entry and out of any policy's reach.
+        if (!string.Equals(GetOrigin(context.SeedRequest.Url), GetOrigin(request.Url), StringComparison.OrdinalIgnoreCase))
+        {
+            // The request has been redirected to a different origin: strip the credential header (defense-in-depth,
+            // removing any stale value carried over) and forward the request without credential.
+            var stripped = request.WithHeaders(request.Headers.Without(WithheldHeaderName));
+            return async
+                ? await continuation.RunAsync(stripped, context).ConfigureAwait(false)
+                : continuation.Run(stripped, context);
         }
 
         // AUTH-28 / XCUT-16: a credential is about to be attached, so refuse plaintext before any credential is
         // resolved. The cross-origin branch above attaches none and returns first (AUTH-29). No loopback exemption
         // (design §11 item 25).
-        EnsureHttps(context.Request.Url);
+        EnsureHttps(request.Url);
 
-        var (headerName, headerValue) = await GetCredentialAsync(context).ConfigureAwait(false);
+        var (headerName, headerValue) = async
+            ? await GetCredentialAsync(context).ConfigureAwait(false)
+            : GetCredential(context);
 
-        context.Request = context.Request.WithHeaders(context.Request.Headers.Set(headerName, headerValue));
-
-        await continuation.RunAsync(context).ConfigureAwait(false);
+        var stamped = request.WithHeaders(request.Headers.Set(headerName, headerValue));
+        return async
+            ? await continuation.RunAsync(stamped, context).ConfigureAwait(false)
+            : continuation.Run(stamped, context);
     }
-
-    /// <summary>
-    /// Returns the header name (as a string suitable for <see cref="Headers.Set(string,string)"/>)
-    /// and the header value to stamp on the outgoing request.
-    /// </summary>
-    /// <param name="context">The current pipeline context.</param>
-    /// <returns>
-    /// A <see cref="ValueTask{T}"/> that resolves to a <c>(headerName, headerValue)</c> pair.
-    /// </returns>
-    protected abstract ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
-        PipelineContext context);
 
     // Not ServiceRequestException, so no retry policy re-drives it: the request was refused, not failed.
     private void EnsureHttps(Uri url)

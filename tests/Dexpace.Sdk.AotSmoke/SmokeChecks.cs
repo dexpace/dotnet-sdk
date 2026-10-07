@@ -15,6 +15,7 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Operations;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.Core.Recovery;
 using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet;
@@ -47,6 +48,7 @@ internal static class SmokeChecks
             await CheckPhase3bBodiesAsync();
             CheckExecutionContext();
             await CheckPhase4bRecoveryAsync();
+            await CheckPipelineReworkAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -110,10 +112,10 @@ internal static class SmokeChecks
     {
         var serde = new SystemTextJsonSerde(SmokeJsonContext.Default);
         await using var transport = new EchoTransport();
-        var pipeline = DexpacePipeline.CreateDefault(transport);
+        using var pipeline = DexpacePipeline.CreateDefault(transport);
 
         var request = Request.Post(s_endpoint.OriginalString, RequestBody.FromValue(new Widget("gear", 9), serde));
-        using var response = await pipeline.SendAsync(request, new DexpaceClientOptions());
+        using var response = await pipeline.SendAsync(request, new DexpaceClientOptions(), CancellationToken.None);
         await response.EnsureSuccessAsync();
 
         var echoed = await response.Body.ReadValueAsync<Widget>(serde);
@@ -403,6 +405,51 @@ internal static class SmokeChecks
             "ExceptionTrail attaches to a foreign exception through Data");
     }
 
+    // Phase 4c: a synchronous Send through the default pipeline, ErrorMappingPolicy over a 503, and a pipeline nested as
+    // another pipeline's transport (no reflection).
+    private static async Task CheckPipelineReworkAsync()
+    {
+        var request = Request.Get("https://smoke.example.test/");
+
+        using var syncHandler = new CannedHandler();
+        using var syncClient = new HttpClient(syncHandler);
+        using var syncTransport = new SystemNetHttpClient(syncClient);
+        using var defaultPipeline = DexpacePipeline.CreateDefault(syncTransport);
+        using var syncResponse = defaultPipeline.Send(request, CancellationToken.None);
+        Expect(
+            syncResponse.Status == Status.Created,
+            "a synchronous Send through CreateDefault reaches SystemNetHttpClient's synchronous terminal");
+
+        using var notFoundHandler = new CannedHandler(HttpStatusCode.NotFound);
+        using var notFoundClient = new HttpClient(notFoundHandler);
+        await using var failing = new SystemNetHttpClient(notFoundClient);
+        using var mapping = new PipelineBuilder().Add(new ErrorMappingPolicy()).Build(failing);
+        HttpResponseException? mapped = null;
+        try
+        {
+            using var unexpected = await mapping.SendAsync(request, CancellationToken.None);
+        }
+        catch (HttpResponseException ex)
+        {
+            mapped = ex;
+        }
+
+        Expect(
+            mapped is not null && mapped.Status.Code == 404
+                && Encoding.UTF8.GetString(await mapped.Response.Body.ReadAsBytesAsync()) == "pong",
+            "ErrorMappingPolicy maps a 404 response to HttpResponseException with a readable buffered body");
+
+        using var innerTransport = new SyncCapableTransport();
+        using var inner = new PipelineBuilder().Build(innerTransport);
+        using var outer = PipelineBuilder.Nest(inner).Build();
+        IAsyncHttpClient seam = outer;
+        var options = new RequestOptions { MaxRetries = 1 };
+        using var nested = await seam.ExecuteAsync(request, options, CancellationToken.None);
+        Expect(
+            nested.Status == Status.Ok && ReferenceEquals(innerTransport.LastOptions, options),
+            "an HttpPipeline used as an IAsyncHttpClient under Nest threads the RequestOptions through");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
@@ -428,6 +475,39 @@ internal static class SmokeChecks
             Interlocked.Increment(ref _releases);
             base.Dispose(disposing);
         }
+    }
+
+    /// <summary>An in-process dual-interface transport that counts which member was reached.</summary>
+    private sealed class SyncCapableTransport : IAsyncHttpClient, IHttpClient
+    {
+        private int _sync;
+        private int _async;
+
+        public int SyncCalls => Volatile.Read(ref _sync);
+
+        public int AsyncCalls => Volatile.Read(ref _async);
+
+        public RequestOptions? LastOptions { get; private set; }
+
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _async);
+            LastOptions = options;
+            return Task.FromResult(new Response(request, Status.Ok, Protocol.Http11));
+        }
+
+        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _sync);
+            LastOptions = options;
+            return new Response(request, Status.Ok, Protocol.Http11);
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     /// <summary>An in-process transport that answers every request with a 503 and a small body.</summary>
@@ -460,17 +540,20 @@ internal static class SmokeChecks
     }
 
     /// <summary>A handler that answers every request with 201 "pong", echoing the method in a header.</summary>
-    private sealed class CannedHandler : HttpMessageHandler
+    private sealed class CannedHandler(HttpStatusCode status = HttpStatusCode.Created) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(Build(request));
+
+        private HttpResponseMessage Build(HttpRequestMessage request)
         {
-            var response = new HttpResponseMessage(HttpStatusCode.Created)
+            var response = new HttpResponseMessage(status)
             {
                 Content = new StringContent("pong", Encoding.UTF8, "text/plain"),
                 RequestMessage = request,
             };
             response.Headers.Add("X-Echo-Method", request.Method.Method);
-            return Task.FromResult(response);
+            return response;
         }
     }
 }

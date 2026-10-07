@@ -2,6 +2,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -34,14 +37,23 @@ public sealed class SetDatePolicy : HttpPipelinePolicy
     public override PipelineStage Stage => PipelineStage.PerAttempt;
 
     /// <inheritdoc/>
-    public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(SetDatePolicy));
+
+    private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
         var dateValue = _timeProvider.GetUtcNow().ToString("r");
-        context.Request = context.Request.WithHeaders(
-            context.Request.Headers.Set(HttpHeaderName.WellKnown.Date, dateValue));
+        var stamped = request.WithHeaders(request.Headers.Set(HttpHeaderName.WellKnown.Date, dateValue));
 
-        await continuation.RunAsync(context).ConfigureAwait(false);
+        return async
+            ? await continuation.RunAsync(stamped, context).ConfigureAwait(false)
+            : continuation.Run(stamped, context);
     }
 }

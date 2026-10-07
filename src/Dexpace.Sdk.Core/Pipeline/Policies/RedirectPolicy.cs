@@ -2,6 +2,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -33,8 +36,10 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <see langword="true"/>.
 /// </para>
 /// <para>
-/// <b>Request isolation:</b> each hop is driven with the request this policy holds, and the next hop is built from
-/// it, so a hop never carries what a downstream policy wrote during the previous one.
+/// <b>Request isolation:</b> each hop is driven with the request this policy holds, and the continuation hop is built from
+/// it, so a hop never carries what a downstream policy wrote during the previous one (PIPE-16). The seed origin is
+/// <see cref="PipelineContext.SeedRequest"/>'s (REDIR-11), and a superseded response is disposed before the continuation drive
+/// while every path that stops following returns the in-flight response undisposed (PIPE-40).
 /// </para>
 /// <para>
 /// <b>Credential hygiene (REDIR-7, REDIR-8, REDIR-9, REDIR-12, XCUT-17):</b> <c>Authorization</c> is removed before
@@ -53,49 +58,55 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Redirect;
 
-    // MA0051 waiver: 111 lines. Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection,
-    // allowed-method set, downgrade and replayability errors); splitting it now would be rewritten there.
-#pragma warning disable MA0051
     /// <inheritdoc/>
-    public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(RedirectPolicy));
+
+    // MA0051 waiver: Roadmap phase 6b rewrites the redirect policy (hop cap, loop detection, allowed-method set,
+    // downgrade and replayability errors); splitting it now would be rewritten there.
+#pragma warning disable MA0051
+    private static async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
         var options = context.Options.Redirect;
         var redirectCount = 0;
 
-        // RETRY-44 / PIPE-16: each hop is driven with, and the next hop built from, the request this policy holds —
-        // never the one a downstream policy (auth) stamped during the previous hop.
-        var request = context.Request;
+        // REDIR-8 / REDIR-11: cross-origin is judged against the seed request on the call-scoped context, never the
+        // previous hop and never a request a policy above rewrote.
+        var seedUrl = context.SeedRequest.Url;
 
-        // REDIR-8: cross-origin is judged against the seed request, never the previous hop. Phase 4c moves the seed
-        // origin onto the call-scoped context, and phase 6b's rewrite reads it there.
-        var seedUrl = request.Url;
-
+        // RETRY-44 / PIPE-16: each hop is driven with, and the continuation hop built from, the request this policy holds; a
+        // downstream stamp (auth) is on the callee's copy and never reaches the continuation hop.
         while (true)
         {
-            context.Request = request;
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            var hop = context.ForHop(redirectCount);
+            var response = async
+                ? await continuation.RunAsync(request, hop).ConfigureAwait(false)
+                : continuation.Run(request, hop);
 
-            var response = context.Response;
-
-            // No response (shouldn't happen) or non-redirect: hand off to caller.
-            if (response is null || !s_redirectStatuses.Contains(response.Status.Code))
+            // PIPE-40: every path below that does not follow the redirect returns the in-flight response undisposed.
+            if (!s_redirectStatuses.Contains(response.Status.Code))
             {
-                return;
+                return response;
             }
 
             // Redirect count exhausted: leave the 3xx for the caller.
             if (redirectCount >= options.MaxRedirects)
             {
-                return;
+                return response;
             }
 
             // Extract Location header.
             var location = response.Headers.Get(HttpHeaderName.WellKnown.Location);
             if (string.IsNullOrEmpty(location))
             {
-                return;
+                return response;
             }
 
             // Resolve Location (handles relative URIs) against current request URL.
@@ -103,7 +114,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             // UriFormatException through the pipeline — treat it as non-followable instead.
             if (!Uri.TryCreate(request.Url, location, out var newUrl))
             {
-                return;
+                return response;
             }
 
             // REDIR-12: server-supplied credentials in the target are never used.
@@ -114,7 +125,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             if (!newUrl.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
                 && !newUrl.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return response;
             }
 
             // HTTPS → HTTP downgrade guard.
@@ -122,7 +133,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
                 && newUrl.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
                 && !options.AllowHttpsToHttpDowngrade)
             {
-                return;
+                return response;
             }
 
             // Determine whether to preserve or drop method/body.
@@ -153,7 +164,7 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             // Non-replayable body guard: if body must be kept but cannot be replayed, stop.
             if (!dropBody && request.Body is { IsReplayable: false })
             {
-                return;
+                return response;
             }
 
             // REDIR-7: Authorization is removed before every hop. REDIR-9: Cookie and Proxy-Authorization, cross-origin.
@@ -163,13 +174,20 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
                 newHeaders = newHeaders.Without("Cookie").Without("Proxy-Authorization");
             }
 
-            // Dispose the current redirect response before issuing the next request.
-            await response.DisposeAsync().ConfigureAwait(false);
-            context.Response = null;
+            // PIPE-40: release the superseded response before the continuation drive. A throwing dispose is suppressed so it
+            // cannot mask the continuation drive's outcome.
+            if (async)
+            {
+                await Disposal.DisposeQuietlyAsync(response).ConfigureAwait(false);
+            }
+            else
+            {
+                Disposal.DisposeQuietly(response);
+            }
 
             // One constructor call, never a With* chain: WithMethod(Method.Get) before the body is cleared would throw
             // (HTTP-7) on a 303 or a 301/302-on-POST.
-            request = new Http.Request.Request(newMethod, newUrl, newHeaders, dropBody ? null : request.Body);
+            request = new Request(newMethod, newUrl, newHeaders, dropBody ? null : request.Body);
 
             redirectCount++;
         }

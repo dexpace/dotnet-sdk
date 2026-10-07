@@ -6,8 +6,8 @@ abstract Dexpace.Sdk.Core.Http.Response.ResponseBody.ContentType.get -> Dexpace.
 abstract Dexpace.Sdk.Core.Http.Response.ResponseBody.OpenReadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
 abstract Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.AsPages(int? pageSizeHint = null) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.Pagination.Page<T>!>!
 abstract Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<T>!
-abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredentialAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<(string! HeaderName, string! HeaderValue)>
 abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.WithheldHeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
@@ -275,6 +275,7 @@ Dexpace.Sdk.Core.Http.Response.Response.Body.get -> Dexpace.Sdk.Core.Http.Respon
 Dexpace.Sdk.Core.Http.Response.Response.Dispose() -> void
 Dexpace.Sdk.Core.Http.Response.Response.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Http.Response.Response.EnsureSuccessAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Http.Response.Response.EnsureSuccess(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 Dexpace.Sdk.Core.Http.Response.Response.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Response.Response.IsClientError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Response.IsError.get -> bool
@@ -333,40 +334,66 @@ Dexpace.Sdk.Core.Pagination.Pageable
 Dexpace.Sdk.Core.Pagination.PaginationStrategies
 Dexpace.Sdk.Core.Pipeline.DexpacePipeline
 Dexpace.Sdk.Core.Pipeline.HttpPipeline
-Dexpace.Sdk.Core.Pipeline.HttpPipeline.Send(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
-Dexpace.Sdk.Core.Pipeline.HttpPipeline.SendAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy
 Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.HttpPipelinePolicy() -> void
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Dispose() -> void
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Policies.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy!>!
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Send(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Send(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Send(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.Send<T>(Dexpace.Sdk.Core.Http.Request.Request! request, System.Func<Dexpace.Sdk.Core.Http.Response.Response!, T>! handler, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> T
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.SendAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.SendAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.SendAsync(Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+Dexpace.Sdk.Core.Pipeline.HttpPipeline.SendAsync<T>(Dexpace.Sdk.Core.Http.Request.Request! request, System.Func<Dexpace.Sdk.Core.Http.Response.Response!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<T>>! handler, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<T>
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Add(Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy! policy) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.AddRange(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy!>! policies) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.AddStandardResilience(System.TimeProvider? timeProvider = null, Microsoft.Extensions.Logging.ILogger? logger = null) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Build(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Build(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Build() -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.InsertAfter<T>(Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy! policy) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.InsertBefore<T>(Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy! policy) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.PipelineBuilder() -> void
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Prepend(Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy! policy) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
+Dexpace.Sdk.Core.Pipeline.PipelineBuilder.PrependRange(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy!>! policies) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Remove<T>() -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Replace<T>(Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy! policy) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 Dexpace.Sdk.Core.Pipeline.PipelineContext
 Dexpace.Sdk.Core.Pipeline.PipelineContext.Activity.get -> System.Diagnostics.Activity?
 Dexpace.Sdk.Core.Pipeline.PipelineContext.AttemptNumber.get -> int
 Dexpace.Sdk.Core.Pipeline.PipelineContext.CancellationToken.get -> System.Threading.CancellationToken
-Dexpace.Sdk.Core.Pipeline.PipelineContext.GetProperty<T>(string! key) -> T?
+Dexpace.Sdk.Core.Pipeline.PipelineContext.CallKey.get -> Dexpace.Sdk.Core.Execution.CallKey
 Dexpace.Sdk.Core.Pipeline.PipelineContext.Options.get -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
-Dexpace.Sdk.Core.Pipeline.PipelineContext.PipelineContext(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
-Dexpace.Sdk.Core.Pipeline.PipelineContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
-Dexpace.Sdk.Core.Pipeline.PipelineContext.Request.set -> void
-Dexpace.Sdk.Core.Pipeline.PipelineContext.Response.get -> Dexpace.Sdk.Core.Http.Response.Response?
-Dexpace.Sdk.Core.Pipeline.PipelineContext.SetProperty<T>(string! key, T value) -> void
+Dexpace.Sdk.Core.Pipeline.PipelineContext.ForAttempt(int attempt) -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.ForHop(int hop) -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.HopNumber.get -> int
+Dexpace.Sdk.Core.Pipeline.PipelineContext.Instrumentation.get -> Dexpace.Sdk.Core.Execution.InstrumentationContext!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.RequestOptions.get -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.SeedRequest.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.SetProperty<T>(Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>! key, T value) -> void
+Dexpace.Sdk.Core.Pipeline.PipelineContext.TryGetProperty<T>(Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>! key, out T value) -> bool
+Dexpace.Sdk.Core.Pipeline.PipelineContext.WithActivity(System.Diagnostics.Activity? activity) -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
+Dexpace.Sdk.Core.Pipeline.PipelineContext.WithCancellationToken(System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
 Dexpace.Sdk.Core.Pipeline.PipelineRunner
 Dexpace.Sdk.Core.Pipeline.PipelineRunner.PipelineRunner() -> void
-Dexpace.Sdk.Core.Pipeline.PipelineRunner.RunAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Pipeline.PipelineRunner.Run(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.PipelineRunner.RunAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.Auth = 500 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.Diagnostics = 600 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.Operation = 100 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.PerAttempt = 400 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-Dexpace.Sdk.Core.Pipeline.PipelineStage.PerCall = 250 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+Dexpace.Sdk.Core.Pipeline.PipelineStage.PerCall = 150 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+Dexpace.Sdk.Core.Pipeline.PipelineStage.PerHop = 250 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.Redirect = 200 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 Dexpace.Sdk.Core.Pipeline.PipelineStage.Retry = 300 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+Dexpace.Sdk.Core.Pipeline.PipelineStage.Serde = 700 -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>
+Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.Name.get -> string!
+Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.PipelinePropertyKey(string! name) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.ApiKeyAuthPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ApiKeyAuthPolicy.ApiKeyAuthPolicy(Dexpace.Sdk.Core.Auth.ApiKeyCredential! credential) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy
@@ -431,22 +458,34 @@ override Dexpace.Sdk.Core.Http.Response.Status.ToString() -> string!
 override Dexpace.Sdk.Core.Operations.OperationDescriptor.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Operations.OperationDescriptor.GetHashCode() -> int
 override Dexpace.Sdk.Core.Operations.OperationDescriptor.ToString() -> string!
-override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
 override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask
+override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+override Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
+override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.Create(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!>! send) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.CreateBlocking(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, Dexpace.Sdk.Core.Http.Response.Response!>! send) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
@@ -575,6 +614,9 @@ static Dexpace.Sdk.Core.Pagination.PaginationStrategies.Cursor<TPage>(System.Fun
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.LinkHeader<TPage>(string! rel = "next") -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.PageNumber<TPage>(string! queryParameter, System.Func<TPage, bool>! hasMore) -> System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>!
 static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy? authPolicy = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.TimeProvider? timeProvider = null) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
+static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateEmpty(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
+static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Flatten(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
+static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Nest(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
@@ -693,6 +735,8 @@ static Dexpace.Sdk.Core.Execution.RequestContext.operator ==(Dexpace.Sdk.Core.Ex
 virtual Dexpace.Sdk.Core.Execution.CallContext.EqualityContract.get -> System.Type!
 virtual Dexpace.Sdk.Core.Execution.CallContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
 virtual Dexpace.Sdk.Core.Execution.CallContext.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredential(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> (string! HeaderName, string! HeaderValue)
 Dexpace.Sdk.Core.Errors.ExceptionFacts
 Dexpace.Sdk.Core.Errors.ExceptionTrail
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
@@ -749,6 +793,8 @@ static Dexpace.Sdk.Core.Recovery.ErrorMappingStep.Instance.get -> Dexpace.Sdk.Co
 Dexpace.Sdk.Core.Pipeline.Policies.ClientIdentityPolicy.ClientIdentityPolicy(Dexpace.Sdk.Core.Recovery.ClientIdentityMode mode) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep! step) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy
+Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ErrorMappingPolicy() -> void
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Append = 0 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Replace = 1 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode

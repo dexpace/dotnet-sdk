@@ -118,9 +118,9 @@ dotnet-sdk/
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
 │   │   ├── Operations/              # OperationDescriptor, the operation-input projection
-│   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, HttpPipelinePolicy, PipelineContext,
-│   │   │   └── Policies/            #   DexpacePipeline; operation, redirect, retry, idempotency, set-date,
-│   │   │                            #   client-identity, instrumentation and auth policies
+│   │   ├── Pipeline/                # HttpPipeline (also a transport), PipelineBuilder, HttpPipelinePolicy,
+│   │   │   └── Policies/            #   PipelineContext, PipelineRunner, DexpacePipeline; operation, redirect, retry,
+│   │   │                            #   idempotency, set-date, client-identity, instrumentation, auth, error-mapping policies
 │   │   ├── Recovery/                # Outcome, the step contracts, request/response recovery chains, RecoveryDispatcher,
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
@@ -248,8 +248,10 @@ cap and the internal `IO/` helpers — are built, see `docs/sdk-documentation/ht
 promotion, the dispose latches, the BOM strip and the two internal logging wrappers — see `docs/sdk-documentation/bodies.md`; phase 4a's
 execution-context chain, see `docs/sdk-documentation/execution-context.md`; and phase 4b's
 recovery layer — `Outcome`, the step contracts, the two chains, `RecoveryDispatcher`, `ErrorBodyBuffer`/`ErrorMappingStep`, the idempotency and
-client-identity steps, `ExceptionFacts` and `ExceptionTrail` — see `docs/sdk-documentation/recovery.md`):
-the pipeline rework (4c), the retry engine over the recovery chain (6a), layered configuration and body/header logging (5), the auth resolver with RFC 7235
+client-identity steps, `ExceptionFacts` and `ExceptionTrail` — see `docs/sdk-documentation/recovery.md`; and phase 4c's
+pipeline rework — the request-in/response-out policy signature, the call-scoped `PipelineContext`, the builder rules, `HttpPipeline` as a transport,
+`ErrorMappingPolicy` and the real sync path — see `docs/sdk-documentation/pipelines.md`):
+the retry engine over the recovery chain (6a), layered configuration and body/header logging (5), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

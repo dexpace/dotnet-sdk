@@ -134,4 +134,17 @@ public sealed class SetDatePolicyTests
 
         public override DateTimeOffset GetUtcNow() => times[_index++ % times.Length];
     }
+
+    [Fact]
+    public async Task Sync_and_async_agree()
+    {
+        var provider = new FakeTimeProvider(new DateTimeOffset(2026, 6, 14, 12, 0, 0, TimeSpan.Zero));
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new SetDatePolicy(provider)).Build(transport);
+
+        using var sync = pipeline.Send(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var async = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(transport.Requests[0].Headers.Get("Date"), transport.Requests[1].Headers.Get("Date"));
+    }
 }

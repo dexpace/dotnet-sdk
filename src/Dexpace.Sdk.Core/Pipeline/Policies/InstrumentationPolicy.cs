@@ -4,6 +4,10 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Dexpace.Sdk.Core.Diagnostics;
+using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -86,16 +90,23 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Diagnostics;
 
-    // MA0051 waiver: 126 lines of interleaved log, span and metric handling. Roadmap phase 5 (5b's LoggerMessage
-    // delegates and emission guard, 5c's operation-level Activity and metric rework) restructures this method;
-    // splitting it now would be rewritten there.
-#pragma warning disable MA0051
     /// <inheritdoc/>
-    public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(InstrumentationPolicy));
+
+    // MA0051 waiver: interleaved log, span and metric handling. Roadmap phase 5 (5b's LoggerMessage delegates and
+    // emission guard, 5c's operation-level Activity and metric rework) restructures this method; splitting it now would
+    // be rewritten there.
+#pragma warning disable MA0051
+    private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var request = context.Request;
         var method = request.Method.Name;
         var redactedUrl = s_redactor.Redact(request.Url);
 
@@ -104,6 +115,10 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
             method,
             ActivityKind.Client);
 
+        // The span and its trace-context header travel downstream on a copy of the context and the request passed to
+        // continuation; nothing is restored afterwards because nothing upstream could observe the write (PIPE-16).
+        var outgoing = request;
+        var downstream = context;
         if (activity is not null)
         {
             activity.SetTag("http.request.method", method);
@@ -116,107 +131,65 @@ public sealed partial class InstrumentationPolicy : HttpPipelinePolicy
             // Inject W3C trace context onto the request so any transport carries the span.
             if (activity.IdFormat == ActivityIdFormat.W3C && activity.Id is not null)
             {
-                var headers = context.Request.Headers.Set("traceparent", activity.Id);
+                var headers = request.Headers.Set("traceparent", activity.Id);
                 if (!string.IsNullOrEmpty(activity.TraceStateString))
                 {
                     headers = headers.Set("tracestate", activity.TraceStateString);
                 }
 
-                context.Request = context.Request.WithHeaders(headers);
+                outgoing = request.WithHeaders(headers);
             }
 
-            // Capture the previous activity so we can restore it in the finally block.
-            var previousActivity = context.Activity;
-            context.Activity = activity;
+            downstream = context.WithActivity(activity);
+        }
 
-            LogSendingRequest(_logger, method, redactedUrl);
+        LogSendingRequest(_logger, method, redactedUrl);
 
-            var sw = Stopwatch.StartNew();
-            var methodTag = new TagList { { "http.request.method", method } };
-            s_activeRequests.Add(1, methodTag);
+        var sw = Stopwatch.StartNew();
+        var methodTag = new TagList { { "http.request.method", method } };
+        s_activeRequests.Add(1, methodTag);
 
-            try
+        try
+        {
+            var response = async
+                ? await continuation.RunAsync(outgoing, downstream).ConfigureAwait(false)
+                : continuation.Run(outgoing, downstream);
+
+            var statusCode = response.Status.Code;
+            activity?.SetTag("http.response.status_code", statusCode);
+            LogReceivedResponse(_logger, method, statusCode, redactedUrl);
+
+            var durationTags = new TagList
             {
-                await continuation.RunAsync(context).ConfigureAwait(false);
-
-                var statusCode = context.Response?.Status.Code;
-                if (statusCode.HasValue)
-                {
-                    activity.SetTag("http.response.status_code", statusCode.Value);
-                }
-
-                LogReceivedResponse(_logger, method, statusCode, redactedUrl);
-
-                var durationTags = new TagList
-                {
-                    { "http.request.method", method },
-                    { "http.response.status_code", statusCode },
-                };
-                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-            }
-            catch (Exception ex)
+                { "http.request.method", method },
+                { "http.response.status_code", statusCode },
+            };
+            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+            return response;
+        }
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+        {
+            // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
+            if (activity is not null)
             {
                 activity.SetTag("error.type", ex.GetType().FullName);
                 activity.SetStatus(ActivityStatusCode.Error, ex.Message);
-
-                LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
-
-                var durationTags = new TagList
-                {
-                    { "http.request.method", method },
-                    { "error.type", ex.GetType().FullName },
-                };
-                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-
-                throw;
             }
-            finally
+
+            LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
+
+            var durationTags = new TagList
             {
-                s_activeRequests.Add(-1, methodTag);
-                // Restore the activity that was active before we replaced it.
-                context.Activity = previousActivity;
-            }
+                { "http.request.method", method },
+                { "error.type", ex.GetType().FullName },
+            };
+            s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
+
+            throw;
         }
-        else
+        finally
         {
-            // No listener: no activity, no trace-context injection, no activity restoration needed.
-            LogSendingRequest(_logger, method, redactedUrl);
-
-            var sw = Stopwatch.StartNew();
-            var methodTag = new TagList { { "http.request.method", method } };
-            s_activeRequests.Add(1, methodTag);
-
-            try
-            {
-                await continuation.RunAsync(context).ConfigureAwait(false);
-
-                var statusCode = context.Response?.Status.Code;
-                LogReceivedResponse(_logger, method, statusCode, redactedUrl);
-
-                var durationTags = new TagList
-                {
-                    { "http.request.method", method },
-                    { "http.response.status_code", statusCode },
-                };
-                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-            }
-            catch (Exception ex)
-            {
-                LogRequestFailed(_logger, ex, method, redactedUrl, ex.GetType().Name);
-
-                var durationTags = new TagList
-                {
-                    { "http.request.method", method },
-                    { "error.type", ex.GetType().FullName },
-                };
-                s_requestDuration.Record(sw.Elapsed.TotalSeconds, durationTags);
-
-                throw;
-            }
-            finally
-            {
-                s_activeRequests.Add(-1, methodTag);
-            }
+            s_activeRequests.Add(-1, methodTag);
         }
     }
 #pragma warning restore MA0051

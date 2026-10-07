@@ -11,6 +11,7 @@ using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.TestSupport.Diagnostics;
+using Dexpace.Sdk.TestSupport.Pipeline;
 using Dexpace.Sdk.TestSupport.Time;
 using Dexpace.Sdk.TestSupport.Transports;
 using Microsoft.Extensions.Logging;
@@ -46,7 +47,7 @@ public sealed class InstrumentationPolicyTests : IDisposable
         IAsyncHttpClient transport)
     {
         var pipeline = new PipelineBuilder().Add(policy).Build(transport);
-        return await pipeline.SendAsync(request, DefaultOptions());
+        return await pipeline.SendAsync(request, DefaultOptions(), TestContext.Current.CancellationToken);
     }
 
     // ─── Stage ───────────────────────────────────────────────────────────────
@@ -145,10 +146,10 @@ public sealed class InstrumentationPolicyTests : IDisposable
     [Fact]
     public async Task ProcessAsync_ActivitySetOnContext_DuringContinuation()
     {
-        // CapturingPolicy must run AFTER InstrumentationPolicy sets context.Activity.
-        // InstrumentationPolicy is at Diagnostics=600; we use stage 650 so it sorts after.
+        // CapturingPolicy must run AFTER InstrumentationPolicy sets the activity on the context it passes downstream.
+        // InstrumentationPolicy is at Diagnostics=600; the Serde stage (700) sorts after it.
         Activity? capturedActivity = null;
-        var capturingPolicy = new CapturingPolicy(ctx => capturedActivity = ctx.Activity, stage: (PipelineStage)650);
+        var capturingPolicy = new CapturingPolicy(ctx => capturedActivity = ctx.Activity, stage: PipelineStage.Serde);
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
@@ -385,40 +386,50 @@ public sealed class InstrumentationPolicyTests : IDisposable
         Assert.Equal("https", activity.GetTagItem("url.scheme"));
     }
 
-    // ─── context.Activity restore guard ──────────────────────────────────────
+    // ─── the activity travels downstream only (PIPE-16) ──────────────────────
 
     [Fact]
-    public async Task ProcessAsync_RestoresPreviousActivity_AfterCompletion()
+    public async Task The_downstream_sees_the_activity_and_the_upstream_does_not()
     {
-        // Arrange: place a sentinel activity in context.Activity before instrumentation runs.
-        // We do that by wrapping InstrumentationPolicy with an outer policy that sets it first.
-        Activity? outerActivity = null;
-        Activity? activityAfterCompletion = null;
+        // The write cannot reach upward: the policy above instrumentation holds its own context and sees no span set by
+        // the policy below it, so there is nothing to restore.
+        Activity? upstreamAfter = new Activity("untouched");
+        Activity? downstream = null;
 
-        using var sentinel = new Activity("outer-sentinel");
-        sentinel.Start();
-        outerActivity = sentinel;
-
-        // OuterPolicy sets context.Activity to the sentinel, then calls the rest of the chain.
-        var outerPolicy = new DelegatePolicy(async (ctx, next) =>
-        {
-            ctx.Activity = outerActivity;
-            await next.RunAsync(ctx).ConfigureAwait(false);
-            activityAfterCompletion = ctx.Activity;
-        }, stage: (PipelineStage)500);
+        var upstream = new DelegatePolicy(
+            PipelineStage.Auth,
+            async (request, ctx, next) =>
+            {
+                var response = await next.RunAsync(request, ctx).ConfigureAwait(false);
+                upstreamAfter = ctx.Activity;
+                return response;
+            });
+        var capture = new CapturingPolicy(ctx => downstream = ctx.Activity, stage: PipelineStage.Serde);
 
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
         var pipeline = new PipelineBuilder()
-            .Add(outerPolicy)
-            .Add(new InstrumentationPolicy())   // Diagnostics = 600, runs after 500
+            .Add(upstream)
+            .Add(new InstrumentationPolicy())
+            .Add(capture)
             .Build(transport);
 
-        await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
+        using var response = await pipeline.SendAsync(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
 
-        // After InstrumentationPolicy's finally block, context.Activity should be the sentinel.
-        Assert.Same(outerActivity, activityAfterCompletion);
+        Assert.NotNull(downstream);
+        Assert.Null(upstreamAfter);
+    }
 
-        sentinel.Stop();
+    [Fact]
+    public void Process_sync_records_activity_and_returns_the_response()
+    {
+        var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy()).Build(transport);
+
+        using var response = pipeline.Send(MakeRequest(new Uri("https://api.example.com/")), DefaultOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, response.Status);
+        var activity = Assert.Single(Activities);
+        Assert.Equal(200, activity.GetTagItem("http.response.status_code"));
     }
 
     // ─── Nested helpers ──────────────────────────────────────────────────────
@@ -427,21 +438,11 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         public override PipelineStage Stage => stage;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             capture(context);
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            return continuation.RunAsync(request, context);
         }
-    }
-
-    private sealed class DelegatePolicy(
-        Func<PipelineContext, PipelineRunner, ValueTask> action,
-        PipelineStage stage = PipelineStage.PerAttempt) : HttpPipelinePolicy
-    {
-        public override PipelineStage Stage => stage;
-
-        public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation) =>
-            action(context, continuation);
     }
 
     private sealed class RecordingLogger : ILogger

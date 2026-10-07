@@ -50,13 +50,17 @@ public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
 
     /// <inheritdoc/>
     protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
-        PipelineContext context)
+        PipelineContext context) =>
+        new(GetCredential(context));
+
+    /// <inheritdoc/>
+    protected override (string HeaderName, string HeaderValue) GetCredential(PipelineContext context)
     {
         var headerName = _credential.HeaderName.Original;
         var headerValue = _credential.Scheme is null
             ? _credential.Key
             : $"{_credential.Scheme} {_credential.Key}";
 
-        return new ValueTask<(string, string)>((headerName, headerValue));
+        return (headerName, headerValue);
     }
 }

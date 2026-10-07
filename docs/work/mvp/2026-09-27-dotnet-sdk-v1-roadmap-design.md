@@ -265,7 +265,7 @@ ID in the clause is stated in that chapter.
 | 1 | Security and Robustness Fixes (P0) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` | The nine defects S1–S9 below: `HTTP-17`, `HTTP-18`, `HTTP-26`, `XCUT-18`, `TRANSPORT-1`, `TRANSPORT-11`, `TRANSPORT-12`, `TRANSPORT-22`, `TRANSPORT-27`, `REDIR-7`, `REDIR-8`, `REDIR-9`, `REDIR-12`, `XCUT-17`, `AUTH-28`, `XCUT-16`, `OBS-11`–`OBS-15`, `XCUT-19`, `RETRY-44`, `PIPE-16`, `RETRY-18`, `RECOV-26`, `BODY-31`, `RECOV-15`, `HTTP-52`, `BODY-30` | §3.2, §4.1, §4.2, §5.1, §6.1–§6.3, §8.1 |
 | 2 | Domain Model and Seam Foundations (2a domain model · 2b seams) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for 2a's `Response` construction, public header predicate and wire casing and 2b's SPI signature change (corrected 2026-09-29, per the lead's ruling of 2026-09-29 on open question 3 of the [phase 2 segmentation design](phase2/2026-09-29-phase2-segmentation-design.md): this cell read "for the SPI signature change only", but 2a also edits the adapter) | ch.02 and ch.04 — `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (41 IDs; corrected 2026-09-29, per the same ruling: this cell read "ch.04", but `HTTP-1` and `HTTP-2` are stated in ch.02); ch.03 and ch.02 — `SEAM-1`–`SEAM-30` (30); the IDs for `SEAM-5`/`SEAM-6`'s DI half travel to phase 9 | §3.4, §3.5, §3.6, §4, §4.1–§4.4, and §1, §3.1–§3.3, §3.7 (corrected 2026-09-29, per the same ruling: this cell omitted the sections that argue `SEAM-3`/`SEAM-4`, `SEAM-11`–`SEAM-18`, `SEAM-24`, `SEAM-25` and `SEAM-30`); segmentation design: [`phase2/2026-09-29-phase2-segmentation-design.md`](phase2/2026-09-29-phase2-segmentation-design.md); 2a design: [`phase2/phase2a/2026-09-29-phase2a-domain-model-design.md`](phase2/phase2a/2026-09-29-phase2a-domain-model-design.md); 2a plan: [`phase2/phase2a/2026-09-30-phase2a-domain-model.md`](phase2/phase2a/2026-09-30-phase2a-domain-model.md); 2b design: [`phase2/phase2b/2026-09-30-phase2b-seams-design.md`](phase2/phase2b/2026-09-30-phase2b-seams-design.md); 2b plan: [`phase2/phase2b/2026-09-30-phase2b-seams.md`](phase2/phase2b/2026-09-30-phase2b-seams.md) |
 | 3 | I/O and Body Lifecycle (3a I/O · 3b bodies) | `Dexpace.Sdk.Core` | ch.05 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` (12), which are numbered jointly into that chapter; the work for `HTTP-44`/`HTTP-45` lands in 7a | §3.1, §3.7, §4.5; [3a design](phase3/phase3a/2026-10-02-phase3a-io-design.md) |
-| 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4; [4a design](phase4/phase4a/2026-10-05-phase4a-context-design.md), [4b design](phase4/phase4b/2026-10-05-phase4b-recovery-design.md) |
+| 4 | Execution Context, Recovery Chain and Pipeline Rework (4a context · 4b recovery · 4c pipeline) | `Dexpace.Sdk.Core` | ch.07 — `CTX-1`–`CTX-20` (20); ch.08 §8.2 and appendix C — `RECOV-1`–`RECOV-34` (34); ch.08 §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4; [4a design](phase4/phase4a/2026-10-05-phase4a-context-design.md), [4b design](phase4/phase4b/2026-10-05-phase4b-recovery-design.md), [4c design](phase4/phase4c/2026-10-05-phase4c-pipeline-design.md) |
 | 5 | Configuration Model and Observability (5a configuration · 5b logging and redaction · 5c tracing and metrics) | `Dexpace.Sdk.Core`, and `Dexpace.Sdk.Http.SystemNet` for `traceparent` handling | ch.16 — `CFG-8`, `CFG-9`, `CFG-12`, `CFG-13`, `CFG-15`–`CFG-36` (the binding tier travels to phase 9); ch.15 — `OBS-1`–`OBS-40` (40) | §3.8, §8.1–§8.3 |
 | 6 | Retry, Redirect and Authentication Completion (6a retry · 6b redirect · 6c auth) | `Dexpace.Sdk.Core` | ch.09 — `RETRY-1`–`RETRY-45` (45); ch.10 — `REDIR-1`–`REDIR-28` (28); ch.11 — `AUTH-1`–`AUTH-38` (38); plus the work for the recovery-stack IDs `RECOV-17`–`RECOV-30` and `RECOV-34`, whose rows stay in phase 4 as ⏳ | §6.1–§6.3, §8.3 |
 | 7 | Serde, SSE and Pagination (7a serde · 7b SSE · 7c pagination) | `Dexpace.Sdk.Core`, `Dexpace.Sdk.Serialization.SystemTextJson` | ch.14 — `SERDE-1`–`SERDE-30` (30); ch.13 — `SSE-1`–`SSE-41` (41); ch.12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3 |
@@ -1496,3 +1496,40 @@ new item 46) and §12, the 3a note and phase 1's S8 row above, and this note. 4b
   `Outcome` in its own namespace. 7c: `ExceptionTrail` for `PAGE-13`.
 - **Knowledge corpus.** `retry-and-resilience/302d143d` (the "record hierarchy closed by a private constructor") is superseded by a note in
   `docs/knowledge/notes/retry-and-resilience.md`, and a `notes/data-modeling.md` entry records the styleguide 6.3 departure.
+
+### 2026-10-07 — Phase 4c (pipeline rework) built
+
+Sub-phase 4c implemented on branch `phase-4c-pipeline` (cut from `main` with 4a and 4b merged) following the
+[design](phase4/phase4c/2026-10-05-phase4c-pipeline-design.md) and the [plan](phase4/phase4c/2026-10-05-phase4c-pipeline.md): PR 1 the stage enum
+(`PerCall = 150`, `PerHop`, `Serde`), `PipelineStageFacts` and the builder over recorded entries (collision at `Add`, `Prepend`, `AddRange`,
+`PrependRange`, cross-stage rejection, `HttpPipeline.Policies`); PR 2 the request-in/response-out signature, `PipelineRunner.Run`, the call-scoped
+`PipelineContext` and `PipelinePropertyKey<T>`, every shipped policy on `ProcessCoreAsync(..., bool async)`, `BlockingWait`, the seed origin and the
+context-chain wiring; PR 3 `HttpPipeline` as a transport, options capture, `SendAsync<T>`/`Send<T>`, `Flatten`/`Nest`; PR 4 `ErrorMappingPolicy`,
+`ErrorMapping.ToException` and `Response.EnsureSuccess`; PR 5 `AddStandardResilience`, `CreateDefault` recomposed and `CreateEmpty`; PR 6 this close-out.
+Evidence is in the [checklist](phase4/phase4c/2026-10-07-phase4c-pipeline-checklist.md), the user page
+[`pipelines.md`](../../sdk-documentation/pipelines.md), the dated corrections to design §5.1, §5.3, §10 (entry 14's topic label), §11 (new items 47 and 48)
+and §12, the 3b note and phase 1's S6 and S8 rows above, and this note. 4c holds 40 rows, every one ✅ (`PIPE-2` and `PIPE-3` by stated reading,
+`PIPE-28` with a ⏳ 8b clause, `PIPE-32` ✅ for its documentation clause and 🚫 for the async no-follow). The census: 4a 20 + 4b 34 + 4c 40 = 94.
+
+- **The dependency edge (P4c-2).** The roadmap called 4a to 4c and 4b to 4c a convenience. For the .NET design it is a dependency: `PipelineContext`
+  carries 4a's chain and `ErrorMappingPolicy` runs 4b's fold. The phases ran in the real order, 4a, 4b, 4c, as the ordering rule requires; PR 1 (the
+  builder) touches no 4a or 4b type.
+- **Rulings.** P4c-2, P4c-6, P4c-15, P4c-17 and P4c-22 are still open for the lead to accept or reverse. P4c-6 and P4c-7 are recorded as §11 items 47 and 48;
+  P4c-12, P4c-13, P4c-18 and P4c-20 are the other deviation-ledger rulings, built as the design states (P4c-17 as 4b's P4b-16 split, so the fallback
+  branch of plan task 4.2 was not needed).
+- **Breaking changes** (ten, all in `CHANGELOG.md` `[Unreleased]`): collision at `Add`; cross-stage edits throw; `PerCall` is 150 and `PerHop` is the old slot;
+  the policy signature; `PipelineContext`; a real synchronous `Send`; idempotency and client identity once per call; the seed origin in `AuthorizationPolicy`;
+  `HttpPipeline` is disposable and implements both seams; `Build` captures the client options and the `DexpaceClientOptions` overloads lose their `= default` token.
+- **One `Security` class was edited, mechanically.** `ReDriveRequestIsolationTests`: two policy bodies on the new signature, one enum token (`PerCall` to
+  `PerHop`, which is semantic: left alone it fails) and one added structural fact. `EnsureSuccessErrorMappingTests`, `RedirectCredentialHygieneTests`,
+  `AuthHttpsGuardTests`, `RetryPacingOverflowTests` and `RedirectWireTests` are unedited.
+- **`SEAM-28` is still ⏳.** Neither 4a nor `RequestOptions` defines a carrier for the operation id (4a's P4a-13 option 1 was not taken), so the dispatch is
+  promoted with a null operation name; the carrier is 4a's or 8b's to define, and the lead has not yet accepted the `SEAM-28` move to 4c.
+- **Hand-offs.** 5a: makes `DexpaceClientOptions` immutable, decides the per-call `DexpaceClientOptions` overloads, and may take over `BlockingWait` as the
+  sync wait. 5b/5c: restructure `InstrumentationPolicy` (it has its `MA0051` waiver; 4c added the fatal filter 4b asked for) and open the operation span at
+  `Operation`. 6a: rewrites `RetryPolicy` on `ProcessCoreAsync` (the waiver cites it) and re-classifies a re-sent error through `ErrorBodyBuffer`. 6b: rewrites
+  `RedirectPolicy` over `context.SeedRequest` and removes `StripSensitiveHeadersOnCrossOrigin`. 6c: gives `AccessTokenCache` a sync path, retiring
+  `AuthorizationPolicy.GetCredential`'s bridge. 7c: may take `HttpPipeline` as an `IAsyncHttpClient` in `Pageable`. 8b: the real sync terminal, `PIPE-28`'s
+  ⏳ clause.
+- **Knowledge corpus.** Nothing found that contradicts a harvested entry; no note was added.
+

@@ -49,6 +49,25 @@ internal static class SyncPath
 #pragma warning restore RS0030
     }
 
+    /// <summary>
+    /// Reads the result of a task a synchronous pipeline drive produced, naming <paramref name="owner"/> in the failure
+    /// when the drive suspended (a defect: the <c>bool async</c> idiom never awaits on its synchronous path).
+    /// </summary>
+    /// <typeparam name="T">The result type.</typeparam>
+    /// <param name="task">The task, complete by construction.</param>
+    /// <param name="owner">The policy or pipeline whose synchronous drive produced it.</param>
+    /// <returns>The result; the original exception of a faulted task is rethrown, never an aggregate.</returns>
+    internal static T GetCompletedResult<T>(ValueTask<T> task, string owner)
+    {
+        if (!task.IsCompleted)
+        {
+            throw new InvalidOperationException(
+                $"The synchronous path of {owner} suspended; a synchronous drive must complete without awaiting (PIPE-28).");
+        }
+
+        return GetResult(task);
+    }
+
     private static void AssertCompleted(bool isCompleted)
     {
         if (!isCompleted)

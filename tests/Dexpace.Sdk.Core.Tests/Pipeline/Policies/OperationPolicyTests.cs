@@ -122,4 +122,29 @@ public sealed class OperationPolicyTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => pipeline.SendAsync(MakeRequest(), options, cts.Token).AsTask());
     }
+
+    [Fact]
+    public void Process_sync_with_short_timeout_throws_when_the_transport_hangs()
+    {
+        var pipeline = new PipelineBuilder()
+            .Add(new OperationPolicy())
+            .Build(new HangingTransport());
+
+        var options = OptionsWithTimeout(TimeSpan.FromMilliseconds(30));
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => pipeline.Send(MakeRequest(), options, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Sync_and_async_agree_without_a_timeout()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new OperationPolicy()).Build(transport);
+
+        using var sync = pipeline.Send(MakeRequest(), OptionsNoTimeout(), TestContext.Current.CancellationToken);
+        using var async = await pipeline.SendAsync(MakeRequest(), OptionsNoTimeout(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, transport.CallCount);
+    }
 }

@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
@@ -23,8 +24,8 @@ public class PipelineBuilderTests
     {
         public override PipelineStage Stage => stage;
 
-        public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation) =>
-            continuation.RunAsync(context);
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+            continuation.RunAsync(request, context);
     }
 
     private sealed class OperationStub() : StubPolicy(PipelineStage.Operation);
@@ -44,11 +45,12 @@ public class PipelineBuilderTests
     {
         public override PipelineStage Stage => stage;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             log.Add($"{name}:in");
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            var response = await continuation.RunAsync(request, context).ConfigureAwait(false);
             log.Add($"{name}:out");
+            return response;
         }
     }
 
@@ -57,11 +59,12 @@ public class PipelineBuilderTests
     {
         public override PipelineStage Stage => PipelineStage.PerCall;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             log.Add("A:in");
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            var response = await continuation.RunAsync(request, context).ConfigureAwait(false);
             log.Add("A:out");
+            return response;
         }
     }
 
@@ -69,11 +72,12 @@ public class PipelineBuilderTests
     {
         public override PipelineStage Stage => PipelineStage.PerCall;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             log.Add("A2:in");
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            var response = await continuation.RunAsync(request, context).ConfigureAwait(false);
             log.Add("A2:out");
+            return response;
         }
     }
 
@@ -81,11 +85,12 @@ public class PipelineBuilderTests
     {
         public override PipelineStage Stage => PipelineStage.PerCall;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             log.Add("B:in");
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            var response = await continuation.RunAsync(request, context).ConfigureAwait(false);
             log.Add("B:out");
+            return response;
         }
     }
 
@@ -119,7 +124,7 @@ public class PipelineBuilderTests
             .Add(new RecordingPolicy("op", PipelineStage.Operation, log))
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var _ = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         // Build stable-sorts by stage (ascending), so execution order is:
         // op (100) → redirect (200) → diag (600), then unwind.
@@ -142,20 +147,7 @@ public class PipelineBuilderTests
         Assert.NotNull(pipeline);
     }
 
-    /// <summary>
-    /// Two policies in a pillar stage must cause Build to throw with the stage name in the message.
-    /// </summary>
-    [Fact]
-    public void Build_TwoPoliciesInPillarStage_Throws()
-    {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            new PipelineBuilder()
-                .Add(new RetryStub())
-                .Add(new RetryStub())
-                .Build(MakeTransport()));
-
-        Assert.Contains("Retry", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
+    // PIPE-5: the collision now throws at Add (was Build); the full matrix lives in PillarRuleTests.
 
     // ---------------------------------------------------------------------------
     // Tests: InsertAfter within a stage
@@ -175,7 +167,7 @@ public class PipelineBuilderTests
             .InsertAfter<RecordingPerCallA>(new RecordingPerCallB(log)) // list: [A, B]
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var _ = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(["A:in", "B:in", "B:out", "A:out"], log);
     }
@@ -211,7 +203,7 @@ public class PipelineBuilderTests
             .InsertBefore<RecordingPerCallA>(new RecordingPerCallB(log)) // list: [B, A]
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var _ = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(["B:in", "A:in", "A:out", "B:out"], log);
     }
@@ -247,7 +239,7 @@ public class PipelineBuilderTests
             .Replace<RecordingPerCallA>(new RecordingPerCallA2(log)) // A swapped for A2
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var _ = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Contains("A2:in", log);
         Assert.DoesNotContain("A:in", log);
@@ -284,7 +276,7 @@ public class PipelineBuilderTests
             .Remove<RecordingPerCallA>()
             .Build(MakeTransport());
 
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var _ = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Contains("B:in", log);
         Assert.DoesNotContain("A:in", log);
@@ -301,7 +293,7 @@ public class PipelineBuilderTests
     public async Task Build_EmptyPipeline_TransportResponds()
     {
         var pipeline = new PipelineBuilder().Build(MakeTransport());
-        var response = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+        using var response = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
         Assert.NotNull(response);
     }
 }

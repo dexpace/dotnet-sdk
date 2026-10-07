@@ -90,9 +90,9 @@ using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Http.SystemNet;
 
 await using var transport = new SystemNetHttpClient();
-var pipeline = DexpacePipeline.CreateDefault(transport);   // redirect, retry, instrumentation, …
+using var pipeline = DexpacePipeline.CreateDefault(transport);   // redirect, retry, instrumentation, …
 
-using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), new DexpaceClientOptions());
+using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), new DexpaceClientOptions(), CancellationToken.None);
 
 if (response.IsSuccess)
 {

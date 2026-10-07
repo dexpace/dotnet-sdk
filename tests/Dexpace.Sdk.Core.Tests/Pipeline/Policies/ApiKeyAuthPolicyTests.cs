@@ -157,95 +157,46 @@ public sealed class ApiKeyAuthPolicyTests
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_WithholdsCredential()
     {
-        // Drive the policy directly against a context whose Request has been redirected
-        // to a different origin after the origin was first recorded.
-        var credential = new ApiKeyCredential("sk-secret", scheme: "Bearer");
-        var options = MakeOptions();
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("sk-secret", scheme: "Bearer"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        // Context starts on the original origin.
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.Equal("Bearer sk-secret", first.Headers.Get("Authorization"));
 
-        // Record the original origin by running the policy once against a no-op continuation.
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new ApiKeyAuthPolicy(credential);
+        // A hop to a different origin: the credential must be withheld.
+        var foreign = await TestContexts.SentAsync(
+            policy, MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty), context);
 
-        // First run: records origin + stamps header, then calls continuation (which hits transport).
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.Equal("Bearer sk-secret", context.Request.Headers.Get("Authorization"));
-
-        // Now mutate the context to simulate a cross-origin redirect.
-        context.Request = MakeRequest("https://other-service.example.org/callback");
-
-        // Reset Authorization so we can observe whether it gets stamped.
-        context.Request = context.Request.WithHeaders(Headers.Empty);
-
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run on same context: origin differs → credential must be withheld.
-        await policy.ProcessAsync(context, foreignRunner);
-
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        Assert.Null(foreign.Headers.Get("Authorization"));
     }
 
     [Fact]
     public async Task ProcessAsync_SameOriginRerun_StampsCredentialAgain()
     {
-        // Same-origin retry: the policy should stamp on each run.
-        var credential = new ApiKeyCredential("retry-key");
-        var options = MakeOptions();
-        var request = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(request, options);
-        var transport = new RecordingTransport();
-        var runner = new PipelineRunner([], 0, transport);
-        var policy = new ApiKeyAuthPolicy(credential);
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("retry-key"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        // First invocation records origin and stamps.
-        await policy.ProcessAsync(context, runner);
-        Assert.Equal("retry-key", context.Request.Headers.Get("Authorization"));
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.Equal("retry-key", first.Headers.Get("Authorization"));
 
-        // Reset the header to confirm the second stamp.
-        context.Request = context.Request.WithHeaders(Headers.Empty);
-
-        // Second invocation on same origin: must stamp again.
-        await policy.ProcessAsync(context, runner);
-        Assert.Equal("retry-key", context.Request.Headers.Get("Authorization"));
+        var second = await TestContexts.SentAsync(policy, first.WithHeaders(Headers.Empty), context);
+        Assert.Equal("retry-key", second.Headers.Get("Authorization"));
     }
 
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_StripsStalCredentialHeader()
     {
-        // The request carries a stale Authorization header from the original hop.
-        // After the policy runs on a cross-origin request, that header must be absent —
-        // the foreign origin must never see it.
-        var credential = new ApiKeyCredential("sk-secret", scheme: "Bearer");
-        var options = MakeOptions();
+        // A stale Authorization header (RedirectPolicy was NOT in the pipeline) must be absent on a cross-origin hop.
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("sk-secret", scheme: "Bearer"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        // Context starts on the original origin.
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        var foreign = await TestContexts.SentAsync(
+            policy,
+            MakeRequest("https://other-service.example.org/callback")
+                .WithHeaders(Headers.Empty.Set("Authorization", "Bearer sk-secret")),
+            context);
 
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new ApiKeyAuthPolicy(credential);
-
-        // First run: records origin and stamps header.
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.Equal("Bearer sk-secret", context.Request.Headers.Get("Authorization"));
-
-        // Simulate a cross-origin redirect where the credential header is still present
-        // (i.e. RedirectPolicy was NOT in the pipeline).
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("Authorization", "Bearer sk-secret"));
-
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run: different origin → stale header must be stripped.
-        await policy.ProcessAsync(context, foreignRunner);
-
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        Assert.Null(foreign.Headers.Get("Authorization"));
     }
 
     [Fact]
@@ -253,29 +204,25 @@ public sealed class ApiKeyAuthPolicyTests
     {
         // Same defense-in-depth check for a custom header (X-Api-Key) on cross-origin.
         var xApiKey = HttpHeaderName.Of("X-Api-Key");
-        var credential = new ApiKeyCredential("my-key", header: xApiKey);
-        var options = MakeOptions();
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("my-key", header: xApiKey));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        var foreign = await TestContexts.SentAsync(
+            policy,
+            MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("X-Api-Key", "my-key")),
+            context);
 
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new ApiKeyAuthPolicy(credential);
+        Assert.Null(foreign.Headers.Get("X-Api-Key"));
+    }
 
-        // First run: records origin and stamps X-Api-Key.
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.Equal("my-key", context.Request.Headers.Get("X-Api-Key"));
+    [Fact]
+    public void Process_sync_stamps_like_ProcessAsync()
+    {
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("sk-secret", scheme: "Bearer"));
+        var context = TestContexts.For();
 
-        // Simulate cross-origin redirect with stale custom header still present.
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("X-Api-Key", "my-key"));
+        var sent = TestContexts.Sent(policy, context.SeedRequest, context);
 
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run: different origin → stale X-Api-Key header must be stripped.
-        await policy.ProcessAsync(context, foreignRunner);
-
-        Assert.Null(context.Request.Headers.Get("X-Api-Key"));
+        Assert.Equal("Bearer sk-secret", sent.Headers.Get("Authorization"));
     }
 }

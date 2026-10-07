@@ -1,78 +1,95 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
 /// <summary>
-/// The "next" continuation passed to each <see cref="HttpPipelinePolicy.ProcessAsync"/> call.
-/// Advances the policy index and ultimately invokes the transport.
+/// The "continuation" continuation passed to each <see cref="HttpPipelinePolicy.ProcessAsync"/> and
+/// <see cref="HttpPipelinePolicy.Process"/> call. Invokes the policy at the continuation index and, past the last, the transport.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="PipelineRunner"/> is a <c>readonly struct</c> so it carries zero allocation per
-/// policy hop. A policy may call <see cref="RunAsync"/> more than once (e.g. retry, redirect)
-/// because the runner is immutable — each call re-advances from the same index with its own
-/// in-flight state.
+/// <see cref="PipelineRunner"/> is a <c>readonly struct</c> with no mutable field: it is the fork primitive. Each
+/// <see cref="RunAsync"/> or <see cref="Run"/> call on the same value is an independent drive of the whole downstream
+/// tail from the same position, so a retry or redirect policy re-drives by calling <c>continuation</c> again with the request it
+/// holds (PIPE-13, PIPE-15, PIPE-16). There is no advanced handle to misuse and no single-use latch (P4c-12).
 /// </para>
 /// <para>
-/// Callers must not retain or share a <see cref="PipelineRunner"/> beyond the duration of
-/// <see cref="HttpPipelinePolicy.ProcessAsync"/>.
+/// <b>Breaking:</b> was <c>RunAsync(PipelineContext) -&gt; ValueTask</c> over a context carrying the request and the
+/// response. It is now <c>RunAsync(Request, PipelineContext) -&gt; ValueTask&lt;Response&gt;</c>, and <see cref="Run"/>
+/// is the synchronous twin. A transport or policy returning <c>null</c> fails with
+/// <see cref="PipelineAbortedException"/> (SEAM-16).
 /// </para>
 /// </remarks>
 public readonly struct PipelineRunner
 {
-    private readonly HttpPipelinePolicy[] _policies;
+    private readonly PipelineEntry[]? _entries;
     private readonly int _index;
-    private readonly IAsyncHttpClient _transport;
+    private readonly PipelineTerminal? _terminal;
 
-    /// <summary>
-    /// Initializes a runner. Called by the pipeline entry point and recursively by
-    /// <see cref="RunAsync"/>.
-    /// </summary>
-    /// <param name="policies">The ordered (sorted-by-stage) policy array.</param>
-    /// <param name="index">The index of the next policy to invoke.</param>
-    /// <param name="transport">The terminal transport invoked when all policies have run.</param>
-    internal PipelineRunner(HttpPipelinePolicy[] policies, int index, IAsyncHttpClient transport)
+    internal PipelineRunner(PipelineEntry[] entries, int index, PipelineTerminal terminal)
     {
-        _policies = policies;
+        _entries = entries;
         _index = index;
-        _transport = transport;
+        _terminal = terminal;
     }
 
     /// <summary>
-    /// Runs the remainder of the pipeline starting at the current index, then invokes the
-    /// transport if no earlier policy short-circuited.
+    /// Runs the remainder of the pipeline asynchronously with <paramref name="request"/>, then the transport, and
+    /// returns the response.
     /// </summary>
-    /// <param name="context">The mutable context for the current call.</param>
-    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline tail has run.</returns>
-    /// <remarks>
-    /// <para>
-    /// <b>Breaking (behaviour):</b> a transport returning <c>null</c> now fails here with
-    /// <see cref="PipelineAbortedException"/>, before any policy sees it; policies used to see a <c>null</c> response and
-    /// <c>HttpPipeline</c> threw at the end (SEAM-16).
-    /// </para>
-    /// </remarks>
-    /// <exception cref="PipelineAbortedException">The transport returned no response.</exception>
-    public async ValueTask RunAsync(PipelineContext context)
+    /// <param name="request">The request to pass downstream; every downstream policy and the transport receive it.</param>
+    /// <param name="context">The context of the current drive.</param>
+    /// <returns>The response produced downstream.</returns>
+    /// <exception cref="PipelineAbortedException">A downstream policy or the transport returned no response.</exception>
+    public async ValueTask<Response> RunAsync(Request request, PipelineContext context)
     {
-        if (_index >= _policies.Length)
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
+        var (entries, terminal) = Parts();
+        if (_index >= entries.Length)
         {
-            // Position D: until phase 4c carries a caller's options on the context, the transport gets Empty.
-            var result = await _transport
-                .ExecuteAsync(context.Request, RequestOptions.Empty, context.CancellationToken)
-                .ConfigureAwait(false);
-
-            // SEAM-16: nullability is compile-time only, so assert the transport's result before any policy sees it.
-            context.Response = result
-                ?? throw new PipelineAbortedException("The transport returned no response (SEAM-16).");
-            return;
+            return await terminal.ExecuteAsync(request, context).ConfigureAwait(false);
         }
 
-        var next = new PipelineRunner(_policies, _index + 1, _transport);
-        await _policies[_index].ProcessAsync(context, next).ConfigureAwait(false);
+        var policy = entries[_index].Policy;
+        var continuation = new PipelineRunner(entries, _index + 1, terminal);
+        var response = await policy.ProcessAsync(request, context, continuation).ConfigureAwait(false);
+        return response ?? throw NullFrom(policy);
     }
+
+    /// <summary>
+    /// Runs the remainder of the pipeline synchronously with <paramref name="request"/>, then the transport, and returns
+    /// the response.
+    /// </summary>
+    /// <param name="request">The request to pass downstream; every downstream policy and the transport receive it.</param>
+    /// <param name="context">The context of the current drive.</param>
+    /// <returns>The response produced downstream.</returns>
+    /// <exception cref="PipelineAbortedException">A downstream policy or the transport returned no response.</exception>
+    public Response Run(Request request, PipelineContext context)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
+        var (entries, terminal) = Parts();
+        if (_index >= entries.Length)
+        {
+            return terminal.Execute(request, context);
+        }
+
+        var policy = entries[_index].Policy;
+        var continuation = new PipelineRunner(entries, _index + 1, terminal);
+        return policy.Process(request, context, continuation) ?? throw NullFrom(policy);
+    }
+
+    private (PipelineEntry[] Entries, PipelineTerminal Terminal) Parts() =>
+        (_entries, _terminal) is ({ } entries, { } terminal)
+            ? (entries, terminal)
+            : throw new InvalidOperationException("A default PipelineRunner is not attached to a pipeline.");
+
+    private static PipelineAbortedException NullFrom(HttpPipelinePolicy policy) =>
+        new($"The policy {policy.GetType().FullName} returned no response (SEAM-16).");
 }

@@ -122,4 +122,18 @@ public sealed class ClientIdentityPolicyTests
         Assert.NotNull(ua);
         Assert.StartsWith("dexpace-dotnet/", ua, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Sync_and_async_agree()
+    {
+        var options = new DexpaceClientOptions { UserAgent = "my-client/1.0" };
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new ClientIdentityPolicy()).Build(transport);
+
+        using var sync = pipeline.Send(MakeRequest(), options, TestContext.Current.CancellationToken);
+        using var async = await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
+
+        Assert.Equal(transport.Requests[0].Headers.Get("User-Agent"), transport.Requests[1].Headers.Get("User-Agent"));
+        Assert.Equal("my-client/1.0", transport.Requests[0].Headers.Get("User-Agent"));
+    }
 }

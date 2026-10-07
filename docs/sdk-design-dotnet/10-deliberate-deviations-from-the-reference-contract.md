@@ -149,6 +149,7 @@ line and in the roadmap.
     exception whose `Exception.Data` is read-only drops the secondary instead of throwing, because throwing would replace
     the primary (*residual*, verified: `Data` is virtual and an override can return a read-only dictionary).
 14. **The async standard pipeline follows redirects, as the sync one does.** *Touches* **PIPE-32**, **REDIR-25**.
+    *Topic label `async-redirect-pillar`, added by dated correction, 2026-10-07 (phase 4c).*
     **Sanctioned in part**: **REDIR-25** lists "(c) let callers install their own async redirect step" and ends "This
     asymmetry with the synchronous pipeline ... MUST be preserved or explicitly documented if changed"; *judged*
     against **PIPE-32**'s MUST NOT, which the standard async preset installing the step departs from. The async
@@ -157,6 +158,13 @@ line and in the roadmap.
     is kept by forcing `AllowAutoRedirect = false` on SDK-created transports and detecting a transport-level follow
     on caller-supplied ones. A caller who wants the 3xx verbatim sets `MaxRedirects = 0` (**REDIR-17**). This entry is
     the documentation **REDIR-25** asks for; the reading is §11 item 29. §5.3, §6.2.
+    **Correction (2026-10-07, phase 4c): entry 14 gains the topic label `async-redirect-pillar`.** Entry 14 stands as written.
+    Phase 4c built it: `PipelineBuilder.AddStandardResilience` installs one `RedirectPolicy` at `PipelineStage.Redirect`
+    whether the pipeline is driven through `SendAsync` or `Send`, and both `DexpacePipeline.CreateDefault` paths follow
+    redirects (`ResiliencePresetTests.The_async_and_sync_standard_pipelines_both_follow_a_redirect`). `PIPE-32`'s checklist row
+    is ✅ for its documentation clause and 🚫 for the async no-follow, citing this entry; `REDIR-25`'s row (6b) cites it the
+    same way. The single-layer invariant stays the transport's (phase 1 S3's `AllowAutoRedirect = false` and the borrowed-client
+    detection; 8b, 9). A caller who wants the 3xx verbatim sets `MaxRedirects = 0` (`REDIR-17`, 6b) or omits the policy.
 15. **No cross-origin marker: redirect and auth both compare against the immutable seed origin.** *Touches*
     **REDIR-11**, **AUTH-29**, **REDIR-8**, **XCUT-17**(b). *Judged* (P10), and stronger (P9). **REDIR-11** asks for
     an out-of-band signal from redirect to auth; the port sends none. `HttpPipeline.SendAsync` records the seed

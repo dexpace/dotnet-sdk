@@ -1,86 +1,262 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Collections.ObjectModel;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
 /// <summary>
-/// The entry point for sending an HTTP request through the configured policy chain.
+/// The entry point for sending an HTTP request through the configured policy chain, and itself a transport.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Instances are created exclusively by <see cref="PipelineBuilder.Build"/>. The pipeline is
-/// immutable after construction: the sorted policy array and transport are captured at build time.
+/// Instances are created exclusively by <see cref="PipelineBuilder"/>. The pipeline is immutable after construction: the
+/// ordered policy array, the terminal transport and the client options are captured at build time, and every send
+/// creates its own <see cref="PipelineContext"/>, so concurrent calls share no per-call state (PIPE-10).
 /// </para>
 /// <para>
-/// <b>Sync bridge.</b> <see cref="Send"/> blocks the calling thread by driving the async chain
-/// synchronously via <c>GetAwaiter().GetResult()</c>. Callers on a thread pool should prefer
-/// <see cref="SendAsync"/> to avoid thread starvation.
+/// <b>Two kinds of options.</b> The seam carries <see cref="RequestOptions"/> (per call); the policies read
+/// <see cref="DexpaceClientOptions"/> (retry, redirect, user agent, deadline). A pipeline captures the client options at
+/// build, so a call through <see cref="IAsyncHttpClient"/> or <see cref="IHttpClient"/> runs with them. The overloads taking
+/// a <see cref="DexpaceClientOptions"/> override the captured options for one call; phase 5a, which makes that record
+/// immutable, decides their future.
+/// </para>
+/// <para>
+/// <b>As a transport (PIPE-26).</b> The pipeline implements <see cref="IAsyncHttpClient"/> and <see cref="IHttpClient"/>
+/// explicitly, threading the seam's <see cref="RequestOptions"/> and token through. <b>Disposal (PIPE-27)</b> is a no-op
+/// toward the transport: the pipeline never owns it. There is no disposed latch: a disposed pipeline stays usable
+/// (SEAM-15 is a MAY), so disposal never suggests a release that did not happen.
+/// </para>
+/// <para>
+/// <b>Sync path.</b> <see cref="Send(Request, CancellationToken)"/> drives <see cref="HttpPipelinePolicy.Process"/> and the
+/// transport's synchronous entry point; it never blocks on the async chain (PIPE-28).
+/// </para>
+/// <para>
+/// <b>Breaking (additive):</b> the pipeline is now <see cref="IDisposable"/> and <see cref="IAsyncDisposable"/>, so
+/// <c>using</c> analyzers ask callers to dispose it; disposal never touches the transport. <b>Breaking (additive):</b>
+/// the overloads taking <see cref="DexpaceClientOptions"/> lose their <c>= default</c> token: no overload of this family
+/// carries an optional token.
 /// </para>
 /// </remarks>
-public sealed class HttpPipeline
+public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
 {
-    private readonly HttpPipelinePolicy[] _policies;
-    private readonly IAsyncHttpClient _transport;
+    private readonly PipelineEntry[] _entries;
+    private readonly PipelineTerminal _terminal;
 
-    internal HttpPipeline(HttpPipelinePolicy[] policies, IAsyncHttpClient transport)
+    internal HttpPipeline(PipelineEntry[] entries, PipelineTerminal terminal, DexpaceClientOptions options)
     {
-        _policies = policies;
-        _transport = transport;
+        _entries = entries;
+        _terminal = terminal;
+        ClientOptions = options;
+        Policies = new ReadOnlyCollection<HttpPipelinePolicy>([.. entries.Select(e => e.Policy)]);
     }
 
     /// <summary>
-    /// Asynchronously sends <paramref name="request"/> through the pipeline and returns the
-    /// response produced by the terminal transport.
+    /// The policies in execution order, outermost first, as a read-only view over a private copy (PIPE-25).
+    /// </summary>
+    public IReadOnlyList<HttpPipelinePolicy> Policies { get; }
+
+    internal DexpaceClientOptions ClientOptions { get; }
+
+    internal IAsyncHttpClient Transport => _terminal.Transport;
+
+    internal IReadOnlyList<PipelineEntry> Entries => _entries;
+
+    /// <summary>
+    /// Asynchronously sends <paramref name="request"/> with the client options captured at build.
     /// </summary>
     /// <param name="request">The request to send.</param>
-    /// <param name="options">Client options that apply to this call.</param>
-    /// <param name="cancellationToken">An optional token to cancel the call.</param>
-    /// <returns>
-    /// A <see cref="ValueTask{TResult}"/> that completes with the <see cref="Response"/> once
-    /// the pipeline chain has finished.
-    /// </returns>
-    /// <exception cref="PipelineAbortedException">
-    /// No policy or the transport produced a <see cref="Response"/> by the time the chain
-    /// completed (i.e. the pipeline was short-circuited without setting a response).
-    /// </exception>
-    public async ValueTask<Response> SendAsync(
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    public ValueTask<Response> SendAsync(Request request, CancellationToken cancellationToken) =>
+        SendCoreAsync(request, ClientOptions, RequestOptions.Empty, async: true, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously sends <paramref name="request"/> with the client options captured at build and the caller's
+    /// per-call <paramref name="options"/>, which reach every policy and the transport by reference (PIPE-17).
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    public ValueTask<Response> SendAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+        SendCoreAsync(request, ClientOptions, options, async: true, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously sends <paramref name="request"/>, overriding the captured client options for this one call.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="options">Client options that apply to this call instead of the captured ones.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    /// <remarks>
+    /// <b>Breaking:</b> the token no longer defaults; pass <see cref="CancellationToken.None"/> or use
+    /// <see cref="SendAsync(Request, CancellationToken)"/>.
+    /// </remarks>
+    public ValueTask<Response> SendAsync(Request request, DexpaceClientOptions options, CancellationToken cancellationToken) =>
+        SendCoreAsync(request, options, RequestOptions.Empty, async: true, cancellationToken);
+
+    /// <summary>
+    /// Sends <paramref name="request"/>, applies <paramref name="handler"/> to the response, and disposes the response in
+    /// every outcome (PIPE-31).
+    /// </summary>
+    /// <typeparam name="T">The handler's result type.</typeparam>
+    /// <param name="request">The request to send.</param>
+    /// <param name="handler">Maps the response to a result; the response is disposed after it runs.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The handler's result.</returns>
+    /// <remarks>
+    /// A handler failure surfaces as itself (never wrapped), and a failure disposing the response is attached to it
+    /// through <see cref="ExceptionTrail"/>. A transport failure surfaces unwrapped.
+    /// </remarks>
+    public async ValueTask<T> SendAsync<T>(
+        Request request,
+        Func<Response, CancellationToken, ValueTask<T>> handler,
+        RequestOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        var response = await SendCoreAsync(request, ClientOptions, options, async: true, cancellationToken).ConfigureAwait(false);
+        T result;
+        try
+        {
+            result = await handler(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+        {
+            await Disposal.DisposeQuietlyAsync(response, ex).ConfigureAwait(false);
+            throw;
+        }
+
+        await response.DisposeAsync().ConfigureAwait(false);
+        return result;
+    }
+
+    /// <summary>
+    /// Synchronously sends <paramref name="request"/> with the client options captured at build.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    public Response Send(Request request, CancellationToken cancellationToken) =>
+        SendSync(request, ClientOptions, RequestOptions.Empty, cancellationToken);
+
+    /// <summary>
+    /// Synchronously sends <paramref name="request"/> with the caller's per-call <paramref name="options"/> (PIPE-17).
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    public Response Send(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+        SendSync(request, ClientOptions, options, cancellationToken);
+
+    /// <summary>
+    /// Synchronously sends <paramref name="request"/>, overriding the captured client options for this one call.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="options">Client options that apply to this call instead of the captured ones.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The response produced by the pipeline.</returns>
+    /// <remarks>
+    /// <b>Breaking:</b> this drives the policies synchronously (it used to block on the async chain), and the token no
+    /// longer defaults.
+    /// </remarks>
+    public Response Send(Request request, DexpaceClientOptions options, CancellationToken cancellationToken) =>
+        SendSync(request, options, RequestOptions.Empty, cancellationToken);
+
+    /// <summary>
+    /// Synchronously sends <paramref name="request"/>, applies <paramref name="handler"/> and disposes the response in
+    /// every outcome (PIPE-31).
+    /// </summary>
+    /// <typeparam name="T">The handler's result type.</typeparam>
+    /// <param name="request">The request to send.</param>
+    /// <param name="handler">Maps the response to a result; the response is disposed after it runs.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">A token to cancel the call.</param>
+    /// <returns>The handler's result.</returns>
+    public T Send<T>(Request request, Func<Response, T> handler, RequestOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        var response = SendSync(request, ClientOptions, options, cancellationToken);
+        T result;
+        try
+        {
+            result = handler(response);
+        }
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+        {
+            Disposal.DisposeQuietly(response, ex);
+            throw;
+        }
+
+        response.Dispose();
+        return result;
+    }
+
+    /// <inheritdoc />
+    Task<Response> IAsyncHttpClient.ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+        SendAsync(request, options, cancellationToken).AsTask();
+
+    /// <inheritdoc />
+    Response IHttpClient.Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+        Send(request, options, cancellationToken);
+
+    /// <summary>
+    /// A no-op toward the transport: the pipeline never owns it (PIPE-27). The pipeline stays usable afterwards.
+    /// </summary>
+    public void Dispose()
+    {
+    }
+
+    /// <summary>
+    /// A no-op toward the transport: the pipeline never owns it (PIPE-27). The pipeline stays usable afterwards.
+    /// </summary>
+    /// <returns>A completed task.</returns>
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private Response SendSync(Request request, DexpaceClientOptions options, RequestOptions requestOptions, CancellationToken cancellationToken) =>
+        SyncPath.GetCompletedResult(
+            SendCoreAsync(request, options, requestOptions, async: false, cancellationToken),
+            nameof(HttpPipeline));
+
+    // The shared body of every send. With async: false it never awaits, so the returned task is complete (fact 1) and
+    // a failure is carried in it (fact 2) for SyncPath to rethrow unwrapped.
+    private async ValueTask<Response> SendCoreAsync(
         Request request,
         DexpaceClientOptions options,
-        CancellationToken cancellationToken = default)
+        RequestOptions requestOptions,
+        bool async,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(requestOptions);
 
-        var context = new PipelineContext(request, options, cancellationToken);
-        await new PipelineRunner(_policies, 0, _transport).RunAsync(context).ConfigureAwait(false);
-
-        return context.Response
-            ?? throw new PipelineAbortedException(
-                "The pipeline completed without producing a response.");
+        // CTX-17: the dispatch registers nothing; the terminal's promotion does, once per transmission.
+        var dispatch = new DispatchContext(InstrumentationContext.FromActivity(System.Diagnostics.Activity.Current));
+        var context = PipelineContext.Create(request, options, requestOptions, dispatch, cancellationToken);
+        var runner = new PipelineRunner(_entries, 0, _terminal);
+        try
+        {
+            return async
+                ? await runner.RunAsync(request, context).ConfigureAwait(false)
+                : runner.Run(request, context);
+        }
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+        {
+            // Close the furthest link before the exception surfaces; a fatal exception skips it, the store's bound is
+            // the backstop (design §5.4, CTX-11).
+            context.State.CloseFurthest();
+            throw;
+        }
     }
-
-    /// <summary>
-    /// Synchronously sends <paramref name="request"/> through the pipeline and returns the
-    /// response. Blocks the calling thread until the async chain completes.
-    /// </summary>
-    /// <param name="request">The request to send.</param>
-    /// <param name="options">Client options that apply to this call.</param>
-    /// <param name="cancellationToken">An optional token to cancel the call.</param>
-    /// <returns>The <see cref="Response"/> produced by the pipeline.</returns>
-    /// <exception cref="PipelineAbortedException">
-    /// The pipeline completed without producing a response.
-    /// </exception>
-#pragma warning disable RS0030 // The pipeline's documented sync bridge (design §5.3; see remarks above).
-    public Response Send(
-        Request request,
-        DexpaceClientOptions options,
-        CancellationToken cancellationToken = default) =>
-        SendAsync(request, options, cancellationToken).AsTask().GetAwaiter().GetResult();
-#pragma warning restore RS0030
 }

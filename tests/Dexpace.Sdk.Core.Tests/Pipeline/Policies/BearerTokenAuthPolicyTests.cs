@@ -156,85 +156,64 @@ public sealed class BearerTokenAuthPolicyTests
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_WithholdsCredential()
     {
-        var credential = new FakeTokenCredential("secret-bearer");
-        var options = MakeOptions();
+        var policy = new BearerTokenAuthPolicy(new FakeTokenCredential("secret-bearer"), "scope");
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.Equal("Bearer secret-bearer", first.Headers.Get("Authorization"));
 
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new BearerTokenAuthPolicy(credential, "scope");
-
-        // First run: record origin and stamp.
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.Equal("Bearer secret-bearer", context.Request.Headers.Get("Authorization"));
-
-        // Simulate cross-origin redirect.
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty);
-
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run on same context: different origin → credential must be withheld.
-        await policy.ProcessAsync(context, foreignRunner);
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        // A hop to a different origin: the credential must be withheld.
+        var foreign = await TestContexts.SentAsync(
+            policy, MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty), context);
+        Assert.Null(foreign.Headers.Get("Authorization"));
     }
 
     [Fact]
     public async Task ProcessAsync_SameOriginRerun_StampsBearerAgain()
     {
-        var credential = new FakeTokenCredential("retry-bearer");
-        var options = MakeOptions();
-        var request = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(request, options);
-        var transport = new RecordingTransport();
-        var runner = new PipelineRunner([], 0, transport);
-        var policy = new BearerTokenAuthPolicy(credential, "scope");
+        var policy = new BearerTokenAuthPolicy(new FakeTokenCredential("retry-bearer"), "scope");
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        await policy.ProcessAsync(context, runner);
-        Assert.Equal("Bearer retry-bearer", context.Request.Headers.Get("Authorization"));
-
-        context.Request = context.Request.WithHeaders(Headers.Empty);
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.Equal("Bearer retry-bearer", first.Headers.Get("Authorization"));
 
         // Same origin retry: must stamp again.
-        await policy.ProcessAsync(context, runner);
-        Assert.Equal("Bearer retry-bearer", context.Request.Headers.Get("Authorization"));
+        var second = await TestContexts.SentAsync(policy, first.WithHeaders(Headers.Empty), context);
+        Assert.Equal("Bearer retry-bearer", second.Headers.Get("Authorization"));
     }
 
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_StripsStaleAuthorizationHeader()
     {
-        // The request carries a stale Authorization header from the original hop.
-        // After the policy runs on a cross-origin request, that header must be absent —
-        // the foreign origin must never see it, even without RedirectPolicy in the pipeline.
+        // A stale Authorization header must be absent on a cross-origin hop, even without RedirectPolicy, and the token
+        // cache / credential must NOT be called again.
         var credential = new FakeTokenCredential("secret-bearer");
-        var options = MakeOptions();
-
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
-
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
         var policy = new BearerTokenAuthPolicy(credential, "scope");
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        // First run: records origin, stamps header (calls credential once).
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.Equal("Bearer secret-bearer", context.Request.Headers.Get("Authorization"));
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.Equal("Bearer secret-bearer", first.Headers.Get("Authorization"));
         var callCountAfterFirstRun = credential.CallCount;
 
-        // Simulate a cross-origin redirect with the stale Authorization header still in place.
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("Authorization", "Bearer secret-bearer"));
+        var foreign = await TestContexts.SentAsync(
+            policy,
+            MakeRequest("https://other-service.example.org/callback")
+                .WithHeaders(Headers.Empty.Set("Authorization", "Bearer secret-bearer")),
+            context);
 
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run: different origin → stale Authorization header must be stripped.
-        // Crucially, the token cache / credential must NOT be called again.
-        await policy.ProcessAsync(context, foreignRunner);
-
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        Assert.Null(foreign.Headers.Get("Authorization"));
         Assert.Equal(callCountAfterFirstRun, credential.CallCount);
+    }
+
+    [Fact]
+    public void Process_sync_stamps_through_the_documented_bridge()
+    {
+        var policy = new BearerTokenAuthPolicy(new FakeTokenCredential("sync-bearer"), "scope");
+        var context = TestContexts.For();
+
+        var sent = TestContexts.Sent(policy, context.SeedRequest, context);
+
+        Assert.Equal("Bearer sync-bearer", sent.Headers.Get("Authorization"));
     }
 
     // -------------------------------------------------------------------------
