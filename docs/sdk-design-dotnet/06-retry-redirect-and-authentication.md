@@ -120,7 +120,7 @@ has a ceiling far below the specification's.** Verified on .NET 10.0.401: `Task.
 hands the wait a value the wait rejects. Verified against the as-built pipeline: `Retry-After: 5184000` (60 days)
 makes `SendAsync` throw `System.ArgumentOutOfRangeException` — an unclassified exception from a retry decision,
 which also breaks **RETRY-22**'s rule that pacing must never mask the real failure. The port's one
-`RetryWait.DelayAsync` performs any delay above 49 days as successive bounded waits (at most eight for 365 days).
+`TimeProviderWaits.DelayAsync` (*dated correction, 2026-10-07, phase 5a, P5a-7: it was named `RetryWait.DelayAsync`*) performs any delay above 49 days as successive bounded waits (at most eight for 365 days).
 On the sync path the wait blocks the caller, which is what a sync call means: a `TimeProvider.CreateTimer` that
 sets a `ManualResetEventSlim`, waited with the call's token, never `Thread.Sleep` and never `Task.Delay(...).Wait()`.
 

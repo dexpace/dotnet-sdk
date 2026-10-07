@@ -83,7 +83,8 @@ Four notes on the .NET specifics, each the result of verification rather than do
   pointing at the streaming alternative, and **BODY-32**'s clamp uses it. Because 2 GiB is far above anything a
   client SDK should hold in one array, a separate configurable materialisation cap (default 64 MiB, the Ruby port's
   figure and its argument: an order of magnitude above a sane payload, an order below a typical worker's heap)
-  applies first and is part of the options surface (§8.2).
+  applies first and is part of the options surface (§8.2). *Dated correction, 2026-10-07, phase 5a (P5a-23):* the cap is not an
+  options member; the configurable form is a per-read limit that phase 7a adds when it reshapes the reader family.
 
 **Non-consuming views and why parent-close invalidation reduces to a pooling rule.** **IO-19**–**IO-24** require
 peeks and slices that do not advance the parent, compose additively, and are invalidated when the parent closes;

@@ -359,6 +359,8 @@ corrected the same day. So three statements above are superseded: the 09 Concurr
 `CA1062` remains a recorded departure; §10 entry 28 carries the matching correction). The `CA1062` reasoning is
 unchanged. The text above stands as written, and this paragraph is the correction.
 
+*Dated note, 2026-10-07, phase 5a (P5a-8):* the banned-API list gains the clock, delay and environment groups (`Thread.Sleep`, every `Task.Delay`, `DateTime(Offset).Now/UtcNow/Today`, `Environment.GetEnvironmentVariable(s)`), with one sanctioned `#pragma` for `Task.Delay` (`TimeProviderWaits`) and one for the environment read (`ProxyResolution`); `Stopwatch` is not banned.
+
 **As built (d45e64b):** partial: warnings-as-errors, recommended analyzers, code-style enforcement, documentation
 gate,
 central package management, deterministic compilation and NuGet audit wired; build currently broken by `NU1902`;

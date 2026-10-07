@@ -17,7 +17,7 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | `Dexpace.Sdk.Core.Auth` | `TokenCredential`, `AccessTokenCache`, `ApiKeyCredential`, `BasicCredential` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
-| `Dexpace.Sdk.Core.Configuration` | `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `HttpLoggingOptions` and `HttpLogLevel` (logging is off by default) |
+| `Dexpace.Sdk.Core.Configuration` | The options as sealed records (`DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `HttpLoggingOptions`), `HttpLogLevel` (logging is off by default), `ProxyOptions` with `FromEnvironment`, `TimeProviderWaits` and `BuildInfo` |
 | `Dexpace.Sdk.Core.Diagnostics` | The `Dexpace.Sdk` `ActivitySource` and `Meter`, the default-deny `UrlRedactor` (including `RedactHeaderValue`), and the stable log vocabulary `DexpaceLogEvents` / `DexpaceLogKeys` |
 | `Dexpace.Sdk.Core.Recovery` | The recovery layer: `Outcome`, `IRequestStep` / `IResponseStep` / `IRecoveryStep`, `RequestRecoveryChain`, `ResponseRecoveryChain`, `RecoveryDispatcher`, and the shipped steps `ErrorMappingStep`, `IdempotencyKeyStep` and `ClientIdentityStep` |
 | `Dexpace.Sdk.Core.Errors` | `SdkException` and its subclasses, `ExceptionFacts` (`IsFatal`, `EnumerateCauses`) and `ExceptionTrail` (`AddSuppressed`, `GetSuppressed`) |
@@ -39,6 +39,9 @@ using HttpPipeline pipeline = DexpacePipeline.CreateDefault(transport);
 
 var options = new DexpaceClientOptions { OverallTimeout = TimeSpan.FromSeconds(30) };
 using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), options, CancellationToken.None);
+
+// Options are immutable records: derive a copy for one call with `with`.
+var patient = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
 
 await response.EnsureSuccessAsync(); // throws HttpResponseException for a 4xx or 5xx
 Console.WriteLine(await response.Body.ReadAsStringAsync());

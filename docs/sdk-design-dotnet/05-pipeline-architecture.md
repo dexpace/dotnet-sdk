@@ -387,7 +387,8 @@ is bridged through `AsBlocking`, so the sync path is real down to the transport 
 wait is a genuine blocking wait over the `TimeProvider`, and `AuthorizationPolicy.GetCredential` is the documented bridge until phase 6c
 gives `AccessTokenCache` a sync path. *The options capture (P4c-11)*: `Build(transport)` captures `new DexpaceClientOptions()` and
 `Build(transport, options)` the caller's, so the seam entry points have client options to run with; the `SendAsync`/`Send` overloads
-taking a `DexpaceClientOptions` override them for one call and carry no optional token (`RS0026`, `RS0027`).
+taking a `DexpaceClientOptions` override them for one call and carry no optional token (`RS0026`, `RS0027`). *Dated correction, 2026-10-07,
+phase 5a (P5a-6):* the overloads are kept; `DexpaceClientOptions` is now an immutable record, so "this call, these options" is derived with `with`.
 
 ### 5.4 The execution context model
 

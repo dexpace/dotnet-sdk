@@ -362,5 +362,6 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `IdentityTokens`), resolved once, each field falling back to `unknown` and every token header-safe (`CFG-36`).
   Internal: `RetryFacts.IsRetryableStatus` and `IsRetryableCause` (`CFG-35`, wired by phase 6a) and `DeepValue`
   (`CFG-33`, `CFG-34`); no consumer-visible change.
+- `docs/sdk-documentation/configuration.md`; the AOT smoke covers the options records, `HttpDate`, `ProxyOptions` and `BuildInfo`.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

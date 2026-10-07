@@ -44,3 +44,4 @@ Written 2026-10-07 from what was built, against the [design](2026-10-05-phase4a-
   P4a-10, P4a-13 and P4a-15 remain open for the lead; the lead has not yet accepted the `SEAM-28` move to 4c.
 - **Build and test:** `dotnet build` (warnings as errors), `dotnet format --verify-no-changes` and the full test run pass;
   the AOT smoke prints "aot-smoke: all checks passed".
+- **Dated correction, 2026-10-07 (phase 5a, P5a-24):** the hand-off "5a may make `ContextStore.DefaultCapacity` configurable" is closed as declined. The store is process-wide, so a per-client option cannot size it coherently, and a process-wide setter is the global slot `CFG-13` declines; `CTX-11` to `CTX-13` require a bound, not a knob.
