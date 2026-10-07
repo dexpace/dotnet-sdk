@@ -2,12 +2,14 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Buffers;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Net;
 using System.Text;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Common;
@@ -20,6 +22,7 @@ using Dexpace.Sdk.Core.Recovery;
 using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet;
 using Dexpace.Sdk.Serialization.SystemTextJson;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.AotSmoke;
 
@@ -49,6 +52,7 @@ internal static class SmokeChecks
             CheckExecutionContext();
             await CheckPhase4bRecoveryAsync();
             await CheckPipelineReworkAsync();
+            await CheckHttpLoggingAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -450,6 +454,38 @@ internal static class SmokeChecks
             "an HttpPipeline used as an IAsyncHttpClient under Nest threads the RequestOptions through");
     }
 
+    // Phase 5b: body-level logging over CreateDefault, with a JSON and a binary body (OBS-34, OBS-36 to OBS-38, OBS-16 to OBS-18).
+    private static async Task CheckHttpLoggingAsync()
+    {
+        var logger = new SmokeLogger();
+        var transport = new LoggingProbeTransport();
+        using var pipeline = DexpacePipeline.CreateDefault(transport, logger: logger);
+        var options = new DexpaceClientOptions { Logging = new HttpLoggingOptions { Level = HttpLogLevel.Body } };
+        var headers = new Headers.Builder().Add("Authorization", "Bearer smoke-secret").Add("Accept", "application/json").Build();
+
+        var jsonRequest = new Request(Method.Post, new Uri("https://smoke.example.test/logs?token=smoke-secret"), headers, RequestBody.FromString("{\"in\":1}"));
+        using var json = await pipeline.SendAsync(jsonRequest, options, CancellationToken.None);
+        Expect(
+            Encoding.UTF8.GetString(await json.Body.ReadAsBytesAsync()) == "{\"out\":2}",
+            "the consumer reads every byte of a body-level logged JSON response");
+
+        using var binary = await pipeline.SendAsync(Request.Get("https://smoke.example.test/binary"), options, CancellationToken.None);
+        Expect((await binary.Body.ReadAsBytesAsync()).Length == 4, "the consumer reads every byte of a body-level logged binary response");
+
+        var responses = logger.Events.FindAll(e => e.Id == DexpaceLogEvents.HttpResponseId);
+        Expect(responses.Count == 2, "one http.response event per call");
+        Expect(responses[0].Get(DexpaceLogKeys.HttpResponseBodyPreview) as string == "{\"out\":2}", "the JSON response preview is the JSON text");
+        Expect(responses[0].Get(DexpaceLogKeys.HttpRequestBodyPreview) as string == "{\"in\":1}", "the request preview rides on the response event");
+        Expect(responses[1].Get(DexpaceLogKeys.HttpResponseBodyPreview) as string == "[binary 4 bytes captured]", "the binary response preview is the size-only marker");
+
+        var request = logger.Events.Find(e => e.Id == DexpaceLogEvents.HttpRequestId);
+        Expect(request is not null && request.Get("http.request.header.authorization") as string == "REDACTED", "Authorization is logged as REDACTED");
+        Expect(request!.Get(DexpaceLogKeys.UrlFull) as string == "https://smoke.example.test/logs?token=***", "url.full carries no secret value");
+        Expect(logger.Events.TrueForAll(e => !e.Text.Contains("smoke-secret", StringComparison.Ordinal)), "no event carries the secret");
+
+        Expect(new UrlRedactor().RedactHeaderValue("/cb?code=smoke-secret") == "/cb?***", "UrlRedactor.RedactHeaderValue");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
@@ -555,5 +591,56 @@ internal static class SmokeChecks
             response.Headers.Add("X-Echo-Method", request.Method.Method);
             return response;
         }
+    }
+
+    /// <summary>An ILogger that keeps each event's id, key/value state and flattened text.</summary>
+    private sealed class SmokeLogger : ILogger
+    {
+        public List<SmokeEvent> Events { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var pairs = new List<KeyValuePair<string, object?>>();
+            var text = new StringBuilder(formatter(state, exception));
+            if (state is IEnumerable<KeyValuePair<string, object?>> list)
+            {
+                foreach (var pair in list)
+                {
+                    pairs.Add(pair);
+                    text.Append(' ').Append(pair.Value);
+                }
+            }
+
+            Events.Add(new SmokeEvent(eventId.Id, pairs, text.ToString()));
+        }
+    }
+
+    private sealed record SmokeEvent(int Id, List<KeyValuePair<string, object?>> State, string Text)
+    {
+        public object? Get(string key) => State.Find(p => p.Key == key).Value;
+    }
+
+    /// <summary>An in-process transport that writes the request body and answers JSON or binary by path.</summary>
+    private sealed class LoggingProbeTransport : IAsyncHttpClient
+    {
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            if (request.Body is not null)
+            {
+                await request.Body.WriteToAsync(Stream.Null, cancellationToken);
+            }
+
+            var body = request.Url.AbsolutePath == "/binary"
+                ? ResponseBody.FromBytes(new byte[] { 0, 1, 2, 255 }, MediaType.Parse("application/octet-stream"))
+                : ResponseBody.FromBytes("{\"out\":2}"u8.ToArray(), MediaType.Parse("application/json"));
+            return new Response(request, Status.Ok, Protocol.Http11, body: body);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
