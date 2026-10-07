@@ -197,6 +197,11 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** the dispose-suppressed warning is `dexpace.dispose.suppressed` (id 130, keys
   `dexpace.dispose.resource_type` and `error.type`) instead of `DisposeSuppressed` (id 1), and it now reaches the
   pipeline's logger from the retry and redirect policies (the logger of the pipeline's `InstrumentationPolicy`; P5b-6).
+- **Breaking, opt-in:** at `HttpLogLevel.Body` a response with a known-length body that is not `text/event-stream` comes back with a
+  wrapped body: up to the preview size is read before `SendAsync`/`Send` returns (added latency), a body that fits is served
+  from memory and can be opened again, a larger one is served as the captured prefix then the live remainder (the caller still
+  receives every byte), and `ContentLength` follows `BODY-29`. Unknown-length and `text/event-stream` bodies are never wrapped
+  (`OBS-36`, `OBS-37`, `OBS-38`, `BODY-34`, P5b-12). `Body` logs payloads verbatim: it is for diagnosis, not for production.
 
 ### Added
 
@@ -322,5 +327,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Phase 5b logging step 3: the `http.request` / `http.response` events, the emission guard and the logger carried on the call
   (`OBS-1` to `OBS-4`, `OBS-6`, `OBS-20`, `OBS-24`, `OBS-34`, `OBS-39`); `RecordingLogger`, `ProviderLikeLogger`,
   `ThrowingLogger` and `DisabledLogger` in `Dexpace.Sdk.TestSupport`.
+- Phase 5b body-level logging step: bounded request and response body previews (`http.request.body.preview`,
+  `http.response.body.preview` and their `.preview.size`), the `http.instrumentation.body_capture_failed` diagnostic, and an
+  internal ownership-moving `Response.ReplaceBody` that keeps the exchange link across the swap (P5b-13).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

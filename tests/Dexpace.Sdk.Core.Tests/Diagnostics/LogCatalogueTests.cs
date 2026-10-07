@@ -5,6 +5,7 @@ using System.Reflection;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
@@ -69,7 +70,46 @@ public sealed class LogCatalogueTests
             .SendAsync(Get(), TestContext.Current.CancellationToken);
         recorded.AddRange(dispose.Entries);
 
+        if (level == HttpLogLevel.Body)
+        {
+            var capture = new RecordingLogger();
+            var failing = ResponseBody.FromStream(new FailingStream(), MediaType.Parse("text/plain"), 10);
+            using var d = await new PipelineBuilder().Add(new InstrumentationPolicy(capture))
+                .Build(new RecordingTransport(_ => TestResponses.Create(Status.Ok, body: failing)), Options(level))
+                .SendAsync(Get(), TestContext.Current.CancellationToken);
+            recorded.AddRange(capture.Entries);
+        }
+
         return recorded;
+    }
+
+    private sealed class FailingStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new IOException("capture failed");
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [Theory]
@@ -82,6 +122,8 @@ public sealed class LogCatalogueTests
         Assert.Contains(entries, e => e.EventId.Id == DexpaceLogEvents.LogFailedId);
         Assert.Contains(entries, e => e.EventId.Id == DexpaceLogEvents.DisposeSuppressedId);
         Assert.Contains(entries, e => e.EventId.Id == DexpaceLogEvents.HttpFailureId);
+        Assert.Equal(level == HttpLogLevel.Body, entries.Any(e => e.EventId.Id == DexpaceLogEvents.BodyCaptureFailedId));
+        Assert.Equal(level == HttpLogLevel.Body, entries.Any(e => e.Has(DexpaceLogKeys.HttpResponseBodyPreview)));
         Assert.All(entries, e =>
         {
             Assert.True(s_eventNames.Contains(e.EventId.Name!), $"{e.EventId.Name} is not in the catalogue");

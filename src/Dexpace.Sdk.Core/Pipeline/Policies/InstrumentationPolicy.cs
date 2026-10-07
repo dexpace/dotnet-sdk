@@ -70,6 +70,18 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <c>http.instrumentation.log_failed</c> event, and span and meter callbacks are not wrapped by that guard.
 /// </para>
 /// <para>
+/// <b>Body level (OBS-34, OBS-36 to OBS-38, BODY-34).</b> At <see cref="Configuration.HttpLogLevel.Body"/> the request body
+/// is tapped on the request passed downstream (never on the one a retry or redirect policy holds) and a response with a
+/// known-length body that is not <c>text/event-stream</c> comes back with a logging wrapper: up to
+/// <see cref="Configuration.HttpLoggingOptions.BodyPreviewSize"/> bytes are read before the call returns, a body that fits
+/// is then served from memory and can be opened again, and a larger one is served as the captured prefix followed by the
+/// live remainder, so the caller always receives every byte. Unknown-length and event-stream bodies are never wrapped, so
+/// no capture waits on a slow producer. <b>Breaking:</b> the wrapped body, the added latency of that read and
+/// <c>ContentLength</c> following BODY-29. The request preview rides on the response (or failure) event because the body is
+/// written inside the continuation, after <c>http.request</c>. <b>Body level logs payloads verbatim up to the preview
+/// size: it is for diagnosis, not for production.</b>
+/// </para>
+/// <para>
 /// <b>Breaking (5b):</b> the policy used to log at <see cref="LogLevel.Debug"/> on every call, with generated event names
 /// (ids 1 to 3) and <c>{Method}</c>, <c>{Url}</c>, <c>{StatusCode}</c> keys, <c>error.type</c> as the short type name, and
 /// unguarded log calls (a throwing logger failed the request). It now logs nothing unless asked, under the names, ids,

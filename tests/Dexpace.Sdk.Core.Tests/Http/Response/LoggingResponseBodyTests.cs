@@ -8,9 +8,11 @@
 #pragma warning disable CA2000 // The streams and bodies under test are released by the assertions.
 
 using System.Diagnostics;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.TestSupport.Diagnostics;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Http.Responses;
@@ -678,5 +680,109 @@ public sealed class LoggingResponseBodyTests : IDisposable
         Assert.Equal(Bytes(20), await fits.ReadAsBytesAsync(Token));
         Assert.Equal(Bytes(20), await exceeds.ReadAsBytesAsync(Token));
         Assert.Equal(Bytes(20), new LoggingResponseBody(ResponseBody.FromBytes(Bytes(20)), 5).ReadAsBytes(Token));
+    }
+
+    [Theory]
+    [InlineData(0, 5)]
+    [InlineData(4, 3)]
+    [InlineData(4, 4)]
+    [InlineData(4, 5)]
+    [InlineData(10, 200_000)]
+    public async Task Snapshot_sync_returns_the_same_bytes_as_SnapshotAsync(int cap, int length)
+    {
+        var (syncWrapper, _, _) = Wrap(Bytes(length), cap);
+        var (asyncWrapper, _, _) = Wrap(Bytes(length), cap);
+
+        var sync = syncWrapper.Snapshot(cap, Token);
+        var async = await asyncWrapper.SnapshotAsync(cap, Token);
+
+        Assert.Equal(async, sync);
+        Assert.Equal(Math.Min(cap, length), sync.Length);
+        Assert.Equal(Bytes(length)[..sync.Length], sync);
+        if (sync.Length > 0)
+        {
+            Assert.NotSame(sync, syncWrapper.Snapshot(cap, Token));
+        }
+
+        Assert.Equal(sync[..Math.Min(2, sync.Length)], syncWrapper.Snapshot(2, Token));
+        Assert.Throws<ArgumentOutOfRangeException>(() => syncWrapper.Snapshot(-1, Token));
+    }
+
+    [Fact]
+    public void Snapshot_sync_never_throws_a_drain_failure_and_exposes_it_through_DrainFailure()
+    {
+        var failure = new IOException("upstream failed");
+        var wrapper = new LoggingResponseBody(new SpyBody(() => new ProbeStream(Bytes(20), chunk: 7, failAtEnd: failure)), 100);
+
+        var snapshot = wrapper.Snapshot(100, Token);
+
+        Assert.Equal(Bytes(20), snapshot);
+        Assert.Same(failure, wrapper.DrainFailure);
+        Assert.Throws<IOException>(() => wrapper.OpenRead(Token));
+    }
+
+    [Fact]
+    public async Task Snapshot_sync_honours_the_starters_token()
+    {
+        var (wrapper, _, _) = Wrap(Bytes(10), 100);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        Assert.ThrowsAny<OperationCanceledException>(() => wrapper.Snapshot(100, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wrapper.SnapshotAsync(100, cancelled.Token));
+    }
+
+    [Fact]
+    public async Task Snapshot_sync_after_dispose_returns_what_was_captured()
+    {
+        var (captured, _, _) = Wrap(Bytes(10), 100);
+        _ = captured.Snapshot(100, Token);
+        captured.Dispose();
+
+        var (neverDrained, _, _) = Wrap(Bytes(10), 100);
+        await neverDrained.DisposeAsync();
+
+        Assert.Equal(Bytes(10), captured.Snapshot(100, Token));
+        Assert.Empty(neverDrained.Snapshot(100, Token));
+    }
+
+    [Fact]
+    public void A_throwing_delegate_dispose_during_a_quiet_close_is_reported_to_the_supplied_logger()
+    {
+        var logger = new RecordingLogger();
+        var wrapper = new LoggingResponseBody(
+            new SpyBody(() => new ProbeStream(Bytes(10)), disposeFailure: new IOException("release failed")),
+            100,
+            logger);
+
+        _ = wrapper.Snapshot(100, Token);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressedId, entry.EventId.Id);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, entry.Level);
+    }
+
+    [Fact]
+    public async Task A_throwing_delegate_dispose_during_an_async_quiet_close_is_reported_too()
+    {
+        var logger = new RecordingLogger();
+        var wrapper = new LoggingResponseBody(
+            new SpyBody(() => new ProbeStream(Bytes(10)), disposeFailure: new IOException("release failed")),
+            100,
+            logger);
+
+        _ = await wrapper.SnapshotAsync(100, Token);
+
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressedId, Assert.Single(logger.Entries).EventId.Id);
+    }
+
+    [Fact]
+    public void Constructing_without_a_logger_is_unchanged()
+    {
+        var wrapper = new LoggingResponseBody(
+            new SpyBody(() => new ProbeStream(Bytes(10)), disposeFailure: new IOException("release failed")),
+            100);
+
+        Assert.Equal(Bytes(10), wrapper.Snapshot(100, Token));
     }
 }
