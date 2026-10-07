@@ -641,7 +641,59 @@ public sealed class RetryPolicyTests
         Assert.Equal([TimeSpan.FromSeconds(7)], syncClock.DueTimes);
     }
 
-    private sealed class RecordingClock : TimeProvider
+    // -------------------------------------------------------------------------
+    // HTTP-date Retry-After through HttpDate (CFG-30, RETRY-15; P5a-12) — Breaking (behaviour)
+    // -------------------------------------------------------------------------
+
+    private static readonly DateTimeOffset s_dateNow = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    [Theory]
+    [InlineData("thu, 01 jan 2026 00:00:30 gmt")]
+    [InlineData("Mon, 01 Jan 2026 00:00:30 GMT")]
+    [InlineData("Thu, 01 Jan 2026 00:00:30 UTC")]
+    [InlineData("Thu, 01 Jan 2026 00:00:30 +0000")]
+    [InlineData("Thu, 1 Jan 2026 00:00:30 GMT")]
+    public async Task A_retry_after_http_date_the_BCL_parser_rejected_is_now_honoured(string retryAfter)
+    {
+        foreach (var async in new[] { true, false })
+        {
+            var clock = new RecordingClock(s_dateNow);
+            var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
+            var transport = new ScriptedTransport(
+                TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+                TestResponses.Create(Status.Ok, MakeGetRequest()));
+            var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+            var token = TestContext.Current.CancellationToken;
+
+            using var response = async
+                ? await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), token)
+                : pipeline.Send(MakeGetRequest(), MakeOptions(), token);
+
+            Assert.Equal(Status.Ok, response.Status);
+            Assert.Equal([TimeSpan.FromSeconds(30)], clock.DueTimes);
+        }
+    }
+
+    [Theory]
+    [InlineData("Sunday, 06-Nov-94 08:49:37 GMT")]
+    [InlineData("Sun Nov  6 08:49:37 1994")]
+    public async Task An_rfc850_or_asctime_retry_after_is_ignored_and_the_computed_delay_is_used(string retryAfter)
+    {
+        var clock = new RecordingClock(s_dateNow);
+        var headers = new Headers.Builder().Set("Retry-After", retryAfter).Build();
+        var transport = new ScriptedTransport(
+            TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), headers),
+            TestResponses.Create(Status.Ok, MakeGetRequest()));
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        // A rejected date is "no hint", never a wrong wait: the delay is the jittered back-off, capped at MaxDelay (10 ms).
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.All(clock.DueTimes, due => Assert.InRange(due, TimeSpan.Zero, TimeSpan.FromMilliseconds(10)));
+    }
+
+    private sealed class RecordingClock(DateTimeOffset? now = null) : TimeProvider
     {
         private readonly List<TimeSpan> _dueTimes = [];
 
@@ -656,7 +708,7 @@ public sealed class RetryPolicyTests
             }
         }
 
-        public override DateTimeOffset GetUtcNow() => InstantTimeProvider.DefaultUtcNow;
+        public override DateTimeOffset GetUtcNow() => now ?? InstantTimeProvider.DefaultUtcNow;
 
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {

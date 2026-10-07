@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Collections.Immutable;
-using System.Globalization;
 using Dexpace.Sdk.Core.Http.Common;
 
 namespace Dexpace.Sdk.Core.Http.Request;
@@ -135,6 +134,6 @@ public sealed record RequestConditions
 
     private static Headers SetDate(Headers headers, HttpHeaderName name, DateTimeOffset? date) =>
         date is { } instant
-            ? headers.Set(name, instant.ToUniversalTime().ToString("R", CultureInfo.InvariantCulture))
+            ? headers.Set(name, HttpDate.Format(instant))
             : headers;
 }

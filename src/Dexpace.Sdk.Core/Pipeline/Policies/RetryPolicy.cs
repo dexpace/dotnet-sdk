@@ -34,6 +34,12 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// set GET, HEAD, OPTIONS, PUT, DELETE (HTTP-9).
 /// </para>
 /// <para>
+/// <b>Breaking (behaviour):</b> an HTTP-date <c>Retry-After</c> is parsed by <see cref="HttpDate"/> (CFG-30, RETRY-15;
+/// phase 5a). Values the BCL parser rejected are now honoured: lower case, a weekday inconsistent with the date, the
+/// <c>UTC</c>, <c>+0000</c> and <c>+00:00</c> zones, and a single-digit day. RFC 850 and asctime are still ignored (a
+/// rejected date is "no hint", never a wrong wait; design §11 item 27).
+/// </para>
+/// <para>
 /// <b>Delay:</b> when <c>Retry-After</c> is present and
 /// <see cref="RetryOptions.HonorRetryAfter"/> is <see langword="true"/>, the parsed value
 /// is used; otherwise the delay is drawn from a uniform random distribution over
@@ -205,13 +211,8 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             return TimeSpan.FromSeconds(seconds);
         }
 
-        // HTTP-date form (RFC 1123 / "r" format).
-        if (DateTimeOffset.TryParseExact(
-                headerValue,
-                "r",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var httpDate))
+        // HTTP-date form (RFC 1123), through the shared parser (CFG-30, RETRY-15).
+        if (HttpDate.TryParse(headerValue, out var httpDate))
         {
             var delta = httpDate - _timeProvider.GetUtcNow();
             return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;

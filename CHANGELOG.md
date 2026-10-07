@@ -211,6 +211,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Internal gate: `BannedSymbols.txt` bans `Thread.Sleep`, every `Task.Delay` overload, `DateTime`/`DateTimeOffset`
   `Now`/`UtcNow`/`Today` and the `Environment` variable readers in `src/` (`CFG-15`, `CFG-16`, `CFG-28`); no
   consumer-visible change.
+- **Breaking (behaviour):** `RetryPolicy` honours HTTP-date `Retry-After` values it used to ignore (lower case, a weekday
+  inconsistent with the date, the `UTC`/`+0000`/`+00:00` zones, a single-digit day). `SetDatePolicy` and
+  `RequestConditions` format through `HttpDate`; their output is unchanged.
 
 ### Added
 
@@ -345,5 +348,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `TimeProvider`, both rejecting a negative delay (the BCL's `-1 ms` means "wait forever") and chunking past ~49.7 days
   (`CFG-15`, `CFG-17`, `CFG-18`). `RetryPolicy` waits through them. Internal: `LateResult`, the cooperative form of
   `CFG-21` and the one `Task<T>.WaitAsync` site.
+- `HttpDate` (`Format`, `Parse`, `TryParse`): the RFC 1123 HTTP-date formatter and a hand-written span parser (zone and
+  month case-insensitive; `GMT`, `UTC`, `+0000`, `+00:00`; the weekday is stripped, never validated; RFC 850 and
+  asctime rejected) (`CFG-29`, `CFG-30`, `CFG-31`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

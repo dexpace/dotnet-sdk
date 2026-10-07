@@ -239,6 +239,7 @@ Dexpace.Sdk.Core.Http.Common.Headers.With(Dexpace.Sdk.Core.Http.Common.HttpHeade
 Dexpace.Sdk.Core.Http.Common.Headers.With(string! name, string! value) -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Common.Headers.Without(Dexpace.Sdk.Core.Http.Common.HttpHeaderName! name) -> Dexpace.Sdk.Core.Http.Common.Headers!
 Dexpace.Sdk.Core.Http.Common.Headers.Without(string! name) -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Common.HttpDate
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.<Clone>$() -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 Dexpace.Sdk.Core.Http.Common.HttpHeaderName.CanonicalName.get -> string!
@@ -593,6 +594,9 @@ static Dexpace.Sdk.Core.Http.Common.ETag.operator ==(Dexpace.Sdk.Core.Http.Commo
 static Dexpace.Sdk.Core.Http.Common.Headers.Empty.get -> Dexpace.Sdk.Core.Http.Common.Headers!
 static Dexpace.Sdk.Core.Http.Common.Headers.operator !=(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
 static Dexpace.Sdk.Core.Http.Common.Headers.operator ==(Dexpace.Sdk.Core.Http.Common.Headers? left, Dexpace.Sdk.Core.Http.Common.Headers? right) -> bool
+static Dexpace.Sdk.Core.Http.Common.HttpDate.Format(System.DateTimeOffset instant) -> string!
+static Dexpace.Sdk.Core.Http.Common.HttpDate.Parse(string! value) -> System.DateTimeOffset
+static Dexpace.Sdk.Core.Http.Common.HttpDate.TryParse(string? value, out System.DateTimeOffset instant) -> bool
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.Of(string! name) -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.IdempotencyKey.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.IfMatch.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
