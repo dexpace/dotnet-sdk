@@ -3,7 +3,6 @@
 
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using Dexpace.Sdk.Core.Internal;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,12 +33,12 @@ namespace Dexpace.Sdk.Core.Configuration;
 /// </remarks>
 public sealed record ProxyOptions
 {
-    private static readonly Regex[] s_noPatterns = [];
+    private static readonly string[] s_noPatterns = [];
 
     private static readonly IReadOnlyList<string> s_noHosts = Array.AsReadOnly<string>([]);
 
     private IReadOnlyList<string> _nonProxyHosts = s_noHosts;
-    private Regex[] _patterns = s_noPatterns;
+    private string[] _patterns = s_noPatterns;
 
     /// <summary>The proxy kind. Defaults to <see cref="ProxyType.Http"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is not a defined <see cref="ProxyType"/>.</exception>
@@ -96,7 +95,7 @@ public sealed record ProxyOptions
         {
             ArgumentNullException.ThrowIfNull(value);
             var copy = new string[value.Count];
-            var compiled = new Regex[copy.Length];
+            var compiled = new string[copy.Length];
             for (var i = 0; i < copy.Length; i++)
             {
                 copy[i] = value[i] ?? throw new ArgumentNullException(nameof(value), "A bypass pattern is null.");
@@ -120,7 +119,7 @@ public sealed record ProxyOptions
     /// <summary>Whether every target bypasses the proxy (CFG-27's explicit flag).</summary>
     public bool BypassAll { get; init; }
 
-    internal Regex[] CompiledPatterns => _patterns;
+    internal string[] CompiledPatterns => _patterns;
 
     /// <summary>Whether a request to <paramref name="host"/> should bypass the proxy (CFG-23).</summary>
     /// <remarks>

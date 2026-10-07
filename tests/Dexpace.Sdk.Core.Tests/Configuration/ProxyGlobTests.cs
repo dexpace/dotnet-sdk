@@ -67,6 +67,15 @@ public sealed class ProxyGlobTests
     }
 
     [Fact]
+    public void An_oversized_pattern_is_accepted_and_matches()
+    {
+        var options = new ProxyOptions { Host = "p", Port = 1, NonProxyHosts = [new string('?', 20_000)] };
+
+        Assert.False(options.IsBypassed("example.com"));
+        Assert.True(options.IsBypassed(new string('x', 20_000)));
+    }
+
+    [Fact]
     public void Patterns_are_compiled_once_at_init_not_per_call()
     {
         var options = new ProxyOptions { Host = "p", Port = 1, NonProxyHosts = ["a.test"] };

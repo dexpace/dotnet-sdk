@@ -162,6 +162,35 @@ public sealed class ProxyFromEnvironmentTests
         }
     }
 
+    [Theory]
+    [InlineData(2_000)]
+    [InlineData(20_000)]
+    public void A_very_long_NO_PROXY_token_never_throws(int length)
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["HTTP_PROXY"] = "http://p:1",
+            ["NO_PROXY"] = new string('a', length) + "," + string.Concat(Enumerable.Repeat("a*", length / 2)),
+        };
+
+        var resolved = ProxyOptions.FromEnvironment(Lookup(env), NullLogger.Instance);
+
+        Assert.NotNull(resolved);
+        Assert.False(resolved.IsBypassed("example.com"));
+    }
+
+    [Fact]
+    public void The_httpoxy_guard_holds_for_a_case_insensitive_lookup()
+    {
+        var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GATEWAY_INTERFACE"] = "CGI/1.1",
+            ["HTTP_PROXY"] = "http://attacker.example:8080",
+        };
+
+        Assert.Null(ProxyOptions.FromEnvironment(Lookup(env), NullLogger.Instance));
+    }
+
     [Fact]
     public void FromEnvironment_reads_only_the_variables_it_documents()
     {

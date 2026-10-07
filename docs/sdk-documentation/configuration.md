@@ -67,7 +67,7 @@ other character literal (`CFG-23`). Write `*.internal.example.com`: a leading do
 `key => configuration[key]`) resolves a proxy, never throws for its input, and warns without echoing the value (`CFG-24`-`CFG-27`):
 
 - the variables are `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`, `http_proxy`, the first present non-empty one winning, and one proxy
-  serves every target; upper-case `HTTP_PROXY` is skipped when `GATEWAY_INTERFACE` is set (httpoxy);
+  serves every target; upper-case `HTTP_PROXY` is skipped when `GATEWAY_INTERFACE` is set (httpoxy), and `http_proxy` with it when a case-insensitive lookup returns the same value;
 - a malformed chosen value yields `null` and one warning (`ProxyConfigurationIgnored`, provisional event id 20); it never falls through;
 - the URL is `scheme://[user[:password]@]host:port[/]` with `http`, `socks4`, `socks4a`, `socks5` or `socks5h`; `https` is rejected, the
   port must be explicit, all digits and 0 to 65535, and a malformed percent escape in the credentials is invalid;

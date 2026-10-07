@@ -12,7 +12,7 @@ namespace Dexpace.Sdk.Core.Internal;
 /// <remarks>
 /// The variable order is <c>HTTPS_PROXY</c>, <c>https_proxy</c>, <c>HTTP_PROXY</c>, <c>http_proxy</c>; the first present
 /// non-empty value (after trimming ASCII whitespace, R8) is the candidate. When <c>GATEWAY_INTERFACE</c> is present
-/// (a CGI host), upper-case <c>HTTP_PROXY</c> is skipped with a warning, because a CGI server copies a request's
+/// (a CGI host), upper-case <c>HTTP_PROXY</c> is skipped with a warning (and <c>http_proxy</c> too when a case-insensitive lookup returns the same value), because a CGI server copies a request's
 /// <c>Proxy:</c> header into it (httpoxy). A malformed chosen value yields <see langword="null"/> and one warning; it
 /// never falls through to the next variable.
 /// </remarks>
@@ -80,7 +80,12 @@ internal static class ProxyResolution
                 continue;
             }
 
-            if (name == "HTTP_PROXY" && Present(environment("GATEWAY_INTERFACE")) is not null)
+            // Upper-case HTTP_PROXY is skipped under CGI. A lookup that ignores case (Windows, IConfiguration) would hand the
+            // same attacker-controlled value back for http_proxy, so the lower-case spelling is honoured only when it
+            // differs from a present HTTP_PROXY (the Ruby find_proxy rule).
+            if (name is "HTTP_PROXY" or "http_proxy"
+                && Present(environment("GATEWAY_INTERFACE")) is not null
+                && (name == "HTTP_PROXY" || Present(environment("HTTP_PROXY")) == candidate))
             {
                 ProxyResolutionLog.Ignored(logger, name, "cgi");
                 continue;

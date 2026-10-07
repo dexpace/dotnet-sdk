@@ -1,9 +1,6 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Text;
-using System.Text.RegularExpressions;
-
 namespace Dexpace.Sdk.Core.Internal;
 
 /// <summary>
@@ -11,51 +8,28 @@ namespace Dexpace.Sdk.Core.Internal;
 /// every other character is a literal (a backslash included), the match is full-string and case-insensitive.
 /// </summary>
 /// <remarks>
-/// A glob compiles once to a <see cref="RegexOptions.NonBacktracking"/> expression anchored with <c>\A</c> and
-/// <c>\z</c>: <c>\z</c> rather than <c>$</c>, so a host with a trailing newline is not a match, and no
-/// <see cref="RegexOptions.Singleline"/>, so <c>.</c> never crosses a newline. A non-backtracking engine cannot be driven
-/// into catastrophic backtracking by a pattern such as <c>*a*a*a*b</c>, so no timeout is needed. Like the specification
-/// and unlike curl, a leading dot is a literal, not a domain suffix.
+/// A hand-written matcher rather than a regular expression: it has no pattern-size limit (so an arbitrarily long
+/// token can never make construction or resolution throw, CFG-24), needs no compilation, and runs in at most
+/// <c>O(pattern x host)</c> time because it remembers only the most recent <c>*</c>. A wildcard never matches a line
+/// feed, and a host with a trailing newline is not a match. Like the specification and unlike curl, a leading dot is a
+/// literal, not a domain suffix.
 /// </remarks>
 internal static class ProxyGlob
 {
-    private const RegexOptions Options = RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
-
-    /// <summary>Compiles <paramref name="glob"/> to an anchored regular expression.</summary>
+    /// <summary>Validates and normalises <paramref name="glob"/> for matching.</summary>
     /// <param name="glob">The glob text.</param>
-    /// <returns>The compiled expression.</returns>
-    internal static Regex Compile(string glob)
-    {
-        var body = new StringBuilder(@"\A");
-        foreach (var c in glob)
-        {
-            switch (c)
-            {
-                case '*':
-                    body.Append(".*");
-                    break;
-                case '?':
-                    body.Append('.');
-                    break;
-                default:
-                    body.Append(Regex.Escape(c.ToString()));
-                    break;
-            }
-        }
-
-        body.Append(@"\z");
-        return new Regex(body.ToString(), Options);
-    }
+    /// <returns>The pattern, ready for <see cref="Matches"/>.</returns>
+    internal static string Compile(string glob) => glob;
 
     /// <summary>Whether any pattern matches the whole of <paramref name="host"/>.</summary>
-    /// <param name="patterns">The compiled patterns.</param>
+    /// <param name="patterns">The patterns.</param>
     /// <param name="host">The host name to test.</param>
     /// <returns><see langword="true"/> when a pattern matches.</returns>
-    internal static bool Matches(Regex[] patterns, string host)
+    internal static bool Matches(string[] patterns, string host)
     {
         foreach (var pattern in patterns)
         {
-            if (pattern.IsMatch(host))
+            if (IsMatch(pattern, host))
             {
                 return true;
             }
@@ -63,4 +37,41 @@ internal static class ProxyGlob
 
         return false;
     }
+
+    private static bool IsMatch(string pattern, string host)
+    {
+        int p = 0, h = 0, star = -1, mark = 0;
+        while (h < host.Length)
+        {
+            if (p < pattern.Length && pattern[p] == '*' && host[h] != '\n')
+            {
+                star = p++;
+                mark = h;
+            }
+            else if (p < pattern.Length && pattern[p] != '*' && SingleMatches(pattern[p], host[h]))
+            {
+                p++;
+                h++;
+            }
+            else if (star >= 0 && host[mark] != '\n')
+            {
+                p = star + 1;
+                h = ++mark;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        while (p < pattern.Length && pattern[p] == '*')
+        {
+            p++;
+        }
+
+        return p == pattern.Length;
+    }
+
+    private static bool SingleMatches(char pattern, char c) =>
+        pattern == '?' ? c != '\n' : char.ToLowerInvariant(pattern) == char.ToLowerInvariant(c);
 }
