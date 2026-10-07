@@ -644,3 +644,9 @@ P4a-3, P4a-6, P4a-8, P4a-10, P4a-13 and P4a-15.
 
 No ruling leaves a `CTX` MUST's letter unmet, so no §10 entry is opened. The `PIPE-32`/`REDIR-25` reversal under §10
 `async-redirect-pillar` is 4c's, and 4a does not touch it.
+
+**Correction 2026-10-07 (phase 5c, P5c-2, P5c-3).** "5c replaces `FromActivity(Activity.Current)` at dispatch with the operation span" is built as
+stated: `HttpPipeline.SendCoreAsync` opens the operation span at call entry, before the `DispatchContext`, and builds the bundle from it
+(`InstrumentationContext.FromActivity(operationSpan)`), or `InstrumentationContext.None` when the source has no listener, even under an ambient
+activity. No member of the bundle was added, renamed or retyped. See the
+[5c design](../../phase5/phase5c/2026-10-07-phase5c-tracing-design.md), positions A and B.

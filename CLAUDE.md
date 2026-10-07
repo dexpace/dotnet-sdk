@@ -126,7 +126,8 @@ dotnet-sdk/
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions (sealed records), HttpLogLevel, ProxyOptions, TimeProviderWaits, BuildInfo
-│   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter
+│   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter,
+│   │   │                            #   HttpSemanticConventions, HttpClientMetrics, AttemptTelemetry, OperationTelemetry (5c, internal)
 │   │   ├── Execution/               # CallKey, InstrumentationContext, the three context records, DexpaceCallContexts
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
@@ -254,8 +255,10 @@ pipeline rework — the request-in/response-out policy signature, the call-scope
 and `FromEnvironment`, `TimeProviderWaits`, `HttpDate`, `BuildInfo` and the clock, delay and environment bans — see `docs/sdk-documentation/configuration.md`;
 and phase 5b's logging and redaction — `HttpLoggingOptions`,
 the `http.request`/`http.response` events, header and URL redaction, the emission guard and body previews — see
-`docs/sdk-documentation/logging-and-redaction.md`):
-the retry engine over the recovery chain (6a), the operation span and metrics (5c), the auth resolver with RFC 7235
+`docs/sdk-documentation/logging-and-redaction.md`; and phase 5c's tracing and metrics — the operation span, the attempt span rework, the
+`dexpace.*` span events, the two instruments with their stable attribute sets and `SystemNetHttpClient`'s `traceparent` rule — see
+`docs/sdk-documentation/tracing-and-metrics.md`):
+the retry engine over the recovery chain (6a), the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).
