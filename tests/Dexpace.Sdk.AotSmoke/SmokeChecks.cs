@@ -489,7 +489,7 @@ internal static class SmokeChecks
     }
 
     // Phase 5a (CFG-8, CFG-9, CFG-15 to CFG-18, CFG-22 to CFG-25, CFG-29 to CFG-31, CFG-36): the configuration surface
-    // under NativeAOT, including the NonBacktracking regex behind the proxy bypass globs.
+    // under NativeAOT, including the hand-written glob matcher behind the proxy bypass list.
     private static async Task CheckPhase5aConfigurationAsync()
     {
         var options = new DexpaceClientOptions { BaseAddress = new Uri("https://api.example.test/v1?sig=secret") };

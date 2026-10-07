@@ -1579,5 +1579,6 @@ assembly. 9: bind the records (the staging-type fallback if the binder cannot se
 range rules, and `FromEnvironment(key => configuration[key], logger)`. The 3a and 4a hand-offs (materialisation cap, context-store
 capacity) are closed by dated corrections on their checklists, and 5b's hand-off is closed: `DexpaceClientOptions.Logging` is an
 `init` property on the record, still rejecting `null` (P5b-5). Knowledge corpus: nothing found that contradicts a harvested entry; the
-`NonBacktracking` regex was verified to run under NativeAOT, `Uri.Port` to default an absent port, and `Uri.UnescapeDataString` to leave a
+`NonBacktracking` regex was verified to run under NativeAOT (and then replaced by a hand-written glob matcher, because a long `NO_PROXY` token
+made its constructor throw, review finding F1), `Uri.Port` to default an absent port, and `Uri.UnescapeDataString` to leave a
 lone `%` in place.
