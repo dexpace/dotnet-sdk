@@ -1,0 +1,87 @@
+{
+  "source": "nodejs-sdk@54aeed4 packages/core/src/config/proxy.test.ts (NO_PROXY split); design 5a P5a-15 item 4. Split on commas not preceded by a backslash, drop empty fragments, unescape backslash-comma, trim, in that order.",
+  "cases": [
+    {
+      "name": "00 'a.test,b.test'",
+      "value": "a.test,b.test",
+      "expected": [
+        "a.test",
+        "b.test"
+      ]
+    },
+    {
+      "name": "01 ' a.test , b.test '",
+      "value": " a.test , b.test ",
+      "expected": [
+        "a.test",
+        "b.test"
+      ]
+    },
+    {
+      "name": "02 'a\\\\,b,c'",
+      "value": "a\\,b,c",
+      "expected": [
+        "a,b",
+        "c"
+      ]
+    },
+    {
+      "name": "03 'a,, ,c'",
+      "value": "a,, ,c",
+      "expected": [
+        "a",
+        "",
+        "c"
+      ]
+    },
+    {
+      "name": "04 '*'",
+      "value": "*",
+      "expected": "bypass-all"
+    },
+    {
+      "name": "05 ' * '",
+      "value": " * ",
+      "expected": "bypass-all"
+    },
+    {
+      "name": "06 '*,x.test'",
+      "value": "*,x.test",
+      "expected": [
+        "*",
+        "x.test"
+      ]
+    },
+    {
+      "name": "07 '*.internal'",
+      "value": "*.internal",
+      "expected": [
+        "*.internal"
+      ]
+    },
+    {
+      "name": "08 ''",
+      "value": "",
+      "expected": []
+    },
+    {
+      "name": "09 '\\\\,'",
+      "value": "\\,",
+      "expected": [
+        ","
+      ]
+    },
+    {
+      "name": "10 'a\\\\\\\\,b'",
+      "value": "a\\\\,b",
+      "expected": [
+        "a\\,b"
+      ]
+    },
+    {
+      "name": "11 ','",
+      "value": ",",
+      "expected": []
+    }
+  ]
+}

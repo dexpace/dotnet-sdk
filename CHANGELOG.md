@@ -351,5 +351,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - `HttpDate` (`Format`, `Parse`, `TryParse`): the RFC 1123 HTTP-date formatter and a hand-written span parser (zone and
   month case-insensitive; `GMT`, `UTC`, `+0000`, `+00:00`; the weekday is stripped, never validated; RFC 850 and
   asctime rejected) (`CFG-29`, `CFG-30`, `CFG-31`).
+- `ProxyOptions`, `ProxyType` and `ProxyOptions.FromEnvironment`: an immutable proxy model (host, port, ordered glob
+  bypass list, credentials, a challenge-credentials slot, a credential-masking `ToString`) and an environment resolver
+  that reads `HTTPS_PROXY`/`HTTP_PROXY` (either case) and `NO_PROXY`, never throws, and warns without echoing the value
+  (`CFG-22`..`CFG-28`). Installing it in the transport is phase 8b's.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

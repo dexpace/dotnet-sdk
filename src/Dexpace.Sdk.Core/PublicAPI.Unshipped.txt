@@ -113,6 +113,31 @@ Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.OmitDisallowedHeaders.init -> 
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.UrlValuedHeaderNames.init -> void
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.UserAgent.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions
+Dexpace.Sdk.Core.Configuration.ProxyOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.ProxyOptions!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.BypassAll.get -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.BypassAll.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ChallengeCredentials.get -> System.Net.ICredentials?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ChallengeCredentials.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Equals(Dexpace.Sdk.Core.Configuration.ProxyOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Host.get -> string!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Host.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.IsBypassed(string! host) -> bool
+Dexpace.Sdk.Core.Configuration.ProxyOptions.NonProxyHosts.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Configuration.ProxyOptions.NonProxyHosts.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Password.get -> string?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Password.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Port.get -> int
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Port.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.ProxyOptions() -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Type.get -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyOptions.Type.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyOptions.UserName.get -> string?
+Dexpace.Sdk.Core.Configuration.ProxyOptions.UserName.init -> void
+Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Http = 0 -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Socks4 = 1 -> Dexpace.Sdk.Core.Configuration.ProxyType
+Dexpace.Sdk.Core.Configuration.ProxyType.Socks5 = 2 -> Dexpace.Sdk.Core.Configuration.ProxyType
 Dexpace.Sdk.Core.Configuration.RedirectOptions
 Dexpace.Sdk.Core.Configuration.RedirectOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.get -> bool
@@ -492,6 +517,9 @@ override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.ToString() -> string!
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.GetHashCode() -> int
+override Dexpace.Sdk.Core.Configuration.ProxyOptions.ToString() -> string!
 override Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.RedirectOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.RedirectOptions.ToString() -> string!
@@ -570,6 +598,11 @@ static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator !=(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.operator ==(Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? left, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment() -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment(Microsoft.Extensions.Logging.ILogger! logger) -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.FromEnvironment(System.Func<string!, string?>! environment, Microsoft.Extensions.Logging.ILogger! logger) -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.operator !=(Dexpace.Sdk.Core.Configuration.ProxyOptions? left, Dexpace.Sdk.Core.Configuration.ProxyOptions? right) -> bool
+static Dexpace.Sdk.Core.Configuration.ProxyOptions.operator ==(Dexpace.Sdk.Core.Configuration.ProxyOptions? left, Dexpace.Sdk.Core.Configuration.ProxyOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator !=(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.RedirectOptions.operator ==(Dexpace.Sdk.Core.Configuration.RedirectOptions? left, Dexpace.Sdk.Core.Configuration.RedirectOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.RetryOptions.operator !=(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
