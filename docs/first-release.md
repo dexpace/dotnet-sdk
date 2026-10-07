@@ -98,9 +98,11 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 
 ### Behavioural asymmetries a consumer must know
 
-None is recorded yet. The first candidate is the design §10 topic `async-redirect-pillar`: one `RedirectPolicy`
-serves both the synchronous and the asynchronous pipeline, which reverses `PIPE-32` and `REDIR-25`. Phase 4 records
-it here if it ships as designed.
+- **`async-redirect-pillar` (design §10 entry 14; `PIPE-32`, `REDIR-25`).** The reference contract has the asynchronous standard pipeline
+  not follow redirects. Here one `RedirectPolicy` serves both: `DexpacePipeline.CreateDefault` and
+  `PipelineBuilder.AddStandardResilience` install it whether the call goes through `SendAsync` or `Send`, so both follow redirects. The invariant the
+  asymmetry protected, that exactly one layer follows redirects, is the transport's (`AllowAutoRedirect = false` on the SDK-created client). A caller who
+  wants the 3xx verbatim sets `MaxRedirects` to zero or builds a pipeline without the policy. Recorded by phase 4c (2026-10-07).
 
 ### Post-v1 packages
 

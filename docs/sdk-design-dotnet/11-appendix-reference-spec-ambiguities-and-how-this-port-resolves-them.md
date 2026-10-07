@@ -266,3 +266,13 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     `bool async` body; the sync entry point reads the already-completed `ValueTask` through the internal `SyncPath`, the one
     sanctioned `ValueTask<T>.Result` read. The normative part of the paragraph, the two-layer prohibition, is kept: an
     architecture test forbids a `Recovery` to `Pipeline` reference (P4b-5). A reading, not a §10 deviation.
+47. **`PIPE-2` and `PIPE-4` name five pillars and one pre-redirect slot, but §5.1's `Operation` stage is a sixth singleton outside
+    it.** *Added by dated correction, 2026-10-07 (phase 4c, P4c-6).* *Resolved* (§5.1): `Operation` (the once-per-call deadline, and the
+    operation span from phase 5c) sits outside `PerCall`. Both run outside the redirect and retry loops and see one response, so
+    every boundary property `PIPE-2` and `PIPE-37` protect holds; making `Operation` a non-pillar would let two deadline
+    policies nest, and folding it into `PerCall` would put the deadline inside the error mapping. A reading, not a §10 deviation.
+48. **`PIPE-3` asks for configurable slots around the retry boundary, and says nothing about after the auth and logging
+    pillars.** *Added by dated correction, 2026-10-07 (phase 4c, P4c-7).* *Resolved* (§5.1): `PerCall`, `PerHop` and `PerAttempt` are
+    the user slots; there is none after `Auth`, `Diagnostics` or `Serde`. The keys are sparse (100 apart, with 150 and 250 between),
+    so the first consumer that must run after authentication, a request signer, adds one (a `PostAuth = 550`) additively. `PIPE-3`
+    is a SHOULD, met in part. A reading, not a §10 deviation.

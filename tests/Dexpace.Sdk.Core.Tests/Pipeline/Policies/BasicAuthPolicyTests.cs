@@ -98,83 +98,58 @@ public sealed class BasicAuthPolicyTests
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_WithholdsCredential()
     {
-        var credential = new BasicCredential("user", "pass");
-        var options = MakeOptions();
+        var policy = new BasicAuthPolicy(new BasicCredential("user", "pass"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        // Same origin as the seed: stamps.
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.NotNull(first.Headers.Get("Authorization"));
 
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new BasicAuthPolicy(credential);
-
-        // First run: records origin and stamps header.
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.NotNull(context.Request.Headers.Get("Authorization"));
-
-        // Simulate cross-origin redirect.
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty);
-
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run: different origin → credential must be withheld.
-        await policy.ProcessAsync(context, foreignRunner);
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        // Cross-origin hop: the credential must be withheld.
+        var foreign = await TestContexts.SentAsync(
+            policy, MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty), context);
+        Assert.Null(foreign.Headers.Get("Authorization"));
     }
 
     [Fact]
     public async Task ProcessAsync_SameOriginRerun_StampsCredentialAgain()
     {
-        var credential = new BasicCredential("user", "pass");
-        var options = MakeOptions();
-        var request = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(request, options);
-        var transport = new RecordingTransport();
-        var runner = new PipelineRunner([], 0, transport);
-        var policy = new BasicAuthPolicy(credential);
+        var policy = new BasicAuthPolicy(new BasicCredential("user", "pass"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        await policy.ProcessAsync(context, runner);
-        Assert.NotNull(context.Request.Headers.Get("Authorization"));
-
-        // Reset the header.
-        context.Request = context.Request.WithHeaders(Headers.Empty);
+        var first = await TestContexts.SentAsync(policy, context.SeedRequest, context);
+        Assert.NotNull(first.Headers.Get("Authorization"));
 
         // Same origin: must stamp again.
-        await policy.ProcessAsync(context, runner);
-        Assert.NotNull(context.Request.Headers.Get("Authorization"));
-        Assert.StartsWith("Basic ", context.Request.Headers.Get("Authorization"), StringComparison.Ordinal);
+        var second = await TestContexts.SentAsync(policy, first.WithHeaders(Headers.Empty), context);
+        Assert.StartsWith("Basic ", second.Headers.Get("Authorization"), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task ProcessAsync_CrossOriginRequest_StripsStaleAuthorizationHeader()
     {
-        // The request carries a stale Authorization header from the original hop.
-        // After the policy runs on a cross-origin request, that header must be absent —
-        // the foreign origin must never see it, even without RedirectPolicy in the pipeline.
-        var credential = new BasicCredential("user", "pass");
-        var options = MakeOptions();
+        // The request carries a stale Authorization header from the original hop; on a cross-origin hop it must be
+        // absent, even without RedirectPolicy in the pipeline.
+        var policy = new BasicAuthPolicy(new BasicCredential("user", "pass"));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/v1/resource"));
 
-        var originalRequest = MakeRequest("https://api.example.com/v1/resource");
-        var context = new PipelineContext(originalRequest, options);
+        var foreign = await TestContexts.SentAsync(
+            policy,
+            MakeRequest("https://other-service.example.org/callback")
+                .WithHeaders(Headers.Empty.Set("Authorization", $"Basic {Base64("user", "pass")}")),
+            context);
 
-        var recordingTransport = new RecordingTransport();
-        var recordingRunner = new PipelineRunner([], 0, recordingTransport);
-        var policy = new BasicAuthPolicy(credential);
+        Assert.Null(foreign.Headers.Get("Authorization"));
+    }
 
-        // First run: records origin and stamps header.
-        await policy.ProcessAsync(context, recordingRunner);
-        Assert.NotNull(context.Request.Headers.Get("Authorization"));
+    [Fact]
+    public void Process_sync_stamps_like_ProcessAsync()
+    {
+        var policy = new BasicAuthPolicy(new BasicCredential("alice", "s3cr3t"));
+        var context = TestContexts.For();
 
-        // Simulate a cross-origin redirect with the stale Authorization header still in place.
-        context.Request = MakeRequest("https://other-service.example.org/callback").WithHeaders(Headers.Empty.Set("Authorization", $"Basic {Base64("user", "pass")}"));
+        var sent = TestContexts.Sent(policy, context.SeedRequest, context);
 
-        var foreignTransport = new RecordingTransport();
-        var foreignRunner = new PipelineRunner([], 0, foreignTransport);
-
-        // Second run: different origin → stale Authorization header must be stripped.
-        await policy.ProcessAsync(context, foreignRunner);
-
-        Assert.Null(context.Request.Headers.Get("Authorization"));
+        Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", sent.Headers.Get("Authorization"));
     }
 }

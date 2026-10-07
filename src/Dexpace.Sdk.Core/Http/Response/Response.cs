@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.IO;
 
@@ -157,8 +158,31 @@ public sealed class Response : IAsyncDisposable, IDisposable
             return;
         }
 
-        throw new HttpResponseException(
+        throw ErrorMapping.ToException(
             await ErrorBodyBuffer.CaptureAsync(this, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Throws <see cref="HttpResponseException"/> if the status is an error: 400–599. The synchronous twin of
+    /// <see cref="EnsureSuccessAsync"/> over the same bounded error-body buffer (RECOV-16).
+    /// </summary>
+    /// <remarks>
+    /// When this method throws, it has already disposed this response, exactly as <see cref="EnsureSuccessAsync"/>
+    /// does; read the error body through the exception's <see cref="HttpResponseException.Response"/>.
+    /// </remarks>
+    /// <param name="cancellationToken">A token that can cancel the body-drain operation.</param>
+    /// <exception cref="HttpResponseException">
+    /// The response status is in the 400–599 range. The exception carries a replayable buffered copy of the error
+    /// body (up to <see cref="MaxBufferedErrorBytes"/> bytes).
+    /// </exception>
+    public void EnsureSuccess(CancellationToken cancellationToken = default)
+    {
+        if (!Status.IsClientError && !Status.IsServerError)
+        {
+            return;
+        }
+
+        throw ErrorMapping.ToException(ErrorBodyBuffer.Capture(this, cancellationToken));
     }
 
     /// <summary>
@@ -186,6 +210,43 @@ public sealed class Response : IAsyncDisposable, IDisposable
         }
     }
 
+    private readonly Lock _exchangeGate = new();
+    private readonly List<ExchangeContext> _exchanges = [];
+
+    /// <summary>
+    /// Attaches the exchange link a pipeline promoted for this response, so disposing the response closes it
+    /// (design §5.4). A pipeline used as another pipeline's transport attaches a second link; every link is closed, in
+    /// reverse order of attachment, when the response is disposed.
+    /// </summary>
+    internal void AttachExchange(ExchangeContext exchange)
+    {
+        ArgumentNullException.ThrowIfNull(exchange);
+        lock (_exchangeGate)
+        {
+            _exchanges.Add(exchange);
+        }
+    }
+
+    private void CloseExchanges()
+    {
+        ExchangeContext[] links;
+        lock (_exchangeGate)
+        {
+            if (_exchanges.Count == 0)
+            {
+                return;
+            }
+
+            links = [.. _exchanges];
+            _exchanges.Clear();
+        }
+
+        for (var i = links.Length - 1; i >= 0; i--)
+        {
+            links[i].Close();
+        }
+    }
+
     private int _disposed;
 
     /// <summary>Disposes the response and its body, at most once across <see cref="Dispose"/> and <see cref="DisposeAsync"/>.</summary>
@@ -200,6 +261,7 @@ public sealed class Response : IAsyncDisposable, IDisposable
             return;
         }
 
+        CloseExchanges();
         Body.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -216,6 +278,7 @@ public sealed class Response : IAsyncDisposable, IDisposable
             return;
         }
 
+        CloseExchanges();
         await Body.DisposeAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }

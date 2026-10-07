@@ -12,14 +12,29 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// </summary>
 /// <remarks>
 /// <see cref="CreateDefault"/> assembles the standard policy set in the correct stage order:
-/// <see cref="OperationPolicy"/> → <see cref="RedirectPolicy"/> → <see cref="IdempotencyPolicy"/>
-/// → <see cref="ClientIdentityPolicy"/> → <see cref="RetryPolicy"/> → <see cref="SetDatePolicy"/>
-/// → optional auth policy → <see cref="InstrumentationPolicy"/> → transport.
-/// Because <see cref="PipelineBuilder"/> sorts by <see cref="HttpPipelinePolicy.Stage"/> at build
-/// time, the insertion order of the <c>Add</c> calls here does not affect the final ordering.
+/// <see cref="OperationPolicy"/> → <see cref="IdempotencyPolicy"/> → <see cref="ClientIdentityPolicy"/>
+/// → <see cref="RedirectPolicy"/> → <see cref="RetryPolicy"/> → <see cref="SetDatePolicy"/>
+/// → optional auth policy → <see cref="InstrumentationPolicy"/> → transport. The resilience pillars come from
+/// <see cref="PipelineBuilder.AddStandardResilience"/>, and the same pipeline serves <c>SendAsync</c> and <c>Send</c>:
+/// both follow redirects (PIPE-32, REDIR-25; design §10 entry 14, topic <c>async-redirect-pillar</c>). A caller who
+/// wants the 3xx verbatim sets <c>MaxRedirects</c> to zero or builds without <see cref="RedirectPolicy"/>.
+/// Because <see cref="PipelineBuilder"/> sorts by stage, the insertion order of the <c>Add</c> calls does not affect the
+/// final ordering. The async backoff is <see cref="Task.Delay(TimeSpan, TimeProvider, CancellationToken)"/> over the
+/// <see cref="TimeProvider"/>, and the synchronous wait is a genuine blocking wait (PIPE-39).
 /// </remarks>
 public static class DexpacePipeline
 {
+    /// <summary>
+    /// Builds a step-less pipeline that forwards every call straight to <paramref name="transport"/> (PIPE-39).
+    /// </summary>
+    /// <param name="transport">The transport; the pipeline never owns or disposes it.</param>
+    /// <returns>An empty <see cref="HttpPipeline"/>.</returns>
+    public static HttpPipeline CreateEmpty(IAsyncHttpClient transport)
+    {
+        ArgumentNullException.ThrowIfNull(transport);
+        return new PipelineBuilder().Build(transport);
+    }
+
     /// <summary>
     /// Builds the default HTTP pipeline with all standard policies wired in the correct stage order.
     /// </summary>
@@ -49,13 +64,10 @@ public static class DexpacePipeline
         ArgumentNullException.ThrowIfNull(transport);
 
         var builder = new PipelineBuilder()
-            .Add(new OperationPolicy())
-            .Add(new RedirectPolicy())
             .Add(new IdempotencyPolicy())
             .Add(new ClientIdentityPolicy())
-            .Add(new RetryPolicy(timeProvider))
             .Add(new SetDatePolicy(timeProvider))
-            .Add(new InstrumentationPolicy(logger));
+            .AddStandardResilience(timeProvider, logger);
 
         if (authPolicy is not null)
         {

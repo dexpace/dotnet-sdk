@@ -13,7 +13,7 @@ namespace Dexpace.Sdk.TestSupport.Transports;
 /// faulted task, exactly as a real transport's failure would surface.
 /// </summary>
 /// <param name="respond">Builds the response for a request; <see langword="null"/> answers <c>200 OK</c>.</param>
-public sealed class RecordingTransport(Func<Request, Response>? respond = null) : IAsyncHttpClient
+public sealed class RecordingTransport(Func<Request, Response>? respond = null) : IAsyncHttpClient, IHttpClient
 {
     private readonly RequestLog _log = new();
 
@@ -50,6 +50,20 @@ public sealed class RecordingTransport(Func<Request, Response>? respond = null) 
             return Task.FromException<Response>(ex);
         }
     }
+
+    /// <summary>The synchronous twin: shares the request log with <see cref="ExecuteAsync"/>.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>The responder's response, or 200.</returns>
+    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+    {
+        _log.Add(request, options, cancellationToken);
+        return respond is null ? TestResponses.Create(Status.Ok) : respond(request);
+    }
+
+    /// <summary>Marks the transport disposed.</summary>
+    public void Dispose() => IsDisposed = true;
 
     /// <inheritdoc />
     public ValueTask DisposeAsync()

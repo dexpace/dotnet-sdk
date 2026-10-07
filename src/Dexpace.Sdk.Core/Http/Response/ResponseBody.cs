@@ -60,6 +60,10 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     /// </summary>
     public virtual long ContentLength => -1;
 
+    // True for the empty replayable body, the shape design §10 entry 30 gives an absent body: it holds no connection and
+    // nothing to drain (BODY-30, P4c-18).
+    internal virtual bool IsEmptyReplayable => false;
+
     // The one message every second open throws (BODY-14): it names the buffering route. SystemNet repeats it verbatim.
     internal const string ConsumedMessage =
         "This response body has already been read. A response body can be opened once; to read it more than once, "
@@ -289,6 +293,8 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
 
     private sealed class ReplayableBytesResponseBody(byte[] bytes, MediaType? contentType) : ResponseBody
     {
+        internal override bool IsEmptyReplayable => bytes.Length == 0;
+
         public override MediaType? ContentType { get; } = contentType;
 
         public override long ContentLength => bytes.LongLength;

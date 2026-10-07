@@ -10,17 +10,20 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Numbers are sparse to leave room for future stages without breaking existing values.
+/// Numbers are sparse (PIPE-3) to leave room for future stages without breaking existing values.
 /// </para>
 /// <para>
 /// <b>Pillar stages</b> — <see cref="Operation"/>, <see cref="Redirect"/>, <see cref="Retry"/>,
-/// <see cref="Auth"/>, and <see cref="Diagnostics"/> — admit exactly one policy each.
-/// Adding a second policy to a pillar stage is a configuration error detected at
-/// pipeline build time.
+/// <see cref="Auth"/>, <see cref="Diagnostics"/> and <see cref="Serde"/> — admit exactly one policy each.
+/// Adding a second, distinct policy to a pillar stage throws at <c>Add</c> time (PIPE-5).
 /// </para>
 /// <para>
-/// <b>Non-pillar stages</b> — <see cref="PerCall"/> and <see cref="PerAttempt"/> — may hold
+/// <b>Non-pillar stages</b> — <see cref="PerCall"/>, <see cref="PerHop"/> and <see cref="PerAttempt"/> — may hold
 /// multiple policies, which execute in the order they were registered.
+/// </para>
+/// <para>
+/// There is no user slot after <see cref="Auth"/>, <see cref="Diagnostics"/> or <see cref="Serde"/>; because the keys
+/// are sparse, adding one later is additive (PIPE-3).
 /// </para>
 /// </remarks>
 public enum PipelineStage
@@ -32,17 +35,29 @@ public enum PipelineStage
     Operation = 100,
 
     /// <summary>
+    /// Per-call stage (non-pillar). Policies here run once per logical call, outside both the redirect and the retry
+    /// loop, and see only the terminal response — suitable for idempotency keys, client identity headers and error
+    /// mapping.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Breaking:</b> was 250, inside the redirect loop; now 150, outside both loops, one invocation per call. Source
+    /// that says <c>PerCall</c> keeps compiling and changes loop. The old slot is <see cref="PerHop"/>.
+    /// </para>
+    /// </remarks>
+    PerCall = 150,
+
+    /// <summary>
     /// Redirect-following stage. Runs outside the retry loop so each hop triggers a full retry
     /// sequence. Pillar: at most one policy.
     /// </summary>
     Redirect = 200,
 
     /// <summary>
-    /// Per-call stage (non-pillar). Policies here run once per logical call, above the retry
-    /// boundary — suitable for stable cross-attempt concerns such as idempotency keys and
-    /// client identity headers.
+    /// Per-hop stage (non-pillar). Policies here run once per redirect hop, inside the redirect loop and outside the
+    /// retry loop; it is both the specification's post-redirect and pre-retry slot, adjacent with nothing between.
     /// </summary>
-    PerCall = 250,
+    PerHop = 250,
 
     /// <summary>
     /// Retry stage. Wraps everything below it so that each retry attempt re-executes all
@@ -67,4 +82,10 @@ public enum PipelineStage
     /// metrics, and structured log events. Pillar: at most one policy.
     /// </summary>
     Diagnostics = 600,
+
+    /// <summary>
+    /// Serialization stage. Reserved and ships with no policy; a custom policy may occupy it. Pillar: at most one
+    /// policy.
+    /// </summary>
+    Serde = 700,
 }

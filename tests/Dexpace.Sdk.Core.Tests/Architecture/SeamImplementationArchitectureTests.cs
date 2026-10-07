@@ -29,7 +29,13 @@ public sealed class SeamImplementationArchitectureTests
             "DelegateHttpClient.Create: gives a caller-supplied send function the IAsyncHttpClient shape C# nominal typing requires; no I/O (SEAM-11).",
         ["DelegateHttpClient+BlockingAdapter"] =
             "DelegateHttpClient.CreateBlocking: gives a caller-supplied blocking send function the IHttpClient shape; no I/O (SEAM-11).",
+        ["HttpPipeline"] =
+            "PIPE-26: a pipeline stands in for a transport so one pipeline can wrap another and back a paginator; it performs no I/O of its own and never owns the transport (PIPE-27).",
     };
+
+    // The only public implementer: HttpPipeline is public by design (PIPE-26), so it needs an exemption ahead of the
+    // "is public" rejection, and it must still be on the allow-list above.
+    private static readonly HashSet<string> s_publicExempt = new(StringComparer.Ordinal) { "HttpPipeline" };
 
     private static readonly Type[] s_seams = [typeof(IHttpClient), typeof(IAsyncHttpClient), typeof(ISerde)];
 
@@ -41,7 +47,7 @@ public sealed class SeamImplementationArchitectureTests
         {
             var name = NameOf(type);
             var isPublic = type.IsPublic || type.IsNestedPublic || type.IsNestedFamily || type.IsNestedFamORAssem;
-            if (isPublic)
+            if (isPublic && !s_publicExempt.Contains(name))
             {
                 offenders.Add($"{name} is public");
             }

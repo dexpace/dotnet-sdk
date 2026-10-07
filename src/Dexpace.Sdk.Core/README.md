@@ -13,7 +13,7 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 |---|---|
 | `Dexpace.Sdk.Core.Http.*` | `Method`, `Protocol`, `MediaType`, `HttpHeaderName`, `Headers`, `Request`, `RequestBody`, `Response`, `ResponseBody`, `Status` |
 | `Dexpace.Sdk.Core.Client` | The transport SPI: `IAsyncHttpClient`, `IHttpClient`, the `AsAsync` / `AsBlocking` bridges, and `DelegateHttpClient` |
-| `Dexpace.Sdk.Core.Pipeline` | `HttpPipeline`, `PipelineBuilder`, `HttpPipelinePolicy`, `DexpacePipeline.CreateDefault`, and the policies: operation timeout, redirect, idempotency key, client identity, retry, `Date`, auth, instrumentation |
+| `Dexpace.Sdk.Core.Pipeline` | `HttpPipeline` (itself an `IAsyncHttpClient` / `IHttpClient`), `PipelineBuilder` (`Flatten` / `Nest`, `AddStandardResilience`), `HttpPipelinePolicy` (request in, response out; `ProcessAsync` / `Process`), `PipelineContext`, `DexpacePipeline.CreateDefault` / `CreateEmpty`, and the policies: operation timeout, redirect, idempotency key, client identity, retry, `Date`, auth, instrumentation, error mapping |
 | `Dexpace.Sdk.Core.Auth` | `TokenCredential`, `AccessTokenCache`, `ApiKeyCredential`, `BasicCredential` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
@@ -35,10 +35,10 @@ using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Http.SystemNet;
 
 await using var transport = new SystemNetHttpClient();
-HttpPipeline pipeline = DexpacePipeline.CreateDefault(transport);
+using HttpPipeline pipeline = DexpacePipeline.CreateDefault(transport);
 
 var options = new DexpaceClientOptions { OverallTimeout = TimeSpan.FromSeconds(30) };
-using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), options);
+using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), options, CancellationToken.None);
 
 await response.EnsureSuccessAsync(); // throws HttpResponseException for a 4xx or 5xx
 Console.WriteLine(await response.Body.ReadAsStringAsync());

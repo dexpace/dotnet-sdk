@@ -71,7 +71,7 @@ public sealed class ReDriveRequestIsolationTests
     public async Task A_redirect_hop_is_not_built_from_the_previous_hops_stamped_request()
     {
         var scenarioRequest = Request.Get("https://api.example.com/start");
-        var probe = new ProbePolicy(PipelineStage.PerCall);
+        var probe = new ProbePolicy(PipelineStage.PerHop);
         var transport = new ScriptedTransport(
             TestResponses.Redirect(307, "https://api.example.com/moved", scenarioRequest),
             TestResponses.Create(Status.Ok, scenarioRequest));
@@ -109,6 +109,23 @@ public sealed class ReDriveRequestIsolationTests
         Assert.All(transport.Requests, sent => Assert.Equal("set", sent.Headers.Get("X-Attempt-Marker")));
     }
 
+    [Fact]
+    public void The_context_offers_no_way_to_write_the_request_upward()
+    {
+        // S6, structural (PIPE-16, RETRY-44): the context carries no settable Request and no method that takes a Request
+        // and returns nothing, so a downstream policy cannot write the request back up to the policy that holds it.
+        var members = typeof(PipelineContext).GetMembers(
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly);
+
+        Assert.DoesNotContain(
+            members.OfType<System.Reflection.PropertyInfo>(),
+            property => property.PropertyType == typeof(Request) && property.SetMethod is { IsPublic: true });
+        Assert.DoesNotContain(
+            members.OfType<System.Reflection.MethodInfo>(),
+            method => method.ReturnType == typeof(void)
+                && method.GetParameters().Any(parameter => parameter.ParameterType == typeof(Request)));
+    }
+
     /// <summary>Records the named header on the request each time the chain passes through it.</summary>
     private sealed class ProbePolicy(PipelineStage stage, string header = "Authorization") : HttpPipelinePolicy
     {
@@ -116,22 +133,19 @@ public sealed class ReDriveRequestIsolationTests
 
         public override PipelineStage Stage => stage;
 
-        public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
-            SeenAuthorization.Add(context.Request.Headers.Get(header));
-            return continuation.RunAsync(context);
+            SeenAuthorization.Add(request.Headers.Get(header));
+            return continuation.RunAsync(request, context);
         }
     }
 
-    /// <summary>A per-attempt policy that writes a header into <see cref="PipelineContext.Request"/>.</summary>
+    /// <summary>A per-attempt policy that stamps a header on the request it passes downstream.</summary>
     private sealed class MarkingPolicy : HttpPipelinePolicy
     {
         public override PipelineStage Stage => PipelineStage.PerAttempt;
 
-        public override ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
-        {
-            context.Request = context.Request.WithHeaders(context.Request.Headers.Set("X-Attempt-Marker", "set"));
-            return continuation.RunAsync(context);
-        }
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+            continuation.RunAsync(request.WithHeaders(request.Headers.Set("X-Attempt-Marker", "set")), context);
     }
 }

@@ -147,8 +147,48 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `ClientIdentityPolicy` appends the SDK line after a caller-supplied `User-Agent` by default
   (`new ClientIdentityPolicy(ClientIdentityMode.Replace)` restores the old behaviour); a blank `UserAgent` emits no header
   (`RECOV-33`).
+- **Breaking:** a pipeline pillar collision throws at `PipelineBuilder.Add` (it used to throw at `Build`), naming both
+  policy types and `Replace<T>`; re-adding the same instance to its pillar, which used to throw, is a no-op decided by
+  reference identity (phase 4c, `PIPE-5`, `PIPE-6`). The builder reads a policy's `Stage` once, at insertion, and
+  rejects a stage value that is not a `PipelineStage` member (`PIPE-8`, `PIPE-22`).
+- **Breaking:** a cross-stage `PipelineBuilder.InsertBefore` / `InsertAfter` / `Replace` throws `ArgumentException`; it
+  used to re-bucket the policy silently or accept it (`PIPE-18`, `PIPE-19`).
+- **Breaking:** `PipelineStage.PerCall` is 150 and runs once per call, outside the redirect and retry loops; the old slot
+  (inside the redirect loop, 250) is the new `PipelineStage.PerHop`. Source that says `PerCall` keeps compiling and
+  changes loop (`PIPE-2`). `IdempotencyPolicy` and `ClientIdentityPolicy` therefore run once per call instead of once
+  per redirect hop; every hop still carries what they stamped.
+- **Breaking:** the policy signature is `HttpPipelinePolicy.ProcessAsync(Request, PipelineContext, PipelineRunner)
+  -> ValueTask<Response>`, and `PipelineRunner.RunAsync(Request, PipelineContext) -> ValueTask<Response>`; a policy
+  receives the request and returns the response instead of mutating `PipelineContext.Request` / `Response`, which makes
+  `RETRY-44` and the S6 isolation structural (`PIPE-12`, `PIPE-14`, `PIPE-16`).
+- **Breaking:** `PipelineContext` has no public constructor, no `Request` or `Response`, and a property bag keyed by
+  `PipelinePropertyKey<T>` instances instead of strings; its per-drive values (`CancellationToken`, `Activity`,
+  `AttemptNumber`, `HopNumber`) travel by copy (`ForAttempt`, `ForHop`, `WithActivity`, `WithCancellationToken`).
+- **Breaking:** `HttpPipeline.Send` drives `HttpPipelinePolicy.Process` and the transport's synchronous member instead of
+  blocking on the async chain; a third-party policy without `Process` runs through the documented blocking bridge
+  (`PIPE-28`). The retry policy's synchronous wait is a genuine blocking wait over the `TimeProvider`.
+- **Breaking:** `AuthorizationPolicy` compares against the seed request's origin (`PipelineContext.SeedRequest`, fixed at
+  call entry), not the first origin it saw stored under the public string key `"dexpace.auth.origin"`; both its entry
+  points are sealed (`REDIR-24`, `AUTH-28`).
+- `HttpPipeline` implements `IAsyncHttpClient` and `IHttpClient` and is disposable; disposal never touches the
+  transport and the pipeline stays usable (`PIPE-26`, `PIPE-27`). `PipelineBuilder.Build` captures the client options, so
+  `SendAsync(Request, CancellationToken)` and the seam entry points have options to run with.
+- **Breaking:** the `HttpPipeline.SendAsync(Request, DexpaceClientOptions, CancellationToken)` and `Send` overloads lose
+  their `= default` token (no overload of the family carries an optional token); pass `CancellationToken.None`.
+- `DexpacePipeline.CreateDefault` is built from `PipelineBuilder.AddStandardResilience`; the async and the sync standard
+  pipelines both follow redirects (`PIPE-32`, `REDIR-25`; design §10 entry 14, topic `async-redirect-pillar`).
 
 ### Added
+
+- `docs/sdk-documentation/pipelines.md`; the AOT smoke covers the synchronous pipeline, `ErrorMappingPolicy` and
+  `HttpPipeline` as a seam.
+- Phase 4c pipeline surface: `PipelineBuilder.Prepend`, `AddRange`, `PrependRange`, `AddStandardResilience`, `Flatten`,
+  `Nest` and `Build()`; `HttpPipeline.Policies`, `SendAsync<T>` / `Send<T>`, the `RequestOptions` overloads and the
+  synchronous `Send` family; `HttpPipelinePolicy.Process` and `PipelineRunner.Run`; `PipelinePropertyKey<T>`;
+  `PipelineContext.SeedRequest`, `RequestOptions`, `CallKey`, `Instrumentation`, `HopNumber`, `ForAttempt`, `ForHop`,
+  `WithActivity`, `WithCancellationToken`, `TryGetProperty` and `SetProperty`; the `PipelineStage.Serde` pillar and
+  `PerHop`; `AuthorizationPolicy.GetCredential`; `DexpacePipeline.CreateEmpty`; `ErrorMappingPolicy` and the synchronous
+  `Response.EnsureSuccess` (`PIPE-1`-`PIPE-40`).
 
 - `docs/sdk-documentation/execution-context.md`.
 - The AOT smoke covers the execution-context chain.

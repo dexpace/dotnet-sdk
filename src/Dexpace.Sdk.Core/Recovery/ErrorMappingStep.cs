@@ -34,7 +34,7 @@ public sealed class ErrorMappingStep : IResponseStep
             return response;
         }
 
-        throw new HttpResponseException(ErrorBodyBuffer.Capture(response, cancellationToken));
+        throw ErrorMapping.ToException(ErrorBodyBuffer.Capture(response, cancellationToken));
     }
 
     /// <inheritdoc />
@@ -47,7 +47,7 @@ public sealed class ErrorMappingStep : IResponseStep
             return response;
         }
 
-        throw new HttpResponseException(
+        throw ErrorMapping.ToException(
             await ErrorBodyBuffer.CaptureAsync(response, cancellationToken).ConfigureAwait(false));
     }
 

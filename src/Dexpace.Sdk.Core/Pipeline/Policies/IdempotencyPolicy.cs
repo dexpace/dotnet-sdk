@@ -1,6 +1,9 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 using Dexpace.Sdk.Core.Recovery;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
@@ -12,9 +15,10 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <remarks>
 /// <para>
 /// By default <c>POST</c>, <c>PUT</c> and <c>PATCH</c> requests receive the header. The key is minted by the step's
-/// strategy once per logical call and stashed in the <see cref="PipelineContext"/> property bag under the key
-/// <c>"dexpace.idempotency-key"</c>. Redirect hops and retry attempts that re-enter the policy on the same context reuse
-/// the same key, so the strategy runs at most once per call.
+/// strategy once per logical call and stashed in the <see cref="PipelineContext"/> property bag under a typed
+/// <see cref="PipelinePropertyKey{T}"/>. The policy runs at <see cref="PipelineStage.PerCall"/>, once per call outside
+/// the redirect and retry loops, and every hop and attempt carries the stamped request, so the strategy runs at most once
+/// per call.
 /// </para>
 /// <para>
 /// If the request already carries an <c>Idempotency-Key</c> header, the policy does not overwrite it (unless the step is
@@ -26,11 +30,15 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// step. <b>Breaking:</b> the default method set was <c>POST</c> only; it is now <c>POST</c>, <c>PUT</c> and
 /// <c>PATCH</c> (RECOV-32).
 /// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> the policy runs once per call, outside the redirect loop; it used to run once per hop
+/// (<see cref="PipelineStage.PerCall"/> moved from 250 to 150, P4c-23).
+/// </para>
 /// </remarks>
 public sealed class IdempotencyPolicy : HttpPipelinePolicy
 {
-    /// <summary>Context property-bag key under which the generated idempotency key is stored.</summary>
-    internal const string PropertyKey = "dexpace.idempotency-key";
+    // The call-scoped property-bag key under which the generated idempotency key is stored (PIPE-11, P4c-4).
+    private static readonly PipelinePropertyKey<string> s_keyProperty = new("dexpace.idempotency-key");
 
     private readonly IdempotencyKeyStep _step;
 
@@ -53,28 +61,37 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
     public override PipelineStage Stage => PipelineStage.PerCall;
 
     /// <inheritdoc/>
-    public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(IdempotencyPolicy));
+
+    private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        context.Request = _step.Apply(context.Request, () => KeyFor(context));
+        var stamped = _step.Apply(request, () => KeyFor(context));
 
-        await continuation.RunAsync(context).ConfigureAwait(false);
+        return async
+            ? await continuation.RunAsync(stamped, context).ConfigureAwait(false)
+            : continuation.Run(stamped, context);
     }
 
-    // Reuse a key already minted for this call (a retry or redirect hop re-entering here), else mint and stash one.
+    // Reuse a key already minted for this call, else mint and stash one.
     private string KeyFor(PipelineContext context)
     {
-        var key = context.GetProperty<string>(PropertyKey);
-        if (key is not null)
+        if (context.TryGetProperty(s_keyProperty, out var existing))
         {
-            return key;
+            return existing;
         }
 
-        key = _step.KeyStrategy();
+        var key = _step.KeyStrategy();
         if (!string.IsNullOrWhiteSpace(key))
         {
-            context.SetProperty(PropertyKey, key);
+            context.SetProperty(s_keyProperty, key);
         }
 
         return key;

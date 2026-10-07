@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.Core.Recovery;
@@ -281,10 +282,31 @@ public sealed class IdempotencyPolicyTests
     {
         public override PipelineStage Stage => PipelineStage.Operation; // outermost
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
-            await continuation.RunAsync(context).ConfigureAwait(false);
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            (await continuation.RunAsync(request, context).ConfigureAwait(false)).Dispose();
+            return await continuation.RunAsync(request, context).ConfigureAwait(false);
         }
+    }
+
+    [Fact]
+    public async Task Sync_and_async_agree()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new IdempotencyPolicy()).Build(transport);
+        var post = Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty));
+
+        using var sync = pipeline.Send(post, MakeOptions(), TestContext.Current.CancellationToken);
+        using var async = await pipeline.SendAsync(post, MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.NotNull(transport.Requests[0].Headers.Get("Idempotency-Key"));
+        Assert.NotNull(transport.Requests[1].Headers.Get("Idempotency-Key"));
+    }
+
+    [Fact]
+    public void The_policy_runs_once_per_call_outside_the_redirect_loop()
+    {
+        // PIPE-2 / P4c-23: PerCall is 150, outside Redirect (200): one stamp, and every hop carries it.
+        Assert.True(PipelineStage.PerCall < PipelineStage.Redirect);
     }
 }

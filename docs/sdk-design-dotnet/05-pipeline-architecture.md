@@ -178,6 +178,23 @@ defaults to POST, PUT and PATCH and takes an `IdempotencyKeyStep`, and `ClientId
 4b (P4b-16), and `Response.EnsureSuccessAsync` is re-homed onto the buffer; `ErrorMappingPolicy`, `XCUT-8`'s factory
 rejection and the public sync `Response.EnsureSuccess` stay 4c's, over `ErrorBodyBuffer.Capture`.
 
+**As built (2026-10-07, phase 4c):** built. The text above stands as written, with five *dated corrections*:
+
+- **`PipelineContext` as built (P4c-4).** A sealed class with an internal constructor over one call-scoped state object, with per-drive
+  copies (`ForAttempt`, `ForHop`, `WithActivity`, `WithCancellationToken`). Its members: `SeedRequest`, `RequestOptions`, `Options`,
+  `CallKey`, `Instrumentation`, `CancellationToken`, `Activity`, `AttemptNumber`, `HopNumber`, and a property bag keyed by
+  `PipelinePropertyKey<T>` instances (reference identity) in place of the string bag, whose `"dexpace.auth.origin"` key any policy could overwrite.
+  There is no `Request` and no `Response`. The policy parameter is named `continuation` (`CA1716` rejects `next` on a virtual member).
+- **The builder reads `Stage` once (P4c-8)**, recording a `(policy, stage)` entry at insertion and rejecting a value that is not a
+  `PipelineStage` member; a policy whose `Stage` varies cannot pass validation in one slot and run in another. A policy must be a
+  plain class: it cannot be a `record`, which may not inherit from the non-record `HttpPipelinePolicy` (CS8864).
+- **Cross-stage edits are `ArgumentException` (P4c-10)**; a missing anchor stays `InvalidOperationException`; a pillar collision is an
+  `InvalidOperationException` at `Add` naming both types and `Replace<T>`. No new public exception type.
+- **`ErrorMappingPolicy` wraps 4b's `ErrorMappingStep` (P4c-17)** through the response fold, at `PerCall`, and is not part of
+  `CreateDefault`; the shared error-body buffer is 4b's.
+- **"A response with no body" is the empty replayable body (P4c-18)**, which `ErrorMappingPolicy` maps without a drain; the exception
+  carries the response as it is (**BODY-30**).
+
 ### 5.2 The recovery-chain primitives
 
 **RECOV-1**'s closed two-variant outcome is a record hierarchy closed by a private constructor — the styleguide's
@@ -361,6 +378,16 @@ not create (**PIPE-27**). As built, `HttpPipeline` implements neither interface 
 
 **As built (d45e64b):** partial: async runtime only; sync path is double sync-over-async; bridges default to the
 shared pool, take no token, and dispose what they wrap; `HttpPipeline` is not a transport; no flatten/nest.
+
+**As built (2026-10-07, phase 4c):** built. `HttpPipeline` implements `IAsyncHttpClient` and `IHttpClient` and is a no-op to dispose
+toward the transport (no latch, so a disposed pipeline stays usable, **SEAM-15** being a MAY); `Flatten` and `Nest` are named
+factories; every shipped policy has one `ProcessCoreAsync(..., bool async)` body. The text above stands as written, with two *dated
+corrections*: *the sync terminal (P4c-13)*: `Build` decides once whether the transport implements `IHttpClient` (its own `Execute`) or
+is bridged through `AsBlocking`, so the sync path is real down to the transport and no further until phase 8b; the retry policy's sync
+wait is a genuine blocking wait over the `TimeProvider`, and `AuthorizationPolicy.GetCredential` is the documented bridge until phase 6c
+gives `AccessTokenCache` a sync path. *The options capture (P4c-11)*: `Build(transport)` captures `new DexpaceClientOptions()` and
+`Build(transport, options)` the caller's, so the seam entry points have client options to run with; the `SendAsync`/`Send` overloads
+taking a `DexpaceClientOptions` override them for one call and carry no optional token (`RS0026`, `RS0027`).
 
 ### 5.4 The execution context model
 

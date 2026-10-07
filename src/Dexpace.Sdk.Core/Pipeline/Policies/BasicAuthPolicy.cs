@@ -42,9 +42,10 @@ public sealed class BasicAuthPolicy : AuthorizationPolicy
 
     /// <inheritdoc/>
     protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
-        PipelineContext context)
-    {
-        return new ValueTask<(string, string)>(
-            (HttpHeaderName.WellKnown.Authorization.Original, _headerValue));
-    }
+        PipelineContext context) =>
+        new(GetCredential(context));
+
+    /// <inheritdoc/>
+    protected override (string HeaderName, string HeaderValue) GetCredential(PipelineContext context) =>
+        (HttpHeaderName.WellKnown.Authorization.Original, _headerValue);
 }

@@ -417,10 +417,10 @@ public sealed class RetryPolicyTests
     {
         public override PipelineStage Stage => PipelineStage.PerAttempt;
 
-        public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             log.Add(context.AttemptNumber);
-            await continuation.RunAsync(context).ConfigureAwait(false);
+            return continuation.RunAsync(request, context);
         }
     }
 
@@ -557,4 +557,51 @@ public sealed class RetryPolicyTests
         }
     }
 
+    // -------------------------------------------------------------------------
+    // The synchronous path (PIPE-28)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Sync_send_retries_through_the_sync_chain()
+    {
+        // SyncFirstTransport's ExecuteAsync throws: the shipped retry policy must reach only the sync members.
+        var calls = 0;
+        var transport = new SyncFirstTransport(request =>
+            Interlocked.Increment(ref calls) == 1
+                ? TestResponses.Create(Status.ServiceUnavailable, request)
+                : TestResponses.Create(Status.Ok, request));
+        var pipeline = new PipelineBuilder()
+            .Add(new RetryPolicy(new InstantTimeProvider()))
+            .Build(transport);
+
+        using var response = pipeline.Send(MakeGetRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.Equal(2, transport.CallCount);
+    }
+
+    [Fact]
+    public void Sync_send_honours_cancellation_during_the_wait()
+    {
+        var transport = new SyncFirstTransport(request => TestResponses.Create(Status.ServiceUnavailable, request));
+        var options = MakeOptions();
+        options.Retry.BaseDelay = TimeSpan.FromMinutes(5);
+        options.Retry.MaxDelay = TimeSpan.FromMinutes(5);
+        options.Retry.HonorRetryAfter = false;
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy()).Build(transport);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        // A jittered delay can be near zero, so allow either outcome but never a hang: the call ends promptly.
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            using var response = pipeline.Send(MakeGetRequest(), options, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // expected on most draws
+        }
+
+        Assert.True(started.Elapsed < TimeSpan.FromMinutes(1));
+    }
 }

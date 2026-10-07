@@ -4,6 +4,9 @@
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Internal;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -42,8 +45,9 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// waited as successive shorter waits.
 /// </para>
 /// <para>
-/// <b>Request isolation:</b> the request held at entry is restored onto the context before each attempt, so a
-/// retry never carries what a downstream policy wrote during the previous attempt.
+/// <b>Request isolation:</b> every attempt is driven with the request held at entry, so a retry never carries what a
+/// downstream policy wrote during the previous attempt (RETRY-44, PIPE-16). The synchronous path waits with a genuine
+/// blocking wait over the <see cref="TimeProvider"/>, not sync-over-async (PIPE-28).
 /// </para>
 /// <para>
 /// <b>Response disposal:</b> when a retryable response is going to be retried, the response
@@ -57,10 +61,6 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     // RETRY-18 / RECOV-26: the ceiling every pacing delta is clamped to, whether it came from a server hint or the
     // back-off schedule.
     private static readonly TimeSpan s_maxPacingDelay = TimeSpan.FromDays(365);
-
-    // Task.Delay rejects anything above uint.MaxValue - 1 ms (~49.7 days) with ArgumentOutOfRangeException, so a
-    // longer wait runs as successive waits of at most this long (design §6.1; eight for the 365-day ceiling).
-    private static readonly TimeSpan s_maxSingleWait = TimeSpan.FromDays(49);
 
     private readonly TimeProvider _timeProvider;
 
@@ -81,27 +81,37 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     public override PipelineStage Stage => PipelineStage.Retry;
 
     /// <inheritdoc/>
-    public override async ValueTask ProcessAsync(PipelineContext context, PipelineRunner continuation)
+    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+        ProcessCoreAsync(request, context, continuation, async: true);
+
+    /// <inheritdoc/>
+    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+        SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(RetryPolicy));
+
+    // MA0051 waiver: phase 6a rewrites the retry policy on this signature (design §6.1); splitting it now would be
+    // rewritten there.
+#pragma warning disable MA0051
+    private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
         var options = context.Options.Retry;
         var attempt = 0;
 
-        // RETRY-44 / PIPE-16: every attempt re-sends the request this policy received, never one a downstream policy
-        // rewrote (an auth stamp, a per-attempt header) during the previous attempt.
-        var request = context.Request;
-
+        // RETRY-44 / PIPE-16: every attempt re-sends the request this policy received; a downstream stamp (auth, a
+        // per-attempt header) is on the callee's copy and there is nothing to restore.
         while (true)
         {
-            context.Request = request;
-            context.AttemptNumber = attempt;
-
+            Response? response = null;
             Exception? caughtException = null;
 
             try
             {
-                await continuation.RunAsync(context).ConfigureAwait(false);
+                var drive = context.ForAttempt(attempt);
+                response = async
+                    ? await continuation.RunAsync(request, drive).ConfigureAwait(false)
+                    : continuation.Run(request, drive);
             }
             catch (Exception ex) when (IsRetryableException(ex))
             {
@@ -118,22 +128,17 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                     System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(caughtException);
                 }
 
-                await SleepAsync(null, attempt, options, context.CancellationToken)
-                    .ConfigureAwait(false);
+                await SleepAsync(DelayFor(null, attempt, options), async, context.CancellationToken).ConfigureAwait(false);
                 attempt++;
                 continue;
             }
 
-            // Success or non-retryable response path.
-            var response = context.Response;
-
-            if (response is null
-                || attempt >= options.MaxRetryAttempts
+            // Success or non-retryable response path (PIPE-40: the in-flight response is returned undisposed).
+            if (attempt >= options.MaxRetryAttempts
                 || !canRetryRequest
-                || !IsRetryableStatus(response.Status.Code))
+                || !IsRetryableStatus(response!.Status.Code))
             {
-                // Leave context.Response as-is and return.
-                return;
+                return response!;
             }
 
             // Parse Retry-After before disposing the response.
@@ -144,22 +149,23 @@ public sealed class RetryPolicy : HttpPipelinePolicy
                 retryAfterDelay = ParseRetryAfter(retryAfterHeader);
             }
 
-            // Dispose the retryable response before sleeping to release the connection.
-            await response.DisposeAsync().ConfigureAwait(false);
-            context.Response = null;
+            // PIPE-40: dispose the superseded response before sleeping, to release the connection promptly; a throwing
+            // dispose is suppressed and cannot mask the continuation attempt's outcome.
+            if (async)
+            {
+                await Disposal.DisposeQuietlyAsync(response).ConfigureAwait(false);
+            }
+            else
+            {
+                Disposal.DisposeQuietly(response);
+            }
 
-            await SleepAsync(retryAfterDelay, attempt, options, context.CancellationToken)
-                .ConfigureAwait(false);
+            await SleepAsync(DelayFor(retryAfterDelay, attempt, options), async, context.CancellationToken).ConfigureAwait(false);
             attempt++;
         }
     }
+#pragma warning restore MA0051
 
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="ex"/> is a retryable transport
-    /// exception. Only <see cref="ServiceRequestException"/> and
-    /// <see cref="ServiceResponseException"/> qualify; <see cref="OperationCanceledException"/>
-    /// is intentionally not matched (cancellation always propagates).
-    /// </summary>
     private static bool IsRetryableException(Exception ex) =>
         ex is ServiceRequestException or ServiceResponseException;
 
@@ -167,7 +173,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
         s_retryableStatusCodes.Contains(code);
 
     private static bool CanRetryRequest(
-        Http.Request.Request request,
+        Request request,
         RetryOptions options)
     {
         var bodyReplayable = request.Body is null || request.Body.IsReplayable;
@@ -219,11 +225,7 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     /// Sleeps for the appropriate back-off delay, using <paramref name="explicitDelay"/> when
     /// supplied (from <c>Retry-After</c>) or full-jitter exponential back-off otherwise.
     /// </summary>
-    private async Task SleepAsync(
-        TimeSpan? explicitDelay,
-        int attempt,
-        RetryOptions options,
-        CancellationToken cancellationToken)
+    private static TimeSpan DelayFor(TimeSpan? explicitDelay, int attempt, RetryOptions options)
     {
         TimeSpan delay;
 
@@ -247,14 +249,22 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             delay = TimeSpan.FromTicks((long)(cap.Ticks * Random.Shared.NextDouble()));
         }
 
-        if (delay > s_maxPacingDelay)
+        return delay > s_maxPacingDelay ? s_maxPacingDelay : delay;
+    }
+
+    // The async path awaits Task.Delay over the TimeProvider; the sync path is a genuine blocking wait. Both run a delay
+    // above the timer's ceiling as successive bounded waits (S7).
+    private async ValueTask SleepAsync(TimeSpan delay, bool async, CancellationToken cancellationToken)
+    {
+        if (!async)
         {
-            delay = s_maxPacingDelay;
+            BlockingWait.Wait(delay, _timeProvider, cancellationToken);
+            return;
         }
 
         while (delay > TimeSpan.Zero)
         {
-            var wait = delay < s_maxSingleWait ? delay : s_maxSingleWait;
+            var wait = delay < BlockingWait.MaxSingleWait ? delay : BlockingWait.MaxSingleWait;
             await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
             delay -= wait;
         }

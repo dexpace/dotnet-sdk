@@ -15,7 +15,7 @@ namespace Dexpace.Sdk.TestSupport.Transports;
 /// past the end of the script throws <see cref="InvalidOperationException"/>, so an unexpected extra attempt fails
 /// the test instead of hanging it.
 /// </summary>
-public sealed class ScriptedTransport : IAsyncHttpClient
+public sealed class ScriptedTransport : IAsyncHttpClient, IHttpClient
 {
     private readonly object[] _script;
     private readonly RequestLog _log = new();
@@ -72,6 +72,33 @@ public sealed class ScriptedTransport : IAsyncHttpClient
             var entry => throw new InvalidOperationException($"Unsupported script entry type: {entry.GetType()}."),
         };
     }
+
+    /// <summary>The synchronous twin: shares the script and the request log with <see cref="ExecuteAsync"/>.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="options">The per-call options.</param>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>The next scripted response; a scripted exception is thrown.</returns>
+    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+    {
+        var index = _log.Add(request, options, cancellationToken);
+        if (index >= _script.Length)
+        {
+            throw new InvalidOperationException(
+                $"ScriptedTransport exhausted: {_script.Length} entr(ies) scripted, call #{index + 1} received.");
+        }
+
+        return _script[index] switch
+        {
+            Response response => response,
+            Exception exception => throw exception,
+            Func<Response> factory => factory(),
+            Func<Request, Response> responder => responder(request),
+            var entry => throw new InvalidOperationException($"Unsupported script entry type: {entry.GetType()}."),
+        };
+    }
+
+    /// <summary>Marks the transport disposed.</summary>
+    public void Dispose() => IsDisposed = true;
 
     /// <inheritdoc />
     public ValueTask DisposeAsync()
