@@ -155,7 +155,7 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     **CTX-17**–**CTX-19** mandate a bounded process-wide store keyed by call key without saying who looks contexts
     up, so a port cannot tell substance from scaffolding (P11). *Resolved*: kept, with a .NET reader — a
     `DelegatingHandler` below the transport resolves the live call from a `CallKey` stamped into
-    `HttpRequestMessage.Options` (§5.4).
+    `HttpRequestMessage.Options` (§5.4). *Correction 2026-10-07 (4a, P4a-13):* the route is open; 4c carries the key on `RequestOptions` and 8b stamps it.
 31. **REDIR-11's marker has a trap the requirement itself flags.** "Only the auth step strips the marker, so a
     pipeline with no auth step … forwards the internal marker to the transport; a robust port should strip the
     signal independently." *Resolved* by removing the marker: redirect and auth both compare against the call's

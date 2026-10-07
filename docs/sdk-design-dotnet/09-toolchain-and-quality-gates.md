@@ -84,6 +84,10 @@ does not reference); `Uri.ToString()` on any wire, log or equality path (§3.5);
 `#pragma warning disable RS0030` with a why-comment, which is the house rule for every waiver
 (`docs/styleguide/csharp/01-formatting-and-tooling.md` 1.2).
 
+
+**Correction 2026-10-07 (phase 4a, P4a-11, P4a-12).** The banned list gains `AsyncLocal<T>`, and the value-comparing `TryRemove` entry
+names `BoundedMap`'s slot.
+
 ### 9.2 The zero-dependency gate, and NFR-8 applying literally
 
 **NFR-8** exempts ecosystems without whole-program dead-code elimination; .NET has two — ILLink trimming and

@@ -408,3 +408,16 @@ weakly held context could be collected mid-call along with an unread body pinnin
 mutable `PipelineContext` with an untyped string-keyed property bag.
 
 ---
+
+
+**Correction 2026-10-07 (phase 4a, `docs/work/mvp/phase4/phase4a/2026-10-05-phase4a-context-design.md`).** The correlation
+bundle is `InstrumentationContext`, a sealed class composing `ActivityContext`, the active `Activity?` and the
+`ActivitySource` factory (P4a-3). Promotion registers, and each context binds the store it registers into (P4a-6). The
+identity-compare slot lives in the internal `BoundedMap`, not a context-specific type (P4a-12). The store's cap is
+10 000 (P4a-10). `CallKey` has no public constructor; mint with `CallKey.Next` (P4a-2). The promotions are
+`PromoteToRequest` and `PromoteToExchange` (P4a-4). `default(ActivityContext).TraceState` is `null`, not empty, so
+`InstrumentationContext` normalises it to `""` for CTX-15 and OBS-26. The route of the `CallKey` to a transport
+`DelegatingHandler` is open and lands with 4c and 8b (P4a-13).
+
+**As built (2026-10-07, 4a):** built. `Dexpace.Sdk.Core.Execution` holds the chain, the key, the bundle and
+`DexpaceCallContexts.TryGet`; `BoundedMap` backs the store.

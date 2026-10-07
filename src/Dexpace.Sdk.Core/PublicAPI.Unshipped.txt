@@ -617,3 +617,80 @@ Dexpace.Sdk.Core.Http.Request.MultipartPart.FileName.get -> string?
 Dexpace.Sdk.Core.Http.Request.MultipartPart.MultipartPart(string! name, Dexpace.Sdk.Core.Http.Request.RequestBody! body, string? fileName = null) -> void
 Dexpace.Sdk.Core.Http.Request.MultipartPart.Name.get -> string!
 static Dexpace.Sdk.Core.Http.Request.RequestBody.Multipart(System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Http.Request.MultipartPart!>! parts, string? boundary = null) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
+Dexpace.Sdk.Core.Execution.CallKey
+Dexpace.Sdk.Core.Execution.CallKey.CallKey() -> void
+Dexpace.Sdk.Core.Execution.CallKey.Equals(Dexpace.Sdk.Core.Execution.CallKey other) -> bool
+Dexpace.Sdk.Core.Execution.CallKey.Sequence.get -> long
+Dexpace.Sdk.Core.Execution.CallKey.SpanId.get -> System.Diagnostics.ActivitySpanId
+Dexpace.Sdk.Core.Execution.CallKey.TraceId.get -> System.Diagnostics.ActivityTraceId
+Dexpace.Sdk.Core.Execution.InstrumentationContext
+Dexpace.Sdk.Core.Execution.InstrumentationContext.ActiveSpan.get -> System.Diagnostics.Activity?
+Dexpace.Sdk.Core.Execution.InstrumentationContext.ActivityContext.get -> System.Diagnostics.ActivityContext
+Dexpace.Sdk.Core.Execution.InstrumentationContext.IsRemote.get -> bool
+Dexpace.Sdk.Core.Execution.InstrumentationContext.IsValid.get -> bool
+Dexpace.Sdk.Core.Execution.InstrumentationContext.SpanId.get -> System.Diagnostics.ActivitySpanId
+Dexpace.Sdk.Core.Execution.InstrumentationContext.StartActivity(string! operationName, System.Diagnostics.ActivityKind kind = System.Diagnostics.ActivityKind.Internal) -> System.Diagnostics.Activity?
+Dexpace.Sdk.Core.Execution.InstrumentationContext.TraceFlags.get -> System.Diagnostics.ActivityTraceFlags
+Dexpace.Sdk.Core.Execution.InstrumentationContext.TraceId.get -> System.Diagnostics.ActivityTraceId
+Dexpace.Sdk.Core.Execution.InstrumentationContext.TraceIdFormat.get -> System.Diagnostics.ActivityIdFormat
+Dexpace.Sdk.Core.Execution.InstrumentationContext.TraceState.get -> string!
+override Dexpace.Sdk.Core.Execution.CallKey.GetHashCode() -> int
+override Dexpace.Sdk.Core.Execution.CallKey.ToString() -> string!
+static Dexpace.Sdk.Core.Execution.CallKey.Next() -> Dexpace.Sdk.Core.Execution.CallKey
+static Dexpace.Sdk.Core.Execution.CallKey.Next(in System.Diagnostics.ActivityContext context) -> Dexpace.Sdk.Core.Execution.CallKey
+static Dexpace.Sdk.Core.Execution.CallKey.operator !=(Dexpace.Sdk.Core.Execution.CallKey left, Dexpace.Sdk.Core.Execution.CallKey right) -> bool
+static Dexpace.Sdk.Core.Execution.CallKey.operator ==(Dexpace.Sdk.Core.Execution.CallKey left, Dexpace.Sdk.Core.Execution.CallKey right) -> bool
+static Dexpace.Sdk.Core.Execution.InstrumentationContext.FromActivity(System.Diagnostics.Activity? activity) -> Dexpace.Sdk.Core.Execution.InstrumentationContext!
+static Dexpace.Sdk.Core.Execution.InstrumentationContext.FromContext(in System.Diagnostics.ActivityContext context) -> Dexpace.Sdk.Core.Execution.InstrumentationContext!
+static Dexpace.Sdk.Core.Execution.InstrumentationContext.None.get -> Dexpace.Sdk.Core.Execution.InstrumentationContext!
+~override Dexpace.Sdk.Core.Execution.CallKey.Equals(object obj) -> bool
+Dexpace.Sdk.Core.Execution.CallContext
+Dexpace.Sdk.Core.Execution.CallContext.CallContext(Dexpace.Sdk.Core.Execution.CallContext! original) -> void
+Dexpace.Sdk.Core.Execution.CallContext.Close() -> void
+Dexpace.Sdk.Core.Execution.CallContext.Instrumentation.get -> Dexpace.Sdk.Core.Execution.InstrumentationContext!
+Dexpace.Sdk.Core.Execution.CallContext.Key.get -> Dexpace.Sdk.Core.Execution.CallKey
+Dexpace.Sdk.Core.Execution.DexpaceCallContexts
+Dexpace.Sdk.Core.Execution.DispatchContext
+Dexpace.Sdk.Core.Execution.DispatchContext.DispatchContext(Dexpace.Sdk.Core.Execution.InstrumentationContext? instrumentation = null, Dexpace.Sdk.Core.Execution.CallKey? key = null) -> void
+Dexpace.Sdk.Core.Execution.DispatchContext.Equals(Dexpace.Sdk.Core.Execution.DispatchContext? other) -> bool
+Dexpace.Sdk.Core.Execution.DispatchContext.PromoteToRequest(Dexpace.Sdk.Core.Http.Request.Request! request, string? operationName = null) -> Dexpace.Sdk.Core.Execution.RequestContext!
+Dexpace.Sdk.Core.Execution.ExchangeContext
+Dexpace.Sdk.Core.Execution.ExchangeContext.Equals(Dexpace.Sdk.Core.Execution.ExchangeContext? other) -> bool
+Dexpace.Sdk.Core.Execution.ExchangeContext.ExchangeContext(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Response.Response! response, string? operationName = null, Dexpace.Sdk.Core.Execution.InstrumentationContext? instrumentation = null, Dexpace.Sdk.Core.Execution.CallKey? key = null) -> void
+Dexpace.Sdk.Core.Execution.ExchangeContext.OperationName.get -> string?
+Dexpace.Sdk.Core.Execution.ExchangeContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Execution.ExchangeContext.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Execution.RequestContext
+Dexpace.Sdk.Core.Execution.RequestContext.Equals(Dexpace.Sdk.Core.Execution.RequestContext? other) -> bool
+Dexpace.Sdk.Core.Execution.RequestContext.OperationName.get -> string?
+Dexpace.Sdk.Core.Execution.RequestContext.PromoteToExchange(Dexpace.Sdk.Core.Http.Response.Response! response) -> Dexpace.Sdk.Core.Execution.ExchangeContext!
+Dexpace.Sdk.Core.Execution.RequestContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Execution.RequestContext.RequestContext(Dexpace.Sdk.Core.Http.Request.Request! request, string? operationName = null, Dexpace.Sdk.Core.Execution.InstrumentationContext? instrumentation = null, Dexpace.Sdk.Core.Execution.CallKey? key = null) -> void
+abstract Dexpace.Sdk.Core.Execution.CallContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.CallContext!
+override Dexpace.Sdk.Core.Execution.CallContext.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Execution.CallContext.GetHashCode() -> int
+override Dexpace.Sdk.Core.Execution.DispatchContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.DispatchContext!
+override Dexpace.Sdk.Core.Execution.DispatchContext.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Execution.DispatchContext.GetHashCode() -> int
+override Dexpace.Sdk.Core.Execution.ExchangeContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.ExchangeContext!
+override Dexpace.Sdk.Core.Execution.ExchangeContext.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Execution.ExchangeContext.GetHashCode() -> int
+override Dexpace.Sdk.Core.Execution.RequestContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.RequestContext!
+override Dexpace.Sdk.Core.Execution.RequestContext.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Execution.RequestContext.GetHashCode() -> int
+override sealed Dexpace.Sdk.Core.Execution.CallContext.ToString() -> string!
+override sealed Dexpace.Sdk.Core.Execution.DispatchContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
+override sealed Dexpace.Sdk.Core.Execution.ExchangeContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
+override sealed Dexpace.Sdk.Core.Execution.RequestContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
+static Dexpace.Sdk.Core.Execution.CallContext.operator !=(Dexpace.Sdk.Core.Execution.CallContext? left, Dexpace.Sdk.Core.Execution.CallContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.CallContext.operator ==(Dexpace.Sdk.Core.Execution.CallContext? left, Dexpace.Sdk.Core.Execution.CallContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.DexpaceCallContexts.TryGet(Dexpace.Sdk.Core.Execution.CallKey key, out Dexpace.Sdk.Core.Execution.CallContext? context) -> bool
+static Dexpace.Sdk.Core.Execution.DispatchContext.operator !=(Dexpace.Sdk.Core.Execution.DispatchContext? left, Dexpace.Sdk.Core.Execution.DispatchContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.DispatchContext.operator ==(Dexpace.Sdk.Core.Execution.DispatchContext? left, Dexpace.Sdk.Core.Execution.DispatchContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.ExchangeContext.operator !=(Dexpace.Sdk.Core.Execution.ExchangeContext? left, Dexpace.Sdk.Core.Execution.ExchangeContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.ExchangeContext.operator ==(Dexpace.Sdk.Core.Execution.ExchangeContext? left, Dexpace.Sdk.Core.Execution.ExchangeContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.RequestContext.operator !=(Dexpace.Sdk.Core.Execution.RequestContext? left, Dexpace.Sdk.Core.Execution.RequestContext? right) -> bool
+static Dexpace.Sdk.Core.Execution.RequestContext.operator ==(Dexpace.Sdk.Core.Execution.RequestContext? left, Dexpace.Sdk.Core.Execution.RequestContext? right) -> bool
+virtual Dexpace.Sdk.Core.Execution.CallContext.EqualityContract.get -> System.Type!
+virtual Dexpace.Sdk.Core.Execution.CallContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
+virtual Dexpace.Sdk.Core.Execution.CallContext.PrintMembers(System.Text.StringBuilder! builder) -> bool

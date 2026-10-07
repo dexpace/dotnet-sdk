@@ -202,6 +202,10 @@ generator-based logs built; diverges: default-allow redaction (**OBS-12**), non-
 unconditional `traceparent` stamping, no emission guard (**OBS-20**); missing: operation span, granularity/body
 preview, header redaction.
 
+
+**Correction 2026-10-07 (phase 4a, P4a-3).** "The correlation bundle is `Activity`" names `InstrumentationContext` as the composing
+type, and the shared untraced sentinel's `TraceState` is `null` on `default(ActivityContext)`, normalised to `""` there.
+
 ### 8.2 Configuration
 
 **CFG-1** fixes four tiers: explicit override, environment by exact key, a system-property source by normalised key,

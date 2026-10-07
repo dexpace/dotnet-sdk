@@ -35,7 +35,8 @@ M:System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1.ConfiguredValue
 M:System.Uri.ToString;Uri.ToString() unescapes; use OriginalString or GetComponents(..., UriFormat) (design §3.5)
 
 # Context-store and lifetime discipline in core (design §5.4).
-M:System.Collections.Concurrent.ConcurrentDictionary`2.TryRemove(System.Collections.Generic.KeyValuePair{`0,`1});The value-comparing TryRemove belongs only in the context store's slot type (design §5.4)
+T:System.Threading.AsyncLocal`1;The SDK holds no ambient per-call state; correlate through CallKey and the context chain (design §5.4 P13)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.TryRemove(System.Collections.Generic.KeyValuePair{`0,`1});The value-comparing TryRemove belongs only in BoundedMap's slot (design §5.4, P4a-12)
 T:System.Runtime.CompilerServices.ConditionalWeakTable`2;Weak tables are not used in core (design §5.4)
 T:System.WeakReference`1;Weak references are not used in core (design §5.4)
 T:System.WeakReference;Weak references are not used in core (design §5.4)
