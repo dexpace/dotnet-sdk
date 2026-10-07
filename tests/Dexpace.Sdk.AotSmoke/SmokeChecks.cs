@@ -4,6 +4,8 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -55,6 +57,7 @@ internal static class SmokeChecks
             await CheckPipelineReworkAsync();
             await CheckHttpLoggingAsync();
             await CheckPhase5aConfigurationAsync();
+            await CheckTracingAndMetricsAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -457,6 +460,66 @@ internal static class SmokeChecks
     }
 
     // Phase 5b: body-level logging over CreateDefault, with a JSON and a binary body (OBS-34, OBS-36 to OBS-38, OBS-16 to OBS-18).
+    // Phase 5c: the operation span, its attempt child and the two instruments, observed from public listeners only.
+    private static async Task CheckTracingAndMetricsAsync()
+    {
+        var request = Request.Get("https://smoke.example.test/traced");
+        var started = new List<Activity>();
+        var durations = 0;
+        long inFlight = 0;
+
+        using var handler = new CannedHandler();
+        using var client = new HttpClient(handler);
+        using var transport = new SystemNetHttpClient(client);
+        using var pipeline = DexpacePipeline.CreateDefault(transport);
+
+        using (var activities = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Dexpace.Sdk",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = started.Add,
+        })
+        using (var meters = new MeterListener())
+        {
+            ActivitySource.AddActivityListener(activities);
+            meters.InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Dexpace.Sdk")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            };
+            meters.SetMeasurementEventCallback<double>((instrument, _, _, _) =>
+            {
+                if (instrument.Name == "http.client.request.duration")
+                {
+                    durations++;
+                }
+            });
+            meters.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+            {
+                if (instrument.Name == "http.client.active_requests")
+                {
+                    inFlight += value;
+                }
+            });
+            meters.Start();
+
+            using var traced = await pipeline.SendAsync(request, CancellationToken.None);
+        }
+
+        var operation = started.Count == 2 ? started[0] : null;
+        Expect(
+            operation is { Kind: ActivityKind.Internal } && started[1].Kind == ActivityKind.Client && started[1].ParentId == operation.Id,
+            "an ActivityListener sees one Internal operation span with one Client attempt child");
+        Expect(durations == 1 && inFlight == 0, "a MeterListener sees one duration measurement and a balanced active-requests counter");
+
+        started.Clear();
+        durations = 0;
+        using var untraced = await pipeline.SendAsync(request, CancellationToken.None);
+        Expect(started.Count == 0 && durations == 0, "with the listeners disposed there is no span and no measurement");
+    }
+
     private static async Task CheckHttpLoggingAsync()
     {
         var logger = new SmokeLogger();

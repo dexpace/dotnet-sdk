@@ -4,6 +4,7 @@
 using System.Collections.ObjectModel;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Request;
@@ -36,6 +37,14 @@ namespace Dexpace.Sdk.Core.Pipeline;
 /// explicitly, threading the seam's <see cref="RequestOptions"/> and token through. <b>Disposal (PIPE-27)</b> is a no-op
 /// toward the transport: the pipeline never owns it. There is no disposed latch: a disposed pipeline stays usable
 /// (SEAM-15 is a MAY), so disposal never suggests a release that did not happen.
+/// </para>
+/// <para>
+/// <b>Operation span (OBS-29).</b> When <c>Dexpace.Sdk</c>'s activity source has a listener, every call opens one
+/// <see cref="System.Diagnostics.ActivityKind.Internal"/> operation span at entry, before the call context exists, and ends
+/// it exactly once when the response is returned (at headers, not when its body is consumed) or the call throws. A listener
+/// that throws while the span ends propagates, after the response, if any, has been disposed (P5c-13). The bundle in
+/// <see cref="PipelineContext.Instrumentation"/> is that span's, or <see cref="Execution.InstrumentationContext.None"/> when
+/// untraced.
 /// </para>
 /// <para>
 /// <b>Sync path.</b> <see cref="Send(Request, CancellationToken)"/> drives <see cref="HttpPipelinePolicy.Process"/> and the
@@ -248,22 +257,57 @@ public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(requestOptions);
 
-        // CTX-17: the dispatch registers nothing; the terminal's promotion does, once per transmission.
-        var dispatch = new DispatchContext(InstrumentationContext.FromActivity(System.Diagnostics.Activity.Current));
-        var context = PipelineContext.Create(request, options, requestOptions, dispatch, _logger, cancellationToken);
-        var runner = new PipelineRunner(_entries, 0, _terminal);
+        // OBS-29, P5c-2: the operation span opens at call entry, before the dispatch context is built, so the bundle (and the
+        // CallKey minted from it, CTX-17) carries the operation span's ids. An untraced call's bundle is None (P5c-3).
+        var operation = OperationTelemetry.Start(request, options);
+        PipelineContext? context = null;
+        Response? response = null;
+        var settled = false;
         try
         {
-            return async
+            // CTX-17: the dispatch registers nothing; the terminal's promotion does, once per transmission.
+            var dispatch = new DispatchContext(InstrumentationContext.FromActivity(operation));
+            context = PipelineContext.Create(request, options, requestOptions, dispatch, _logger, cancellationToken);
+            var runner = new PipelineRunner(_entries, 0, _terminal);
+            response = async
                 ? await runner.RunAsync(request, context).ConfigureAwait(false)
                 : runner.Run(request, context);
+            OperationTelemetry.Complete(operation, response);
+            settled = true;
+
+            // The span ends when the response is returned, at headers (P5c-4). A listener that throws here is the
+            // listener's contract violation and propagates (OBS-30), but not before the response is released (P5c-13).
+            OperationTelemetry.Stop(operation, settled);
+            return response;
+        }
+        catch (Exception ex) when (response is not null && !ExceptionFacts.IsFatal(ex))
+        {
+            await DisposeSupersededAsync(response, ex, async).ConfigureAwait(false);
+            throw;
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // Close the furthest link before the exception surfaces; a fatal exception skips it, the store's bound is
             // the backstop (design §5.4, CTX-11).
-            context.State.CloseFurthest();
+            context?.State.CloseFurthest();
+            OperationTelemetry.Fail(operation, ex, context?.State);
+            settled = true;
             throw;
         }
+        finally
+        {
+            OperationTelemetry.Stop(operation, settled);
+        }
+    }
+
+    private static ValueTask DisposeSupersededAsync(Response response, Exception primary, bool async)
+    {
+        if (async)
+        {
+            return Disposal.DisposeQuietlyAsync(response, primary);
+        }
+
+        Disposal.DisposeQuietly(response, primary);
+        return ValueTask.CompletedTask;
     }
 }

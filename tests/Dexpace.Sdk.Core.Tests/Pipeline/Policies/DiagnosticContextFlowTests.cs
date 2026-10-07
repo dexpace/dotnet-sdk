@@ -56,13 +56,13 @@ public sealed class DiagnosticContextFlowTests
     [Fact]
     public async Task The_attempt_span_is_current_when_http_request_is_emitted()
     {
-        using var recorder = new ActivityRecorder("Dexpace.Sdk");
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var logger = new RecordingLogger();
         using var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy(logger)).Build(new RecordingTransport(), s_headers);
 
         using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/v1/items"), TestContext.Current.CancellationToken);
 
-        var attempt = Assert.Single(recorder.Started);
+        var attempt = Assert.Single(recorder.StartedOfKind(System.Diagnostics.ActivityKind.Client));
         Assert.Same(attempt, logger.Entries.Single(e => e.EventId.Id == 100).Activity);
         Assert.Same(attempt, logger.Entries.Single(e => e.EventId.Id == 101).Activity);
     }

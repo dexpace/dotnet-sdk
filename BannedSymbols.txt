@@ -110,3 +110,7 @@ M:System.Environment.GetEnvironmentVariable(System.String);Nothing reads the env
 M:System.Environment.GetEnvironmentVariable(System.String,System.EnvironmentVariableTarget);Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
 M:System.Environment.GetEnvironmentVariables;Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
 M:System.Environment.GetEnvironmentVariables(System.EnvironmentVariableTarget);Nothing reads the environment implicitly; ProxyOptions.FromEnvironment is the one site (CFG-28, design §8.2)
+
+# Process-wide trace-id generation belongs to the application (OBS-27, design §10 entry 24, P5c-14): a library must not set
+# the hook the application owns, so the SDK never installs a generator.
+P:System.Diagnostics.Activity.TraceIdGenerator;A library never sets the process-wide trace-id generator; the application owns it (OBS-27, design §10 entry 24)

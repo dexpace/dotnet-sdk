@@ -39,14 +39,15 @@ public sealed class HttpLoggingDefaultsTests
     [Fact]
     public async Task Spans_and_instruments_still_record_at_None()
     {
-        using var activities = new ActivityRecorder("Dexpace.Sdk");
-        using var metrics = new MetricRecorder("Dexpace.Sdk", "http.client.request.duration", "http.client.active_requests");
+        using var activities = ActivityRecorder.Scoped("Dexpace.Sdk");
+        var host = TestHosts.Unique();
+        using var metrics = MetricRecorder.ForServer("Dexpace.Sdk", host, "http.client.request.duration", "http.client.active_requests");
         using var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy(new RecordingLogger())).Build(new RecordingTransport());
 
-        using var response = await pipeline.SendAsync(Get(), TestContext.Current.CancellationToken);
+        using var response = await pipeline.SendAsync(Request.Get($"https://{host}/v1/items?token=SECRET&api-version=3"), TestContext.Current.CancellationToken);
 
-        var activity = Assert.Single(activities.Started);
-        Assert.Equal("https://api.example.com/v1/items?token=***", activity.GetTagItem("url.full"));
+        var activity = Assert.Single(activities.StartedOfKind(System.Diagnostics.ActivityKind.Client));
+        Assert.Equal($"https://{host}/v1/items?token=***&api-version=3", activity.GetTagItem("url.full"));
         Assert.Single(metrics.For("http.client.request.duration"));
         Assert.Equal([1d, -1d], metrics.For("http.client.active_requests").Select(m => Convert.ToDouble(m.Value, System.Globalization.CultureInfo.InvariantCulture)));
     }

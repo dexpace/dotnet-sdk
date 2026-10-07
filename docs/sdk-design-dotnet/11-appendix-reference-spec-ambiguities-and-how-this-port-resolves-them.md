@@ -285,3 +285,10 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
 51. **`CFG-12` asks for a builder that is safe to share while unfinished; core has no configuration builder.** *Added by dated
     correction, 2026-10-07 (phase 5a, P5a-25).* *Resolved* (§8.2): an object initializer runs on an instance no other code can reach, so
     the clause is vacuous and the row is N/A.
+
+**Correction 2026-10-07 (phase 5c, P5c-10).** Item 38 as built: `http.client.request.duration` (histogram, `s`, OpenTelemetry's bucket advice
+`0.005`, `0.01`, `0.025`, `0.05`, `0.075`, `0.1`, `0.25`, `0.5`, `0.75`, `1`, `2.5`, `5`, `7.5`, `10`, through `InstrumentAdvice<double>`, which
+carries no `[Experimental]` diagnostic on SDK 10.0.401) with `http.request.method` (`_OTHER` for an unknown method), `server.address`, `server.port`,
+`url.scheme` and, on completion, `http.response.status_code` and `network.protocol.version`, or `error.type` for an exception or a status of 400
+or more; `http.client.active_requests` (up-down counter, `{request}`) with the four start attributes, the same list for `+1` and `-1`. There is no
+count instrument and no operation-level instrument.

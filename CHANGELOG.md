@@ -217,9 +217,39 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking (behaviour):** the default `User-Agent` is `dexpace-dotnet/<version> dotnet/<runtime>` (the
   `BuildInfo.IdentityTokens` joined; was the one token `dexpace-dotnet/<version>`), and an undeterminable SDK version
   reads `unknown` (was `0.0.0`), which also changes the `ActivitySource` and `Meter` version in that case.
+- **Breaking (behaviour):** every `HttpPipeline` call opens an `Internal` operation span on `Dexpace.Sdk` when the source is
+  listened to, ended exactly once when the response is returned (at headers) or the call throws; the attempt spans are its
+  children, no longer children of the caller's `Activity.Current`. `PipelineContext.Instrumentation` is the operation span's
+  bundle, or `InstrumentationContext.None` when the source has no listener, even under an ambient activity (it was built from
+  the ambient activity), so `CallKey.TraceId` is zero for an untraced call (`OBS-21`-`OBS-23`, `OBS-25`, `OBS-26`, `OBS-29`,
+  `CTX-14`, `CTX-15`). Success leaves the operation span's status `Unset`; a failure sets `Error` with an `exception` event and
+  `error.type`. An attempt span exists only under an operation span.
+- **Breaking (behaviour):** new events on the operation span: `dexpace.attempt.failed` (an attempt failed and another follows;
+  `http.request.resend_count`, `error.type`, `http.response.status_code`, `dexpace.retry.delay` in seconds),
+  `dexpace.retry.exhausted` (immediately before the `exception` event of an operation that fails after its retry budget was
+  spent, carrying the same exception type) and `exception` (`OBS-28`, `OBS-29`). `dexpace.redirect.hop` is defined and unwired
+  until phase 6b.
+- **Breaking (behaviour):** attempt spans: `server.port` is the port number (was `-1` for a default port);
+  `http.request.resend_count` counts redirect hops as well as retries and is absent on the first transmission (was `0`); a
+  4xx/5xx response sets `error.type` to the status code and the status to `Error`; a method outside RFC 9110 plus `PATCH` is
+  `_OTHER` with `http.request.method_original`, and the span is named `HTTP`.
+- **Breaking (behaviour):** `http.client.request.duration` and `http.client.active_requests` carry the stable attribute sets
+  (`server.address`, `server.port`, `url.scheme`, and on the histogram `network.protocol.version` and `error.type` for a
+  failure or a 4xx/5xx); unknown methods are `_OTHER`; the histogram carries OpenTelemetry's bucket advice. Dashboards keyed on
+  the old tag set see new series (`OBS-31`-`OBS-33`).
+- **Breaking (behaviour):** a listener whose `ActivityStopped` (or a meter whose callback) throws after a response exists now has
+  that response disposed before the exception propagates; it was leaked. Listener and meter callbacks are still never wrapped
+  (`OBS-20`, `OBS-30`).
+- **Breaking (behaviour):** `SystemNetHttpClient` drops the SDK's own `traceparent` and `tracestate` stamp when it equals the
+  current activity's, a `System.Net.Http` listener exists and runtime propagation is on, so the wire carries the runtime's
+  child span id; a caller-supplied client without runtime propagation sends no `traceparent` for such a traced call. Enable
+  the `Dexpace.Sdk` meter or `System.Net.Http`'s, not both.
+- Internal gate: `BannedSymbols.txt` bans `Activity.TraceIdGenerator` in `src/` (`OBS-27`); no consumer-visible change.
 
 ### Added
 
+- `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two
+  metrics (`OBS-31`, `OBS-32`).
 - `docs/sdk-documentation/pipelines.md`; the AOT smoke covers the synchronous pipeline, `ErrorMappingPolicy` and
   `HttpPipeline` as a seam.
 - Phase 4c pipeline surface: `PipelineBuilder.Prepend`, `AddRange`, `PrependRange`, `AddStandardResilience`, `Flatten`,

@@ -103,6 +103,12 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   `PipelineBuilder.AddStandardResilience` install it whether the call goes through `SendAsync` or `Send`, so both follow redirects. The invariant the
   asymmetry protected, that exactly one layer follows redirects, is the transport's (`AllowAutoRedirect = false` on the SDK-created client). A caller who
   wants the 3xx verbatim sets `MaxRedirects` to zero or builds a pipeline without the policy. Recorded by phase 4c (2026-10-07).
+- **`two-meters` (design §8.1, §11 item 38; `OBS-32`).** A consumer that enables both the `Dexpace.Sdk` meter and `System.Net.Http`'s sees each
+  attempt measured twice under `http.client.request.duration`. Enable one or the other. Recorded by phase 5c (2026-10-07); see
+  [`tracing-and-metrics.md`](./sdk-documentation/tracing-and-metrics.md).
+- **`borrowed-client-traceparent` (design §8.1, P5c-11).** `SystemNetHttpClient` drops the SDK's own `traceparent` stamp when a
+  `System.Net.Http` listener exists, so the runtime's child span id is on the wire. A caller-supplied `HttpClient` whose handler chain does not
+  propagate sends no `traceparent` for a traced call while that listener exists. Recorded by phase 5c (2026-10-07).
 
 ### Post-v1 packages
 

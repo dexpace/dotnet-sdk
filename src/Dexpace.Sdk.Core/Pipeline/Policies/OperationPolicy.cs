@@ -29,6 +29,11 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// When no timeout is configured (or the value is non-positive) the policy is transparent:
 /// it simply awaits the continuation without allocating a CTS.
 /// </para>
+/// <para>
+/// <b>The operation span is not opened here.</b> <c>HttpPipeline</c> opens it at call entry, around this policy, so it
+/// exists for every pipeline shape and a replaced <c>Operation</c> pillar cannot lose it (OBS-29, phase 5c, P5c-2). A
+/// deadline that fires is a failure of that span.
+/// </para>
 /// </remarks>
 public sealed class OperationPolicy : HttpPipelinePolicy
 {

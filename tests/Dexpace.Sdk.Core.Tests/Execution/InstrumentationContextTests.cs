@@ -193,7 +193,8 @@ public sealed class InstrumentationContextTests
         const int Threads = 16;
         const int PerThread = 50;
         using var recorder = new ActivityRecorder("Dexpace.Sdk");
-        var bundle = InstrumentationContext.FromContext(new ActivityContext(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded));
+        var traceId = ActivityTraceId.CreateRandom();
+        var bundle = InstrumentationContext.FromContext(new ActivityContext(traceId, ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded));
         var started = new Activity?[Threads][];
         using var barrier = new Barrier(Threads);
         var threads = Enumerable.Range(0, Threads).Select(t => new Thread(() =>
@@ -214,8 +215,10 @@ public sealed class InstrumentationContextTests
         var all = started.SelectMany(a => a).ToList();
         Assert.All(all, Assert.NotNull);
         Assert.Equal(Threads * PerThread, all.Select(a => a!.SpanId).Distinct().Count());
-        Assert.Equal(Threads * PerThread, recorder.Started.Count);
-        Assert.Equal(Threads * PerThread, recorder.Stopped.Count);
+
+        // The listener is process-wide: count only this test's trace (P5c-15).
+        Assert.Equal(Threads * PerThread, recorder.Started.Count(a => a.TraceId == traceId));
+        Assert.Equal(Threads * PerThread, recorder.Stopped.Count(a => a.TraceId == traceId));
     }
 
     [Fact]

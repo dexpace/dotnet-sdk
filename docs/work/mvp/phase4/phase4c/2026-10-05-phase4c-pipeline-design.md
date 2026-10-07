@@ -863,3 +863,9 @@ Taken by this design in the absence of a human reviewer. Each lists the options 
 
 No ruling leaves a MUST's letter unmet on a stated domain beyond what §10 entries 8, 12 and 14 already record, so no new §10
 entry is opened; P4c-20 labels entry 14.
+
+**Correction 2026-10-07 (phase 5c, P5c-2).** "5c opens the operation span at `Operation`" is built at the outer edge of that stage, in
+`HttpPipeline.SendCoreAsync` at call entry, not inside `OperationPolicy`: the bundle and `CallKey` are fixed when the `DispatchContext` is built and
+the `Operation` pillar is replaceable. The span therefore exists for every pipeline shape and encloses `OperationPolicy`'s deadline. The interim
+"`FromActivity(Activity.Current)` (or `None`)" bundle is gone. See the
+[5c design](../../phase5/phase5c/2026-10-07-phase5c-tracing-design.md), position A.

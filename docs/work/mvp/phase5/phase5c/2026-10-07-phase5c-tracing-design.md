@@ -627,3 +627,27 @@ it; 6a's engine keeps the same calls at the same decisions. 6b calls `RedirectHo
 Taken.**
 Options: wait for 5b (serialises the phase for one shared file); land first and let 5b rebase (chosen as "either order");
 one PR (mixes two packages and phase 6's entry contract with the 5b collision).
+
+---
+
+## Dated corrections
+
+**Correction 2026-10-07 (built; P5c-17, finding 11).**
+
+1. *Positions C and D, "the default pipeline".* "With `ErrorMappingPolicy` in the chain (the default pipeline), a 4xx/5xx becomes an
+   `HttpResponseException` inside the operation span" is wrong: `DexpacePipeline.CreateDefault` adds idempotency, client identity, set-date and
+   the standard resilience set (operation, redirect, retry, instrumentation), and nothing in `src/` constructs `ErrorMappingPolicy`. On the default
+   pipeline a 4xx/5xx, an exhausted 503 included, is a **returned response**: the operation succeeds and no `dexpace.retry.exhausted` event is
+   emitted; the attempt span carries `error.type` and `Error`. A test that needs a mapped status adds `ErrorMappingPolicy` at `PerCall` explicitly.
+2. *Position H, the strip condition.* The design strips the SDK's `traceparent` whenever runtime propagation is on. Verified over the loopback server
+   on .NET 10: with a `System.Net.Http` listener the strip puts the runtime child's recorded span id on the wire, but with an ambient activity and
+   **no** `System.Net.Http` listener the runtime still writes a fresh span id for a span nobody records, so the unconditional strip would parent the
+   server to a span no backend holds. The strip also requires a recorded runtime span: an unused `ActivitySource` named `System.Net.Http` answers
+   `HasListeners()` (no reflection), and the global `DistributedContextPropagator.Current` must list `traceparent`. Otherwise the stamp stays and names
+   the recorded attempt span. P5c-11's other options are unchanged. Knowledge note: `docs/knowledge/notes/observability.md`.
+3. *Position F / "Internal types".* 5b had already split the policy, so `AttemptTelemetry` is 5b's `internal struct` extended in place (its `Begin` keeps
+   the `ref AttemptScope` signature), `HttpClientMetrics` takes the two instruments out of it, and the `MA0051` waiver was already retired (P5c-17).
+   `OperationTelemetry.Start` takes the call's `DexpaceClientOptions` (for 5b's per-call URL allow-list, P5b-10) and `Fail` takes a nullable `CallState`
+   (the span can fail before a context exists). The listener-contract text of P5c-13 also covers a throwing meter callback after a response exists.
+4. *Position G, isolation.* Throwing listeners and non-recording samplers are process-wide and broke unrelated classes running in parallel, so every
+   test that installs one lives in the `NoDiagnosticListeners` collection (which runs alone), not in `Instrumentation`.

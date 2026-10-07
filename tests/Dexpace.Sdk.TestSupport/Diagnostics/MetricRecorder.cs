@@ -20,12 +20,19 @@ public sealed class MetricRecorder : IDisposable
     private readonly MeterListener _listener = new();
     private readonly List<RecordedMeasurement> _measurements = [];
     private readonly Lock _gate = new();
+    private readonly Func<RecordedMeasurement, bool>? _filter;
 
     /// <summary>Starts recording the meter named <paramref name="meterName"/>.</summary>
     /// <param name="meterName">The <see cref="Meter.Name"/> to listen to.</param>
     /// <param name="instrumentNames">The instruments to record; none means every instrument of the meter.</param>
     public MetricRecorder(string meterName, params string[] instrumentNames)
+        : this(meterName, filter: null, instrumentNames)
     {
+    }
+
+    private MetricRecorder(string meterName, Func<RecordedMeasurement, bool>? filter, string[] instrumentNames)
+    {
+        _filter = filter;
         ArgumentNullException.ThrowIfNull(meterName);
         ArgumentNullException.ThrowIfNull(instrumentNames);
         var wanted = new HashSet<string>(instrumentNames, StringComparer.Ordinal);
@@ -45,6 +52,23 @@ public sealed class MetricRecorder : IDisposable
         _listener.SetMeasurementEventCallback<decimal>(
             (instrument, value, tags, _) => Record(instrument, (double)value, tags));
         _listener.Start();
+    }
+
+    /// <summary>
+    /// Starts recording the meter, keeping only the measurements whose <c>server.address</c> tag is
+    /// <paramref name="serverAddress"/> (give each test a host from <see cref="TestHosts.Unique"/>).
+    /// </summary>
+    /// <param name="meterName">The <see cref="Meter.Name"/> to listen to.</param>
+    /// <param name="serverAddress">The <c>server.address</c> to keep.</param>
+    /// <param name="instrumentNames">The instruments to record; none means every instrument of the meter.</param>
+    /// <returns>The recorder.</returns>
+    public static MetricRecorder ForServer(string meterName, string serverAddress, params string[] instrumentNames)
+    {
+        ArgumentNullException.ThrowIfNull(serverAddress);
+        return new MetricRecorder(
+            meterName,
+            measurement => string.Equals(measurement.Tag("server.address") as string, serverAddress, StringComparison.Ordinal),
+            instrumentNames);
     }
 
     /// <summary>Every measurement recorded so far, in recording order.</summary>
@@ -78,6 +102,11 @@ public sealed class MetricRecorder : IDisposable
     private void Record(Instrument instrument, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
     {
         var measurement = new RecordedMeasurement(instrument.Name, value, tags.ToArray());
+        if (_filter is not null && !_filter(measurement))
+        {
+            return;
+        }
+
         lock (_gate)
         {
             _measurements.Add(measurement);

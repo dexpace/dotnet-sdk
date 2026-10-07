@@ -322,3 +322,10 @@ unified, so neither **RETRY-28**'s nor `08-execution-pipelines.md`'s unification
 (§1, §3.3, §5.3).
 
 ---
+
+**Correction 2026-10-07 (phase 5c, P5c-14, P5c-18).** Entry 23: `OBS-29`'s evidence is an `ActivityListener` ordering test over a succeeding and a
+retry-exhausted operation, and `OBS-21`'s mutators are inert for the SDK's own writes only (every SDK tag, event and status write is guarded by
+`IsAllDataRequested`; `Activity.SetTag` on a non-recording activity is not itself a no-op). Entry 24: `OBS-27` also asks that a zero draw be coerced
+to a non-zero id; the runtime's generator is not shown to do so (no runtime source was available to verify, and its public contract does not say), so
+the clause is **admitted** (probability 2^-128 per draw), the SDK never sets the process-wide `Activity.TraceIdGenerator` (a library must not set a
+hook the application owns), and `BannedSymbols.txt` enforces that in `src/`. No new entry is opened.

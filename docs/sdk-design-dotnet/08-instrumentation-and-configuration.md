@@ -398,3 +398,21 @@ overload, `DateTime`/`DateTimeOffset` `Now`/`UtcNow`/`Today` and the `Environmen
 (`TimeProviderWaits`) and the environment read (`ProxyResolution`).
 
 ---
+
+**Correction 2026-10-07 (phase 5c, P5c-2, P5c-3, P5c-5, P5c-11, P5c-13).** (1) The operation span opens at `HttpPipeline` call entry, before the
+dispatch context exists, not inside `OperationPolicy`; the bundle is `FromActivity(operationSpan)` when traced and `InstrumentationContext.None` when
+the source has no listener, even under an ambient activity (a traced attempt span is a child of the operation span through the bundle, so it exists
+only under one). (2) "exactly one operation end whose status is `Ok` or `Error`" is read as `Unset` or `Error`: OpenTelemetry reserves `Ok` for the
+application and `System.Net.Http`'s own spans leave success `Unset`; `OBS-29`'s mutual exclusion is "ended without `Error`" versus "ended with `Error`".
+(3) The as-built defect list is closed: `server.port` is the port number, `http.request.resend_count` counts retries and hops and is absent on the first
+transmission, a 4xx/5xx sets `error.type` and `Error`, unknown methods are `_OTHER`, the redacted URL is computed only when something consumes it, a
+duration is a `Stopwatch.GetTimestamp` pair, tag lists are built only when an instrument is enabled, and a throwing `ActivityStopped` (or meter callback)
+after a response exists disposes that response before it propagates. (4) The adapter's `traceparent` strip is conditioned on a recorded runtime span:
+verified on .NET 10, with a `System.Net.Http` listener the wire carries the runtime child's id once the SDK stamp is dropped, but with an ambient
+activity and **no** `System.Net.Http` listener the runtime still writes a fresh span id for a span nobody records, so the strip applies only when a
+listener exists (detected with an unused `ActivitySource` of the runtime's name and `HasListeners()`, no reflection) and the global propagator lists
+`traceparent`; otherwise the policy's stamp, which names the recorded attempt span, stays. "Either way the trace is unbroken" held only for the
+listener case. (5) `exception.stacktrace` is `Exception.StackTrace`, not `ToString()`: an `SdkException` renders its suppressed trail there. The
+**As built** line gains the 5c verdict: **as built by 5c:** operation span, attempt spans through the bundle, the `dexpace.attempt.failed`,
+`dexpace.retry.exhausted` and `exception` events, the two instruments with the stable attribute sets and bucket advice, and the adapter's strip;
+`dexpace.redirect.hop` is defined and unwired until 6b; byte-count milestones are not emitted (`OBS-28`).
