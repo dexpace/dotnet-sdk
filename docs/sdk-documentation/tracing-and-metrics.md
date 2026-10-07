@@ -124,7 +124,8 @@ including the default `None` (`OBS-34`).
 `InstrumentationPolicy` stamps the attempt span's `traceparent` (and `tracestate`) on the request it forwards, so a custom
 transport that does not propagate still carries the trace. `SystemNetHttpClient` drops that stamp when it equals the current
 activity's id, a `System.Net.Http` listener exists and runtime propagation is on, so the wire carries the runtime's recorded
-child span id and the server's span is parented to a span you can see. A `traceparent` you set yourself is sent unchanged.
+child span id and the server's span is parented to a span you can see. On a traced pipeline call the stamp replaces a `traceparent` you set yourself (the attempt span owns the header); a
+`traceparent` you set is sent unchanged only when the call is untraced or you use the transport directly.
 With no `System.Net.Http` listener the stamp stays (the runtime would otherwise write the id of a span nobody records).
 
 A borrowed `HttpClient` whose handler chain does not propagate (no `SocketsHttpHandler` at its root, or an

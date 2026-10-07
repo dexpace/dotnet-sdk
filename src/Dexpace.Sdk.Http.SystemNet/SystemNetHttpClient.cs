@@ -378,7 +378,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     {
         if (Activity.Current is not { Id: { } currentId } current
             || request.Headers.Get("traceparent") is not { } carried
-            || !TraceContextStripping.ShouldStripTraceparent(carried, currentId, TraceContextStripping.RuntimeInjects()))
+            || !TraceContextStripping.ShouldStripTraceparent(carried, currentId, TraceContextStripping.RuntimeInjects(current)))
         {
             return (false, false);
         }

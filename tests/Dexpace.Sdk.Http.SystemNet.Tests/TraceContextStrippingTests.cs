@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Diagnostics;
 using Xunit;
 
 namespace Dexpace.Sdk.Http.SystemNet.Tests;
@@ -80,5 +81,40 @@ public sealed class TraceContextStrippingTests
         // A static read once: the property returns the cached value on every call.
         Assert.Equal(TraceContextStripping.RuntimeSwitch, TraceContextStripping.RuntimeSwitch);
         Assert.True(TraceContextStripping.RuntimeSwitch);
+    }
+
+    [Fact]
+    public void The_runtime_injects_only_when_the_switch_is_on_a_listener_exists_and_the_propagator_injects()
+    {
+        Assert.True(TraceContextStripping.RuntimeInjects(runtimeSwitch: true, hasListeners: true, () => true));
+        Assert.False(TraceContextStripping.RuntimeInjects(runtimeSwitch: false, hasListeners: true, () => true));
+        Assert.False(TraceContextStripping.RuntimeInjects(runtimeSwitch: true, hasListeners: false, () => true));
+        Assert.False(TraceContextStripping.RuntimeInjects(runtimeSwitch: true, hasListeners: true, () => false));
+    }
+
+    [Fact]
+    public void The_propagator_is_asked_only_when_the_switch_and_a_listener_allow_it()
+    {
+        var asked = false;
+        bool Ask()
+        {
+            asked = true;
+            return true;
+        }
+
+        Assert.False(TraceContextStripping.RuntimeInjects(runtimeSwitch: false, hasListeners: true, Ask));
+        Assert.False(TraceContextStripping.RuntimeInjects(runtimeSwitch: true, hasListeners: false, Ask));
+        Assert.False(asked);
+    }
+
+    [Fact]
+    public void The_default_propagator_injects_traceparent_and_the_no_output_propagator_does_not()
+    {
+        using var activity = new Activity("probe");
+        activity.SetIdFormat(ActivityIdFormat.W3C);
+        activity.Start();
+
+        Assert.True(TraceContextStripping.PropagatorInjectsTraceparent(DistributedContextPropagator.CreateDefaultPropagator(), activity));
+        Assert.False(TraceContextStripping.PropagatorInjectsTraceparent(DistributedContextPropagator.CreateNoOutputPropagator(), activity));
     }
 }

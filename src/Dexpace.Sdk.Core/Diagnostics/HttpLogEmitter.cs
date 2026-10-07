@@ -240,7 +240,7 @@ internal static partial class HttpLogEmitter
         {
             new(DexpaceLogKeys.HttpRequestMethod, scope.MethodName),
             new(DexpaceLogKeys.UrlFull, LogText.Truncate(scope.RedactedUrl)),
-            new(DexpaceLogKeys.HttpRequestResendCount, scope.AttemptNumber),
+            new(DexpaceLogKeys.HttpRequestResendCount, scope.ResendCount),
         };
         entry.Renderer.Render(request.Headers, DexpaceLogKeys.HttpRequestHeaderPrefix, pairs);
         AddDeclaredSize(pairs, DexpaceLogKeys.HttpRequestBodySize, request.Body?.ContentLength ?? -1);
@@ -262,7 +262,7 @@ internal static partial class HttpLogEmitter
         {
             new(DexpaceLogKeys.HttpRequestMethod, scope.MethodName),
             new(DexpaceLogKeys.UrlFull, LogText.Truncate(scope.RedactedUrl)),
-            new(DexpaceLogKeys.HttpRequestResendCount, scope.AttemptNumber),
+            new(DexpaceLogKeys.HttpRequestResendCount, scope.ResendCount),
             new(DexpaceLogKeys.HttpResponseStatusCode, response.Status.Code),
             new(DexpaceLogKeys.HttpResponseDurationMs, scope.Elapsed.TotalMilliseconds),
         };
@@ -282,7 +282,7 @@ internal static partial class HttpLogEmitter
         {
             new(DexpaceLogKeys.HttpRequestMethod, scope.MethodName),
             new(DexpaceLogKeys.UrlFull, LogText.Truncate(scope.RedactedUrl)),
-            new(DexpaceLogKeys.HttpRequestResendCount, scope.AttemptNumber),
+            new(DexpaceLogKeys.HttpRequestResendCount, scope.ResendCount),
             new(DexpaceLogKeys.ErrorType, errorType),
             new(DexpaceLogKeys.HttpResponseDurationMs, scope.Elapsed.TotalMilliseconds),
         };

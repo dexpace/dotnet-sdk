@@ -143,6 +143,23 @@ public sealed class HttpLogEmitterTests
     }
 
     [Fact]
+    public async Task The_resend_count_is_the_transmission_ordinal_across_a_redirect_hop_as_on_the_span()
+    {
+        var logger = new RecordingLogger();
+        var transport = new ScriptedTransport(
+            TestResponses.Redirect(307, "https://api.example.com/moved"),
+            TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder()
+            .Add(new RedirectPolicy())
+            .Add(new InstrumentationPolicy(logger))
+            .Build(transport, Options());
+
+        using var response = await pipeline.SendAsync(Request.Get(Url), TestContext.Current.CancellationToken);
+
+        Assert.Equal([0, 0, 1, 1], logger.Entries.Select(e => (int)e[DexpaceLogKeys.HttpRequestResendCount]!));
+    }
+
+    [Fact]
     public async Task A_logger_that_disables_Information_receives_nothing_and_is_asked_once_per_attempt()
     {
         var logger = new DisabledLogger();

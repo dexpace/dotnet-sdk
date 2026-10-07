@@ -43,6 +43,7 @@ internal struct AttemptTelemetry
     internal static AttemptTelemetry Begin(ref AttemptScope scope, Request request, PipelineContext context)
     {
         var ordinal = context.State.NextTransmission();
+        scope.ResendCount = ordinal;
         var telemetry = new AttemptTelemetry
         {
             _request = request,

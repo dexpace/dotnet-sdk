@@ -44,8 +44,15 @@ internal struct AttemptScope
     /// <summary>The HTTP method name.</summary>
     internal string MethodName { get; }
 
-    /// <summary>The zero-based attempt number (<c>http.request.resend_count</c>).</summary>
+    /// <summary>The zero-based retry attempt number of the context the attempt was entered with.</summary>
     internal int AttemptNumber { get; }
+
+    /// <summary>
+    /// The call's zero-based transmission ordinal across retries and redirect hops: the value of
+    /// <c>http.request.resend_count</c> on the attempt span and in the log events, so a span tag and a log key cannot drift
+    /// (P5c-18(b), OBS-39). Set by <c>AttemptTelemetry.Begin</c>; zero until then.
+    /// </summary>
+    internal int ResendCount { get; set; }
 
     /// <summary>The <see cref="Stopwatch.GetTimestamp"/> value at entry.</summary>
     internal long StartTimestamp { get; }

@@ -24,8 +24,8 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// would point the server at a span no backend holds; the SDK's stamp, which names the recorded attempt span, stays.
 /// The runtime's global switch (<c>System.Net.Http.EnableActivityPropagation</c>, else the environment variable
 /// <c>DOTNET_SYSTEM_NET_HTTP_ENABLEACTIVITYPROPAGATION</c>, default on) is read once. The process-wide
-/// <see cref="DistributedContextPropagator.Current"/> must list <c>traceparent</c> among its fields (a no-output
-/// propagator does not). A borrowed handler that overrides <c>ActivityHeadersPropagator</c> cannot be seen from here; that
+/// <see cref="DistributedContextPropagator.Current"/> must actually write <c>traceparent</c> when asked to inject (a no-output
+/// propagator does not, though it still lists the field). A borrowed handler that overrides <c>ActivityHeadersPropagator</c> cannot be seen from here; that
 /// is the documented residual.
 /// </para>
 /// </remarks>
@@ -54,29 +54,48 @@ internal static class TraceContextStripping
     internal static bool IsTracestate(string name) => string.Equals(name, TracestateName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Whether the runtime will write the <c>traceparent</c> of a recorded child span for a request sent under an ambient
-    /// activity.
+    /// Whether the runtime will write the <c>traceparent</c> of a recorded child span for a request sent under
+    /// <paramref name="current"/>.
     /// </summary>
+    /// <param name="current">The ambient activity.</param>
     /// <returns>
     /// <see langword="true"/> when a <c>System.Net.Http</c> listener exists, the switch is on and the global propagator
     /// injects <c>traceparent</c>.
     /// </returns>
-    internal static bool RuntimeInjects()
+    internal static bool RuntimeInjects(Activity current) =>
+        RuntimeInjects(RuntimeSwitch, s_runtimeSource.HasListeners(), () => PropagatorInjectsTraceparent(DistributedContextPropagator.Current, current));
+
+    /// <summary>The decision behind <see cref="RuntimeInjects(Activity)"/>, over its three facts.</summary>
+    /// <param name="runtimeSwitch">Whether the runtime's activity-propagation switch is on.</param>
+    /// <param name="hasListeners">Whether a <c>System.Net.Http</c> listener exists.</param>
+    /// <param name="propagatorInjects">Evaluated last, and only when the first two hold: whether the propagator injects.</param>
+    /// <returns><see langword="true"/> when all three facts hold.</returns>
+    internal static bool RuntimeInjects(bool runtimeSwitch, bool hasListeners, Func<bool> propagatorInjects) =>
+        runtimeSwitch && hasListeners && propagatorInjects();
+
+    /// <summary>
+    /// Whether <paramref name="propagator"/> writes a <c>traceparent</c> for <paramref name="activity"/>. It is asked to
+    /// inject rather than to list its fields: the no-output propagator still lists <c>traceparent</c> among its fields.
+    /// </summary>
+    /// <param name="propagator">The propagator.</param>
+    /// <param name="activity">A started activity.</param>
+    /// <returns><see langword="true"/> when the propagator wrote a <c>traceparent</c>.</returns>
+    internal static bool PropagatorInjectsTraceparent(DistributedContextPropagator propagator, Activity activity)
     {
-        if (!RuntimeSwitch || !s_runtimeSource.HasListeners())
+        var seen = new InjectionProbe();
+        propagator.Inject(activity, seen, static (carrier, name, _) =>
         {
-            return false;
-        }
-
-        foreach (var field in DistributedContextPropagator.Current.Fields)
-        {
-            if (IsTraceparent(field))
+            if (carrier is InjectionProbe probe && IsTraceparent(name))
             {
-                return true;
+                probe.Traceparent = true;
             }
-        }
+        });
+        return seen.Traceparent;
+    }
 
-        return false;
+    private sealed class InjectionProbe
+    {
+        internal bool Traceparent { get; set; }
     }
 
     /// <summary>Whether a carried <c>traceparent</c> is the SDK's stamp for the current attempt and should be dropped.</summary>

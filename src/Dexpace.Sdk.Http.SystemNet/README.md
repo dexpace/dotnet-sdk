@@ -20,7 +20,8 @@ The reference transport for the dexpace .NET SDK. It adapts `System.Net.Http.Htt
 - **Trace context.** The pipeline stamps the attempt span's `traceparent` (and `tracestate`) on the request. When a
   `System.Net.Http` listener exists and runtime propagation is on (`System.Net.Http.EnableActivityPropagation`), the
   adapter drops that stamp, recognised by equality with `Activity.Current`'s id, so the wire carries the runtime's own
-  child span id; a `traceparent` the caller set is sent unchanged. For a caller-supplied client whose handler chain does
+  child span id. A `traceparent` the caller set reaches the wire unchanged only when the call is untraced or the transport
+  is used directly; on a traced pipeline call the stamp replaces it. For a caller-supplied client whose handler chain does
   not propagate (no `SocketsHttpHandler` at its root, or an `ActivityHeadersPropagator` that injects nothing), a traced call
   then sends no `traceparent`; the remedies are to leave runtime propagation on, or not to listen to `System.Net.Http`.
 - **Metrics.** Enable the `Dexpace.Sdk` meter **or** `System.Net.Http`'s for HTTP client duration, not both: each attempt is
