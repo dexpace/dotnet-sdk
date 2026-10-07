@@ -465,4 +465,24 @@ public sealed class BodyLoggingTests
         Assert.Equal(0, entry[DexpaceLogKeys.HttpResponseBodyPreviewSize]);
         Assert.Equal(payload, await ReadAllAsync(response.Body));
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_logger_that_enables_only_Warning_taps_the_request_for_the_failure_event_and_wraps_no_response(bool async)
+    {
+        var logger = new RecordingLogger { MinimumLevel = LogLevel.Warning };
+        var body = ResponseBody.FromBytes("fine"u8.ToArray(), s_json);
+        var ok = new WritingTransport(_ => Ok(body));
+
+        using var response = await Dispatch(Pipeline(logger, ok), Request.Post(Url, RequestBody.FromString("a")), async);
+        var failing = new WritingTransport(_ => Ok(body), new ServiceRequestException("write then fail"));
+        await Assert.ThrowsAsync<ServiceRequestException>(
+            () => Dispatch(Pipeline(logger, failing), Request.Post(Url, RequestBody.FromString("payload")), async));
+
+        Assert.Same(body, response.Body);
+        var failure = Assert.Single(logger.Entries);
+        Assert.Equal(DexpaceLogEvents.HttpFailureId, failure.EventId.Id);
+        Assert.Equal("payload", failure[DexpaceLogKeys.HttpRequestBodyPreview]);
+    }
 }
