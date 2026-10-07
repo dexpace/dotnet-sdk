@@ -171,7 +171,8 @@ public sealed class UrlRedactor
     }
 
     // The route for a value the parser did not take: cut at the first '?' or '#', then mask the userinfo of every
-    // "//authority" in what is left (OBS-11 is unconditional and overrides OBS-16's "verbatim").
+    // "//authority" in what is left; either slash may be a backslash, as System.Uri reads it (OBS-11 is unconditional
+    // and overrides OBS-16's "verbatim").
     private static string RedactBySurgery(string value)
     {
         var cut = value.AsSpan().IndexOfAny('?', '#');
@@ -187,7 +188,7 @@ public sealed class UrlRedactor
         var i = 0;
         while (i + 1 < text.Length)
         {
-            if (text[i] != '/' || text[i + 1] != '/')
+            if (text[i] is not ('/' or '\\') || text[i + 1] is not ('/' or '\\'))
             {
                 i++;
                 continue;
@@ -195,7 +196,7 @@ public sealed class UrlRedactor
 
             var start = i + 2;
             var end = start;
-            while (end < text.Length && text[end] is not ('/' or '?' or '#'))
+            while (end < text.Length && text[end] is not ('/' or '\\' or '?' or '#'))
             {
                 end++;
             }

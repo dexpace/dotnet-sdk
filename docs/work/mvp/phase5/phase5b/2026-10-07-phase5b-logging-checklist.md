@@ -52,7 +52,7 @@ Doubles are in `tests/Dexpace.Sdk.TestSupport/Diagnostics/` (`RecordingLogger`, 
 | `OBS-8` | MUST | N/A (§10 entry 22) | A log call is one call; there is no event instance to emit twice |
 | `OBS-9` | MUST | N/A (§10 entry 22) | Global context is the host's (`BeginScope`, OpenTelemetry resource attributes) |
 | `OBS-10` | MUST | N/A (§10 entry 23, `activity-as-tracing-model`) | The fold is `ActivityTrackingOptions`, a host allow-list; the user page recommends `TraceId \| SpanId`. Supporting pin: `DiagnosticContextFlowTests.The_attempt_span_is_current_when_http_request_is_emitted` |
-| `OBS-11` | MUST | ✅ | Phase 1's `UrlRedactionDefaultDenyTests` (`Security`, unedited); `UrlRedactorHeaderValueTests.Userinfo_is_masked_on_every_route`, `Vectors_match` (`//user:secret@h/x` and the surgery cases) |
+| `OBS-11` | MUST | ✅ | Phase 1's `UrlRedactionDefaultDenyTests` (`Security`, unedited); `UrlRedactorHeaderValueTests.Userinfo_is_masked_on_every_route`, `Vectors_match` (`//user:secret@h/x`, the surgery cases and the backslash-opened authorities); `HttpLogEmitterTests.A_backslash_opened_authority_in_a_Location_never_logs_its_userinfo` |
 | `OBS-12` | MUST | ✅ (configurable list) | `UrlRedactionDefaultDenyTests`; `RedactionCacheTests.A_with_copy_that_changes_AllowedQueryParameters_…`; `InstrumentationPolicyTests.The_url_full_tag_honours_the_calls_allowed_query_parameters`, `The_default_url_full_tag_is_unchanged` (pin) |
 | `OBS-13` | MUST | ✅ | `UrlRedactionDefaultDenyTests` (`Security`, unedited) |
 | `OBS-14` | MUST | ✅ | `UrlRedactionDefaultDenyTests` (`Security`, unedited) |
@@ -172,6 +172,7 @@ The phase-start queries (`--origin note`, `--section conflicts`, `--prefix-info 
 - `application/csv` is not in the text set (the design's list does not name it; Ruby's does); `text/csv` is text through `text/*`. The vector file lists the cases it
   does not port: Ruby's stubbed-policy cases, the nil/Integer stringification cases and the raw-byte (`.b`) cases. One header vector departs from Ruby on purpose:
   `/http://user:secret@h/p` masks the userinfo (the `//` scan is unconditional, `OBS-11`), where Ruby's parser accepted it as a path.
+  Likewise `\\user:secret@h/p` is masked, not written back as given: `System.Uri` and `RedirectPolicy` read a backslash as a slash, so any `/` or `\` pair opens an authority.
 - **Provenance of the ported cases.** `ruby-sdk@5b17395` (`redactor_test.rb`, `preview_test.rb`) and `nodejs-sdk@54aeed4` (`redaction.test.ts`, `logging-step.test.ts`)
   were read from the local clones; each vector case names its origin in `note`.
 - The coverage gate and its self-test, the dependency audit, the reproducible pack, the tools solution and the housekeeping probe were run at the close-out

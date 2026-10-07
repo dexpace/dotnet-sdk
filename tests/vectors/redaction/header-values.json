@@ -233,8 +233,28 @@
     },
     {
       "input": "\\\\user:secret@h/p",
-      "expected": "\\\\user:secret@h/p",
-      "note": "ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/instrumentation/redactor_test.rb a backslash is not a URI character: written back as given"
+      "expected": "\\\\***:***@h/p",
+      "note": "System.Uri and RedirectPolicy read a backslash as a slash, so a backslash pair opens an authority (differs from Ruby; OBS-11 wins)"
+    },
+    {
+      "input": "https:\\\\user:secret@h/p",
+      "expected": "https:\\\\***:***@h/p",
+      "note": "scheme-prefixed backslash authority: verbatim-unsafe, surgery route (OBS-11)"
+    },
+    {
+      "input": "https:/\\user:secret@h/p",
+      "expected": "https:/\\***:***@h/p",
+      "note": "mixed slash and backslash authority opener (OBS-11)"
+    },
+    {
+      "input": "\\/user:secret@h/p",
+      "expected": "\\/***:***@h/p",
+      "note": "backslash-slash authority opener (OBS-11)"
+    },
+    {
+      "input": "https:\\\\user:secret@h/p?code=1",
+      "expected": "https:\\\\***:***@h/p?***",
+      "note": "backslash authority with a query (OBS-11, OBS-17)"
     },
     {
       "input": "http:///user:secret@h/p",

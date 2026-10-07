@@ -170,6 +170,25 @@ public sealed class HttpLogEmitterTests
         Assert.DoesNotContain(logger.Entries, e => e.State.Any(p => p.Value is string text && text.Contains("SECRET", StringComparison.Ordinal)));
     }
 
+    [Theory]
+    [InlineData("https:\\\\user:secret@h/p")]
+    [InlineData("https:/\\user:secret@h/p")]
+    [InlineData("\\/user:secret@h/p")]
+    [InlineData("\\\\user:secret@h/p?code=1")]
+    public async Task A_backslash_opened_authority_in_a_Location_never_logs_its_userinfo(string location)
+    {
+        var logger = new RecordingLogger();
+
+        using var response = await SendAsync(
+            logger,
+            _ => TestResponses.Create(Status.Found, headers: new Headers.Builder().Add("Location", location).Build()));
+
+        Assert.DoesNotContain(logger.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            logger.Entries,
+            e => e.State.Any(p => p.Value is string text && text.Contains("secret", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public async Task At_None_nothing_is_emitted_and_IsEnabled_is_not_consulted()
     {
