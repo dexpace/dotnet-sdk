@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Microsoft.Extensions.Logging;
 
@@ -21,16 +22,23 @@ namespace Dexpace.Sdk.Core.Internal;
 /// propagates.
 /// </para>
 /// <para>
-/// <b>Interim gap (accepted, P3b-3).</b> With no listener and no logger the failure is reported to nobody. The gap closes
-/// in phase 5b, which plumbs the client's logger to the call sites.
+/// <b>Where the logger comes from (P5b-6).</b> The retry and redirect policies pass the call's logger
+/// (<c>CallState.Logger</c>, the pipeline's Diagnostics pillar's) and the response wrapper receives the emitter's, so a
+/// failure there reaches the client's logger as <c>dexpace.dispose.suppressed</c> (id 130). The gap that remains
+/// (P3b-3) is a pipeline with no <c>InstrumentationPolicy</c> and the blocking bridge of <c>HttpClientExtensions</c>:
+/// with no listener either, a failure there is reported to nobody.
 /// </para>
 /// </remarks>
 internal static class Disposal
 {
+    // The placeholder names are the published OpenTelemetry-style state keys (OBS-39, P5b-3), which the generator and
+    // CA1727's PascalCase rule cannot express; the fixed-key Define form is the verified way (design §8.1).
+#pragma warning disable CA1727
     private static readonly Action<ILogger, string, string, Exception?> s_suppressed = LoggerMessage.Define<string, string>(
         LogLevel.Warning,
-        new EventId(1, "DisposeSuppressed"),
-        "Disposing {ResourceType} failed with {ExceptionType}; the failure was suppressed.");
+        new EventId(DexpaceLogEvents.DisposeSuppressedId, DexpaceLogEvents.DisposeSuppressed),
+        "Disposing {dexpace.dispose.resource_type} failed with {error.type}; the failure was suppressed.");
+#pragma warning restore CA1727
 
     /// <summary>Disposes <paramref name="resource"/>, reporting and swallowing a non-fatal failure.</summary>
     /// <param name="resource">The resource, or <see langword="null"/> for a no-op.</param>
@@ -103,7 +111,7 @@ internal static class Disposal
 
         if (logger is not null)
         {
-            s_suppressed(logger, resourceType, ex.GetType().Name, null);
+            s_suppressed(logger, resourceType, ex.GetType().FullName ?? ex.GetType().Name, null);
         }
     }
 }

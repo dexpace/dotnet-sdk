@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Request;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
@@ -17,8 +18,14 @@ internal sealed class CallState
     private Dictionary<object, object?>? _properties;
     private CallContext? _furthest;
 
-    internal CallState(Request seedRequest, DexpaceClientOptions options, RequestOptions requestOptions, DispatchContext dispatch)
+    internal CallState(
+        Request seedRequest,
+        DexpaceClientOptions options,
+        RequestOptions requestOptions,
+        DispatchContext dispatch,
+        ILogger logger)
     {
+        Logger = logger;
         SeedRequest = seedRequest;
         Options = options;
         RequestOptions = requestOptions;
@@ -32,6 +39,10 @@ internal sealed class CallState
     internal RequestOptions RequestOptions { get; }
 
     internal DispatchContext Dispatch { get; }
+
+    // The pipeline's logger: its Diagnostics pillar's, else NullLogger (P5b-6). Retry, redirect and the response wrappers
+    // report through it; 6a/6b/6c emit their events through it.
+    internal ILogger Logger { get; }
 
     internal bool TryGet<T>(PipelinePropertyKey<T> key, out T value)
     {

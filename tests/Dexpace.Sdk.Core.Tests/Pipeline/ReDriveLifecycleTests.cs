@@ -2,14 +2,17 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.TestSupport.Diagnostics;
 using Dexpace.Sdk.TestSupport.Time;
 using Dexpace.Sdk.TestSupport.Transports;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline;
@@ -151,5 +154,64 @@ public sealed class ReDriveLifecycleTests
         using var response = pipeline.Send(MakeRequest(), Options(), TestContext.Current.CancellationToken);
 
         Assert.Equal(["send:1", "retried:dispose", "send:2"], log);
+    }
+
+    [Fact]
+    public async Task A_throwing_dispose_of_a_retried_response_reaches_the_pipelines_logger()
+    {
+        var log = new List<string>();
+        var logger = new RecordingLogger();
+        using var retriedBody = new TrackingResponseBody(log, "retried", disposeFailure: new IOException("dispose failed"));
+        var transport = new ScriptedTransport(
+            TestResponses.Create(Status.ServiceUnavailable, body: retriedBody),
+            TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder()
+            .Add(new InstrumentationPolicy(logger))
+            .Add(new RetryPolicy(new InstantTimeProvider()))
+            .Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeRequest(), Options(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, response.Status);
+        var warning = Assert.Single(logger.Entries, e => e.EventId.Id == DexpaceLogEvents.DisposeSuppressedId);
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressed, warning.EventId.Name);
+    }
+
+    [Fact]
+    public async Task A_throwing_dispose_of_a_redirected_response_reaches_the_pipelines_logger()
+    {
+        var log = new List<string>();
+        var logger = new RecordingLogger();
+        using var redirectBody = new TrackingResponseBody(log, "redirect", disposeFailure: new IOException("dispose failed"));
+        var transport = new ScriptedTransport(Redirect("https://api.example.com/next", redirectBody), TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder()
+            .Add(new InstrumentationPolicy(logger))
+            .Add(new RedirectPolicy())
+            .Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeRequest(), Options(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.Single(logger.Entries, e => e.EventId.Id == DexpaceLogEvents.DisposeSuppressedId);
+    }
+
+    [Fact]
+    public void The_sync_paths_report_a_throwing_dispose_to_the_pipelines_logger()
+    {
+        var log = new List<string>();
+        var logger = new RecordingLogger();
+        using var retriedBody = new TrackingResponseBody(log, "retried", disposeFailure: new IOException("dispose failed"));
+        var transport = new ScriptedTransport(
+            () => TestResponses.Create(Status.ServiceUnavailable, body: retriedBody),
+            () => TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder()
+            .Add(new InstrumentationPolicy(logger))
+            .Add(new RetryPolicy(new InstantTimeProvider()))
+            .Build(transport);
+
+        using var response = pipeline.Send(MakeRequest(), Options(), TestContext.Current.CancellationToken);
+
+        Assert.Single(logger.Entries, e => e.EventId.Id == DexpaceLogEvents.DisposeSuppressedId);
     }
 }

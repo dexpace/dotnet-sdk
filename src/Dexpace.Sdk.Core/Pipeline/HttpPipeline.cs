@@ -9,6 +9,9 @@ using Dexpace.Sdk.Core.Execution;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Internal;
+using Dexpace.Sdk.Core.Pipeline.Policies;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Dexpace.Sdk.Core.Pipeline;
 
@@ -49,12 +52,16 @@ public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
 {
     private readonly PipelineEntry[] _entries;
     private readonly PipelineTerminal _terminal;
+    private readonly ILogger _logger;
 
     internal HttpPipeline(PipelineEntry[] entries, PipelineTerminal terminal, DexpaceClientOptions options)
     {
         _entries = entries;
         _terminal = terminal;
         ClientOptions = options;
+
+        // P5b-6: the pipeline reports to the logger of its Diagnostics pillar (design 5b position F, plan reading R4).
+        _logger = entries.Select(e => e.Policy).OfType<InstrumentationPolicy>().FirstOrDefault()?.Logger ?? NullLogger.Instance;
         Policies = new ReadOnlyCollection<HttpPipelinePolicy>([.. entries.Select(e => e.Policy)]);
     }
 
@@ -243,7 +250,7 @@ public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
 
         // CTX-17: the dispatch registers nothing; the terminal's promotion does, once per transmission.
         var dispatch = new DispatchContext(InstrumentationContext.FromActivity(System.Diagnostics.Activity.Current));
-        var context = PipelineContext.Create(request, options, requestOptions, dispatch, cancellationToken);
+        var context = PipelineContext.Create(request, options, requestOptions, dispatch, _logger, cancellationToken);
         var runner = new PipelineRunner(_entries, 0, _terminal);
         try
         {

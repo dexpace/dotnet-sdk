@@ -277,19 +277,21 @@ public sealed class InstrumentationPolicyTests : IDisposable
     {
         var logger = new RecordingLogger();
         var transport = new RecordingTransport(_ => TestResponses.Create(Status.Ok));
-        var policy = new InstrumentationPolicy(logger);
+        var pipeline = new PipelineBuilder().Add(new InstrumentationPolicy(logger)).Build(transport);
         var url = new Uri("https://api.example.com/v1/items?api_key=SECRET&x=1");
 
-        await RunAsync(policy, MakeRequest(url), transport);
+        // Logging is opt-in (OBS-34): nothing is logged at the default level.
+        using var silent = await pipeline.SendAsync(MakeRequest(url), DefaultOptions(), TestContext.Current.CancellationToken);
+        Assert.Empty(logger.Entries);
+
+        using var response = await pipeline.SendAsync(
+            MakeRequest(url),
+            new DexpaceClientOptions { Logging = new HttpLoggingOptions { Level = HttpLogLevel.Headers } },
+            TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(logger.Entries);
-        // Verify that no log entry contains the secret
-        foreach (var (_, message) in logger.Entries)
-        {
-            Assert.DoesNotContain("SECRET", message);
-        }
-        // Verify the redacted marker is present in at least one entry
-        Assert.Contains(logger.Entries, e => e.Message.Contains("api_key=***"));
+        Assert.All(logger.Entries, e => Assert.DoesNotContain("SECRET", e.Message, StringComparison.Ordinal));
+        Assert.All(logger.Entries, e => Assert.Contains("api_key=***", (string)e[DexpaceLogKeys.UrlFull]!, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -472,24 +474,6 @@ public sealed class InstrumentationPolicyTests : IDisposable
         {
             capture(context);
             return continuation.RunAsync(request, context);
-        }
-    }
-
-    private sealed class RecordingLogger : ILogger
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            Entries.Add((logLevel, formatter(state, exception)));
         }
     }
 }

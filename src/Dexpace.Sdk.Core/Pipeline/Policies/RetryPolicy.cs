@@ -153,11 +153,11 @@ public sealed class RetryPolicy : HttpPipelinePolicy
             // dispose is suppressed and cannot mask the continuation attempt's outcome.
             if (async)
             {
-                await Disposal.DisposeQuietlyAsync(response).ConfigureAwait(false);
+                await Disposal.DisposeQuietlyAsync(response, logger: context.State.Logger).ConfigureAwait(false);
             }
             else
             {
-                Disposal.DisposeQuietly(response);
+                Disposal.DisposeQuietly(response, logger: context.State.Logger);
             }
 
             await SleepAsync(DelayFor(retryAfterDelay, attempt, options), async, context.CancellationToken).ConfigureAwait(false);

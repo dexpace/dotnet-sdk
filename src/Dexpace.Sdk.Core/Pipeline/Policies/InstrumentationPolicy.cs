@@ -59,8 +59,21 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// orchestrates them.
 /// </para>
 /// <para>
-/// <b>Logging.</b> Structured <see cref="ILogger"/> events are emitted at
-/// <see cref="LogLevel.Debug"/> with the redacted URL. Secrets are never logged.
+/// <b>Logging (OBS-1 to OBS-4, OBS-6, OBS-20, OBS-34, OBS-39).</b> Logging is opt-in per call through
+/// <see cref="Configuration.DexpaceClientOptions.Logging"/>: at <see cref="Configuration.HttpLogLevel.None"/> (the default)
+/// no <c>http.request</c> or <c>http.response</c> event is emitted, nothing is allocated and no body wrapper is
+/// constructed, while the span and the instruments still record. At <see cref="Configuration.HttpLogLevel.Headers"/> the
+/// policy writes <c>http.request</c> (id 100) before the continuation and <c>http.response</c> (id 101, or 102 at
+/// <see cref="LogLevel.Warning"/> when the attempt threw) after it, at <see cref="LogLevel.Information"/>, with the
+/// OpenTelemetry keys of <see cref="DexpaceLogKeys"/>, the always-redacted URL, and the allow-listed headers (the rest are
+/// <c>REDACTED</c>). Secrets are never logged. A logger that throws never fails the request: the failure surfaces as one
+/// <c>http.instrumentation.log_failed</c> event, and span and meter callbacks are not wrapped by that guard.
+/// </para>
+/// <para>
+/// <b>Breaking (5b):</b> the policy used to log at <see cref="LogLevel.Debug"/> on every call, with generated event names
+/// (ids 1 to 3) and <c>{Method}</c>, <c>{Url}</c>, <c>{StatusCode}</c> keys, <c>error.type</c> as the short type name, and
+/// unguarded log calls (a throwing logger failed the request). It now logs nothing unless asked, under the names, ids,
+/// levels and keys above, <c>error.type</c> is the full type name, and the log calls are guarded.
 /// </para>
 /// </remarks>
 public sealed class InstrumentationPolicy : HttpPipelinePolicy
@@ -80,6 +93,9 @@ public sealed class InstrumentationPolicy : HttpPipelinePolicy
         _logger = logger ?? NullLogger.Instance;
     }
 
+    // The logger this policy writes to; the pipeline hands it to the call (CallState.Logger, P5b-6).
+    internal ILogger Logger => _logger;
+
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.Diagnostics;
 
@@ -96,25 +112,34 @@ public sealed class InstrumentationPolicy : HttpPipelinePolicy
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var scope = new AttemptScope(request, context, _redaction.Get(context.Options.Logging).Redactor);
+        var token = context.CancellationToken;
+        var logging = context.Options.Logging;
+        var redaction = _redaction.Get(logging);
+        var scope = new AttemptScope(request, context, redaction.Redactor);
         var telemetry = AttemptTelemetry.Begin(ref scope, request, context);
-        HttpLogEmitter.OnRequest(_logger, ref scope);
+        var log = new RequestLog(telemetry.Outgoing);
         try
         {
-            var response = async
-                ? await continuation.RunAsync(telemetry.Outgoing, telemetry.Downstream).ConfigureAwait(false)
-                : continuation.Run(telemetry.Outgoing, telemetry.Downstream);
+            log = HttpLogEmitter.OnRequest(_logger, ref scope, telemetry.Outgoing, logging, redaction, token);
+            Response response;
+            try
+            {
+                response = async
+                    ? await continuation.RunAsync(log.Request, telemetry.Downstream).ConfigureAwait(false)
+                    : continuation.Run(log.Request, telemetry.Downstream);
+                telemetry.Succeeded(response, ref scope);
+            }
+            catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+            {
+                // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
+                telemetry.Failed(ex, ref scope);
+                HttpLogEmitter.OnFailure(_logger, ref scope, log, ex, token);
+                throw;
+            }
 
-            telemetry.Succeeded(response, ref scope);
-            HttpLogEmitter.OnResponse(_logger, ref scope, response.Status.Code);
-            return response;
-        }
-        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
-        {
-            // RETRY-25: a fatal exception is not logged or recorded here; no SDK frame catches it (design §10 entry 12).
-            telemetry.Failed(ex, ref scope);
-            HttpLogEmitter.OnFailure(_logger, ref scope, ex);
-            throw;
+            return async
+                ? await HttpLogEmitter.CompleteAsync(_logger, scope, log, response, token).ConfigureAwait(false)
+                : HttpLogEmitter.Complete(_logger, ref scope, log, response, token);
         }
         finally
         {

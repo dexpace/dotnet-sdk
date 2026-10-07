@@ -178,11 +178,11 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             // cannot mask the continuation drive's outcome.
             if (async)
             {
-                await Disposal.DisposeQuietlyAsync(response).ConfigureAwait(false);
+                await Disposal.DisposeQuietlyAsync(response, logger: context.State.Logger).ConfigureAwait(false);
             }
             else
             {
-                Disposal.DisposeQuietly(response);
+                Disposal.DisposeQuietly(response, logger: context.State.Logger);
             }
 
             // One constructor call, never a With* chain: WithMethod(Method.Get) before the body is cleared would throw
