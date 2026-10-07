@@ -143,7 +143,14 @@ public sealed class OperationTelemetryTests
         {
             ShouldListenTo = source => source.Name == "Dexpace.Sdk",
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = _ => stops++,
+            // Count only this test's trace: a pipeline call in a parallel class is sampled by this listener too.
+            ActivityStopped = activity =>
+            {
+                if (activity.TraceId == recorder.Root!.TraceId)
+                {
+                    stops++;
+                }
+            },
         };
         ActivitySource.AddActivityListener(counter);
         var span = OperationTelemetry.Start(Request.Get("https://api.example.com/"), s_options);

@@ -176,7 +176,14 @@ public sealed class ActivityScopeTests
         {
             ShouldListenTo = source => source.Name == "Dexpace.Sdk",
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = _ => Interlocked.Increment(ref stops),
+            // Count only this test's trace: a pipeline call in a parallel class is sampled by this listener too.
+            ActivityStopped = activity =>
+            {
+                if (activity.TraceId == recorder.Root!.TraceId)
+                {
+                    Interlocked.Increment(ref stops);
+                }
+            },
         };
         ActivitySource.AddActivityListener(counter);
         var pipeline = TracingFixtures.Pipeline(new RecordingTransport());

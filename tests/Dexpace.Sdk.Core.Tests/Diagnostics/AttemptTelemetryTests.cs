@@ -186,7 +186,8 @@ public sealed class AttemptTelemetryTests
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
-                if (activity.Kind == ActivityKind.Client)
+                // Count only this test's trace: a pipeline call in a parallel class is sampled by this listener too.
+                if (activity.Kind == ActivityKind.Client && activity.TraceId == recorder.Root!.TraceId)
                 {
                     stops++;
                 }

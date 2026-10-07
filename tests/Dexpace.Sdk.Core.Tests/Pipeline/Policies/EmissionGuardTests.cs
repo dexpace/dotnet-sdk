@@ -16,8 +16,12 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
-/// <summary>OBS-20, OBS-6, XCUT-20, RETRY-25: a logging failure never fails the request it describes.</summary>
-[Collection("Instrumentation")]
+/// <summary>
+/// OBS-20, OBS-6, XCUT-20, RETRY-25: a logging failure never fails the request it describes. Three tests register a
+/// throwing <c>Dexpace.Sdk</c> listener, which is process-wide and would fail any pipeline call in a parallel class, so
+/// the class runs alone (<c>NoDiagnosticListeners</c>, P5c-15).
+/// </summary>
+[Collection("NoDiagnosticListeners")]
 [Trait("Category", "Unit")]
 public sealed class EmissionGuardTests
 {
