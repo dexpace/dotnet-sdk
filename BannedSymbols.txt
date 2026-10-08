@@ -6,7 +6,7 @@
 # with a why-comment naming the design section that sanctions it; never delete a line to land a change.
 
 # Cancellation and execution-context discipline (design §8.1, §8.3). Flow suppression is allowed only inside the
-# one background-launch helper of design §5.4, which does not exist yet.
+# one background-launch helper of design §5.4, Internal/BackgroundWork.cs.
 M:System.Threading.Thread.Interrupt;Thread.Interrupt is prohibited (design §8.3); cancel through a CancellationToken
 M:System.Threading.ExecutionContext.SuppressFlow;Flow suppression belongs only in the background-launch helper of design §5.4
 M:System.Threading.ThreadPool.UnsafeQueueUserWorkItem(System.Threading.WaitCallback,System.Object);Flow-suppressing queueing belongs only in the background-launch helper of design §5.4

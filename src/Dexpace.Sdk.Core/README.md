@@ -14,7 +14,7 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | `Dexpace.Sdk.Core.Http.*` | `Method`, `Protocol`, `MediaType`, `HttpHeaderName`, `Headers`, `Request`, `RequestBody`, `Response`, `ResponseBody`, `Status` |
 | `Dexpace.Sdk.Core.Client` | The transport SPI: `IAsyncHttpClient`, `IHttpClient`, the `AsAsync` / `AsBlocking` bridges, and `DelegateHttpClient` |
 | `Dexpace.Sdk.Core.Pipeline` | `HttpPipeline` (itself an `IAsyncHttpClient` / `IHttpClient`), `PipelineBuilder` (`Flatten` / `Nest`, `AddStandardResilience`), `HttpPipelinePolicy` (request in, response out; `ProcessAsync` / `Process`), `PipelineContext`, `DexpacePipeline.CreateDefault` / `CreateEmpty`, and the policies: operation timeout, redirect, idempotency key, client identity, retry, `Date`, auth, instrumentation, error mapping |
-| `Dexpace.Sdk.Core.Auth` | `TokenCredential`, `AccessTokenCache`, `ApiKeyCredential`, `BasicCredential` |
+| `Dexpace.Sdk.Core.Auth` | `AuthScheme`, `AuthRequirement`, `AuthDescriptor`, `AuthResolver` (per-call, operation and client tiers), `TokenCredential`, `AccessToken`, `AccessTokenCache` (30 s margin, background refresh, bounded), `ApiKeyCredential`, `BasicCredential`, `DigestCredential`, `AuthCredentials`, `AuthenticationChallenge` (lenient RFC 7235 parser), `IChallengeHandler` with `BasicChallengeHandler`, `DigestChallengeHandler` (RFC 7616) and `CompositeChallengeHandler` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
 | `Dexpace.Sdk.Core.Configuration` | The options as sealed records (`DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `HttpLoggingOptions`), `HttpLogLevel` (logging is off by default), `ProxyOptions` with `FromEnvironment`, `TimeProviderWaits` and `BuildInfo` |
@@ -72,6 +72,28 @@ transport, folds the `Outcome` through a `ResponseRecoveryChain` (response steps
 failure, never an escape), and rethrows the terminal failure as the same exception instance. Every step contract has a sync and an
 async form. A failure while closing a response lands on the primary exception's trail, readable with
 `ExceptionTrail.GetSuppressed`. See `docs/sdk-documentation/recovery.md` in the repository.
+
+## Authentication
+
+Every auth policy derives from `AuthorizationPolicy`, which owns the HTTPS guard, the cross-origin withholding and the single
+`401` replay. Pick the policy for the scheme; `MultiSchemeAuthPolicy` serves several at once, chosen per call by
+`RequestOptions.Auth` / `OperationAuth` over the policy's client `AuthDescriptor`.
+
+```csharp
+// OAuth 2.0 bearer: the cache refreshes 30 s early in the background and retries once on a Bearer 401.
+var bearer = new BearerTokenAuthPolicy(tokenCredential, "files.read");
+
+// Digest (RFC 7616) with a Basic fallback, answered on the server's challenge.
+var challenge = new ChallengeAuthPolicy(new CompositeChallengeHandler(
+    new DigestChallengeHandler(new DigestCredential(user, password)),
+    new BasicChallengeHandler(new BasicCredential(user, password))));
+
+// One call anonymous, whatever the policy.
+using var response = await pipeline.SendAsync(
+    request, new RequestOptions { Auth = new AuthDescriptor(AuthRequirement.NoAuth) }, ct);
+```
+
+Credentials redact their secrets in `ToString`. See `docs/sdk-documentation/auth.md` in the repository.
 
 ## Links
 

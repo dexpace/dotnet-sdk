@@ -99,6 +99,12 @@ public sealed record HttpHeaderName
         /// <summary>The <c>If-Unmodified-Since</c> header.</summary>
         public static HttpHeaderName IfUnmodifiedSince { get; } = Of("If-Unmodified-Since");
 
+        /// <summary>The <c>Proxy-Authenticate</c> header.</summary>
+        public static HttpHeaderName ProxyAuthenticate { get; } = Of("Proxy-Authenticate");
+
+        /// <summary>The <c>Proxy-Authorization</c> header.</summary>
+        public static HttpHeaderName ProxyAuthorization { get; } = Of("Proxy-Authorization");
+
         /// <summary>The <c>Range</c> header (see <c>HttpRange</c>).</summary>
         public static HttpHeaderName Range { get; } = Of("Range");
 
@@ -107,5 +113,8 @@ public sealed record HttpHeaderName
 
         /// <summary>The <c>User-Agent</c> header.</summary>
         public static HttpHeaderName UserAgent { get; } = Of("User-Agent");
+
+        /// <summary>The <c>WWW-Authenticate</c> header.</summary>
+        public static HttpHeaderName WwwAuthenticate { get; } = Of("WWW-Authenticate");
     }
 }

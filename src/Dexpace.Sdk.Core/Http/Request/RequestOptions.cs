@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Collections.Immutable;
+using Dexpace.Sdk.Core.Auth;
 
 namespace Dexpace.Sdk.Core.Http.Request;
 
@@ -63,6 +64,27 @@ public sealed record RequestOptions
         }
     } = s_noTags;
 
+    /// <summary>
+    /// The per-call authentication tier (AUTH-4): the descriptor the call is authenticated with, taking precedence over
+    /// <see cref="OperationAuth"/> and the policy's own descriptor. <see langword="null"/> (the default) defers to them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A descriptor holding <see cref="AuthRequirement.NoAuth"/> sends the call anonymously through any auth policy.
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> equality now includes <see cref="Auth"/> and <see cref="OperationAuth"/>; two options differing
+    /// only in a descriptor were equal before.
+    /// </para>
+    /// </remarks>
+    public AuthDescriptor? Auth { get; init; }
+
+    /// <summary>
+    /// The operation authentication tier (AUTH-4), set by generated code from the operation's security list; consulted
+    /// when <see cref="Auth"/> is <see langword="null"/>.
+    /// </summary>
+    public AuthDescriptor? OperationAuth { get; init; }
+
     /// <summary>Returns a copy with the tag <paramref name="key"/> added or replaced.</summary>
     /// <param name="key">The tag key (ordinal).</param>
     /// <param name="value">The tag value.</param>
@@ -90,7 +112,8 @@ public sealed record RequestOptions
             return true;
         }
 
-        if (Timeout != other.Timeout || MaxRetries != other.MaxRetries || Tags.Count != other.Tags.Count)
+        if (Timeout != other.Timeout || MaxRetries != other.MaxRetries || Tags.Count != other.Tags.Count
+            || !Equals(Auth, other.Auth) || !Equals(OperationAuth, other.OperationAuth))
         {
             return false;
         }
@@ -115,7 +138,7 @@ public sealed record RequestOptions
             tagHash += HashCode.Combine(key, value);
         }
 
-        return HashCode.Combine(Timeout, MaxRetries, tagHash);
+        return HashCode.Combine(Timeout, MaxRetries, tagHash, Auth, OperationAuth);
     }
 
     private static TimeSpan? RequireNullOrPositive(TimeSpan? value)

@@ -313,6 +313,21 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
 61. **`REDIR-28` says the malformed-`Location` event logs the raw string.** *Added by dated correction, 2026-10-08 (phase 6b, P6b-20).* *Resolved* (§6.2): the value goes through
     `UrlRedactor.RedactHeaderValue`, which is total over unparseable text; stricter than the letter, and the letter's own caveat about credential-bearing values is the reason.
 
+62. **`AUTH-16`, `AUTH-17` and `AUTH-22` cannot all hold for a `-sess` challenge without `qop`.** *Added by dated correction, 2026-10-08 (phase 6c, P6c-31).*
+    *Resolved* (§6.3): `AUTH-16` calls it satisfiable and `AUTH-17` folds the cnonce into HA1, but `AUTH-22` forbids sending the cnonce without `qop`, so the server could not
+    verify the response (RFC 2617 has the same contradiction; RFC 7616 has no no-`qop` form). The handler declines it, which avoids a guaranteed `401` round trip and lets a
+    composite fall through. Node sends the cnonce anyway; Ruby follows `AUTH-22` literally.
+63. **`AUTH-28` says "on any request path where a credential will be attached"; a reactive scheme attaches one only after the first `401`.** *Added by dated correction,
+    2026-10-08 (phase 6c, P6c-8).* *Resolved* (§6.3, §11 item 25): the guard also runs on the outbound pass of a reactive scheme (Digest, Basic on challenge), so a request
+    is never sent in the clear to draw a challenge it may not answer. A Digest-configured call over `http://` to a server that never challenges now fails; that is a
+    misconfiguration surfaced early, in keeping with item 25's no-exemption stance.
+64. **`AUTH-8` and `AUTH-9` name a named-key credential this port never had.** *Added by dated correction, 2026-10-08 (phase 6c, P6c-19).* *Resolved* (§6.3): the two named-key
+    clauses are vacuous. A second key type that stamps identically to `ApiKeyCredential` would duplicate it for no requirement; a consuming SDK that needs a name for signing owns
+    that type.
+65. **`AUTH-36` surfaces a `401` unchanged when the rejected request carried no `Authorization` header (cross-origin suppression); the same hazard exists for every scheme.**
+    *Added by dated correction, 2026-10-08 (phase 6c, P6c-12).* *Resolved* (§6.3, §10 entry 15): a `401` on a cross-origin hop is returned without challenge handling for any scheme,
+    so a foreign server cannot draw the caller's credential by answering `401`.
+
 **Correction 2026-10-07 (phase 5c, P5c-10).** Item 38 as built: `http.client.request.duration` (histogram, `s`, OpenTelemetry's bucket advice
 `0.005`, `0.01`, `0.025`, `0.05`, `0.075`, `0.1`, `0.25`, `0.5`, `0.75`, `1`, `2.5`, `5`, `7.5`, `10`, through `InstrumentAdvice<double>`, which
 carries no `[Experimental]` diagnostic on SDK 10.0.401) with `http.request.method` (`_OTHER` for an unknown method), `server.address`, `server.port`,

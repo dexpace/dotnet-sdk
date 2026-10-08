@@ -182,6 +182,9 @@ line and in the roadmap.
     does not vendor one: it probes once, and where MD5 is refused the Digest handler declines MD5 and MD5-sess
     challenges as unsupported, falling through to SHA-256 when offered, instead of throwing. **AUTH-15**'s "MUST
     support exactly" all four holds only on hosts whose crypto provides MD5. §6.3.
+    *Correction 2026-10-08 (phase 6c, P6c-30):* the probe runs once per process (`Md5Availability`): `net10.0` has no `MD5.IsSupported`, so it tries
+    `MD5.HashData` and treats `CryptographicException` and `PlatformNotSupportedException` as "refused". Construction never fails on such a host, even with an
+    MD5-only preference; the handler declines everything it cannot answer.
 17. **Pages are materialized values; no page owns a live response.** *Touches* **PAGE-3**, **PAGE-12**, **PAGE-15**
     (its two-page case), and the "live response" of the page view described in the 12.1 preamble that **PAGE-1**
     rests on. *Judged* (P10). An async iterator's `finally` runs only when the consumer disposes the enumerator; a

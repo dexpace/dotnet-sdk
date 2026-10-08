@@ -83,3 +83,9 @@ Each encoded the defect it now contradicts; none was loosened on behaviour it di
 | Test conventions | Every new test carries `[Trait("Category", "Security")]`; `TestCategoryTests` passes in both suites; core's suite still references no transport (`SEAM-2` architecture test) |
 | Trim and AOT | No reflection or dynamic code added (#18 uses `FrozenSet` and `LoggerMessage.Define`); AOT smoke consumer publishes and runs |
 | Styleguide-vs-design conflicts | None touched |
+
+## Correction 2026-10-08 (phase 6c)
+
+S4's open item is closed: the typed exception the row left to 6c is `HttpsRequiredException` (a subclass of `SdkException` carrying the policy name and the scheme), `AuthHttpsGuardTests`
+asserts the exact type and the scheme, and the seed-origin note stands (`AUTH-29`). S5's `XCUT-19`(d) remainder is closed by `CredentialRedactionTests`, a new permanent `Security`
+class (see the [6c checklist](../phase6/phase6c/2026-10-08-phase6c-auth-checklist.md)). The rows above stand as written at phase 1's exit.

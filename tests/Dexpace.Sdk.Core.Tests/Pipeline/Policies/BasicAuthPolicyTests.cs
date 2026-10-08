@@ -59,18 +59,10 @@ public sealed class BasicAuthPolicyTests
     }
 
     [Fact]
-    public async Task ProcessAsync_EmptyPassword_StampsCorrectly()
+    public void BasicCredential_with_an_empty_password_is_rejected_at_construction()
     {
-        var credential = new BasicCredential("user", string.Empty);
-        var transport = new RecordingTransport();
-        var pipeline = new PipelineBuilder()
-            .Add(new BasicAuthPolicy(credential))
-            .Build(transport);
-
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
-
-        var value = transport.LastRequest!.Headers.Get("Authorization");
-        Assert.Equal($"Basic {Base64("user", "")}", value);
+        // AUTH-14 (breaking 3): the empty password the policy once stamped is now unreachable.
+        Assert.Throws<ArgumentException>(() => new BasicCredential("user", string.Empty));
     }
 
     [Fact]
@@ -151,5 +143,19 @@ public sealed class BasicAuthPolicyTests
         var sent = TestContexts.Sent(policy, context.SeedRequest, context);
 
         Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", sent.Headers.Get("Authorization"));
+    }
+
+    [Fact]
+    public async Task Preemptive_Basic_is_stamped_on_the_first_request()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder()
+            .Add(new BasicAuthPolicy(new BasicCredential("alice", "s3cr3t")))
+            .Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", transport.LastRequest!.Headers.Get("Authorization"));
     }
 }

@@ -1,0 +1,721 @@
+{
+ "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/{challenge,challenges}_test.rb + support/challenge_fixtures.rb; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts; RFC 7235 s2.1",
+ "note": "Each case parses `input` with AuthenticationChallenge.Parse and compares the challenges in order. `parameters` excludes the synthetic token68 key, which is carried in `token68` (null when absent). A null input is the null string. Cases where a sibling differs from a P6c ruling record the .NET expectation and say so.",
+ "cases": [
+  {
+   "name": "single_bearer_realm",
+   "input": "Bearer realm=\"example\"",
+   "expected": [
+    {
+     "scheme": "bearer",
+     "parameters": {
+      "realm": "example"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'scheme and param names are lower-cased'"
+  },
+  {
+   "name": "multiple_challenges_one_field",
+   "input": "Basic realm=\"example\", Digest realm=\"testrealm@host.com\", qop=\"auth,auth-int\", nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\", opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "example"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "testrealm@host.com",
+      "qop": "auth,auth-int",
+      "nonce": "dcd98b7102dd2f0e8b11d0f600bfb0c093",
+      "opaque": "5ccc069c403ebaf9f0171e9517f40e41"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'multiple comma-separated challenges' (RFC 2617 s3.5 fixtures: ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb)"
+  },
+  {
+   "name": "basic_charset_utf8",
+   "input": "Basic realm=\"foo\", charset=\"UTF-8\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "foo",
+      "charset": "UTF-8"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7617 s2.1"
+  },
+  {
+   "name": "quoted_comma_in_value",
+   "input": "Digest realm=\"a, b = c\", nonce=\"x,y\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "a, b = c",
+      "nonce": "x,y"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a quoted-string may contain commas and equals signs'; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a comma INSIDE a quoted value'"
+  },
+  {
+   "name": "quoted_equals_in_value",
+   "input": "Digest realm=\"a=b\", nonce=\"n\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "a=b",
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'an equals sign inside a quoted value'"
+  },
+  {
+   "name": "escaped_quote_and_backslash",
+   "input": "Digest realm=\"a\\\"b\", nonce=\"a\\\\b\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "a\"b",
+      "nonce": "a\\b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'backslash escapes are unescaped'; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a backslash escape is unquoted'"
+  },
+  {
+   "name": "scheme_and_param_names_fold_to_lower",
+   "input": "BASIC REALM=\"MiXeD\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "MiXeD"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'scheme and parameter names are lower-cased'"
+  },
+  {
+   "name": "param_names_fold_digest_algorithm",
+   "input": "Digest Algorithm=SHA-256",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "algorithm": "SHA-256"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'scheme and parameter names are lower-cased'"
+  },
+  {
+   "name": "values_are_verbatim_case",
+   "input": "Digest algorithm=SHA-256, QOP=\"Auth\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "algorithm": "SHA-256",
+      "qop": "Auth"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'values kept verbatim'"
+  },
+  {
+   "name": "bare_scheme",
+   "input": "NTLM",
+   "expected": [
+    {
+     "scheme": "ntlm",
+     "parameters": {},
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a bare scheme with no params'; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a bare scheme with no params gets an empty parameter map'"
+  },
+  {
+   "name": "two_bare_schemes",
+   "input": "Negotiate, NTLM",
+   "expected": [
+    {
+     "scheme": "negotiate",
+     "parameters": {},
+     "token68": null
+    },
+    {
+     "scheme": "ntlm",
+     "parameters": {},
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a bare scheme with no params'"
+  },
+  {
+   "name": "token68_after_scheme",
+   "input": "Negotiate a87421000492aa874209af8bc028",
+   "expected": [
+    {
+     "scheme": "negotiate",
+     "parameters": {},
+     "token68": "a87421000492aa874209af8bc028"
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a token68 value is recorded under the synthetic key'"
+  },
+  {
+   "name": "token68_with_trailing_equals",
+   "input": "Bearer dGhlIHNlY3JldCB0b2tlbg==",
+   "expected": [
+    {
+     "scheme": "bearer",
+     "parameters": {},
+     "token68": "dGhlIHNlY3JldCB0b2tlbg=="
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a token68 value is recorded whole'; ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb BARE_TOKEN68; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts \"token68's own '=' padding\""
+  },
+  {
+   "name": "token68_then_second_challenge",
+   "input": "Bearer abc, Basic realm=r",
+   "expected": [
+    {
+     "scheme": "bearer",
+     "parameters": {},
+     "token68": "abc"
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a token68 value is recorded whole'"
+  },
+  {
+   "name": "digest_full_challenge",
+   "input": "Digest realm=\"http-auth@example.org\", qop=\"auth\", algorithm=SHA-256-sess, nonce=\"7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v\", opaque=\"FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS\", charset=UTF-8, userhash=false",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "http-auth@example.org",
+      "qop": "auth",
+      "algorithm": "SHA-256-sess",
+      "nonce": "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
+      "opaque": "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS",
+      "charset": "UTF-8",
+      "userhash": "false"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb DIGEST_SHA256_SESS (RFC 7616 s3.9.1)"
+  },
+  {
+   "name": "bearer_error_params",
+   "input": "Bearer realm=\"example\", error=\"invalid_token\", error_description=\"The access token expired\"",
+   "expected": [
+    {
+     "scheme": "bearer",
+     "parameters": {
+      "realm": "example",
+      "error": "invalid_token",
+      "error_description": "The access token expired"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 6750 s3"
+  },
+  {
+   "name": "duplicate_parameter_first_wins",
+   "input": "Digest realm=\"first\", realm=\"second\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "first"
+     },
+     "token68": null
+    }
+   ],
+   "source": "P6c-15",
+   "note": "Node keeps the last duplicate; the .NET rule (P6c-15) is first-wins so a hostile later duplicate cannot overwrite a compared realm."
+  },
+  {
+   "name": "blank_input",
+   "input": "",
+   "expected": [],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'nil, empty and blank input yield an empty list'"
+  },
+  {
+   "name": "null_input",
+   "input": null,
+   "expected": [],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'nil, empty and blank input yield an empty list'"
+  },
+  {
+   "name": "whitespace_only_input",
+   "input": "   ",
+   "expected": [],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'nil, empty and blank input yield an empty list'"
+  },
+  {
+   "name": "malformed_parameter_skips_to_next_comma_keeps_earlier_params",
+   "input": "Digest realm=\"a\", =bad, Basic realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "a"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a malformed segment recovers at the next top-level comma, keeping prior params'"
+  },
+  {
+   "name": "malformed_scheme_skips_to_next_challenge",
+   "input": "@@@, Basic realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "AUTH-13"
+  },
+  {
+   "name": "unterminated_quote_ends_at_end_of_input",
+   "input": "Digest realm=\"unterminated",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "unterminated"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'an unterminated quoted-string terminates at end-of-input'; ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb MALFORMED_UNTERMINATED_QUOTE; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts"
+  },
+  {
+   "name": "unterminated_quote_keeps_earlier_params",
+   "input": "Digest realm=\"r\", nonce=\"n",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r",
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'an unterminated quoted-string terminates at end-of-input'"
+  },
+  {
+   "name": "trailing_backslash_dropped",
+   "input": "Digest realm=\"abc\\",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "abc"
+     },
+     "token68": null
+    }
+   ],
+   "source": "AUTH-13 (trailing backslash dropped)"
+  },
+  {
+   "name": "parameter_without_equals_abandons_element",
+   "input": "Digest realm=\"r\" nonce=\"n\", Basic realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a parameter before any scheme, and a bare token after one, are skipped'"
+  },
+  {
+   "name": "bare_token_after_scheme_is_skipped",
+   "input": "Bearer abc realm=x, Basic realm=r",
+   "expected": [
+    {
+     "scheme": "bearer",
+     "parameters": {},
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a parameter before any scheme, and a bare token after one, are skipped'"
+  },
+  {
+   "name": "param_before_any_scheme_is_discarded",
+   "input": "realm=x, Basic realm=r",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb same test; nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a leading auth-param with no scheme ahead of it is discarded'"
+  },
+  {
+   "name": "value_neither_token_nor_quoted",
+   "input": "Digest realm=@@, nonce=\"n\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a malformed value recovers to the next top-level comma'; ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb MALFORMED_VALUE"
+  },
+  {
+   "name": "recovery_walks_a_quoted_string",
+   "input": "Digest realm=@@ nonce=\"a,b\", Basic realm=x",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {},
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "x"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'recovery walks a quoted string'"
+  },
+  {
+   "name": "commas_only",
+   "input": ",,,",
+   "expected": [],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'stray commas collapse'"
+  },
+  {
+   "name": "stray_commas_between_challenges",
+   "input": "Basic,,Digest realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {},
+     "token68": null
+    },
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'stray commas collapse rather than emitting empty challenges'"
+  },
+  {
+   "name": "stray_comma_inside_a_challenge",
+   "input": "Digest realm=r,,nonce=n",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r",
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'empty list elements are skipped'; ruby-sdk gems/dexpace-core/test/support/challenge_fixtures.rb MALFORMED_STRAY_COMMA"
+  },
+  {
+   "name": "lookahead_scheme_vs_param_two_challenges",
+   "input": "Basic realm=\"a\", Digest realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "a"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'two distinct challenges are both recovered'"
+  },
+  {
+   "name": "lookahead_scheme_vs_param_one_challenge",
+   "input": "Digest realm=\"b\", nonce=\"n\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "b",
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a top-level comma between two DIFFERENT auth-params of the SAME challenge'"
+  },
+  {
+   "name": "lookahead_param_then_scheme",
+   "input": "Digest realm=\"r\", nonce=\"n\", Basic realm=\"r\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r",
+      "nonce": "n"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb 'a second challenge after a parameterised first is not swallowed'"
+  },
+  {
+   "name": "realm_equals_is_not_token68",
+   "input": "Digest realm=r",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "ruby-sdk gems/dexpace-core/test/dexpace/auth/challenges_test.rb '`realm=` is not read as a token68'"
+  },
+  {
+   "name": "unquoted_values",
+   "input": "Digest realm=simple, qop=auth",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "simple",
+      "qop": "auth"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'an unquoted token value is accepted'"
+  },
+  {
+   "name": "tab_separates_scheme_and_params",
+   "input": "Basic\trealm=\"x\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "x"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7235 s2.1 (SP/HTAB)"
+  },
+  {
+   "name": "quoted_comma_in_malformed_element",
+   "input": "Basic realm=\"a\", =\"x,y\", Digest realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "a"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'a comma inside the malformed segment quoted value is not a recovery point'"
+  },
+  {
+   "name": "escaped_quote_in_malformed_element",
+   "input": "Basic realm=\"a\", =\"x\\\",y\", Digest realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "a"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "nodejs-sdk@54aeed4 packages/core/src/auth/challenge.test.ts 'an escaped quote inside a malformed segment'"
+  },
+  {
+   "name": "non_ascii_in_quoted_value",
+   "input": "Basic realm=\"café\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "café"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7230 obs-text in quoted-string"
+  },
+  {
+   "name": "empty_quoted_value",
+   "input": "Basic realm=\"\"",
+   "expected": [
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": ""
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7235 s2.1"
+  },
+  {
+   "name": "whitespace_around_comma",
+   "input": "Digest realm=\"r\" , nonce=\"n\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r",
+      "nonce": "n"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7230 s7 (OWS around the list comma)"
+  },
+  {
+   "name": "trailing_comma",
+   "input": "Digest realm=\"r\", ",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    }
+   ],
+   "source": "RFC 7230 s7"
+  },
+  {
+   "name": "unknown_scheme_after_comma_starts_a_new_challenge",
+   "input": "Digest realm=\"r\", bogus nonce=\"n\", Basic realm=\"b\"",
+   "expected": [
+    {
+     "scheme": "digest",
+     "parameters": {
+      "realm": "r"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "bogus",
+     "parameters": {
+      "nonce": "n"
+     },
+     "token68": null
+    },
+    {
+     "scheme": "basic",
+     "parameters": {
+      "realm": "b"
+     },
+     "token68": null
+    }
+   ],
+   "source": "P6c-15 (one-token lookahead)"
+  }
+ ]
+}

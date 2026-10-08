@@ -13,7 +13,7 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 /// Every member is a <see langword="const"/>, so <c>PublicAPI.Unshipped.txt</c> records each value and renaming one is a
 /// reviewed change. The ids are partitioned by subsystem (P5b-21): 100-109 request and response, 110-119 transport header
 /// drops (reserved for the transport conformance phase, OBS-19), 120-129 instrumentation diagnostics, 130-139 disposal,
-/// 140-149 retry, 150-159 redirect and 160-169 authentication (reserved).
+/// 140-149 retry, 150-159 redirect and 160-169 authentication.
 /// </para>
 /// </remarks>
 public static class DexpaceLogEvents
@@ -51,6 +51,9 @@ public static class DexpaceLogEvents
     /// <summary>The warning written when disposing a resource failed and the failure was suppressed (<see cref="DisposeSuppressedId"/>).</summary>
     public const string DisposeSuppressed = "dexpace.dispose.suppressed";
 
+    /// <summary>The warning written when a background bearer-token refresh failed and the still-valid token kept being used (<see cref="TokenRefreshFailedId"/>, AUTH-37).</summary>
+    public const string TokenRefreshFailed = "dexpace.auth.token_refresh_failed";
+
     /// <summary>The numeric id of <see cref="HttpRequest"/>.</summary>
     public const int HttpRequestId = 100;
 
@@ -86,4 +89,7 @@ public static class DexpaceLogEvents
 
     /// <summary>The numeric id of <see cref="RedirectLocationMalformed"/>.</summary>
     public const int RedirectLocationMalformedId = 154;
+
+    /// <summary>The numeric id of <see cref="TokenRefreshFailed"/>; it sits in the auth range reserved from 160 (OBS-39).</summary>
+    public const int TokenRefreshFailedId = 160;
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Collections.Immutable;
+using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Http.Request;
 using Xunit;
 
@@ -157,5 +158,53 @@ public class RequestOptionsTests
     {
         Assert.Throws<ArgumentNullException>(() => RequestOptions.Empty.WithTag(null!, "v"));
         Assert.Throws<ArgumentNullException>(() => RequestOptions.Empty.WithTag("k", null!));
+    }
+
+    [Fact]
+    public void Auth_and_OperationAuth_default_to_null()
+    {
+        Assert.Null(RequestOptions.Empty.Auth);
+        Assert.Null(RequestOptions.Empty.OperationAuth);
+    }
+
+    [Fact]
+    public void Two_options_with_equal_descriptors_are_equal()
+    {
+        var a = new RequestOptions { Auth = new AuthDescriptor(new AuthRequirement(AuthScheme.Basic)) };
+        var b = new RequestOptions { Auth = new AuthDescriptor(new AuthRequirement(AuthScheme.Basic)) };
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void Options_differing_only_in_Auth_are_unequal()
+    {
+        var a = new RequestOptions { Auth = new AuthDescriptor(new AuthRequirement(AuthScheme.Basic)) };
+
+        Assert.NotEqual(a, RequestOptions.Empty);
+        Assert.NotEqual(a, a with { Auth = new AuthDescriptor(new AuthRequirement(AuthScheme.Digest)) });
+    }
+
+    [Fact]
+    public void Options_differing_only_in_OperationAuth_are_unequal()
+    {
+        var a = new RequestOptions { OperationAuth = new AuthDescriptor(AuthRequirement.NoAuth) };
+
+        Assert.NotEqual(a, RequestOptions.Empty);
+    }
+
+    [Fact]
+    public void With_sets_each_tier_without_touching_the_other()
+    {
+        var call = new AuthDescriptor(new AuthRequirement(AuthScheme.ApiKey));
+        var operation = new AuthDescriptor(new AuthRequirement(AuthScheme.OAuth2));
+
+        var withCall = RequestOptions.Empty with { Auth = call };
+        var both = withCall with { OperationAuth = operation };
+
+        Assert.Same(call, both.Auth);
+        Assert.Same(operation, both.OperationAuth);
+        Assert.Null(withCall.OperationAuth);
     }
 }

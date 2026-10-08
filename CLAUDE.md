@@ -121,11 +121,13 @@ dotnet-sdk/
 │   │   ├── Resilience/              # internal: RetryFacts (classifier, re-send gate), RetryBackoff, RetryPacing, RetryBudget, RetryEngine (the one retry loop)
 │   │   ├── Pipeline/                # HttpPipeline (also a transport), PipelineBuilder, HttpPipelinePolicy,
 │   │   │   └── Policies/            #   PipelineContext, PipelineRunner, DexpacePipeline; operation, redirect, retry,
-│   │   │                            #   idempotency, set-date, client-identity, instrumentation, auth, error-mapping policies;
+│   │   │                            #   idempotency, set-date, client-identity, instrumentation, error-mapping policies; the auth base
+│   │   │                            #   AuthorizationPolicy + ApiKey, Basic, BearerToken, Challenge and MultiScheme policies;
 │   │   │                            #   Redirect/ holds the internal decider, chain, location resolver and reissue behind RedirectPolicy
 │   │   ├── Recovery/                # Outcome, the step contracts, request/response recovery chains, RecoveryDispatcher, RetryRecovery,
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
-│   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
+│   │   ├── Auth/                    # AuthScheme, AuthRequirement, AuthDescriptor, AuthResolver, AuthCredentials, TokenCredential, AccessToken, AccessTokenCache,
+│   │   │                            #   ApiKey/Basic/DigestCredential, AuthenticationChallenge, IChallengeHandler + Basic/Digest/Composite handlers
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions (sealed records), HttpLogLevel, ProxyOptions, TimeProviderWaits, BuildInfo
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter,
@@ -264,10 +266,11 @@ the `http.request`/`http.response` events, header and URL redaction, the emissio
 `docs/sdk-documentation/logging-and-redaction.md`; and phase 5c's tracing and metrics — the operation span, the attempt span rework, the
 `dexpace.*` span events, the two instruments with their stable attribute sets and `SystemNetHttpClient`'s `traceparent` rule — see
 `docs/sdk-documentation/tracing-and-metrics.md`; and phase 6a's retry — the classifier and `IRetryableError`, the re-send gate, `RetryOptions`' validation, the one `RetryEngine` under `RetryPolicy` and `RetryRecovery`, the pacing
-headers, the suppressed trail, `OperationTimeoutException` and the enforced `AttemptTimeout` — see `docs/sdk-documentation/retry.md`; and phase 6b's redirect —
+headers, the suppressed trail, `OperationTimeoutException` and the enforced `AttemptTimeout` — see `docs/sdk-documentation/retry.md`; phase 6b's redirect —
 the pure decider behind `RedirectPolicy`, `RedirectOptions` (`AllowedMethods`, `FollowSeeOther`, `Predicate`), the `RedirectException` family, loop detection, the five
-`http.redirect.*` events and the end-to-end credential-leak tests — see `docs/sdk-documentation/redirect.md`):
-the auth resolver with RFC 7235
-challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
+`http.redirect.*` events and the end-to-end credential-leak tests — see `docs/sdk-documentation/redirect.md`; and phase 6c's authentication — the
+descriptor and resolver with their `RequestOptions` tiers, the redacting credentials, the lenient challenge parser, the `401` lifecycle in `AuthorizationPolicy`, the
+bounded token cache with its background refresh, Digest with the MD5 probe, and `MultiSchemeAuthPolicy` — see `docs/sdk-documentation/auth.md`):
+tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

@@ -35,4 +35,25 @@ public static class TestResponses
     /// <param name="request">The request that produced the redirect, or <see langword="null"/> for the default.</param>
     public static Response Redirect(int statusCode, string location, Request? request = null) =>
         Create(Status.FromCode(statusCode), request, new Headers.Builder().Set("Location", location).Build());
+
+    /// <summary>A <c>401</c> carrying one <c>WWW-Authenticate</c> field line per value.</summary>
+    /// <param name="wwwAuthenticate">The field values, in order.</param>
+    /// <returns>The response.</returns>
+    public static Response Unauthorized(params string[] wwwAuthenticate) => Unauthorized(null, null, wwwAuthenticate);
+
+    /// <summary>A <c>401</c> carrying one <c>WWW-Authenticate</c> field line per value.</summary>
+    /// <param name="request">The request the response answers, or a default.</param>
+    /// <param name="body">The body, or none.</param>
+    /// <param name="wwwAuthenticate">The field values, in order.</param>
+    /// <returns>The response.</returns>
+    public static Response Unauthorized(Request? request, ResponseBody? body, params string[] wwwAuthenticate)
+    {
+        var headers = new Headers.Builder();
+        foreach (var value in wwwAuthenticate)
+        {
+            headers.Add("WWW-Authenticate", value);
+        }
+
+        return Create(Status.Unauthorized, request, headers.Build(), body);
+    }
 }

@@ -8,8 +8,7 @@ abstract Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.AsPages(int? pageSizeHint 
 abstract Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<T>!
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
-abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredentialAsync(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<(string! HeaderName, string! HeaderValue)>
-abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.WithheldHeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+const Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Token68Key = "token68" -> string!
 const Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.DefaultBodyPreviewSize = 8192 -> int
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.BodyCaptureFailed = "http.instrumentation.body_capture_failed" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.BodyCaptureFailedId = 121 -> int
@@ -55,28 +54,98 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string
 const Dexpace.Sdk.Core.Configuration.BuildInfo.Unknown = "unknown" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailed = "dexpace.retry.delay_override_failed" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailedId = 140 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TokenRefreshFailed = "dexpace.auth.token_refresh_failed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TokenRefreshFailedId = 160 -> int
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
 Dexpace.Sdk.Core.Auth.AccessToken.AccessToken() -> void
-Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token, System.DateTimeOffset expiresOn) -> void
-Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token, System.DateTimeOffset expiresOn, System.DateTimeOffset? refreshOn) -> void
-Dexpace.Sdk.Core.Auth.AccessToken.ExpiresOn.get -> System.DateTimeOffset
+Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token) -> void
+Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token, System.DateTimeOffset? expiresOn) -> void
+Dexpace.Sdk.Core.Auth.AccessToken.AccessToken(string! token, System.DateTimeOffset? expiresOn, System.DateTimeOffset? refreshOn) -> void
+Dexpace.Sdk.Core.Auth.AccessToken.Equals(Dexpace.Sdk.Core.Auth.AccessToken other) -> bool
+Dexpace.Sdk.Core.Auth.AccessToken.ExpiresOn.get -> System.DateTimeOffset?
+Dexpace.Sdk.Core.Auth.AccessToken.IsExpired(System.DateTimeOffset now, System.TimeSpan margin) -> bool
 Dexpace.Sdk.Core.Auth.AccessToken.RefreshOn.get -> System.DateTimeOffset?
 Dexpace.Sdk.Core.Auth.AccessToken.Token.get -> string!
 Dexpace.Sdk.Core.Auth.AccessTokenCache
 Dexpace.Sdk.Core.Auth.AccessTokenCache.AccessTokenCache(Dexpace.Sdk.Core.Auth.TokenCredential! credential, System.TimeProvider? timeProvider = null) -> void
+Dexpace.Sdk.Core.Auth.AccessTokenCache.Get(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Auth.AccessToken
 Dexpace.Sdk.Core.Auth.AccessTokenCache.GetAsync(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Auth.AccessToken>
+Dexpace.Sdk.Core.Auth.AccessTokenCache.RefreshMargin.get -> System.TimeSpan
+Dexpace.Sdk.Core.Auth.AccessTokenCache.RefreshMargin.init -> void
 Dexpace.Sdk.Core.Auth.ApiKeyCredential
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.ApiKeyCredential(string! key, Dexpace.Sdk.Core.Http.Common.HttpHeaderName? header = null, string? scheme = null) -> void
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.HeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.Key.get -> string!
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.Scheme.get -> string?
+Dexpace.Sdk.Core.Auth.AuthCredentials
+Dexpace.Sdk.Core.Auth.AuthCredentials.<Clone>$() -> Dexpace.Sdk.Core.Auth.AuthCredentials!
+Dexpace.Sdk.Core.Auth.AuthCredentials.ApiKey.get -> Dexpace.Sdk.Core.Auth.ApiKeyCredential?
+Dexpace.Sdk.Core.Auth.AuthCredentials.ApiKey.init -> void
+Dexpace.Sdk.Core.Auth.AuthCredentials.AuthCredentials() -> void
+Dexpace.Sdk.Core.Auth.AuthCredentials.Basic.get -> Dexpace.Sdk.Core.Auth.BasicCredential?
+Dexpace.Sdk.Core.Auth.AuthCredentials.Basic.init -> void
+Dexpace.Sdk.Core.Auth.AuthCredentials.Digest.get -> Dexpace.Sdk.Core.Auth.DigestCredential?
+Dexpace.Sdk.Core.Auth.AuthCredentials.Digest.init -> void
+Dexpace.Sdk.Core.Auth.AuthCredentials.Equals(Dexpace.Sdk.Core.Auth.AuthCredentials? other) -> bool
+Dexpace.Sdk.Core.Auth.AuthCredentials.Token.get -> Dexpace.Sdk.Core.Auth.TokenCredential?
+Dexpace.Sdk.Core.Auth.AuthCredentials.Token.init -> void
+Dexpace.Sdk.Core.Auth.AuthCredentials.TokenRefreshMargin.get -> System.TimeSpan
+Dexpace.Sdk.Core.Auth.AuthCredentials.TokenRefreshMargin.init -> void
+Dexpace.Sdk.Core.Auth.AuthDescriptor
+Dexpace.Sdk.Core.Auth.AuthDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Auth.AuthDescriptor!
+Dexpace.Sdk.Core.Auth.AuthDescriptor.AllowsAnonymous.get -> bool
+Dexpace.Sdk.Core.Auth.AuthDescriptor.AuthDescriptor(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.AuthRequirement!>! requirements) -> void
+Dexpace.Sdk.Core.Auth.AuthDescriptor.Equals(Dexpace.Sdk.Core.Auth.AuthDescriptor? other) -> bool
+Dexpace.Sdk.Core.Auth.AuthDescriptor.Requirements.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthRequirement!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement
+Dexpace.Sdk.Core.Auth.AuthRequirement.<Clone>$() -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+Dexpace.Sdk.Core.Auth.AuthRequirement.AuthRequirement(Dexpace.Sdk.Core.Auth.AuthScheme scheme) -> void
+Dexpace.Sdk.Core.Auth.AuthRequirement.Equals(Dexpace.Sdk.Core.Auth.AuthRequirement? other) -> bool
+Dexpace.Sdk.Core.Auth.AuthRequirement.Parameters.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement.Parameters.init -> void
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scheme.get -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scopes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scopes.init -> void
+Dexpace.Sdk.Core.Auth.AuthResolver
+Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.ApiKey = 1 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.Basic = 2 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.Digest = 3 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.NoAuth = 4 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.OAuth2 = 0 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthenticationChallenge
+Dexpace.Sdk.Core.Auth.AuthenticationChallenge.AuthenticationChallenge(string! scheme, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? parameters = null) -> void
+Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Parameters.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Scheme.get -> string!
+Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Token68.get -> string?
+Dexpace.Sdk.Core.Auth.BasicChallengeHandler
+Dexpace.Sdk.Core.Auth.BasicChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
+Dexpace.Sdk.Core.Auth.BasicChallengeHandler.BasicChallengeHandler(Dexpace.Sdk.Core.Auth.BasicCredential! credential) -> void
 Dexpace.Sdk.Core.Auth.BasicCredential
 Dexpace.Sdk.Core.Auth.BasicCredential.BasicCredential(string! username, string! password) -> void
 Dexpace.Sdk.Core.Auth.BasicCredential.Password.get -> string!
 Dexpace.Sdk.Core.Auth.BasicCredential.ToBase64() -> string!
 Dexpace.Sdk.Core.Auth.BasicCredential.Username.get -> string!
+Dexpace.Sdk.Core.Auth.CompositeChallengeHandler
+Dexpace.Sdk.Core.Auth.CompositeChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
+Dexpace.Sdk.Core.Auth.CompositeChallengeHandler.CompositeChallengeHandler(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.IChallengeHandler!>! handlers) -> void
+Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Md5 = 0 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Md5Sess = 1 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Sha256 = 2 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Sha256Sess = 3 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DigestChallengeHandler(Dexpace.Sdk.Core.Auth.DigestCredential! credential) -> void
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DigestChallengeHandler(Dexpace.Sdk.Core.Auth.DigestCredential! credential, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.DigestAlgorithm>! preference) -> void
+Dexpace.Sdk.Core.Auth.DigestCredential
+Dexpace.Sdk.Core.Auth.DigestCredential.DigestCredential(string! username, string! password) -> void
+Dexpace.Sdk.Core.Auth.DigestCredential.Password.get -> string!
+Dexpace.Sdk.Core.Auth.DigestCredential.Username.get -> string!
+Dexpace.Sdk.Core.Auth.IChallengeHandler
+Dexpace.Sdk.Core.Auth.IChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
 Dexpace.Sdk.Core.Auth.TokenCredential
 Dexpace.Sdk.Core.Auth.TokenCredential.TokenCredential() -> void
 Dexpace.Sdk.Core.Auth.TokenRequestContext
@@ -202,6 +271,10 @@ Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.RedactHeaderValue(string! value) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor() -> void
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! queryAllowList) -> void
+Dexpace.Sdk.Core.Errors.AuthResolutionException
+Dexpace.Sdk.Core.Errors.AuthResolutionException.AuthResolutionException(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>! required, System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>! available) -> void
+Dexpace.Sdk.Core.Errors.AuthResolutionException.Available.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>!
+Dexpace.Sdk.Core.Errors.AuthResolutionException.Required.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>!
 Dexpace.Sdk.Core.Errors.BodyTooLargeException
 Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException() -> void
 Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException(string! message) -> void
@@ -525,7 +598,6 @@ Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.PipelinePropertyKey(string! nam
 Dexpace.Sdk.Core.Pipeline.Policies.ApiKeyAuthPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ApiKeyAuthPolicy.ApiKeyAuthPolicy(Dexpace.Sdk.Core.Auth.ApiKeyCredential! credential) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy
-Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.AuthorizationPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.BasicAuthPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.BasicAuthPolicy.BasicAuthPolicy(Dexpace.Sdk.Core.Auth.BasicCredential! credential) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.BearerTokenAuthPolicy
@@ -557,6 +629,22 @@ Dexpace.Sdk.Core.Serialization.IStringSerde
 Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
+override Dexpace.Sdk.Core.Auth.AccessToken.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AccessToken.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AccessToken.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.ApiKeyCredential.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.AuthCredentials.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AuthCredentials.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AuthCredentials.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.AuthRequirement.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AuthRequirement.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AuthRequirement.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.AuthenticationChallenge.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.BasicCredential.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.DigestCredential.ToString() -> string!
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
@@ -633,6 +721,20 @@ override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+static Dexpace.Sdk.Core.Auth.AccessToken.operator !=(Dexpace.Sdk.Core.Auth.AccessToken left, Dexpace.Sdk.Core.Auth.AccessToken right) -> bool
+static Dexpace.Sdk.Core.Auth.AccessToken.operator ==(Dexpace.Sdk.Core.Auth.AccessToken left, Dexpace.Sdk.Core.Auth.AccessToken right) -> bool
+static Dexpace.Sdk.Core.Auth.AccessTokenCache.DefaultRefreshMargin.get -> System.TimeSpan
+static Dexpace.Sdk.Core.Auth.AuthCredentials.operator !=(Dexpace.Sdk.Core.Auth.AuthCredentials? left, Dexpace.Sdk.Core.Auth.AuthCredentials? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthCredentials.operator ==(Dexpace.Sdk.Core.Auth.AuthCredentials? left, Dexpace.Sdk.Core.Auth.AuthCredentials? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthDescriptor.operator !=(Dexpace.Sdk.Core.Auth.AuthDescriptor? left, Dexpace.Sdk.Core.Auth.AuthDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthDescriptor.operator ==(Dexpace.Sdk.Core.Auth.AuthDescriptor? left, Dexpace.Sdk.Core.Auth.AuthDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthRequirement.NoAuth.get -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+static Dexpace.Sdk.Core.Auth.AuthRequirement.operator !=(Dexpace.Sdk.Core.Auth.AuthRequirement? left, Dexpace.Sdk.Core.Auth.AuthRequirement? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthRequirement.operator ==(Dexpace.Sdk.Core.Auth.AuthRequirement? left, Dexpace.Sdk.Core.Auth.AuthRequirement? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthResolver.Resolve(Dexpace.Sdk.Core.Auth.AuthDescriptor? perCall, Dexpace.Sdk.Core.Auth.AuthDescriptor? operation, Dexpace.Sdk.Core.Auth.AuthDescriptor? client, System.Collections.Generic.IReadOnlyCollection<Dexpace.Sdk.Core.Auth.AuthScheme>! availableSchemes) -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+static Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Parse(System.ReadOnlySpan<char> value) -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>!
+static Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Parse(string? value) -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>!
+static Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DefaultPreference.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.DigestAlgorithm>!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.Create(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!>! send) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.CreateBlocking(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, Dexpace.Sdk.Core.Http.Response.Response!>! send) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
@@ -881,6 +983,9 @@ Dexpace.Sdk.Core.Execution.RequestContext.PromoteToExchange(Dexpace.Sdk.Core.Htt
 Dexpace.Sdk.Core.Execution.RequestContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
 Dexpace.Sdk.Core.Execution.RequestContext.RequestContext(Dexpace.Sdk.Core.Http.Request.Request! request, string? operationName = null, Dexpace.Sdk.Core.Execution.InstrumentationContext? instrumentation = null, Dexpace.Sdk.Core.Execution.CallKey? key = null) -> void
 abstract Dexpace.Sdk.Core.Execution.CallContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.CallContext!
+abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredential(Dexpace.Sdk.Core.Auth.AuthRequirement! requirement, Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> (string! HeaderName, string! HeaderValue)?
+abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredentialAsync(Dexpace.Sdk.Core.Auth.AuthRequirement! requirement, Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> System.Threading.Tasks.ValueTask<(string! HeaderName, string! HeaderValue)?>
+abstract Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.WithheldHeaderNames.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Http.Common.HttpHeaderName!>!
 override Dexpace.Sdk.Core.Execution.CallContext.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Execution.CallContext.GetHashCode() -> int
 override Dexpace.Sdk.Core.Execution.DispatchContext.<Clone>$() -> Dexpace.Sdk.Core.Execution.DispatchContext!
@@ -912,11 +1017,16 @@ virtual Dexpace.Sdk.Core.Execution.CallContext.EqualityContract.get -> System.Ty
 virtual Dexpace.Sdk.Core.Execution.CallContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
 virtual Dexpace.Sdk.Core.Execution.CallContext.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
-virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredential(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> (string! HeaderName, string! HeaderValue)
+virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.OnChallenge(Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext! challenge) -> Dexpace.Sdk.Core.Http.Request.Request?
+virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.OnChallengeAsync(Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext! challenge) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Request.Request?>
 virtual Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.GetDelayOverride(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext attempt) -> System.TimeSpan?
 virtual Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ShouldRetry(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext attempt) -> bool?
 Dexpace.Sdk.Core.Errors.ExceptionFacts
 Dexpace.Sdk.Core.Errors.ExceptionTrail
+Dexpace.Sdk.Core.Errors.HttpsRequiredException
+Dexpace.Sdk.Core.Errors.HttpsRequiredException.HttpsRequiredException(string! policyName, string! scheme) -> void
+Dexpace.Sdk.Core.Errors.HttpsRequiredException.PolicyName.get -> string!
+Dexpace.Sdk.Core.Errors.HttpsRequiredException.Scheme.get -> string!
 Dexpace.Sdk.Core.Errors.IRetryableError
 Dexpace.Sdk.Core.Errors.IRetryableError.IsRetryable.get -> bool
 Dexpace.Sdk.Core.Errors.OperationTimeoutException
@@ -924,12 +1034,31 @@ Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException() ->
 Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message) -> void
 Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+Dexpace.Sdk.Core.Errors.TokenProviderException
+Dexpace.Sdk.Core.Errors.TokenProviderException.TokenProviderException(string! message) -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Auth.get -> Dexpace.Sdk.Core.Auth.AuthDescriptor?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Auth.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.OperationAuth.get -> Dexpace.Sdk.Core.Auth.AuthDescriptor?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.OperationAuth.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext.Challenges.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>!
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext.Context.get -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext.Requirement.get -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+Dexpace.Sdk.Core.Pipeline.Policies.AuthChallengeContext.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.AuthorizationPolicy(Dexpace.Sdk.Core.Auth.AuthDescriptor! clientDescriptor, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.AuthScheme>! availableSchemes) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.BearerTokenAuthPolicy.BearerTokenAuthPolicy(Dexpace.Sdk.Core.Auth.AccessTokenCache! cache, params string![]! scopes) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy
+Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy.ChallengeAuthPolicy(Dexpace.Sdk.Core.Auth.IChallengeHandler! handler) -> void
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.IsFatal(System.Exception! exception) -> bool
 static Dexpace.Sdk.Core.Errors.ExceptionTrail.AddSuppressed(System.Exception! primary, System.Exception! secondary) -> void
 static Dexpace.Sdk.Core.Errors.ExceptionTrail.GetSuppressed(System.Exception! exception) -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.ProxyAuthenticate.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.ProxyAuthorization.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
+static Dexpace.Sdk.Core.Http.Common.HttpHeaderName.WellKnown.WwwAuthenticate.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 static Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.operator !=(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext left, Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext right) -> bool
 static Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.operator ==(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext left, Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext right) -> bool
 Dexpace.Sdk.Core.Recovery.Outcome
@@ -982,6 +1111,8 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.S
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ErrorMappingPolicy() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.MultiSchemeAuthPolicy
+Dexpace.Sdk.Core.Pipeline.Policies.MultiSchemeAuthPolicy.MultiSchemeAuthPolicy(Dexpace.Sdk.Core.Auth.AuthDescriptor! clientDescriptor, Dexpace.Sdk.Core.Auth.AuthCredentials! credentials, System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy(System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.get -> int

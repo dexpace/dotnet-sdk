@@ -282,6 +282,33 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `OperationPolicy`'s parameterless constructor becomes `OperationPolicy(TimeProvider? timeProvider = null)`
   (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
   the deadline.
+- **Breaking:** `RequestOptions` equality now includes the new `Auth` and `OperationAuth` descriptors (`AUTH-4`); two
+  options differing only in a descriptor were equal before.
+- **Breaking:** `AccessToken.ExpiresOn` is `DateTimeOffset?` (a token may never expire); the token must be non-blank; equality
+  is by value (token, expiry, refresh) with `==`/`!=`; `ToString` redacts the token (`AUTH-8`..`AUTH-10`).
+- **Breaking:** `ApiKeyCredential` rejects a whitespace-only key, a blank or whitespace-containing `Scheme`, and a key or
+  scheme the outbound header grammar refuses, at construction (was: an empty key only); `ToString` redacts the key
+  (`AUTH-26`, `XCUT-18`).
+- **Breaking:** `BasicCredential` rejects an empty username or password and a `:` in the username (was: `null` only);
+  `ToString` redacts the password (`AUTH-14`).
+- **Breaking:** `TokenRequestContext.Scopes` is a copy of the caller's list (was: the list itself).
+- **Breaking:** `AuthorizationPolicy`'s protected surface: a constructor taking the client `AuthDescriptor` and the available
+  `AuthScheme`s; `WithheldHeaderNames` replaces `WithheldHeaderName`; `GetCredentialAsync` / `GetCredential` take the
+  resolved `AuthRequirement` and the request, may return `null` ("nothing to attach on this pass") and are both abstract
+  (the sync-over-async default is gone); new `OnChallengeAsync` / `OnChallenge` hooks (`AUTH-27`..`AUTH-33`).
+- **Breaking:** the HTTPS refusal is `HttpsRequiredException` (was a plain `SdkException`, which it still derives from);
+  it now also covers the outbound pass of a reactive scheme (`AUTH-28`).
+- **Breaking:** every auth policy honours `RequestOptions.Auth` / `OperationAuth` (a per-call `NoAuth` sends the call
+  anonymously, an unservable scheme throws `AuthResolutionException` before anything is sent) and answers a `401`
+  carrying `WWW-Authenticate` through its hook, replaying once when the replacement is same-origin and replayable.
+- **Breaking:** `AccessTokenCache` refreshes 30 seconds before expiry by default (was: at expiry); stamps a still-valid token and
+  refreshes it in the background, one refresh per key (was: awaited the refresh on the request path); logs a failed
+  background refresh as event 160 `dexpace.auth.token_refresh_failed` (was: silent); rejects a default or already-expired
+  provider token with `TokenProviderException`; lets the waiters of a failed fetch share its outcome; and is bounded to
+  1024 keys (`AUTH-11`, `AUTH-34`..`AUTH-37`, `XCUT-12`, `XCUT-14`).
+- **Breaking:** `BearerTokenAuthPolicy` retries a call once with a freshly fetched token when the server answers `401` with
+  a `Bearer` challenge (was: returned the `401`), and its synchronous path no longer blocks on the asynchronous one
+  (`AUTH-30`, `AUTH-31`, `AUTH-36`).
 
 - **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
   `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
@@ -490,5 +517,28 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   cross-origin hop or a retry across one), the NativeAOT smoke check `CheckPhase6bRedirectAsync`, and `docs/sdk-documentation/redirect.md`.
 - `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
   and the `RetryOptions` validation.
+- Phase 6c descriptor and resolver: `AuthScheme`, `AuthRequirement`, `AuthDescriptor`, `AuthResolver` (per-call, operation and
+  client tiers, no fall-through), `AuthResolutionException`, and the `RequestOptions.Auth` / `OperationAuth` carriers
+  (`AUTH-1`..`AUTH-7`).
+- `DigestCredential` and `AuthCredentials` (with a `TokenRefreshMargin`); `CredentialRedactionTests` (`Security`) pins that no
+  credential type formats its secret (`XCUT-19`(d)).
+- Phase 6c challenge model: `AuthenticationChallenge` and its lenient, linear RFC 7235 parser (`Parse(string?)`,
+  `Parse(ReadOnlySpan<char>)`; a duplicate parameter keeps the first value), the `IChallengeHandler` SPI,
+  `BasicChallengeHandler`, `CompositeChallengeHandler`, and `HttpHeaderName.WellKnown.WwwAuthenticate`,
+  `ProxyAuthenticate` and `ProxyAuthorization` (`AUTH-12`, `AUTH-13`, `AUTH-14`, `AUTH-23`, `AUTH-25`).
+- `ChallengeAuthPolicy` (Basic or Digest answered on a `401`, never preemptive), `AuthChallengeContext` and
+  `HttpsRequiredException` (`AUTH-26`..`AUTH-33`, `AUTH-38`).
+- `AccessTokenCache.Get` (a real synchronous path), `AccessTokenCache.DefaultRefreshMargin` and `RefreshMargin`,
+  `BearerTokenAuthPolicy(AccessTokenCache, params string[])`, `TokenProviderException`, and log event 160
+  `DexpaceLogEvents.TokenRefreshFailed` (`AUTH-35`, `AUTH-37`).
+- RFC 7616 Digest authentication: `DigestChallengeHandler` (MD5, MD5-sess, SHA-256, SHA-256-sess, `qop=auth` or the legacy
+  no-qop form; a configurable algorithm preference, SHA-256 first by default; `username*` for a non-ASCII user name; a
+  per-nonce counter bounded to 1024 entries) and `DigestAlgorithm`. A host whose crypto provider refuses MD5 (FIPS) drops the
+  MD5 algorithms instead of failing, so an MD5-only challenge is declined and a server offering both gets SHA-256
+  (`AUTH-15`..`AUTH-22`, `AUTH-24`). No **Breaking** change.
+- `MultiSchemeAuthPolicy`: the descriptor-driven, multi-credential auth step (`AuthCredentials` for OAuth2, API key, Basic and
+  Digest) for APIs that declare several security schemes, sharing its stamping logic with the single-scheme policies;
+  the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
+- `docs/sdk-documentation/auth.md`; the AOT smoke covers the challenge parser, the resolver, Digest (SHA-256 and the CSPRNG cnonce), the redacting credentials and the bearer policy with its background refresh.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

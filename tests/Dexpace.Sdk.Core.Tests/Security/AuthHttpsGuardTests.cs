@@ -43,10 +43,11 @@ public sealed class AuthHttpsGuardTests
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))
             .Build(transport);
 
-        var ex = await Assert.ThrowsAsync<SdkException>(
+        var ex = await Assert.ThrowsAsync<HttpsRequiredException>(
             () => pipeline.SendAsync(Request.Get(url), s_options, TestContext.Current.CancellationToken).AsTask());
 
-        Assert.Equal(typeof(SdkException), ex.GetType());
+        Assert.Equal(typeof(HttpsRequiredException), ex.GetType());
+        Assert.Equal("http", ex.Scheme);
         Assert.Contains(nameof(BasicAuthPolicy), ex.Message, StringComparison.Ordinal);
         Assert.Contains("'http'", ex.Message, StringComparison.Ordinal);
         Assert.Equal(0, transport.CallCount);
@@ -58,7 +59,7 @@ public sealed class AuthHttpsGuardTests
         var policy = new CountingAuthPolicy();
         var pipeline = new PipelineBuilder().Add(policy).Build(new RecordingTransport());
 
-        await Assert.ThrowsAsync<SdkException>(
+        await Assert.ThrowsAsync<HttpsRequiredException>(
             () => pipeline.SendAsync(Request.Get("http://api.example.com/"), s_options, TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(0, policy.CredentialCalls);
@@ -72,7 +73,7 @@ public sealed class AuthHttpsGuardTests
             .Add(new BearerTokenAuthPolicy(credential, "https://api.example.com/.default"))
             .Build(new RecordingTransport());
 
-        await Assert.ThrowsAsync<SdkException>(
+        await Assert.ThrowsAsync<HttpsRequiredException>(
             () => pipeline.SendAsync(Request.Get("http://api.example.com/"), s_options, TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(0, credential.Calls);
@@ -89,7 +90,7 @@ public sealed class AuthHttpsGuardTests
             .Add(new BasicAuthPolicy(new BasicCredential("u", "p")))
             .Build(transport);
 
-        await Assert.ThrowsAsync<SdkException>(
+        await Assert.ThrowsAsync<HttpsRequiredException>(
             () => pipeline.SendAsync(scenarioRequest, s_options, TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(0, transport.CallCount);
@@ -131,16 +132,30 @@ public sealed class AuthHttpsGuardTests
         Assert.Null(transport.Requests[1].Headers.Get("Authorization"));
     }
 
-    private sealed class CountingAuthPolicy : AuthorizationPolicy
+    private sealed class CountingAuthPolicy() : AuthorizationPolicy(
+        new AuthDescriptor(new AuthRequirement(AuthScheme.ApiKey)),
+        [AuthScheme.ApiKey])
     {
         public int CredentialCalls { get; private set; }
 
-        protected override HttpHeaderName WithheldHeaderName => HttpHeaderName.WellKnown.Authorization;
+        protected override IReadOnlyList<HttpHeaderName> WithheldHeaderNames { get; } = [HttpHeaderName.WellKnown.Authorization];
 
-        protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(PipelineContext context)
+        protected override ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
+            AuthRequirement requirement,
+            Request request,
+            PipelineContext context)
         {
             CredentialCalls++;
             return new(("Authorization", "Secret"));
+        }
+
+        protected override (string HeaderName, string HeaderValue)? GetCredential(
+            AuthRequirement requirement,
+            Request request,
+            PipelineContext context)
+        {
+            CredentialCalls++;
+            return ("Authorization", "Secret");
         }
     }
 

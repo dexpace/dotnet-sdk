@@ -225,4 +225,47 @@ public sealed class ApiKeyAuthPolicyTests
 
         Assert.Equal("Bearer sk-secret", sent.Headers.Get("Authorization"));
     }
+
+    [Fact]
+    public void The_header_value_is_stamped_from_the_credential_computed_once()
+    {
+        var credential = new ApiKeyCredential("k-1", HttpHeaderName.Of("X-Api-Key"), "SharedAccessKey");
+        var policy = new ApiKeyAuthPolicy(credential);
+        var context = TestContexts.For();
+
+        var first = TestContexts.Sent(policy, context.SeedRequest, context);
+        var second = TestContexts.Sent(policy, context.SeedRequest, context);
+
+        Assert.Equal("SharedAccessKey k-1", first.Headers.Get("X-Api-Key"));
+        Assert.Equal(credential.HeaderValue, second.Headers.Get("X-Api-Key"));
+    }
+
+    [Fact]
+    public async Task A_custom_header_is_withheld_cross_origin()
+    {
+        var policy = new ApiKeyAuthPolicy(new ApiKeyCredential("my-key", HttpHeaderName.Of("X-Api-Key")));
+        var context = TestContexts.For(MakeRequest("https://api.example.com/"));
+
+        var foreign = await TestContexts.SentAsync(
+            policy,
+            MakeRequest("https://other.example.org/").WithHeaders(Headers.Empty.Set("X-Api-Key", "stale").Set("Authorization", "keep")),
+            context);
+
+        Assert.Null(foreign.Headers.Get("X-Api-Key"));
+        Assert.Equal("keep", foreign.Headers.Get("Authorization"));
+    }
+
+    [Fact]
+    public async Task A_per_call_NoAuth_sends_anonymously()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder().Add(new ApiKeyAuthPolicy(new ApiKeyCredential("k"))).Build(transport);
+
+        using var response = await pipeline.SendAsync(
+            MakeRequest(),
+            new RequestOptions { Auth = new AuthDescriptor(AuthRequirement.NoAuth) },
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(transport.LastRequest!.Headers.Get("Authorization"));
+    }
 }

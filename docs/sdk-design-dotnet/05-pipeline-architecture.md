@@ -420,6 +420,10 @@ because it is the runtime's own and every OpenTelemetry collector reads it (P14)
 runs under `ExecutionContext.SuppressFlow()` — verified: a task started under suppression observes no `AsyncLocal`
 value.
 
+*Correction 2026-10-08 (phase 6c, P6c-25):* the one background-launch helper is `Internal/BackgroundWork.cs` (`BackgroundWork.Run(Func<Task>)`), the only
+source file that mentions `SuppressFlow`; a source scan (`BannedSymbolsSiteTests`) pins it. The token cache's refresh is its first caller. It skips the
+suppression when flow is already suppressed.
+
 **The promotion chain** (**CTX-1**–**CTX-3**) is three sealed records — `DispatchContext`, `RequestContext`,
 `ExchangeContext` — not one type with a stage field, so "the exchange type exposes no method promoting back"
 (**CTX-1**) is the absence of a method. Each `Promote` returns a new instance carrying the same key and bundle and
