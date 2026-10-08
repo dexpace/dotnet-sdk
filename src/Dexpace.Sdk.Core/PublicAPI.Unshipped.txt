@@ -1111,6 +1111,8 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.S
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ErrorMappingPolicy() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.MultiSchemeAuthPolicy
+Dexpace.Sdk.Core.Pipeline.Policies.MultiSchemeAuthPolicy.MultiSchemeAuthPolicy(Dexpace.Sdk.Core.Auth.AuthDescriptor! clientDescriptor, Dexpace.Sdk.Core.Auth.AuthCredentials! credentials, System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy(System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.get -> int

@@ -536,5 +536,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   per-nonce counter bounded to 1024 entries) and `DigestAlgorithm`. A host whose crypto provider refuses MD5 (FIPS) drops the
   MD5 algorithms instead of failing, so an MD5-only challenge is declined and a server offering both gets SHA-256
   (`AUTH-15`..`AUTH-22`, `AUTH-24`). No **Breaking** change.
+- `MultiSchemeAuthPolicy`: the descriptor-driven, multi-credential auth step (`AuthCredentials` for OAuth2, API key, Basic and
+  Digest) for APIs that declare several security schemes, sharing its stamping logic with the single-scheme policies;
+  the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
