@@ -34,7 +34,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </remarks>
 public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
 {
-    private readonly ApiKeyCredential _credential;
+    private readonly ApiKeyStamper _stamper;
     private readonly HttpHeaderName[] _withheld;
 
     /// <summary>
@@ -46,7 +46,7 @@ public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
         : base(new AuthDescriptor(new AuthRequirement(AuthScheme.ApiKey)), [AuthScheme.ApiKey])
     {
         ArgumentNullException.ThrowIfNull(credential);
-        _credential = credential;
+        _stamper = new ApiKeyStamper(credential);
         _withheld = [credential.HeaderName];
     }
 
@@ -65,5 +65,5 @@ public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
         AuthRequirement requirement,
         Request request,
         PipelineContext context) =>
-        (_credential.HeaderName.Original, _credential.HeaderValue);
+        _stamper.Stamp();
 }

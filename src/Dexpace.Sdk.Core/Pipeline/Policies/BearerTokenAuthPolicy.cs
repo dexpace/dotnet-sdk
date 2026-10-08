@@ -43,8 +43,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </remarks>
 public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
 {
-    private readonly AccessTokenCache _cache;
-    private readonly string[] _scopes;
+    private readonly BearerStamper _stamper;
 
     /// <summary>
     /// Initializes a <see cref="BearerTokenAuthPolicy"/> with the given credential and scopes.
@@ -77,85 +76,38 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
         : base(ClientDescriptor(scopes), [AuthScheme.OAuth2])
     {
         ArgumentNullException.ThrowIfNull(cache);
-        _cache = cache;
-        _scopes = [.. scopes];
+        _stamper = new BearerStamper(cache, [.. scopes]);
     }
 
     /// <inheritdoc/>
     protected override IReadOnlyList<HttpHeaderName> WithheldHeaderNames { get; } = [HttpHeaderName.WellKnown.Authorization];
 
     /// <inheritdoc/>
-    protected override async ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
+    protected override ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
         AuthRequirement requirement,
         Request request,
-        PipelineContext context)
-    {
-        var token = await _cache
-            .GetAsync(TokenContextFor(requirement), context.State.Logger, context.CancellationToken)
-            .ConfigureAwait(false);
-
-        return (HttpHeaderName.WellKnown.Authorization.Original, Bearer(token));
-    }
+        PipelineContext context) =>
+        _stamper.StampAsync(requirement, context);
 
     /// <inheritdoc/>
     protected override (string HeaderName, string HeaderValue)? GetCredential(
         AuthRequirement requirement,
         Request request,
-        PipelineContext context)
-    {
-        var token = _cache.Get(TokenContextFor(requirement), context.State.Logger, context.CancellationToken);
-        return (HttpHeaderName.WellKnown.Authorization.Original, Bearer(token));
-    }
+        PipelineContext context) =>
+        _stamper.Stamp(requirement, context);
 
     /// <inheritdoc/>
-    protected override async ValueTask<Request?> OnChallengeAsync(AuthChallengeContext challenge)
+    protected override ValueTask<Request?> OnChallengeAsync(AuthChallengeContext challenge)
     {
         ArgumentNullException.ThrowIfNull(challenge);
-        if (RejectedHeader(challenge) is not { } rejected)
-        {
-            return null;
-        }
-
-        var token = await _cache
-            .GetAfterRejectionAsync(TokenContextFor(challenge.Requirement), rejected, challenge.Context.CancellationToken)
-            .ConfigureAwait(false);
-        return Replacement(challenge.Request, rejected, token);
+        return _stamper.OnChallengeAsync(challenge);
     }
 
     /// <inheritdoc/>
     protected override Request? OnChallenge(AuthChallengeContext challenge)
     {
         ArgumentNullException.ThrowIfNull(challenge);
-        if (RejectedHeader(challenge) is not { } rejected)
-        {
-            return null;
-        }
-
-        var token = _cache.GetAfterRejection(TokenContextFor(challenge.Requirement), rejected, challenge.Context.CancellationToken);
-        return Replacement(challenge.Request, rejected, token);
-    }
-
-    private static AccessTokenCache CacheOver(TokenCredential credential)
-    {
-        ArgumentNullException.ThrowIfNull(credential);
-        return new AccessTokenCache(credential);
-    }
-
-    private static string Bearer(AccessToken token) => "Bearer " + token.Token;
-
-    // Only a Bearer challenge to a request that carried an Authorization header is answered (AUTH-36).
-    private static string? RejectedHeader(AuthChallengeContext challenge) =>
-        challenge.Challenges.Any(static c => string.Equals(c.Scheme, "bearer", StringComparison.Ordinal))
-            ? challenge.Request.Headers.Get(HttpHeaderName.WellKnown.Authorization)
-            : null;
-
-    // A provider that hands back the rejected token yields no retry (P6c-27): the 401 surfaces.
-    private static Request? Replacement(Request sent, string rejected, AccessToken token)
-    {
-        var value = Bearer(token);
-        return string.Equals(value, rejected, StringComparison.Ordinal)
-            ? null
-            : sent.WithHeaders(sent.Headers.Set(HttpHeaderName.WellKnown.Authorization, value));
+        return _stamper.OnChallenge(challenge);
     }
 
     private static AuthDescriptor ClientDescriptor(string[] scopes)
@@ -164,7 +116,9 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
         return new AuthDescriptor(new AuthRequirement(AuthScheme.OAuth2) { Scopes = scopes });
     }
 
-    // The resolved requirement's scopes win (a per-call tier may ask for others); the policy's own are the fallback.
-    private TokenRequestContext TokenContextFor(AuthRequirement requirement) =>
-        new(requirement.Scopes.Count > 0 ? requirement.Scopes : _scopes);
+    private static AccessTokenCache CacheOver(TokenCredential credential)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+        return new AccessTokenCache(credential);
+    }
 }

@@ -24,7 +24,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 public sealed class BasicAuthPolicy : AuthorizationPolicy
 {
     // The header value is computed once by the credential and shared with BasicChallengeHandler (AUTH-14).
-    private readonly string _headerValue;
+    private readonly BasicStamper _stamper;
 
     /// <summary>
     /// Initializes a <see cref="BasicAuthPolicy"/> with the given credential.
@@ -35,7 +35,7 @@ public sealed class BasicAuthPolicy : AuthorizationPolicy
         : base(new AuthDescriptor(new AuthRequirement(AuthScheme.Basic)), [AuthScheme.Basic])
     {
         ArgumentNullException.ThrowIfNull(credential);
-        _headerValue = credential.HeaderValue;
+        _stamper = new BasicStamper(credential);
     }
 
     /// <inheritdoc/>
@@ -53,5 +53,5 @@ public sealed class BasicAuthPolicy : AuthorizationPolicy
         AuthRequirement requirement,
         Request request,
         PipelineContext context) =>
-        (HttpHeaderName.WellKnown.Authorization.Original, _headerValue);
+        _stamper.Stamp();
 }
