@@ -94,3 +94,9 @@ The `Security` classes are unedited: `git diff --stat main...HEAD -- tests/Dexpa
 ## Deviation ledger as built
 
 P5a-2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 21, 22, 23, 24, 25 and 28 landed as the design states; P5a-2, 4, 6, 7, 11, 13, 14, 15, 20, 21, 22 and 23 remain open for the lead, and P5a-28 stays open until 5b and 5c confirm their interfaces.
+
+## Correction 2026-10-08 (phase 6a)
+
+`CFG-35`'s "6a wires `XCUT-5`/`XCUT-6`" clause is closed: `HttpResponseException.IsRetryable` is baked from `RetryFacts.IsRetryableStatus` and the `IRetryableError`
+capability widens the cause walk (`RetryClassifierTests`). Also, `RetryOptions` and the two timeouts now validate where they are set (5a deferred them to
+6a); `configuration.md` carries the matching note. The rows above stand as written at 5a's exit.

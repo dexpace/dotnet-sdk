@@ -453,5 +453,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   in the configured set is buffered and mapped to an `HttpResponseException` on arrival), and runs the recovery steps once on
   the terminal outcome (`RETRY-14`, `RETRY-27`, `RETRY-36`, `RETRY-37`, `RECOV-16` to `RECOV-20`, `RECOV-27`, `RECOV-28`,
   `RECOV-30`, `RECOV-31`).
+- `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
+  and the `RetryOptions` validation.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

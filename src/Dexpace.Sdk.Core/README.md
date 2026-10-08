@@ -40,7 +40,8 @@ using HttpPipeline pipeline = DexpacePipeline.CreateDefault(transport);
 var options = new DexpaceClientOptions { OverallTimeout = TimeSpan.FromSeconds(30) };
 using var response = await pipeline.SendAsync(Request.Get("https://api.example.com/health"), options, CancellationToken.None);
 
-// Options are immutable records: derive a copy for one call with `with`.
+// Options are immutable records: derive a copy for one call with `with`. A call is retried twice by default
+// (three sends); see docs/sdk-documentation/retry.md.
 var patient = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
 
 await response.EnsureSuccessAsync(); // throws HttpResponseException for a 4xx or 5xx

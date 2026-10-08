@@ -177,3 +177,9 @@ Evidence: `git diff --stat ffd6d7d -- tests/Dexpace.Sdk.Http.SystemNet.Tests/Sec
     disposing it under a running drain would make the drain's `Release` throw); the lifetime `CancellationTokenSource` is cancelled and disposed once, guarded so
     `DisposeAsyncCore` and `Dispose(true)` do not both run it.
 11. **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
+
+## Correction 2026-10-08 (phase 6a)
+
+`BODY-5` and the retry third of `BODY-4` are no longer ⏳: `RetryFacts.IsResendable` is the retry-only gate, and `RetryResendGateTests.IsResendable_matrix` covers every
+`RequestBody` variant (see the [carried-rows table of the 6a checklist](../../phase6/phase6a/2026-10-08-phase6a-retry-checklist.md#carried-rows)). The redirect and auth
+thirds of `BODY-4` stay ⏳ 6b and 6c. The rows above stand as written at 3b's exit.
