@@ -251,8 +251,10 @@ public sealed class RedirectPolicyTests
         Assert.Equal(["redirect:dispose"], log);
     }
 
-    [Fact]
-    public async Task A_dispose_failure_on_a_failing_hop_rides_the_primary_exceptions_suppressed_trail()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_dispose_failure_on_a_failing_hop_rides_the_primary_exceptions_suppressed_trail(bool sync)
     {
         var log = new List<string>();
         var disposeFailure = new IOException("dispose failed");
@@ -262,19 +264,24 @@ public sealed class RedirectPolicyTests
             body: new TrackingResponseBody(log, "redirect", disposeFailure));
         using var transport = new ScriptedTransport(response);
 
-        var ex = await Assert.ThrowsAsync<RedirectSchemeDowngradeException>(async () => await SendAsync(Build(transport), Get(), Opts(), sync: false));
+        var ex = await Assert.ThrowsAsync<RedirectSchemeDowngradeException>(async () => await SendAsync(Build(transport), Get(), Opts(), sync));
 
         Assert.Equal(["redirect:dispose"], log);
         Assert.Contains(ExceptionTrail.GetSuppressed(ex), s => ReferenceEquals(s, disposeFailure));
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
-    public async Task Every_stop_reason_returns_the_response_undisposed(int reasonValue)
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    public async Task Every_stop_reason_returns_the_response_undisposed(int reasonValue, bool sync)
     {
         var reason = (RedirectStopReason)reasonValue;
         var log = new List<string>();
@@ -293,7 +300,7 @@ public sealed class RedirectPolicyTests
             body: body);
         var transport = new ScriptedTransport(response);
 
-        using var result = await SendAsync(Build(transport), request, Opts(redirect), sync: false);
+        using var result = await SendAsync(Build(transport), request, Opts(redirect), sync);
 
         Assert.Same(response, result);
         Assert.Equal(0, body.DisposeCount);
@@ -302,8 +309,10 @@ public sealed class RedirectPolicyTests
 
     // ---- loop, cap and stack safety -------------------------------------------------------------------------------
 
-    [Fact]
-    public async Task A_to_B_to_A_returns_Bs_3xx_open()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_to_B_to_A_returns_Bs_3xx_open(bool sync)
     {
         var log = new List<string>();
         var bBody = new TrackingResponseBody(log, "b");
@@ -313,7 +322,7 @@ public sealed class RedirectPolicyTests
             body: bBody);
         var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://api.example.com/b"), bResponse);
 
-        using var response = await SendAsync(Build(transport), Get("https://api.example.com/a"), Opts(), sync: false);
+        using var response = await SendAsync(Build(transport), Get("https://api.example.com/a"), Opts(), sync);
 
         Assert.Same(bResponse, response);
         Assert.Equal(0, bBody.DisposeCount);
@@ -321,14 +330,17 @@ public sealed class RedirectPolicyTests
     }
 
     [Theory]
-    [InlineData(0, 1)]
-    [InlineData(1, 2)]
-    [InlineData(3, 4)]
-    public async Task The_cap_at_0_1_and_3_returns_the_last_3xx_without_throwing(int max, int sends)
+    [InlineData(0, 1, false)]
+    [InlineData(0, 1, true)]
+    [InlineData(1, 2, false)]
+    [InlineData(1, 2, true)]
+    [InlineData(3, 4, false)]
+    [InlineData(3, 4, true)]
+    public async Task The_cap_at_0_1_and_3_returns_the_last_3xx_without_throwing(int max, int sends, bool sync)
     {
         var transport = new ScriptedTransport(RedirectFixtures.Chain(10));
 
-        using var response = await SendAsync(Build(transport), Get(), Opts(new RedirectOptions { MaxRedirects = max }), sync: false);
+        using var response = await SendAsync(Build(transport), Get(), Opts(new RedirectOptions { MaxRedirects = max }), sync);
 
         Assert.Equal(302, response.Status.Code);
         Assert.Equal(sends, transport.CallCount);
@@ -410,8 +422,10 @@ public sealed class RedirectPolicyTests
 
     // ---- cancellation, the auth stage, request isolation -----------------------------------------------------------
 
-    [Fact]
-    public async Task A_cancelled_token_between_hops_throws_after_disposing_and_before_the_next_send()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_cancelled_token_between_hops_throws_after_disposing_and_before_the_next_send(bool sync)
     {
         using var cts = new CancellationTokenSource();
         var log = new List<string>();
@@ -424,7 +438,8 @@ public sealed class RedirectPolicyTests
             TestResponses.Create(Status.Ok));
         var pipeline = Build(transport);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await pipeline.SendAsync(Get(), Opts(), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            _ = sync ? pipeline.Send(Get(), Opts(), cts.Token) : await pipeline.SendAsync(Get(), Opts(), cts.Token));
 
         Assert.Equal(["redirect:dispose"], log);
         Assert.Equal(1, transport.CallCount);

@@ -210,7 +210,7 @@ internal static class RedirectCases
         yield return Row("REDIR-18: a Location with a space is followed percent-encoded", 302, Go($"{Host}/a%20b"), "/a b");
         yield return Row("REDIR-19: a missing Location is returned unfollowed", 302, Stop(RedirectStopReason.MalformedLocation, malformed: false), string.Empty);
         yield return Row("REDIR-19: a whitespace Location is returned unfollowed", 302, Stop(RedirectStopReason.MalformedLocation, malformed: false), "   ");
-        foreach (var bad in new[] { "ftp://x/y", "mailto:a@b", "javascript:1", "file:///etc/passwd", "http:///p", "https://", "http:foo", "FTP://x/y", "http://a:99999/", "http://[::1" })
+        foreach (var bad in new[] { "ftp://x/y", "mailto:a@b", "javascript:1", "file:///etc/passwd", "http:///p", "https://", "http:foo", "FTP://x/y", "http://a:99999/", "http://[::1", "http://\u00e4.xn--zz/", "http://\uffff/", "http://a\u200db/" })
         {
             yield return Row($"REDIR-18: the Location '{bad}' is malformed", 302, Stop(RedirectStopReason.MalformedLocation, malformed: true), bad);
         }

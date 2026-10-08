@@ -36,12 +36,17 @@ internal static class RedirectLocation
 
         var raw = values[0].Trim();
         malformedRaw = raw;
-        if (!Uri.TryCreate(current, raw, out var created) || !Screen(created))
+        Uri? stripped;
+        try
         {
-            return LocationOutcome.Malformed;
+            // The resolver is total (REDIR-18): Uri throws lazily (an invalid IDN host faults on IdnHost), so a throw is a
+            // malformed Location, never an exception to the caller.
+            if (!Uri.TryCreate(current, raw, out var created) || !Screen(created) || !TryStripUserInfo(created, out stripped))
+            {
+                return LocationOutcome.Malformed;
+            }
         }
-
-        if (!TryStripUserInfo(created, out var stripped))
+        catch (Exception ex) when (ex is UriFormatException or ArgumentException or InvalidOperationException)
         {
             return LocationOutcome.Malformed;
         }

@@ -108,18 +108,19 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             {
                 case RedirectDecisionKind.ReturnCurrent:
                     // REDIR-22(c): every stop returns the in-flight response open.
-                    EmitStop(context, chain, decision);
+                    await EmitOrDisposeAsync(() => EmitStop(context, chain, decision), response, context, async).ConfigureAwait(false);
                     return response;
                 case RedirectDecisionKind.Fail:
                     // REDIR-22(b): nobody receives the response, so it is released first; a dispose failure rides the
                     // exception's suppressed trail and never replaces it.
-                    EmitFail(context, chain, decision);
+                    await EmitOrDisposeAsync(() => EmitFail(context, chain, decision), response, context, async).ConfigureAwait(false);
                     await DisposeAsync(response, decision.Exception, context, async).ConfigureAwait(false);
                     throw decision.Exception!;
                 default:
                     // REDIR-28: the events are written before the superseded response is disposed. REDIR-22(a): the response is
                     // disposed before the next drive, never after it.
-                    EmitFollow(context, chain, decision, response.Status.Code);
+                    var status = response.Status.Code;
+                    await EmitOrDisposeAsync(() => EmitFollow(context, chain, decision, status), response, context, async).ConfigureAwait(false);
                     await DisposeAsync(response, primary: null, context, async).ConfigureAwait(false);
 
                     // P6b-18: a cancelled call never starts another hop.
@@ -168,6 +169,21 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
         {
             // The rejection is observable before the throw (REDIR-28).
             RedirectLog.DowngradeRejected(context, chain.Current.Url, decision.Target!);
+        }
+    }
+
+    // The emitters swallow their own failures except a cancellation under a cancelled call token; then nobody would receive
+    // the in-flight response, so it is released here (as 5b's HttpLogEmitter does) and the cancellation propagates.
+    private static async ValueTask EmitOrDisposeAsync(Action emit, Response response, PipelineContext context, bool async)
+    {
+        try
+        {
+            emit();
+        }
+        catch (OperationCanceledException ex) when (context.CancellationToken.IsCancellationRequested)
+        {
+            await DisposeAsync(response, ex, context, async).ConfigureAwait(false);
+            throw;
         }
     }
 

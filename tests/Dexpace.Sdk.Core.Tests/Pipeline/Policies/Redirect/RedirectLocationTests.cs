@@ -134,6 +134,13 @@ public sealed class RedirectLocationTests
         Assert.Equal("https://h/c#frag", Ok("https://h/a", "/c#frag"));
     }
 
+    [Theory]
+    [InlineData("http://\u00e4.xn--zz/")]
+    [InlineData("http://\uffff/")]
+    [InlineData("http://a\u200db/")]
+    public void An_invalid_IDN_host_is_malformed_not_a_throw(string location) =>
+        Assert.Equal(LocationOutcome.Malformed, Resolve("https://h/a", Loc(location), out _, out _));
+
     [Fact]
     public void The_resolver_never_throws_for_hostile_values()
     {
@@ -141,6 +148,7 @@ public sealed class RedirectLocationTests
         [
             new string('a', 70_000), "http://[::1", "http://a b/", "//", "\\\\host\\share", "http://a:99999/", "%",
             "http://%41/", "\ud800", "   x   ", "http://", "https://:80/", "http://@/", "?", "..", "///",
+            "http://\u00e4.xn--zz/", "http://\uffff/", "http://a\u200db/",
         ];
         foreach (var value in hostile)
         {

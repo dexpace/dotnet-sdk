@@ -206,7 +206,6 @@ internal static partial class HttpLogEmitter
         return response;
     }
 
-
     private static void EmitRequest(ILogger logger, ref AttemptScope scope, Request request, RedactionCache.Entry entry)
     {
         var pairs = new List<KeyValuePair<string, object?>>(8 + request.Headers.Count)

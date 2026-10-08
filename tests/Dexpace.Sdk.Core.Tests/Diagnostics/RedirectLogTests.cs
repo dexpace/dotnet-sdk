@@ -8,11 +8,13 @@ using System.Diagnostics;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.Core.Tests.Pipeline;
+using Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 using Dexpace.Sdk.TestSupport.Diagnostics;
 using Dexpace.Sdk.TestSupport.Transports;
 using Microsoft.Extensions.Logging;
@@ -146,6 +148,32 @@ public sealed class RedirectLogTests
         Assert.Contains(logger.Attempts, a => a.EventId.Name == DexpaceLogEvents.LogFailed);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_logger_cancelling_under_a_cancelled_token_leaves_the_response_disposed_once(bool sync)
+    {
+        using var cts = new CancellationTokenSource();
+        var log = new List<string>();
+        var logger = new ThrowingLogger { ThrowOnLog = true, ExceptionFactory = () => new OperationCanceledException(cts.Token) };
+        using var transport = new ScriptedTransport(
+            () =>
+            {
+                cts.Cancel();
+                return RedirectFixtures.TrackedRedirect("/next", log, "redirect");
+            },
+            TestResponses.Create(Status.Ok));
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Add(new InstrumentationPolicy(logger)).Build(transport);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            _ = sync
+                ? pipeline.Send(Request.Get("https://api.example.com/a"), new DexpaceClientOptions(), cts.Token)
+                : await pipeline.SendAsync(Request.Get("https://api.example.com/a"), new DexpaceClientOptions(), cts.Token));
+
+        Assert.Equal(["redirect:dispose"], log);
+        Assert.Equal(1, transport.CallCount);
+    }
+
     [Fact]
     public void A_disabled_logger_builds_nothing()
     {
@@ -190,6 +218,22 @@ public sealed class RedirectLogTests
 
         Assert.Equal([DexpaceLogEvents.RedirectLocationMalformed], malformed.Select(e => e.EventId.Name));
         Assert.Equal([DexpaceLogEvents.RedirectHop, DexpaceLogEvents.RedirectLoopDetected], loop.Select(e => e.EventId.Name));
+    }
+
+    [Theory]
+    [InlineData("http://\u00e4.xn--zz/")]
+    [InlineData("http://\uffff/")]
+    public async Task An_invalid_IDN_location_returns_the_3xx_open_with_the_malformed_event(string location)
+    {
+        var logger = new RecordingLogger();
+        var response = TestResponses.Create(Status.Found, headers: new Headers.Builder().AddInbound("Location", location).Build());
+        using var transport = new ScriptedTransport(response);
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Add(new InstrumentationPolicy(logger)).Build(transport);
+
+        using var result = await pipeline.SendAsync(Request.Get("https://api.example.com/a"), Ct);
+
+        Assert.Same(response, result);
+        Assert.Equal([DexpaceLogEvents.RedirectLocationMalformed], Redirects(logger).Select(e => e.EventId.Name));
     }
 
     [Fact]
