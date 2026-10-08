@@ -301,6 +301,14 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** every auth policy honours `RequestOptions.Auth` / `OperationAuth` (a per-call `NoAuth` sends the call
   anonymously, an unservable scheme throws `AuthResolutionException` before anything is sent) and answers a `401`
   carrying `WWW-Authenticate` through its hook, replaying once when the replacement is same-origin and replayable.
+- **Breaking:** `AccessTokenCache` refreshes 30 seconds before expiry by default (was: at expiry); stamps a still-valid token and
+  refreshes it in the background, one refresh per key (was: awaited the refresh on the request path); logs a failed
+  background refresh as event 160 `dexpace.auth.token_refresh_failed` (was: silent); rejects a default or already-expired
+  provider token with `TokenProviderException`; lets the waiters of a failed fetch share its outcome; and is bounded to
+  1024 keys (`AUTH-11`, `AUTH-34`..`AUTH-37`, `XCUT-12`, `XCUT-14`).
+- **Breaking:** `BearerTokenAuthPolicy` retries a call once with a freshly fetched token when the server answers `401` with
+  a `Bearer` challenge (was: returned the `401`), and its synchronous path no longer blocks on the asynchronous one
+  (`AUTH-30`, `AUTH-31`, `AUTH-36`).
 
 - **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
   `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
@@ -520,5 +528,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `ProxyAuthenticate` and `ProxyAuthorization` (`AUTH-12`, `AUTH-13`, `AUTH-14`, `AUTH-23`, `AUTH-25`).
 - `ChallengeAuthPolicy` (Basic or Digest answered on a `401`, never preemptive), `AuthChallengeContext` and
   `HttpsRequiredException` (`AUTH-26`..`AUTH-33`, `AUTH-38`).
+- `AccessTokenCache.Get` (a real synchronous path), `AccessTokenCache.DefaultRefreshMargin` and `RefreshMargin`,
+  `BearerTokenAuthPolicy(AccessTokenCache, params string[])`, `TokenProviderException`, and log event 160
+  `DexpaceLogEvents.TokenRefreshFailed` (`AUTH-35`, `AUTH-37`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

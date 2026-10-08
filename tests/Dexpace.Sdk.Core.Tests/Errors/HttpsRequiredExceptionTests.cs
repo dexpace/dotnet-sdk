@@ -47,6 +47,7 @@ public sealed class AuthExceptionsAreNotRetryableTests
     [
         new HttpsRequiredException("P", "http"),
         new AuthResolutionException([AuthScheme.Digest], [AuthScheme.Basic]),
+        new TokenProviderException("The token provider returned a default token."),
     ];
 
     [Theory]

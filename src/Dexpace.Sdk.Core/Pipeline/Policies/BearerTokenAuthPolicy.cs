@@ -15,24 +15,30 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <remarks>
 /// <para>
 /// The policy creates exactly one <see cref="AccessTokenCache"/> for the lifetime of the policy
-/// instance, wrapping the supplied <see cref="TokenCredential"/>. All pipeline invocations share
-/// that cache, so concurrent or sequential requests reuse a valid cached token and avoid redundant
-/// credential calls.
+/// instance, wrapping the supplied <see cref="TokenCredential"/>, or uses the one a caller hands it. All pipeline
+/// invocations share that cache, so concurrent or sequential requests reuse a valid cached token, a token near expiry is
+/// refreshed in the background, and a burst at expiry costs one fetch (AUTH-34, AUTH-37).
 /// </para>
 /// <para>
-/// Token acquisition is always async; the policy calls
-/// <see cref="AccessTokenCache.GetAsync(TokenRequestContext,CancellationToken)"/> using the
-/// <see cref="PipelineContext.CancellationToken"/> so that request cancellation propagates into
-/// token fetching.
+/// Both paths are real: the asynchronous path awaits <see cref="AccessTokenCache.GetAsync(TokenRequestContext,CancellationToken)"/>
+/// and the synchronous path calls <see cref="AccessTokenCache.Get(TokenRequestContext,CancellationToken)"/>, so no thread is blocked on a task. The scopes of
+/// the resolved requirement are used (a per-call OAuth2 requirement may ask for others), falling back to the
+/// policy's.
 /// </para>
 /// <para>
-/// <b>401 re-acquisition:</b> re-acquiring a token on a <c>401</c> challenge response is deferred
-/// to the challenge-handling work (to arrive with <c>ChallengeHandler</c>). This policy performs
-/// a single token-get per request.
+/// <b>401 re-acquisition:</b> a <c>401</c> whose <c>WWW-Authenticate</c> carries a <c>Bearer</c> challenge evicts the
+/// rejected token (only if it is still the cached one), fetches a fresh one and retries the call once, whatever the
+/// method; the base's replayability gate protects a body that cannot be written again (AUTH-31, AUTH-36). If the provider
+/// hands back the very token that was rejected, the <c>401</c> is returned. A second <c>401</c> is returned as it is
+/// (AUTH-30).
 /// </para>
 /// <para>
 /// Credentials are withheld when the request has been redirected to a different origin; see
 /// <see cref="AuthorizationPolicy"/> for the cross-origin withholding contract.
+/// </para>
+/// <para>
+/// <b>Breaking:</b> a <c>401</c> with a <c>Bearer</c> challenge is now retried once with a fresh token (was: returned
+/// to the caller).
 /// </para>
 /// </remarks>
 public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
@@ -56,11 +62,22 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
     /// <paramref name="credential"/> or <paramref name="scopes"/> is <see langword="null"/>.
     /// </exception>
     public BearerTokenAuthPolicy(TokenCredential credential, params string[] scopes)
+        : this(CacheOver(credential), scopes)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a <see cref="BearerTokenAuthPolicy"/> over an existing cache, so a caller can set the refresh margin and
+    /// the <see cref="TimeProvider"/>, or share one cache between policies.
+    /// </summary>
+    /// <param name="cache">The token cache.</param>
+    /// <param name="scopes">The OAuth 2.0 scopes to request.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="cache"/> or <paramref name="scopes"/> is <see langword="null"/>.</exception>
+    public BearerTokenAuthPolicy(AccessTokenCache cache, params string[] scopes)
         : base(ClientDescriptor(scopes), [AuthScheme.OAuth2])
     {
-        ArgumentNullException.ThrowIfNull(credential);
-
-        _cache = new AccessTokenCache(credential);
+        ArgumentNullException.ThrowIfNull(cache);
+        _cache = cache;
         _scopes = [.. scopes];
     }
 
@@ -74,10 +91,10 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
         PipelineContext context)
     {
         var token = await _cache
-            .GetAsync(TokenContextFor(requirement), context.CancellationToken)
+            .GetAsync(TokenContextFor(requirement), context.State.Logger, context.CancellationToken)
             .ConfigureAwait(false);
 
-        return (HttpHeaderName.WellKnown.Authorization.Original, $"Bearer {token.Token}");
+        return (HttpHeaderName.WellKnown.Authorization.Original, Bearer(token));
     }
 
     /// <inheritdoc/>
@@ -86,13 +103,59 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
         Request request,
         PipelineContext context)
     {
-        // Removed by task 5.5 (P6c-26): the cache gains a real synchronous path there.
-#pragma warning disable RS0030
-        var token = _cache
-            .GetAsync(TokenContextFor(requirement), context.CancellationToken)
-            .AsTask().GetAwaiter().GetResult();
-#pragma warning restore RS0030
-        return (HttpHeaderName.WellKnown.Authorization.Original, $"Bearer {token.Token}");
+        var token = _cache.Get(TokenContextFor(requirement), context.State.Logger, context.CancellationToken);
+        return (HttpHeaderName.WellKnown.Authorization.Original, Bearer(token));
+    }
+
+    /// <inheritdoc/>
+    protected override async ValueTask<Request?> OnChallengeAsync(AuthChallengeContext challenge)
+    {
+        ArgumentNullException.ThrowIfNull(challenge);
+        if (RejectedHeader(challenge) is not { } rejected)
+        {
+            return null;
+        }
+
+        var token = await _cache
+            .GetAfterRejectionAsync(TokenContextFor(challenge.Requirement), rejected, challenge.Context.CancellationToken)
+            .ConfigureAwait(false);
+        return Replacement(challenge.Request, rejected, token);
+    }
+
+    /// <inheritdoc/>
+    protected override Request? OnChallenge(AuthChallengeContext challenge)
+    {
+        ArgumentNullException.ThrowIfNull(challenge);
+        if (RejectedHeader(challenge) is not { } rejected)
+        {
+            return null;
+        }
+
+        var token = _cache.GetAfterRejection(TokenContextFor(challenge.Requirement), rejected, challenge.Context.CancellationToken);
+        return Replacement(challenge.Request, rejected, token);
+    }
+
+    private static AccessTokenCache CacheOver(TokenCredential credential)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+        return new AccessTokenCache(credential);
+    }
+
+    private static string Bearer(AccessToken token) => "Bearer " + token.Token;
+
+    // Only a Bearer challenge to a request that carried an Authorization header is answered (AUTH-36).
+    private static string? RejectedHeader(AuthChallengeContext challenge) =>
+        challenge.Challenges.Any(static c => string.Equals(c.Scheme, "bearer", StringComparison.Ordinal))
+            ? challenge.Request.Headers.Get(HttpHeaderName.WellKnown.Authorization)
+            : null;
+
+    // A provider that hands back the rejected token yields no retry (P6c-27): the 401 surfaces.
+    private static Request? Replacement(Request sent, string rejected, AccessToken token)
+    {
+        var value = Bearer(token);
+        return string.Equals(value, rejected, StringComparison.Ordinal)
+            ? null
+            : sent.WithHeaders(sent.Headers.Set(HttpHeaderName.WellKnown.Authorization, value));
     }
 
     private static AuthDescriptor ClientDescriptor(string[] scopes)
