@@ -1,6 +1,8 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Core.Http.Common;
+
 namespace Dexpace.Sdk.Core.Internal;
 
 /// <summary>
@@ -18,5 +20,6 @@ internal static class AuthOrigin
         return $"{uri.Scheme.ToLowerInvariant()}://{uri.Host.ToLowerInvariant()}:{uri.Port}";
     }
 
-    internal static bool Same(Uri a, Uri b) => string.Equals(Of(a), Of(b), StringComparison.OrdinalIgnoreCase);
+    // 6b's HttpOrigin is the one comparison (it folds an IDN host and its punycode spelling into one origin).
+    internal static bool Same(Uri a, Uri b) => HttpOrigin.From(a) == HttpOrigin.From(b);
 }
