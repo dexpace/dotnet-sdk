@@ -24,6 +24,9 @@ public static class DexpaceLogEvents
     /// <summary>The event written when a response arrives (<see cref="HttpResponseId"/>) or an attempt fails (<see cref="HttpFailureId"/>) (OBS-39).</summary>
     public const string HttpResponse = "http.response";
 
+    /// <summary>The warning written when a retry policy's delay override threw or returned a negative delay, so the computed delay was used (<see cref="RetryDelayOverrideFailedId"/>, RETRY-40).</summary>
+    public const string RetryDelayOverrideFailed = "dexpace.retry.delay_override_failed";
+
     /// <summary>The diagnostic written when emitting a log event itself failed (<see cref="LogFailedId"/>, OBS-20).</summary>
     public const string LogFailed = "http.instrumentation.log_failed";
 
@@ -50,4 +53,7 @@ public static class DexpaceLogEvents
 
     /// <summary>The numeric id of <see cref="DisposeSuppressed"/>.</summary>
     public const int DisposeSuppressedId = 130;
+
+    /// <summary>The numeric id of <see cref="RetryDelayOverrideFailed"/>; ids 141 to 149 stay reserved for retry.</summary>
+    public const int RetryDelayOverrideFailedId = 140;
 }

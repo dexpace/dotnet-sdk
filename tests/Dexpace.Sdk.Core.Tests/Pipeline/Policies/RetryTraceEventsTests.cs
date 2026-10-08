@@ -142,6 +142,34 @@ public sealed class RetryTraceEventsTests
     }
 
     [Fact]
+    public async Task The_exhausted_event_follows_the_final_predicate()
+    {
+        // OBS-29, P6a-28: exhausted = the cap was spent while the condition and the re-send gate held and the effective count
+        // was above zero. Each other combination ends without the event.
+        async Task<string[]> RunAsync(IAsyncHttpClient transport, Request request, int retries)
+        {
+            using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+            var pipeline = TracingFixtures.Pipeline(transport, retries: retries);
+            await Assert.ThrowsAnyAsync<Exception>(async () => await pipeline.SendAsync(request, TestContext.Current.CancellationToken));
+            return TracingFixtures.EventNames(Operation(recorder));
+        }
+
+        static ScriptedTransport Thrower(int count) =>
+            new(Enumerable.Range(0, count).Select(_ => (object)new ServiceRequestException("never sent")).ToArray());
+
+        Assert.Equal(
+            ["dexpace.attempt.failed", "dexpace.attempt.failed", "dexpace.retry.exhausted", "exception"],
+            await RunAsync(Thrower(3), Get(), retries: 2));
+        Assert.Equal(["exception"], await RunAsync(Thrower(1), Get(), retries: 0));
+        Assert.Equal(
+            ["exception"],
+            await RunAsync(new ScriptedTransport(new InvalidOperationException("not retryable")), Get(), retries: 2));
+        Assert.Equal(
+            ["exception"],
+            await RunAsync(Thrower(1), new Request(Method.Post, new Uri("https://api.example.com/v1/items")), retries: 2));
+    }
+
+    [Fact]
     public async Task A_new_retry_sequence_clears_an_earlier_exhaustion()
     {
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");

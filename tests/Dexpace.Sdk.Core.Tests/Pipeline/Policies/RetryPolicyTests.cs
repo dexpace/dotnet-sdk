@@ -289,16 +289,22 @@ public sealed class RetryPolicyTests
     [Fact]
     public async Task ProcessAsync_Cancellation_Propagates_NotSwallowed()
     {
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        // Transport throws OCE directly — must not be retried.
+        // The transport cancels the call and throws OCE mid-send — must not be retried (RETRY-23). A token already cancelled
+        // before the first send never reaches the transport at all (RETRY-32), which RetryEngineTests pins.
+        using var live = new CancellationTokenSource();
         var transport = new ScriptedTransport(
-            new object[] { new OperationCanceledException(cts.Token) });
+            new object[]
+            {
+                new Func<Response>(() =>
+                {
+                    live.Cancel();
+                    throw new OperationCanceledException(live.Token);
+                }),
+            });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => pipeline.SendAsync(MakeGetRequest(), MakeOptions(), cts.Token).AsTask());
+            () => pipeline.SendAsync(MakeGetRequest(), MakeOptions(), live.Token).AsTask());
 
         Assert.Equal(1, transport.CallCount);
     }
@@ -478,8 +484,10 @@ public sealed class RetryPolicyTests
         {
             Assert.True(pair.Item2 >= TimeSpan.Zero,
                 $"Delay at timer call {pair.Item1} was negative: {pair.Item2}");
-            Assert.True(pair.Item2 <= maxDelay,
-                $"Delay at timer call {pair.Item1} exceeded MaxDelay ({maxDelay}): {pair.Item2}");
+            // 6a (design E): the cap applies first and the symmetric jitter after it, so a delay can reach
+            // MaxDelay × (1 + Jitter / 2).
+            Assert.True(pair.Item2 <= maxDelay * (1 + (options.Retry.Jitter / 2)),
+                $"Delay at timer call {pair.Item1} exceeded MaxDelay plus jitter ({maxDelay}): {pair.Item2}");
         });
     }
 
@@ -523,8 +531,10 @@ public sealed class RetryPolicyTests
         {
             Assert.True(pair.Item2 >= TimeSpan.Zero,
                 $"Delay at timer call {pair.Item1} was negative: {pair.Item2}");
-            Assert.True(pair.Item2 <= maxDelay,
-                $"Delay at timer call {pair.Item1} exceeded MaxDelay ({maxDelay}): {pair.Item2}");
+            // 6a (design E): the cap applies first and the symmetric jitter after it, so a delay can reach
+            // MaxDelay × (1 + Jitter / 2).
+            Assert.True(pair.Item2 <= maxDelay * (1 + (options.Retry.Jitter / 2)),
+                $"Delay at timer call {pair.Item1} exceeded MaxDelay plus jitter ({maxDelay}): {pair.Item2}");
         });
     }
 
