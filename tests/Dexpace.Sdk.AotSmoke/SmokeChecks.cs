@@ -9,6 +9,7 @@ using System.Diagnostics.Metrics;
 using System.IO;
 using System.Net;
 using System.Text;
+using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
@@ -60,6 +61,7 @@ internal static class SmokeChecks
             await CheckTracingAndMetricsAsync();
             await CheckPhase6aRetryAsync();
             await CheckPhase6bRedirectAsync();
+            await CheckPhase6cAuthAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -761,6 +763,70 @@ internal static class SmokeChecks
             message is not null && message.Contains("smoke.example.test", StringComparison.Ordinal)
                 && !message.Contains("secret", StringComparison.Ordinal) && !message.Contains("abc", StringComparison.Ordinal),
             "RedirectSchemeDowngradeException names the redacted URLs");
+    }
+
+    // Phase 6c: the challenge parser, the resolver, Digest (BCL hash and CSPRNG cnonce) and the bearer cache with its
+    // background refresh, all without reflection.
+    private static async Task CheckPhase6cAuthAsync()
+    {
+        var challenges = AuthenticationChallenge.Parse("Basic realm=\"a\", Digest realm=\"b\", nonce=\"n\", qop=\"auth\"");
+        Expect(
+            challenges.Count == 2 && challenges[0].Scheme == "basic" && challenges[1].Parameters["nonce"] == "n",
+            "AuthenticationChallenge.Parse splits two challenges");
+        Expect(AuthenticationChallenge.Parse("Digest realm=\"unterminated").Count == 1, "The challenge parser is lenient");
+
+        var resolved = AuthResolver.Resolve(null, new AuthDescriptor(new AuthRequirement(AuthScheme.Digest), AuthRequirement.NoAuth), null, []);
+        Expect(resolved.Scheme == AuthScheme.NoAuth, "AuthResolver falls through to NoAuth");
+
+        var digest = new DigestChallengeHandler(new DigestCredential("Mufasa", "Circle Of Life"), [DigestAlgorithm.Sha256]);
+        var answered = digest.Authorize(
+            AuthenticationChallenge.Parse("Digest realm=\"r\", nonce=\"n\", qop=\"auth\", algorithm=SHA-256"),
+            Request.Get("https://smoke.example.test/dir"),
+            proxy: false);
+        var header = answered?.Headers.Get("Authorization") ?? string.Empty;
+        var response = AuthenticationChallenge.Parse(header).Count == 1 ? AuthenticationChallenge.Parse(header)[0].Parameters["response"] : string.Empty;
+        Expect(
+            header.Contains("algorithm=SHA-256", StringComparison.Ordinal) && response.Length == 64,
+            "DigestChallengeHandler answers a SHA-256 challenge");
+
+        Expect(
+            new BasicCredential("u", "s3cr3t").ToString().Contains("***", StringComparison.Ordinal)
+                && !new BasicCredential("u", "s3cr3t").ToString().Contains("s3cr3t", StringComparison.Ordinal)
+                && new AccessToken("tok-secret").ToString().Contains("***", StringComparison.Ordinal)
+                && !new AuthCredentials { Basic = new BasicCredential("u", "s3cr3t") }.ToString().Contains("s3cr3t", StringComparison.Ordinal),
+            "Credentials redact their secrets");
+
+        // A token inside the refresh margin is stamped now and refreshed in the background (cache, BoundedMap, SemaphoreSlim,
+        // BackgroundWork under AOT).
+        var credential = new SmokeTokenCredential();
+        var seen = new List<string?>();
+        await using var transport = DelegateHttpClient.Create((request, _, _) =>
+        {
+            seen.Add(request.Headers.Get("Authorization"));
+            return Task.FromResult(new Response(request, Status.Ok, Protocol.Http11));
+        });
+        var pipeline = new PipelineBuilder().Add(new BearerTokenAuthPolicy(credential, "smoke")).Build(transport);
+        using var first = await pipeline.SendAsync(Request.Get("https://smoke.example.test/"), CancellationToken.None);
+        using var second = await pipeline.SendAsync(Request.Get("https://smoke.example.test/"), CancellationToken.None);
+        for (var i = 0; i < 500 && credential.Calls < 2; i++)
+        {
+            await Task.Delay(10);
+        }
+
+        Expect(
+            seen is ["Bearer smoke-1", "Bearer smoke-1"] && credential.Calls >= 2,
+            "BearerTokenAuthPolicy stamps the valid token and refreshes in the background");
+    }
+
+    /// <summary>A token that is always inside the 30 s refresh margin, so every request after the first starts a refresh.</summary>
+    private sealed class SmokeTokenCredential : TokenCredential
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext context, CancellationToken ct = default) =>
+            new(new AccessToken("smoke-" + Interlocked.Increment(ref _calls), DateTimeOffset.UtcNow.AddSeconds(20)));
     }
 
     private static void Expect(bool condition, string what)
