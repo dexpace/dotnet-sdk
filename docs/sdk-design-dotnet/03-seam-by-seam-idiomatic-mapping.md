@@ -190,7 +190,7 @@ rediscovered per call site.
   reference's mechanism — an atomic compare-and-set — is exactly `Interlocked.Exchange(ref _consumed, 1)`, which is
   what the as-built stream body uses; unlike the Ruby port there is no fiber-owned mutex to avoid, because an
   `Interlocked` flip holds nothing across the drain.
-- **The replay gate.** Retry, redirect and the 401 challenge all consult the same `IsReplayable` before re-sending a
+- **The replay gate.** *(Correction 2026-10-08, phase 6b: the redirect branch is built as `RedirectBodyNotReplayableException`, thrown after the response is disposed.)* Retry, redirect and the 401 challenge all consult the same `IsReplayable` before re-sending a
   body-bearing request and decline differently — retry stops and surfaces the last outcome, auth returns the
   challenge response unchanged and undisposed, redirect throws (**BODY-4**) — which the port preserves rather than
   unifies, because **BODY-4** says a port need not unify the decline behaviour. A body-less request's retry

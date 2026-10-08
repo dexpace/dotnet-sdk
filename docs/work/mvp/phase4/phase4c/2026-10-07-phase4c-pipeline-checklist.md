@@ -135,3 +135,10 @@ and `git diff -U0 main -- tests/Dexpace.Sdk.Core.Tests/Security` shows exactly t
 - **Provenance of the ported cases.** The test cases follow the plan's case lists, which cite `nodejs-sdk@c0ff3fd` `packages/core/src/pipeline/` and the Ruby 4c
   design's testing strategy; the sibling sources were not re-read while the tests were written, so each header says "case list from the plan", not "ported".
   Ruby's `pipeline_test.rb`, `test/dexpace/pipeline/` and `docs/sdk-documentation/pipelines.md` are absent locally, as in 2a to 3b.
+
+## Correction 2026-10-08 (phase 6b)
+
+`PIPE-40` is now also evidenced for the rewritten redirect policy: `RedirectPolicyTests` (the superseded response disposed before the next send; the two refusals and a throwing
+predicate dispose first, a failing dispose riding the exception's suppressed trail; every one of the five stop reasons returns the response open) and the split
+`ReDriveLifecycleTests`. The "non-replayable body" abandon path in `PIPE-40`'s list is read as retry's; redirect's is governed by `REDIR-6` and `REDIR-22`(b), which throw after
+disposing (design §11 item 59, P6b-17). The row above stands as written at 4c's exit.

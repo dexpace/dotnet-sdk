@@ -22,6 +22,16 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpResponse = "http.respons
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.HttpResponseId = 101 -> int
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.LogFailed = "http.instrumentation.log_failed" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.LogFailedId = 120 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectHop = "http.redirect.hop" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectHopId = 150 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectLocationMalformed = "http.redirect.location_malformed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectLocationMalformedId = 154 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectLoopDetected = "http.redirect.loop_detected" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectLoopDetectedId = 151 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectSchemeDowngradePermitted = "http.redirect.scheme_downgrade_permitted" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectSchemeDowngradePermittedId = 153 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectSchemeDowngradeRejected = "http.redirect.scheme_downgrade_rejected" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RedirectSchemeDowngradeRejectedId = 152 -> int
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.ErrorType = "error.type" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.FailedEvent = "dexpace.instrumentation.failed_event" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpRequestBodyPreview = "http.request.body.preview" -> string!
@@ -37,6 +47,10 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseDurationMs = "http
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseHeaderPrefix = "http.response.header." -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseStatusCode = "http.response.status_code" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedactedHeaderValue = "REDACTED" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedirectCrossOrigin = "dexpace.redirect.cross_origin" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedirectHop = "dexpace.redirect.hop" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedirectLocation = "dexpace.redirect.location" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedirectTarget = "dexpace.redirect.target" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string!
 const Dexpace.Sdk.Core.Configuration.BuildInfo.Unknown = "unknown" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailed = "dexpace.retry.delay_override_failed" -> string!
@@ -146,12 +160,16 @@ Dexpace.Sdk.Core.Configuration.RedirectOptions
 Dexpace.Sdk.Core.Configuration.RedirectOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RedirectOptions!
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.get -> bool
 Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowHttpsToHttpDowngrade.init -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowedMethods.get -> System.Collections.Generic.IReadOnlySet<Dexpace.Sdk.Core.Http.Common.Method!>!
+Dexpace.Sdk.Core.Configuration.RedirectOptions.AllowedMethods.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.Equals(Dexpace.Sdk.Core.Configuration.RedirectOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.RedirectOptions.FollowSeeOther.get -> bool
+Dexpace.Sdk.Core.Configuration.RedirectOptions.FollowSeeOther.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.get -> int
 Dexpace.Sdk.Core.Configuration.RedirectOptions.MaxRedirects.init -> void
+Dexpace.Sdk.Core.Configuration.RedirectOptions.Predicate.get -> System.Func<Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition!, bool>?
+Dexpace.Sdk.Core.Configuration.RedirectOptions.Predicate.init -> void
 Dexpace.Sdk.Core.Configuration.RedirectOptions.RedirectOptions() -> void
-Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.get -> bool
-Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions
 Dexpace.Sdk.Core.Configuration.RetryOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RetryOptions!
 Dexpace.Sdk.Core.Configuration.RetryOptions.AttemptHeaderName.get -> string?
@@ -201,6 +219,18 @@ Dexpace.Sdk.Core.Errors.PipelineAbortedException
 Dexpace.Sdk.Core.Errors.PipelineAbortedException.PipelineAbortedException() -> void
 Dexpace.Sdk.Core.Errors.PipelineAbortedException.PipelineAbortedException(string! message) -> void
 Dexpace.Sdk.Core.Errors.PipelineAbortedException.PipelineAbortedException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.Errors.RedirectBodyNotReplayableException
+Dexpace.Sdk.Core.Errors.RedirectBodyNotReplayableException.RedirectBodyNotReplayableException() -> void
+Dexpace.Sdk.Core.Errors.RedirectBodyNotReplayableException.RedirectBodyNotReplayableException(string! message) -> void
+Dexpace.Sdk.Core.Errors.RedirectBodyNotReplayableException.RedirectBodyNotReplayableException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.Errors.RedirectException
+Dexpace.Sdk.Core.Errors.RedirectException.RedirectException() -> void
+Dexpace.Sdk.Core.Errors.RedirectException.RedirectException(string! message) -> void
+Dexpace.Sdk.Core.Errors.RedirectException.RedirectException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.Errors.RedirectSchemeDowngradeException
+Dexpace.Sdk.Core.Errors.RedirectSchemeDowngradeException.RedirectSchemeDowngradeException() -> void
+Dexpace.Sdk.Core.Errors.RedirectSchemeDowngradeException.RedirectSchemeDowngradeException(string! message) -> void
+Dexpace.Sdk.Core.Errors.RedirectSchemeDowngradeException.RedirectSchemeDowngradeException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.ResponseNotReadException
 Dexpace.Sdk.Core.Errors.ResponseNotReadException.ResponseNotReadException() -> void
 Dexpace.Sdk.Core.Errors.ResponseNotReadException.ResponseNotReadException(string! message) -> void
@@ -506,6 +536,11 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.InstrumentationPolicy(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy
+Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition
+Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition.RedirectsFollowed.get -> int
+Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition.Target.get -> System.Uri?
+Dexpace.Sdk.Core.Pipeline.Policies.RedirectCondition.VisitedUris.get -> System.Collections.Generic.IReadOnlyList<System.Uri!>!
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.RedirectPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy

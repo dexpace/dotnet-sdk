@@ -121,7 +121,8 @@ dotnet-sdk/
 │   │   ├── Resilience/              # internal: RetryFacts (classifier, re-send gate), RetryBackoff, RetryPacing, RetryBudget, RetryEngine (the one retry loop)
 │   │   ├── Pipeline/                # HttpPipeline (also a transport), PipelineBuilder, HttpPipelinePolicy,
 │   │   │   └── Policies/            #   PipelineContext, PipelineRunner, DexpacePipeline; operation, redirect, retry,
-│   │   │                            #   idempotency, set-date, client-identity, instrumentation, auth, error-mapping policies
+│   │   │                            #   idempotency, set-date, client-identity, instrumentation, auth, error-mapping policies;
+│   │   │                            #   Redirect/ holds the internal decider, chain, location resolver and reissue behind RedirectPolicy
 │   │   ├── Recovery/                # Outcome, the step contracts, request/response recovery chains, RecoveryDispatcher, RetryRecovery,
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
@@ -133,7 +134,7 @@ dotnet-sdk/
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
 │   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
-│   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, SerdeException, ExceptionFacts, ExceptionTrail
+│   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, RedirectException (+ downgrade / not-replayable leaves), SerdeException, ExceptionFacts, ExceptionTrail
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 ├── tests/
@@ -193,6 +194,10 @@ Layered, bottom-up:
 - **Transports are ownership-aware, and the SDK is the only redirect authority.** A caller-supplied
   `System.Net.Http.HttpClient` is never disposed by `SystemNetHttpClient`; only an internally created one
   is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails.
+- **Redirects follow only `GET` and `HEAD` by default, and 303 is opt-in.** `RedirectOptions` defaults to 3 hops, `AllowedMethods = {GET, HEAD}`
+  and `FollowSeeOther = false`; a `POST` is never rewritten to a `GET`. An https to http hop throws `RedirectSchemeDowngradeException` and a
+  method-preserving hop over a single-use body throws `RedirectBodyNotReplayableException` (`ToReplayableAsync` first); a revisited URI returns the 3xx.
+  `Authorization` is stripped on every hop and `Cookie` / `Proxy-Authorization` cross-origin, against the seed, with no option to turn it off.
 - **Headers are validated.** CR, LF and other controls in a header name or value throw
   `ArgumentException` at construction; received headers take the lenient `Headers.Builder.AddInbound` path.
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
@@ -259,7 +264,9 @@ the `http.request`/`http.response` events, header and URL redaction, the emissio
 `docs/sdk-documentation/logging-and-redaction.md`; and phase 5c's tracing and metrics — the operation span, the attempt span rework, the
 `dexpace.*` span events, the two instruments with their stable attribute sets and `SystemNetHttpClient`'s `traceparent` rule — see
 `docs/sdk-documentation/tracing-and-metrics.md`; and phase 6a's retry — the classifier and `IRetryableError`, the re-send gate, `RetryOptions`' validation, the one `RetryEngine` under `RetryPolicy` and `RetryRecovery`, the pacing
-headers, the suppressed trail, `OperationTimeoutException` and the enforced `AttemptTimeout` — see `docs/sdk-documentation/retry.md`):
+headers, the suppressed trail, `OperationTimeoutException` and the enforced `AttemptTimeout` — see `docs/sdk-documentation/retry.md`; and phase 6b's redirect —
+the pure decider behind `RedirectPolicy`, `RedirectOptions` (`AllowedMethods`, `FollowSeeOther`, `Predicate`), the `RedirectException` family, loop detection, the five
+`http.redirect.*` events and the end-to-end credential-leak tests — see `docs/sdk-documentation/redirect.md`):
 the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release

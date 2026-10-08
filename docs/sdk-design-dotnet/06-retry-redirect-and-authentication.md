@@ -307,6 +307,21 @@ stack safety from a `while` loop (**REDIR-23**; built). The redirect predicate w
 browser-style POST→GET and 303 handling; no allowed-method set, loop detection, userinfo drop, or
 `Proxy-Authorization` strip; silent 3xx on downgrade and non-replayable body; previous-hop origin; 20-hop default.
 
+**As built (2026-10-08, phase 6b):** built. Everything the line above lists as missing is built, `REDIR-27` is deferred (a `LocationHeader` member has no consumer) and
+`REDIR-25` stays 🚫 under §10 entry 14. The text above stands as written, with five *dated corrections*:
+
+- **The predicate's scope and `Target` (P6b-7, P6b-8).** `RedirectOptions.Predicate` replaces the eligibility decision (the allowed-method set and `FollowSeeOther`) and nothing
+  else; loop detection, the hop cap, the `Location` screen, the downgrade guard, the replay gate and credential stripping stay unconditional. `RedirectCondition` is a public
+  sealed class (`Response`, `RedirectsFollowed`, `VisitedUris` as a fresh copy, and `Target`, the policy's own resolution of `Location`, an extension the spec does not ask for).
+- **The exception family (P6b-16).** `RedirectException : SdkException` with two sealed leaves, `RedirectSchemeDowngradeException` and `RedirectBodyNotReplayableException`, not a
+  `ServiceRequestException` (wrong retry semantics), with the redacted URLs in the message and no URL property (`XCUT-19`).
+- **"Held as a `FrozenSet<Method>` copy" is kept as written:** `RedirectOptions.AllowedMethods` is an `IReadOnlySet<Method>` backed by a `FrozenSet` copy made at `init`.
+- **The explicit default port is elided (P6b-30).** `Uri.AbsoluteUri` renders `https://h:443/y` as `https://h/y`; the origin and the wire meaning are unchanged, every
+  non-default port, IPv6 literal and reserved escape survives. The checklist states the residue and does not assert that `:443` survives.
+- **The malformed `Location` is logged redacted, not raw (P6b-20),** through `UrlRedactor.RedactHeaderValue`, which is total over unparseable text.
+
+`AuthorizationPolicy.GetOrigin`'s comment that `Uri.Port` returns -1 for an absent port is wrong on .NET (it returns the scheme's default), as 6b's `HttpOrigin` relies on; 6c may move the policy onto `HttpOrigin`.
+
 ### 6.3 Authentication
 
 **The descriptor/resolver model** (**AUTH-1**–**AUTH-7**) is not built and is pure data: an `AuthScheme` enum, an

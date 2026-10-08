@@ -64,9 +64,8 @@ public class DexpaceClientOptionsTests
     {
         var redirect = new RedirectOptions();
 
-        Assert.Equal(20, redirect.MaxRedirects);
+        Assert.Equal(3, redirect.MaxRedirects);
         Assert.False(redirect.AllowHttpsToHttpDowngrade);
-        Assert.True(redirect.StripSensitiveHeadersOnCrossOrigin);
     }
 
     [Fact]
@@ -142,7 +141,7 @@ public class DexpaceClientOptionsTests
             Assert.Contains(name, retry, StringComparison.Ordinal);
         }
 
-        foreach (var name in new[] { "MaxRedirects", "AllowHttpsToHttpDowngrade", "StripSensitiveHeadersOnCrossOrigin" })
+        foreach (var name in new[] { "MaxRedirects", "AllowHttpsToHttpDowngrade", "FollowSeeOther", "AllowedMethods", "Predicate" })
         {
             Assert.Contains(name, redirect, StringComparison.Ordinal);
         }

@@ -283,6 +283,34 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
   the deadline.
 
+- **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
+  `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
+  applies); `MaxRedirects` defaults to `3` (was `20`) and a negative value throws `ArgumentOutOfRangeException` at `init`. New
+  `AllowedMethods` (default `{GET, HEAD}`, copied to a frozen set), `FollowSeeOther` (default `false`) and `Predicate`
+  (`Func<RedirectCondition, bool>`, with the new `RedirectCondition` snapshot).
+- **Breaking (phase 6b):** a `301` or `302` on a `POST` is no longer rewritten to a body-less `GET`. A 301, 302, 307 or 308 is followed
+  only when the original method is in `AllowedMethods`, with the method and body preserved; otherwise the 3xx is returned. Add the
+  method to `AllowedMethods` (or set a `Predicate`) to follow it; nothing restores the `POST` to `GET` rewrite (`REDIR-3`).
+- **Breaking (phase 6b):** a `303` is no longer followed by default; set `FollowSeeOther`. A followed 303 is a body-less `GET` and every
+  `Content-*` header is removed from it (`REDIR-5`).
+- **Breaking (phase 6b):** an https to http redirect without `AllowHttpsToHttpDowngrade` throws the new
+  `RedirectSchemeDowngradeException` (was: the 3xx returned), and a method-preserving redirect over a body that cannot be re-sent
+  throws `RedirectBodyNotReplayableException` (was: the 3xx returned). Both derive from the new `RedirectException`, dispose the
+  response first, carry no URL property and name only redacted URLs in the message (`REDIR-6`, `REDIR-15`).
+- **Breaking (phase 6b):** a redirect to a URI already visited on the call returns that 3xx (loop detection, `REDIR-16`), and a
+  response with more than one `Location` value is returned unfollowed (`REDIR-18`). `Location` resolution is total: an empty host, a
+  non-http(s) scheme or an unparseable value is returned unfollowed and never throws; an explicit default port in a target is
+  normalised away (`https://h:443/y` is sent as `https://h/y`).
+- **Breaking (phase 6b):** `RedirectPolicy` is rewritten as one loop over a pure decision function: the superseded response is
+  disposed before the next drive, every stop returns the in-flight response open, a cancelled call token is honoured between hops, and
+  a throwing predicate disposes the response and propagates unchanged (`REDIR-22` to `REDIR-24`, `PIPE-40`).
+
+- **Breaking (phase 6b redirect, PR 2):** the redirect policy writes five `http.redirect.*` events to the pipeline's logger (the
+  logger of its `InstrumentationPolicy`), whether or not `HttpLoggingOptions.Level` is `None`: `http.redirect.hop` (150,
+  `Information`) for every followed hop, and `loop_detected` (151), `scheme_downgrade_rejected` (152), `scheme_downgrade_permitted`
+  (153) and `location_malformed` (154) at `Warning`. Every URL is redacted, and a malformed `Location` goes through
+  `UrlRedactor.RedactHeaderValue`. A logger that watched `http.request` and `http.response` only will now see these too (`REDIR-28`).
+
 ### Added
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two
@@ -453,6 +481,13 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   in the configured set is buffered and mapped to an `HttpResponseException` on arrival), and runs the recovery steps once on
   the terminal outcome (`RETRY-14`, `RETRY-27`, `RETRY-36`, `RETRY-37`, `RECOV-16` to `RECOV-20`, `RECOV-27`, `RECOV-28`,
   `RECOV-30`, `RECOV-31`).
+- Phase 6b redirect, PR 1: `RedirectCondition` (the predicate's read-only snapshot), `RedirectOptions.AllowedMethods`, `FollowSeeOther` and `Predicate`, and the
+  `RedirectException`, `RedirectSchemeDowngradeException` and `RedirectBodyNotReplayableException` family; internal `HttpOrigin`, `RedirectLocation`, `RedirectChain`, `RedirectDecider`
+  and `RedirectReissue` behind a rewritten `RedirectPolicy` (`REDIR-1`-`REDIR-24`, `REDIR-26`).
+- Phase 6b redirect, PR 2: `DexpaceLogEvents.RedirectHop`, `RedirectLoopDetected`, `RedirectSchemeDowngradeRejected`, `RedirectSchemeDowngradePermitted`, `RedirectLocationMalformed` and
+  their ids 150 to 154, and `DexpaceLogKeys.RedirectHop`, `RedirectTarget`, `RedirectCrossOrigin` and `RedirectLocation` (`REDIR-28`, `OBS-39`); internal `RedirectLog` and `EmissionGuard`.
+- Phase 6b redirect, PR 3: the permanent `Security` tests `RedirectCredentialLeakTests` and `RedirectCredentialLeakWireTests` (the phase 6 convergence exit: no credential survives a
+  cross-origin hop or a retry across one), the NativeAOT smoke check `CheckPhase6bRedirectAsync`, and `docs/sdk-documentation/redirect.md`.
 - `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
   and the `RetryOptions` validation.
 

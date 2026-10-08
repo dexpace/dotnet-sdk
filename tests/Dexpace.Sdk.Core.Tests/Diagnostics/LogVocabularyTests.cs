@@ -61,10 +61,11 @@ public sealed class LogVocabularyTests
             "http.response.duration_ms", "error.type", "http.request.body.size", "http.response.body.size",
             "http.request.body.preview", "http.response.body.preview", "http.request.body.preview.size",
             "http.response.body.preview.size", "http.request.header.", "http.response.header.", "REDACTED",
-            "dexpace.instrumentation.failed_event",
+            "dexpace.instrumentation.failed_event", "dexpace.redirect.hop", "dexpace.redirect.target",
+            "dexpace.redirect.cross_origin", "dexpace.redirect.location",
         ];
 
-        Assert.Equal(16, StringConstants(typeof(DexpaceLogKeys)).Count());
+        Assert.Equal(20, StringConstants(typeof(DexpaceLogKeys)).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), StringConstants(typeof(DexpaceLogKeys)).Order(StringComparer.Ordinal));
     }
 
@@ -89,8 +90,14 @@ public sealed class LogVocabularyTests
         // 6a (P6a-28): 140 is the only id in the retry block; 141-149 stay reserved. 6b and 6c each edit their own block.
         Assert.Equal(140, ids["RetryDelayOverrideFailedId"]);
 
-        // 110-119 (8b header drops), 141-149 (retry), 150-159 (redirect) and 160-169 (auth) are reserved and unused.
-        Assert.DoesNotContain(ids.Values, id => id is (>= 110 and <= 119) or (>= 141 and <= 169));
+        // 6b (P6b-19): 150-154 are the redirect block; 155-159 stay reserved. 6c edits its own block (160-169).
+        foreach (var name in (string[])["RedirectHopId", "RedirectLoopDetectedId", "RedirectSchemeDowngradeRejectedId", "RedirectSchemeDowngradePermittedId", "RedirectLocationMalformedId"])
+        {
+            Assert.InRange(ids[name], 150, 159);
+        }
+
+        // 110-119 (8b header drops), 141-149 (retry), 155-159 (redirect) and 160-169 (auth) are reserved and unused.
+        Assert.DoesNotContain(ids.Values, id => id is (>= 110 and <= 119) or (>= 141 and <= 149) or (>= 155 and <= 169));
         Assert.Equal(ids.Count, ids.Values.Distinct().Count());
     }
 

@@ -26,9 +26,9 @@ public sealed class ReDriveLifecycleTests
 {
     private static Request MakeRequest() => Request.Get("https://api.example.com/start");
 
-    private static DexpaceClientOptions Options(int maxRedirects = 20, int maxRetries = 3) => new()
+    private static DexpaceClientOptions Options(int? maxRedirects = null, int maxRetries = 3, RedirectOptions? redirect = null) => new()
     {
-        Redirect = new RedirectOptions { MaxRedirects = maxRedirects },
+        Redirect = redirect ?? (maxRedirects is { } max ? new RedirectOptions { MaxRedirects = max } : new RedirectOptions()),
         Retry = new RetryOptions { MaxRetryAttempts = maxRetries, BaseDelay = TimeSpan.FromMilliseconds(1), MaxDelay = TimeSpan.FromMilliseconds(1) },
     };
 
@@ -98,8 +98,9 @@ public sealed class ReDriveLifecycleTests
     }
 
     [Fact]
-    public async Task A_redirect_over_a_non_replayable_body_returns_the_in_flight_response_undisposed()
+    public async Task A_redirect_on_a_method_outside_the_allowed_set_returns_the_in_flight_response_undisposed()
     {
+        // The default set is {GET, HEAD}: a POST 307 is NotEligible, so the response is returned open (REDIR-22(c)).
         var log = new List<string>();
         var body = new TrackingResponseBody(log, "redirect");
         var request = Request.Post("https://api.example.com/start", RequestBody.FromStream(new MemoryStream([1, 2, 3])));
@@ -109,6 +110,23 @@ public sealed class ReDriveLifecycleTests
 
         Assert.Equal(Status.TemporaryRedirect, response.Status);
         Assert.Equal(0, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task A_redirect_over_a_non_replayable_body_throws_and_disposes_the_in_flight_response_once()
+    {
+        // REDIR-6 / REDIR-22(b): with POST allowed, the gate declines loudly, so nobody receives the response and it is
+        // released before the throw (BODY-4).
+        var log = new List<string>();
+        var body = new TrackingResponseBody(log, "redirect");
+        var request = Request.Post("https://api.example.com/start", RequestBody.FromStream(new MemoryStream([1, 2, 3])));
+        var options = Options(redirect: new RedirectOptions { AllowedMethods = new HashSet<Method> { Method.Post } });
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(new ScriptedTransport(Redirect("https://api.example.com/next", body)));
+
+        await Assert.ThrowsAsync<RedirectBodyNotReplayableException>(
+            async () => await pipeline.SendAsync(request, options, TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, body.DisposeCount);
     }
 
     [Fact]

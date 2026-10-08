@@ -126,7 +126,7 @@ without a drain (`BODY-30`). The policy is not in `CreateDefault`: returning the
 The reference contract has the asynchronous standard pipeline not follow redirects (`PIPE-32`, `REDIR-25`). This port
 reverses that: `AddStandardResilience` installs one `RedirectPolicy`, so `SendAsync` and `Send` both follow redirects
 (design §10 entry 14, topic `async-redirect-pillar`). The invariant it protected, that one layer follows redirects, is
-kept by the transport (S3). A caller who wants the 3xx verbatim sets `MaxRedirects` to zero or builds without the policy.
+kept by the transport (S3). A caller who wants the 3xx verbatim sets `MaxRedirects` to zero or builds without the policy; the defaults, the allowed-method set and the refusals are on [`redirect.md`](./redirect.md).
 
 ## The synchronous path, and its residuals
 

@@ -42,15 +42,6 @@ internal static partial class HttpLogEmitter
     private static readonly EventId s_responseEvent = new(DexpaceLogEvents.HttpResponseId, DexpaceLogEvents.HttpResponse);
     private static readonly EventId s_failureEvent = new(DexpaceLogEvents.HttpFailureId, DexpaceLogEvents.HttpResponse);
 
-    // The placeholder names are the published OpenTelemetry-style state keys (OBS-39, P5b-3), which CA1727's PascalCase rule
-    // and the source generator cannot express; the fixed-key Define form is the verified way (design §8.1).
-#pragma warning disable CA1727
-    private static readonly Action<ILogger, string, string, Exception?> s_logFailed = LoggerMessage.Define<string, string>(
-        LogLevel.Warning,
-        new EventId(DexpaceLogEvents.LogFailedId, DexpaceLogEvents.LogFailed),
-        "Emitting the {dexpace.instrumentation.failed_event} log event failed with {error.type}; the request was not affected.");
-#pragma warning restore CA1727
-
     /// <summary>
     /// Emits <c>http.request</c> and decides what the attempt sends: the request itself, or at body level a copy whose body is
     /// tapped.
@@ -87,9 +78,9 @@ internal static partial class HttpLogEmitter
                 EmitRequest(logger, ref scope, outgoing, entry);
             }
         }
-        catch (Exception ex) when (Reportable(ex, token))
+        catch (Exception ex) when (EmissionGuard.Reportable(ex, token))
         {
-            ReportFailure(logger, DexpaceLogEvents.HttpRequest, ex);
+            EmissionGuard.ReportFailure(logger, DexpaceLogEvents.HttpRequest, ex);
         }
 
         return new RequestLog(sent, tap, options, entry, enabled);
@@ -120,9 +111,9 @@ internal static partial class HttpLogEmitter
                 EmitFailure(logger, ref scope, log, exception);
             }
         }
-        catch (Exception ex) when (Reportable(ex, token))
+        catch (Exception ex) when (EmissionGuard.Reportable(ex, token))
         {
-            ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
+            EmissionGuard.ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
         }
     }
 
@@ -157,9 +148,9 @@ internal static partial class HttpLogEmitter
 
             Conclude(logger, ref scope, log, response, declared, captured, token);
         }
-        catch (Exception ex) when (Reportable(ex, token))
+        catch (Exception ex) when (EmissionGuard.Reportable(ex, token))
         {
-            ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
+            EmissionGuard.ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
         }
         catch (OperationCanceledException ex) when (token.IsCancellationRequested)
         {
@@ -202,9 +193,9 @@ internal static partial class HttpLogEmitter
 
             Conclude(logger, ref scope, log, response, declared, captured, token);
         }
-        catch (Exception ex) when (Reportable(ex, token))
+        catch (Exception ex) when (EmissionGuard.Reportable(ex, token))
         {
-            ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
+            EmissionGuard.ReportFailure(logger, DexpaceLogEvents.HttpResponse, ex);
         }
         catch (OperationCanceledException ex) when (token.IsCancellationRequested)
         {
@@ -213,25 +204,6 @@ internal static partial class HttpLogEmitter
         }
 
         return response;
-    }
-
-    // OBS-20 / P5b-11: a fatal exception, and a cancellation of the call's own token, are not the logger's to swallow.
-    private static bool Reportable(Exception exception, CancellationToken token) =>
-        !ExceptionFacts.IsFatal(exception) && !(exception is OperationCanceledException && token.IsCancellationRequested);
-
-    // OBS-20: one diagnostic is attempted; a failure while reporting is swallowed.
-    private static void ReportFailure(ILogger logger, string eventName, Exception failure)
-    {
-#pragma warning disable CA1031 // OBS-20: a secondary failure while reporting a logging failure is swallowed, never propagated.
-        try
-        {
-            s_logFailed(logger, eventName, failure.GetType().FullName ?? failure.GetType().Name, failure);
-        }
-        catch (Exception inner) when (!ExceptionFacts.IsFatal(inner))
-        {
-            // Swallowed by design.
-        }
-#pragma warning restore CA1031
     }
 
     private static void EmitRequest(ILogger logger, ref AttemptScope scope, Request request, RedactionCache.Entry entry)

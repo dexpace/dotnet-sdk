@@ -60,4 +60,16 @@ public static class DexpaceLogKeys
 
     /// <summary>The event name whose emission failed, on the log-failed diagnostic (OBS-20).</summary>
     public const string FailedEvent = "dexpace.instrumentation.failed_event";
+
+    /// <summary>The 1-based number of the hop a redirect event describes (REDIR-28).</summary>
+    public const string RedirectHop = "dexpace.redirect.hop";
+
+    /// <summary>The redacted target of a redirect (REDIR-28).</summary>
+    public const string RedirectTarget = "dexpace.redirect.target";
+
+    /// <summary>Whether a followed redirect leaves the seed origin (REDIR-28).</summary>
+    public const string RedirectCrossOrigin = "dexpace.redirect.cross_origin";
+
+    /// <summary>The redacted raw <c>Location</c> value of a malformed redirect (REDIR-28).</summary>
+    public const string RedirectLocation = "dexpace.redirect.location";
 }

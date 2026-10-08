@@ -96,6 +96,9 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   mapped view is offered later only if a signing use case asks for random access over the bytes. Phase 3b; design §3.1 and
   §12's deferred list.
 
+- **`REDIR-27` (MAY): the redirect target header is not configurable.** The header is `Location`; a `LocationHeader` option has no consumer
+  and no trigger is named. Phase 6b (2026-10-08); design §12's deferred list and P6b-21.
+
 ### Behavioural asymmetries a consumer must know
 
 - **`async-redirect-pillar` (design §10 entry 14; `PIPE-32`, `REDIR-25`).** The reference contract has the asynchronous standard pipeline
