@@ -144,4 +144,18 @@ public sealed class BasicAuthPolicyTests
 
         Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", sent.Headers.Get("Authorization"));
     }
+
+    [Fact]
+    public async Task Preemptive_Basic_is_stamped_on_the_first_request()
+    {
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder()
+            .Add(new BasicAuthPolicy(new BasicCredential("alice", "s3cr3t")))
+            .Build(transport);
+
+        using var response = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Equal($"Basic {Base64("alice", "s3cr3t")}", transport.LastRequest!.Headers.Get("Authorization"));
+    }
 }

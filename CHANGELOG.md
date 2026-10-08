@@ -292,6 +292,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `BasicCredential` rejects an empty username or password and a `:` in the username (was: `null` only);
   `ToString` redacts the password (`AUTH-14`).
 - **Breaking:** `TokenRequestContext.Scopes` is a copy of the caller's list (was: the list itself).
+- **Breaking:** `AuthorizationPolicy`'s protected surface: a constructor taking the client `AuthDescriptor` and the available
+  `AuthScheme`s; `WithheldHeaderNames` replaces `WithheldHeaderName`; `GetCredentialAsync` / `GetCredential` take the
+  resolved `AuthRequirement` and the request, may return `null` ("nothing to attach on this pass") and are both abstract
+  (the sync-over-async default is gone); new `OnChallengeAsync` / `OnChallenge` hooks (`AUTH-27`..`AUTH-33`).
+- **Breaking:** the HTTPS refusal is `HttpsRequiredException` (was a plain `SdkException`, which it still derives from);
+  it now also covers the outbound pass of a reactive scheme (`AUTH-28`).
+- **Breaking:** every auth policy honours `RequestOptions.Auth` / `OperationAuth` (a per-call `NoAuth` sends the call
+  anonymously, an unservable scheme throws `AuthResolutionException` before anything is sent) and answers a `401`
+  carrying `WWW-Authenticate` through its hook, replaying once when the replacement is same-origin and replayable.
 
 - **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
   `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
@@ -509,5 +518,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `Parse(ReadOnlySpan<char>)`; a duplicate parameter keeps the first value), the `IChallengeHandler` SPI,
   `BasicChallengeHandler`, `CompositeChallengeHandler`, and `HttpHeaderName.WellKnown.WwwAuthenticate`,
   `ProxyAuthenticate` and `ProxyAuthorization` (`AUTH-12`, `AUTH-13`, `AUTH-14`, `AUTH-23`, `AUTH-25`).
+- `ChallengeAuthPolicy` (Basic or Digest answered on a `401`, never preemptive), `AuthChallengeContext` and
+  `HttpsRequiredException` (`AUTH-26`..`AUTH-33`, `AUTH-38`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

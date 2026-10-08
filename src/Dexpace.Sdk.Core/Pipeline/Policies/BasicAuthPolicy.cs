@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -22,8 +23,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </remarks>
 public sealed class BasicAuthPolicy : AuthorizationPolicy
 {
-    // Pre-compute the header value once — BasicCredential is immutable, so the Base64 token
-    // never changes during the lifetime of this policy instance.
+    // The header value is computed once by the credential and shared with BasicChallengeHandler (AUTH-14).
     private readonly string _headerValue;
 
     /// <summary>
@@ -32,20 +32,26 @@ public sealed class BasicAuthPolicy : AuthorizationPolicy
     /// <param name="credential">The Basic credential to stamp on every same-origin request.</param>
     /// <exception cref="ArgumentNullException"><paramref name="credential"/> is <see langword="null"/>.</exception>
     public BasicAuthPolicy(BasicCredential credential)
+        : base(new AuthDescriptor(new AuthRequirement(AuthScheme.Basic)), [AuthScheme.Basic])
     {
         ArgumentNullException.ThrowIfNull(credential);
-        _headerValue = $"Basic {credential.ToBase64()}";
+        _headerValue = credential.HeaderValue;
     }
 
     /// <inheritdoc/>
-    protected override HttpHeaderName WithheldHeaderName => HttpHeaderName.WellKnown.Authorization;
+    protected override IReadOnlyList<HttpHeaderName> WithheldHeaderNames { get; } = [HttpHeaderName.WellKnown.Authorization];
 
     /// <inheritdoc/>
-    protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
+    protected override ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
+        AuthRequirement requirement,
+        Request request,
         PipelineContext context) =>
-        new(GetCredential(context));
+        new(GetCredential(requirement, request, context));
 
     /// <inheritdoc/>
-    protected override (string HeaderName, string HeaderValue) GetCredential(PipelineContext context) =>
+    protected override (string HeaderName, string HeaderValue)? GetCredential(
+        AuthRequirement requirement,
+        Request request,
+        PipelineContext context) =>
         (HttpHeaderName.WellKnown.Authorization.Original, _headerValue);
 }

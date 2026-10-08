@@ -232,4 +232,49 @@ public sealed class BearerTokenAuthPolicyTests
             return new ValueTask<AccessToken>(new AccessToken(token, s_farFuture));
         }
     }
+
+    [Fact]
+    public async Task Per_call_OAuth2_scopes_fetch_a_token_for_those_scopes()
+    {
+        var recorder = new ScopeRecordingCredential();
+        var transport = new RecordingTransport();
+        var pipeline = new PipelineBuilder()
+            .Add(new BearerTokenAuthPolicy(recorder, "policy-scope"))
+            .Build(transport);
+        var options = new RequestOptions
+        {
+            Auth = new AuthDescriptor(new AuthRequirement(AuthScheme.OAuth2) { Scopes = ["call-scope"] }),
+        };
+
+        using var perCall = await pipeline.SendAsync(MakeRequest(), options, TestContext.Current.CancellationToken);
+        using var byDefault = await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["call-scope", "policy-scope"], recorder.Scopes);
+    }
+
+    private sealed class ScopeRecordingCredential : TokenCredential
+    {
+        private readonly List<string> _scopes = [];
+
+        public IReadOnlyList<string> Scopes
+        {
+            get
+            {
+                lock (_scopes)
+                {
+                    return [.. _scopes];
+                }
+            }
+        }
+
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext context, CancellationToken ct = default)
+        {
+            lock (_scopes)
+            {
+                _scopes.AddRange(context.Scopes);
+            }
+
+            return new ValueTask<AccessToken>(new AccessToken("tok", s_farFuture));
+        }
+    }
 }

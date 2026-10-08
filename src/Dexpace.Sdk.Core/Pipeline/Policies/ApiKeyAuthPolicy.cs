@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -26,13 +27,15 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 ///   </item>
 /// </list>
 /// <para>
-/// Credentials are withheld when the request has been redirected to a different origin; see
+/// The value is computed once by the credential (AUTH-26). Per-call <c>RequestOptions.Auth</c> tiers are honoured: a
+/// <see cref="AuthScheme.NoAuth"/> descriptor sends the call anonymously. Credentials are withheld when the request has been redirected to a different origin; see
 /// <see cref="AuthorizationPolicy"/> for the cross-origin withholding contract.
 /// </para>
 /// </remarks>
 public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
 {
     private readonly ApiKeyCredential _credential;
+    private readonly HttpHeaderName[] _withheld;
 
     /// <summary>
     /// Initializes an <see cref="ApiKeyAuthPolicy"/> with the given credential.
@@ -40,27 +43,27 @@ public sealed class ApiKeyAuthPolicy : AuthorizationPolicy
     /// <param name="credential">The API-key credential to stamp on every same-origin request.</param>
     /// <exception cref="ArgumentNullException"><paramref name="credential"/> is <see langword="null"/>.</exception>
     public ApiKeyAuthPolicy(ApiKeyCredential credential)
+        : base(new AuthDescriptor(new AuthRequirement(AuthScheme.ApiKey)), [AuthScheme.ApiKey])
     {
         ArgumentNullException.ThrowIfNull(credential);
         _credential = credential;
+        _withheld = [credential.HeaderName];
     }
 
     /// <inheritdoc/>
-    protected override HttpHeaderName WithheldHeaderName => _credential.HeaderName;
+    protected override IReadOnlyList<HttpHeaderName> WithheldHeaderNames => _withheld;
 
     /// <inheritdoc/>
-    protected override ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
+    protected override ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
+        AuthRequirement requirement,
+        Request request,
         PipelineContext context) =>
-        new(GetCredential(context));
+        new(GetCredential(requirement, request, context));
 
     /// <inheritdoc/>
-    protected override (string HeaderName, string HeaderValue) GetCredential(PipelineContext context)
-    {
-        var headerName = _credential.HeaderName.Original;
-        var headerValue = _credential.Scheme is null
-            ? _credential.Key
-            : $"{_credential.Scheme} {_credential.Key}";
-
-        return (headerName, headerValue);
-    }
+    protected override (string HeaderName, string HeaderValue)? GetCredential(
+        AuthRequirement requirement,
+        Request request,
+        PipelineContext context) =>
+        (_credential.HeaderName.Original, _credential.HeaderValue);
 }

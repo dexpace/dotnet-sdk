@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
@@ -37,7 +38,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
 {
     private readonly AccessTokenCache _cache;
-    private readonly TokenRequestContext _tokenRequestContext;
+    private readonly string[] _scopes;
 
     /// <summary>
     /// Initializes a <see cref="BearerTokenAuthPolicy"/> with the given credential and scopes.
@@ -55,25 +56,52 @@ public sealed class BearerTokenAuthPolicy : AuthorizationPolicy
     /// <paramref name="credential"/> or <paramref name="scopes"/> is <see langword="null"/>.
     /// </exception>
     public BearerTokenAuthPolicy(TokenCredential credential, params string[] scopes)
+        : base(ClientDescriptor(scopes), [AuthScheme.OAuth2])
     {
         ArgumentNullException.ThrowIfNull(credential);
-        ArgumentNullException.ThrowIfNull(scopes);
 
         _cache = new AccessTokenCache(credential);
-        _tokenRequestContext = new TokenRequestContext(scopes);
+        _scopes = [.. scopes];
     }
 
     /// <inheritdoc/>
-    protected override HttpHeaderName WithheldHeaderName => HttpHeaderName.WellKnown.Authorization;
+    protected override IReadOnlyList<HttpHeaderName> WithheldHeaderNames { get; } = [HttpHeaderName.WellKnown.Authorization];
 
     /// <inheritdoc/>
-    protected override async ValueTask<(string HeaderName, string HeaderValue)> GetCredentialAsync(
+    protected override async ValueTask<(string HeaderName, string HeaderValue)?> GetCredentialAsync(
+        AuthRequirement requirement,
+        Request request,
         PipelineContext context)
     {
         var token = await _cache
-            .GetAsync(_tokenRequestContext, context.CancellationToken)
+            .GetAsync(TokenContextFor(requirement), context.CancellationToken)
             .ConfigureAwait(false);
 
         return (HttpHeaderName.WellKnown.Authorization.Original, $"Bearer {token.Token}");
     }
+
+    /// <inheritdoc/>
+    protected override (string HeaderName, string HeaderValue)? GetCredential(
+        AuthRequirement requirement,
+        Request request,
+        PipelineContext context)
+    {
+        // Removed by task 5.5 (P6c-26): the cache gains a real synchronous path there.
+#pragma warning disable RS0030
+        var token = _cache
+            .GetAsync(TokenContextFor(requirement), context.CancellationToken)
+            .AsTask().GetAwaiter().GetResult();
+#pragma warning restore RS0030
+        return (HttpHeaderName.WellKnown.Authorization.Original, $"Bearer {token.Token}");
+    }
+
+    private static AuthDescriptor ClientDescriptor(string[] scopes)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        return new AuthDescriptor(new AuthRequirement(AuthScheme.OAuth2) { Scopes = scopes });
+    }
+
+    // The resolved requirement's scopes win (a per-call tier may ask for others); the policy's own are the fallback.
+    private TokenRequestContext TokenContextFor(AuthRequirement requirement) =>
+        new(requirement.Scopes.Count > 0 ? requirement.Scopes : _scopes);
 }
