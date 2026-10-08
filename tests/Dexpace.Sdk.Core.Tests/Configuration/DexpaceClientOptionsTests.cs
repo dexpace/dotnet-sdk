@@ -147,4 +147,36 @@ public class DexpaceClientOptionsTests
             Assert.Contains(name, redirect, StringComparison.Ordinal);
         }
     }
+
+    [Fact]
+    public void OverallTimeout_and_AttemptTimeout_accept_null_and_values_in_0_to_49_days()
+    {
+        Assert.Null(new DexpaceClientOptions { OverallTimeout = null, AttemptTimeout = null }.OverallTimeout);
+        var edge = new DexpaceClientOptions { OverallTimeout = TimeSpan.FromDays(49), AttemptTimeout = TimeSpan.FromTicks(1) };
+
+        Assert.Equal(TimeSpan.FromDays(49), edge.OverallTimeout);
+        Assert.Equal(TimeSpan.FromTicks(1), edge.AttemptTimeout);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void OverallTimeout_and_AttemptTimeout_reject_zero_and_negative(long ticks)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DexpaceClientOptions { OverallTimeout = TimeSpan.FromTicks(ticks) });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DexpaceClientOptions { AttemptTimeout = TimeSpan.FromTicks(ticks) });
+    }
+
+    [Fact]
+    public void OverallTimeout_and_AttemptTimeout_reject_InfiniteTimeSpan_and_above_the_limit()
+    {
+        var tooLong = TimeSpan.FromDays(49) + TimeSpan.FromTicks(1);
+        var timerCeiling = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
+        foreach (var value in new[] { Timeout.InfiniteTimeSpan, tooLong, timerCeiling, TimeSpan.MaxValue })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new DexpaceClientOptions { OverallTimeout = value });
+            Assert.Throws<ArgumentOutOfRangeException>(() => new DexpaceClientOptions { AttemptTimeout = value });
+        }
+    }
 }

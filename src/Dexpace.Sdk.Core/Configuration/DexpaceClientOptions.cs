@@ -30,6 +30,9 @@ public sealed record DexpaceClientOptions
 {
     private static readonly string s_defaultUserAgent = BuildDefaultUserAgent();
 
+    // A timer rejects a due time above uint.MaxValue - 1 ms (about 49.7 days); 49 days is the limit the options accept (P6a-24).
+    private static readonly TimeSpan s_maxTimeout = TimeSpan.FromDays(49);
+
     /// <summary>
     /// The base address prepended to relative request URLs, or <see langword="null"/> when
     /// requests always use absolute URLs.
@@ -70,20 +73,49 @@ public sealed record DexpaceClientOptions
     } = s_defaultUserAgent;
 
     /// <summary>
-    /// The wall-clock deadline for an entire operation (all redirect hops and retry attempts
-    /// combined), or <see langword="null"/> for no overall deadline.
+    /// The deadline for an entire operation (all redirect hops and retry attempts combined), or <see langword="null"/> for
+    /// no overall deadline. When it expires the call throws <see cref="Errors.OperationTimeoutException"/>.
     /// </summary>
-    public TimeSpan? OverallTimeout { get; init; }
+    /// <remarks>
+    /// <b>Breaking:</b> a value must be greater than zero and at most 49 days (a timer cannot be armed for longer); zero,
+    /// a negative value (including <see cref="Timeout.InfiniteTimeSpan"/>) and anything above the limit throw where it is
+    /// set. A non-positive value used to mean "no deadline"; use <see langword="null"/> for that.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is outside <c>(0, 49 days]</c>.</exception>
+    public TimeSpan? OverallTimeout
+    {
+        get;
+        init
+        {
+            RequireTimeout(value);
+            field = value;
+        }
+    }
 
     /// <summary>
     /// The deadline for a single send attempt, or <see langword="null"/> for no per-attempt deadline.
     /// </summary>
     /// <remarks>
-    /// <b>Not yet read by anything.</b> Setting it has no effect today: no policy bounds a single
-    /// attempt, and only <see cref="OverallTimeout"/> is enforced. Roadmap phase 6a wires it
-    /// (design §6.1).
+    /// <para>
+    /// <b>Breaking:</b> <c>RetryPolicy</c> enforces it (was: read by nothing). An attempt that exceeds it surfaces a retried
+    /// <see cref="Errors.ServiceRequestTimeoutException"/>. The deadline is cooperative: it cancels the attempt's token,
+    /// so a transport that ignores its token is not bounded by it, and it bounds the attempt until the response headers
+    /// arrive, not the caller's later body read. With no <c>RetryPolicy</c> in the pipeline it is not enforced.
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> a value must be greater than zero and at most 49 days; anything else throws where it is set.
+    /// </para>
     /// </remarks>
-    public TimeSpan? AttemptTimeout { get; init; }
+    /// <exception cref="ArgumentOutOfRangeException">The value is outside <c>(0, 49 days]</c>.</exception>
+    public TimeSpan? AttemptTimeout
+    {
+        get;
+        init
+        {
+            RequireTimeout(value);
+            field = value;
+        }
+    }
 
     /// <summary>
     /// Retry-policy options. Defaults to <see cref="RetryOptions"/> with its built-in defaults.
@@ -152,6 +184,16 @@ public sealed record DexpaceClientOptions
     }
 
     // The synthesised ToString calls this. BaseAddress goes through the redactor, never Uri.ToString() (design §3.5).
+    private static void RequireTimeout(TimeSpan? value)
+    {
+        if (value is { } timeout && (timeout <= TimeSpan.Zero || timeout > s_maxTimeout))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                "A timeout must be greater than zero and at most 49 days; use null for no timeout.");
+        }
+    }
+
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append("BaseAddress = ").Append(BaseAddress is null ? "(none)" : UrlRedactor.Default.Redact(BaseAddress));

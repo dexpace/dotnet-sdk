@@ -506,7 +506,6 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.InstrumentationPolicy(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy
-Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.RedirectPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy
@@ -885,6 +884,10 @@ Dexpace.Sdk.Core.Errors.ExceptionFacts
 Dexpace.Sdk.Core.Errors.ExceptionTrail
 Dexpace.Sdk.Core.Errors.IRetryableError
 Dexpace.Sdk.Core.Errors.IRetryableError.IsRetryable.get -> bool
+Dexpace.Sdk.Core.Errors.OperationTimeoutException
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException() -> void
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message) -> void
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
@@ -944,6 +947,7 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.S
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ErrorMappingPolicy() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy(System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.get -> int
 Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.init -> void

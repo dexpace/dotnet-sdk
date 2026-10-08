@@ -274,6 +274,14 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   exceeds it is a retried `ServiceRequestTimeoutException`, cooperatively (`XCUT-2`).
 - **Breaking:** a response that arrives after the caller's token fired is disposed and the call throws
   `OperationCanceledException` (`RETRY-32`).
+- **Breaking:** an expired `DexpaceClientOptions.OverallTimeout` surfaces `OperationTimeoutException` (was
+  `OperationCanceledException`/`TaskCanceledException`), a caller-cancelled call still surfaces
+  `OperationCanceledException`, and `OverallTimeout` and `AttemptTimeout` reject zero, a negative value (including
+  `Timeout.InfiniteTimeSpan`) and anything above 49 days where they are set (a non-positive `OverallTimeout` used to mean
+  "none"; use `null`) (`XCUT-1`, `XCUT-2`).
+- **Breaking:** `OperationPolicy`'s parameterless constructor becomes `OperationPolicy(TimeProvider? timeProvider = null)`
+  (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
+  the deadline.
 
 ### Added
 
@@ -437,5 +445,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `dexpace.retry.delay_override_failed` (`DexpaceLogEvents.RetryDelayOverrideFailed`, id 140). The `MA0051` waiver on the old
   `ProcessCoreAsync` is gone (`RETRY-8`, `RETRY-13`, `RETRY-14`, `RETRY-23` to `RETRY-35`, `RETRY-38` to `RETRY-42`, `RETRY-44`,
   `RETRY-45`).
+- Phase 6a retry, PR 4: `OperationTimeoutException`, the non-retryable `SdkException` an expired overall deadline throws,
+  with the failed attempts' trail copied onto it (`XCUT-1`, `RETRY-34`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
