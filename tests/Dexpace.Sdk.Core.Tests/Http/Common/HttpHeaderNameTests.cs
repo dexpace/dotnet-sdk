@@ -92,6 +92,15 @@ public class HttpHeaderNameTests
     }
 
     [Fact]
+    public void WellKnown_has_WwwAuthenticate_ProxyAuthenticate_and_ProxyAuthorization()
+    {
+        Assert.Equal(("www-authenticate", "WWW-Authenticate"), Pair(HttpHeaderName.WellKnown.WwwAuthenticate));
+        Assert.Equal(("proxy-authenticate", "Proxy-Authenticate"), Pair(HttpHeaderName.WellKnown.ProxyAuthenticate));
+        Assert.Equal(("proxy-authorization", "Proxy-Authorization"), Pair(HttpHeaderName.WellKnown.ProxyAuthorization));
+        Assert.Equal(HttpHeaderName.Of("www-authenticate"), HttpHeaderName.WellKnown.WwwAuthenticate);
+    }
+
+    [Fact]
     public void HttpHeaderName_is_a_reference_type()
     {
         Assert.True(typeof(HttpHeaderName).IsClass);

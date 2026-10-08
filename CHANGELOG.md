@@ -505,5 +505,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   (`AUTH-1`..`AUTH-7`).
 - `DigestCredential` and `AuthCredentials` (with a `TokenRefreshMargin`); `CredentialRedactionTests` (`Security`) pins that no
   credential type formats its secret (`XCUT-19`(d)).
+- Phase 6c challenge model: `AuthenticationChallenge` and its lenient, linear RFC 7235 parser (`Parse(string?)`,
+  `Parse(ReadOnlySpan<char>)`; a duplicate parameter keeps the first value), the `IChallengeHandler` SPI,
+  `BasicChallengeHandler`, `CompositeChallengeHandler`, and `HttpHeaderName.WellKnown.WwwAuthenticate`,
+  `ProxyAuthenticate` and `ProxyAuthorization` (`AUTH-12`, `AUTH-13`, `AUTH-14`, `AUTH-23`, `AUTH-25`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
