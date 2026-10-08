@@ -393,5 +393,10 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   Internal: `RetryFacts.IsRetryableStatus` and `IsRetryableCause` (`CFG-35`, wired by phase 6a) and `DeepValue`
   (`CFG-33`, `CFG-34`); no consumer-visible change.
 - `docs/sdk-documentation/configuration.md`; the AOT smoke covers the options records, `HttpDate`, `ProxyOptions` and `BuildInfo`.
+- Phase 6a retry, PR 1: `IRetryableError` (the capability a custom exception implements to be retried, `XCUT-6`),
+  `SdkException.IsRetryable` (`false`), the sealed overrides on `ServiceRequestException` and `ServiceResponseException`
+  (`true`) and `HttpResponseException` (baked once from the status classifier, `XCUT-5`, `RETRY-3`). Internal: `RetryFacts`
+  moves to the `Dexpace.Sdk.Core.Resilience` namespace and gains `DefaultRetryableStatusCodes`, `IsRetryableFailure` and
+  `IsResendable` (`RETRY-1` to `RETRY-8`, `RECOV-17`, `RECOV-18`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

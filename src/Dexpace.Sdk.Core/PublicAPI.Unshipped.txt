@@ -586,6 +586,9 @@ override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Process(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.ToString() -> string!
+override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
+override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
+override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
@@ -753,6 +756,7 @@ static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
 static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!
 virtual Dexpace.Sdk.Core.Auth.TokenCredential.GetToken(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Auth.AccessToken
+virtual Dexpace.Sdk.Core.Errors.SdkException.IsRetryable.get -> bool
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ContentLength.get -> long
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.IsReplayable.get -> bool
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayable(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
@@ -867,6 +871,8 @@ virtual Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Process(Dexpace.Sdk.Core.Ht
 virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredential(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> (string! HeaderName, string! HeaderValue)
 Dexpace.Sdk.Core.Errors.ExceptionFacts
 Dexpace.Sdk.Core.Errors.ExceptionTrail
+Dexpace.Sdk.Core.Errors.IRetryableError
+Dexpace.Sdk.Core.Errors.IRetryableError.IsRetryable.get -> bool
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!

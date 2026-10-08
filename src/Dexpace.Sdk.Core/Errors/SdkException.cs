@@ -15,7 +15,7 @@ namespace Dexpace.Sdk.Core.Errors;
 /// could not be read), and <see cref="HttpResponseException"/> (a 4xx/5xx received intact) —
 /// alongside body/stream lifecycle, serialization, and pipeline failures.
 /// </remarks>
-public class SdkException : Exception
+public class SdkException : Exception, IRetryableError
 {
     private const int MaxTrailRenderDepth = 8;
 
@@ -46,6 +46,12 @@ public class SdkException : Exception
         : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// Gets a value indicating whether retrying the failed call may succeed (XCUT-6). <see langword="false"/> unless a
+    /// subtype overrides it.
+    /// </summary>
+    public virtual bool IsRetryable => false;
 
     /// <summary>
     /// The exceptions suppressed under this one, as an immutable snapshot (RECOV-12, RETRY-34); empty when none.
