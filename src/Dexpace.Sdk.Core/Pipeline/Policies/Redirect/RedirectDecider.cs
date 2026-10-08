@@ -71,7 +71,8 @@ internal static class RedirectDecider
         {
             return RedirectDecision.Fail(
                 new RedirectSchemeDowngradeException(RedirectMessages.Downgrade(status, chain.Current.Url, target)),
-                RedirectFailureKind.SchemeDowngrade);
+                RedirectFailureKind.SchemeDowngrade,
+                target);
         }
 
         // Gate 8 (REDIR-6, BODY-4): a 303 drops the body so it is exempt. No idempotency is consulted (BODY-5).
@@ -79,7 +80,8 @@ internal static class RedirectDecider
         {
             return RedirectDecision.Fail(
                 new RedirectBodyNotReplayableException(RedirectMessages.NotReplayable(status, target)),
-                RedirectFailureKind.BodyNotReplayable);
+                RedirectFailureKind.BodyNotReplayable,
+                target);
         }
 
         // Gate 9 (REDIR-3 to REDIR-5, REDIR-7 to REDIR-10): cross-origin is judged against the seed.

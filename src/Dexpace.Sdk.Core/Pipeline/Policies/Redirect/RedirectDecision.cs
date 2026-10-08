@@ -39,7 +39,7 @@ internal readonly struct RedirectDecision
     /// <summary>The request to send next; set for a follow.</summary>
     internal Request? Next { get; }
 
-    /// <summary>The resolved target: set for a follow, and for a loop stop.</summary>
+    /// <summary>The resolved target: set for a follow, for a loop stop and for a failure.</summary>
     internal Uri? Target { get; }
 
     /// <summary>Whether the followed hop leaves the seed origin.</summary>
@@ -66,6 +66,6 @@ internal readonly struct RedirectDecision
     internal static RedirectDecision ReturnCurrent(RedirectStopReason reason, Uri? target = null, string? malformedRaw = null) =>
         new(RedirectDecisionKind.ReturnCurrent, null, target, false, false, reason, malformedRaw, null, RedirectFailureKind.None);
 
-    internal static RedirectDecision Fail(Exception exception, RedirectFailureKind kind) =>
-        new(RedirectDecisionKind.Fail, null, null, false, false, default, null, exception, kind);
+    internal static RedirectDecision Fail(Exception exception, RedirectFailureKind kind, Uri? target = null) =>
+        new(RedirectDecisionKind.Fail, null, target, false, false, default, null, exception, kind);
 }

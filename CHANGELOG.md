@@ -305,6 +305,12 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   disposed before the next drive, every stop returns the in-flight response open, a cancelled call token is honoured between hops, and
   a throwing predicate disposes the response and propagates unchanged (`REDIR-22` to `REDIR-24`, `PIPE-40`).
 
+- **Breaking (phase 6b redirect, PR 2):** the redirect policy writes five `http.redirect.*` events to the pipeline's logger (the
+  logger of its `InstrumentationPolicy`), whether or not `HttpLoggingOptions.Level` is `None`: `http.redirect.hop` (150,
+  `Information`) for every followed hop, and `loop_detected` (151), `scheme_downgrade_rejected` (152), `scheme_downgrade_permitted`
+  (153) and `location_malformed` (154) at `Warning`. Every URL is redacted, and a malformed `Location` goes through
+  `UrlRedactor.RedactHeaderValue`. A logger that watched `http.request` and `http.response` only will now see these too (`REDIR-28`).
+
 ### Added
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two

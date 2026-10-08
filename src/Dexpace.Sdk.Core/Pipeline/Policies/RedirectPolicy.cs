@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
@@ -107,14 +108,18 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
             {
                 case RedirectDecisionKind.ReturnCurrent:
                     // REDIR-22(c): every stop returns the in-flight response open.
+                    EmitStop(context, chain, decision);
                     return response;
                 case RedirectDecisionKind.Fail:
                     // REDIR-22(b): nobody receives the response, so it is released first; a dispose failure rides the
                     // exception's suppressed trail and never replaces it.
+                    EmitFail(context, chain, decision);
                     await DisposeAsync(response, decision.Exception, context, async).ConfigureAwait(false);
                     throw decision.Exception!;
                 default:
-                    // REDIR-22(a): the superseded response is disposed before the next drive, never after it.
+                    // REDIR-28: the events are written before the superseded response is disposed. REDIR-22(a): the response is
+                    // disposed before the next drive, never after it.
+                    EmitFollow(context, chain, decision, response.Status.Code);
                     await DisposeAsync(response, primary: null, context, async).ConfigureAwait(false);
 
                     // P6b-18: a cancelled call never starts another hop.
@@ -122,6 +127,47 @@ public sealed class RedirectPolicy : HttpPipelinePolicy
                     chain.Advance(decision.Next!, decision.Target!);
                     break;
             }
+        }
+    }
+
+    // Emission never changes the decision or the lifecycle: the emitters swallow their own failures (OBS-20).
+    private static void EmitFollow(PipelineContext context, RedirectChain chain, RedirectDecision decision, int status)
+    {
+        var current = chain.Current.Url;
+        var target = decision.Target!;
+        if (decision.Downgraded)
+        {
+            RedirectLog.DowngradePermitted(context, current, target);
+        }
+
+        var hop = chain.Followed + 1;
+        RedirectLog.Hop(context, current, target, status, hop, decision.CrossOrigin);
+        OperationTelemetry.RedirectHop(context, hop, status, target, decision.CrossOrigin);
+    }
+
+    private static void EmitStop(PipelineContext context, RedirectChain chain, RedirectDecision decision)
+    {
+        switch (decision.Reason)
+        {
+            case RedirectStopReason.LoopDetected:
+                RedirectLog.LoopDetected(context, chain.Current.Url, decision.Target!, chain.Followed);
+                break;
+            case RedirectStopReason.MalformedLocation when decision.MalformedRaw is { } raw:
+                RedirectLog.LocationMalformed(context, chain.Current.Url, raw);
+                break;
+            default:
+                // NotARedirect, NotEligible, HopCap and an absent Location are the caller's own configuration or the server's
+                // silence speaking; they emit nothing (REDIR-19, REDIR-28).
+                break;
+        }
+    }
+
+    private static void EmitFail(PipelineContext context, RedirectChain chain, RedirectDecision decision)
+    {
+        if (decision.FailureKind == RedirectFailureKind.SchemeDowngrade)
+        {
+            // The rejection is observable before the throw (REDIR-28).
+            RedirectLog.DowngradeRejected(context, chain.Current.Url, decision.Target!);
         }
     }
 

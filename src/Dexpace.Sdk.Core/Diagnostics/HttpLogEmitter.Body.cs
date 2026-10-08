@@ -15,7 +15,7 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 /// </content>
 internal static partial class HttpLogEmitter
 {
-    // The placeholder name is the published state key (OBS-39, P5b-3); see s_logFailed.
+    // The placeholder name is the published state key (OBS-39, P5b-3); see EmissionGuard.
 #pragma warning disable CA1727
     private static readonly Action<ILogger, string, Exception?> s_bodyCaptureFailed = LoggerMessage.Define<string>(
         LogLevel.Warning,

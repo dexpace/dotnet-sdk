@@ -156,7 +156,10 @@ public sealed class HttpLogEmitterTests
 
         using var response = await pipeline.SendAsync(Request.Get(Url), TestContext.Current.CancellationToken);
 
-        Assert.Equal([0, 0, 1, 1], logger.Entries.Select(e => (int)e[DexpaceLogKeys.HttpRequestResendCount]!));
+        // Phase 6b: the redirect policy also writes its http.redirect.hop event to this logger; it carries no resend count.
+        Assert.Equal(
+            [0, 0, 1, 1],
+            logger.Entries.Where(e => e.Has(DexpaceLogKeys.HttpRequestResendCount)).Select(e => (int)e[DexpaceLogKeys.HttpRequestResendCount]!));
     }
 
     [Fact]
