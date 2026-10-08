@@ -47,8 +47,7 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// hop. When the target's origin (scheme, case-insensitive host, effective port) differs from the <em>seed</em>
 /// request's — the request this policy received, not the previous hop — <c>Cookie</c> and
 /// <c>Proxy-Authorization</c> are removed too. Userinfo in the <c>Location</c> target is dropped before re-issue.
-/// These always apply; <see cref="Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin"/> no longer turns
-/// them off. <b>Breaking</b> (phase 1): a same-origin hop no longer keeps <c>Authorization</c>.
+/// These always apply and no option turns them off. <b>Breaking</b> (phase 1): a same-origin hop no longer keeps <c>Authorization</c>.
 /// </para>
 /// </remarks>
 public sealed class RedirectPolicy : HttpPipelinePolicy

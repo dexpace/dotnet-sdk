@@ -32,15 +32,13 @@ public sealed class RedirectPolicyTests
 
     private static DexpaceClientOptions MakeOptions(
         int maxRedirects = 10,
-        bool allowHttpsToHttpDowngrade = false,
-        bool stripSensitiveHeadersOnCrossOrigin = true) =>
+        bool allowHttpsToHttpDowngrade = false) =>
         new()
         {
             Redirect = new RedirectOptions
             {
                 MaxRedirects = maxRedirects,
                 AllowHttpsToHttpDowngrade = allowHttpsToHttpDowngrade,
-                StripSensitiveHeadersOnCrossOrigin = stripSensitiveHeadersOnCrossOrigin,
             }
         };
 
@@ -239,7 +237,7 @@ public sealed class RedirectPolicyTests
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true), TestContext.Current.CancellationToken);
+        var result = await pipeline.SendAsync(request, MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
@@ -270,7 +268,7 @@ public sealed class RedirectPolicyTests
         ]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
-        var result = await pipeline.SendAsync(request, MakeOptions(stripSensitiveHeadersOnCrossOrigin: true), TestContext.Current.CancellationToken);
+        var result = await pipeline.SendAsync(request, MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         var secondRequest = transport.Requests[1];

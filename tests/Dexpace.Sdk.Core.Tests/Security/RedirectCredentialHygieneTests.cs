@@ -8,9 +8,10 @@
 // protocol-relative Location inherits the scheme and is judged cross-origin"), and the REDIR-8 seed row of
 // nodejs-sdk@54aeed4 packages/core/src/redirect/cross-origin.test.ts ("comparison is against the SEED, not a previous
 // hop"), its "an explicit default port equals an omitted one", "host comparison is case-insensitive" and "a differing
-// path/query/fragment alone is never cross-origin" rows (as fixed examples, not fast-check properties). Not ported: the rest of the decide() matrix (codes, methods, predicate, loop detection, hop cap, the
-// replayability and downgrade errors, the REDIR-11 marker), which is phase 6b's; and the marker rows, which this port
-// retires (design §6.2, §10 entry 15).
+// path/query/fragment alone is never cross-origin" rows (as fixed examples, not fast-check properties). Not ported
+// here: the marker rows, which this port retires (design §6.2, §10 entry 15). The rest of the decide() matrix (codes,
+// methods, predicate, loop detection, hop cap, the replayability and downgrade errors) is RedirectDecisionMatrixTests',
+// and the end-to-end proof through auth and retry is RedirectCredentialLeakTests'.
 
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
@@ -45,11 +46,14 @@ public sealed class RedirectCredentialHygieneTests
         .Add("X-Pass", "kept")
         .Build();
 
-    private static async Task<IReadOnlyList<Request>> FollowAsync(Request seed, params Response[] script)
+    private static Task<IReadOnlyList<Request>> FollowAsync(Request seed, params Response[] script) =>
+        FollowAsync(seed, new RedirectOptions(), script);
+
+    private static async Task<IReadOnlyList<Request>> FollowAsync(Request seed, RedirectOptions redirect, params Response[] script)
     {
         var transport = new ScriptedTransport([.. script, TestResponses.Create(Status.Ok, seed)]);
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
-        using var response = await pipeline.SendAsync(seed, s_options, Ct);
+        using var response = await pipeline.SendAsync(seed, new DexpaceClientOptions { Redirect = redirect }, Ct);
         Assert.Equal(Status.Ok, response.Status);
         return transport.Requests;
     }
@@ -64,7 +68,11 @@ public sealed class RedirectCredentialHygieneTests
     {
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
 
-        var sent = await FollowAsync(seed, TestResponses.Redirect(status, "https://example.com/b", seed));
+        // A 303 is followed only with the opt-in; without it the assertion below would be vacuous.
+        var sent = await FollowAsync(
+            seed,
+            new RedirectOptions { FollowSeeOther = true },
+            TestResponses.Redirect(status, "https://example.com/b", seed));
 
         Assert.Empty(sent[1].Headers.GetAll("Authorization"));
     }
@@ -164,12 +172,25 @@ public sealed class RedirectCredentialHygieneTests
     }
 
     [Fact]
-    public async Task Stripping_is_on_by_default_regardless_of_the_legacy_switch()
+    public async Task Stripping_holds_under_every_redirect_option()
     {
-        // REDIR-7 and REDIR-9 are MUSTs: turning StripSensitiveHeadersOnCrossOrigin off no longer re-exposes a
-        // credential. Phase 6b removes the switch (design §6.2).
+        // REDIR-7 and REDIR-9 are MUSTs and the switch that once pretended to narrow them is gone (design 6.2, P6b-24):
+        // no option, however permissive, re-exposes a credential on a cross-origin hop.
         var seed = Request.Create(Method.Get, "https://example.com/a", Credentials());
-        var options = new DexpaceClientOptions { Redirect = new RedirectOptions { StripSensitiveHeadersOnCrossOrigin = false } };
+        var options = new DexpaceClientOptions
+        {
+            Redirect = new RedirectOptions
+            {
+                AllowHttpsToHttpDowngrade = true,
+                FollowSeeOther = true,
+                AllowedMethods = new HashSet<Method>
+                {
+                    Method.Get, Method.Head, Method.Post, Method.Put, Method.Patch, Method.Delete, Method.Options, Method.Trace, Method.Connect,
+                },
+                MaxRedirects = 10,
+                Predicate = static _ => true,
+            },
+        };
         var transport = new ScriptedTransport(TestResponses.Redirect(302, "https://evil.example/b", seed), TestResponses.Create(Status.Ok, seed));
         var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(transport);
 
