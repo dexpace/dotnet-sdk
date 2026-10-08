@@ -7,7 +7,7 @@ using System.Net.Sockets;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 
-namespace Dexpace.Sdk.Core.Pipeline.Policies;
+namespace Dexpace.Sdk.Core.Resilience;
 
 /// <summary>
 /// The single source of the retry facts the model and the policies share (HTTP-9; design §6.1). Phase 6a grows this
@@ -17,14 +17,14 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// <see cref="IsRetryableStatus"/> and <see cref="IsRetryableCause"/> are CFG-35's single classifier (P5a-21). Phase 6a
 /// wires XCUT-5 (<c>HttpResponseException.IsRetryable</c> baked from the status half) and XCUT-6 (the
 /// <c>IRetryableError</c> capability, a widening of the cause half). No as-built behaviour changes in 5a: this is not
-/// <see cref="RetryPolicy"/>'s configured status set, which is XCUT-7's data.
+/// <c>RetryPolicy</c>'s configured status set, which is XCUT-7's data.
 /// </remarks>
 internal static class RetryFacts
 {
     /// <summary>
     /// The methods whose repetition has the same effect as issuing them once (RFC 9110 §9.2.2): GET, HEAD, OPTIONS,
     /// PUT and DELETE. TRACE is deliberately absent: it is safe but not idempotent for retry purposes here, so
-    /// <see cref="RetryPolicy"/> no longer retries it. Read through <c>Method.IsIdempotent</c>.
+    /// <c>RetryPolicy</c> no longer retries it. Read through <c>Method.IsIdempotent</c>.
     /// </summary>
     internal static FrozenSet<Method> IdempotentMethods { get; } =
         new[] { Method.Get, Method.Head, Method.Options, Method.Put, Method.Delete }.ToFrozenSet();
