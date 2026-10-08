@@ -282,6 +282,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - **Breaking:** `OperationPolicy`'s parameterless constructor becomes `OperationPolicy(TimeProvider? timeProvider = null)`
   (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
   the deadline.
+- **Breaking:** `RequestOptions` equality now includes the new `Auth` and `OperationAuth` descriptors (`AUTH-4`); two
+  options differing only in a descriptor were equal before.
 
 - **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
   `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
@@ -490,5 +492,8 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   cross-origin hop or a retry across one), the NativeAOT smoke check `CheckPhase6bRedirectAsync`, and `docs/sdk-documentation/redirect.md`.
 - `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
   and the `RetryOptions` validation.
+- Phase 6c descriptor and resolver: `AuthScheme`, `AuthRequirement`, `AuthDescriptor`, `AuthResolver` (per-call, operation and
+  client tiers, no fall-through), `AuthResolutionException`, and the `RequestOptions.Auth` / `OperationAuth` carriers
+  (`AUTH-1`..`AUTH-7`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

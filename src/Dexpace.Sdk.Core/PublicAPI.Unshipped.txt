@@ -72,6 +72,28 @@ Dexpace.Sdk.Core.Auth.ApiKeyCredential.ApiKeyCredential(string! key, Dexpace.Sdk
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.HeaderName.get -> Dexpace.Sdk.Core.Http.Common.HttpHeaderName!
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.Key.get -> string!
 Dexpace.Sdk.Core.Auth.ApiKeyCredential.Scheme.get -> string?
+Dexpace.Sdk.Core.Auth.AuthDescriptor
+Dexpace.Sdk.Core.Auth.AuthDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Auth.AuthDescriptor!
+Dexpace.Sdk.Core.Auth.AuthDescriptor.AllowsAnonymous.get -> bool
+Dexpace.Sdk.Core.Auth.AuthDescriptor.AuthDescriptor(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.AuthRequirement!>! requirements) -> void
+Dexpace.Sdk.Core.Auth.AuthDescriptor.Equals(Dexpace.Sdk.Core.Auth.AuthDescriptor? other) -> bool
+Dexpace.Sdk.Core.Auth.AuthDescriptor.Requirements.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthRequirement!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement
+Dexpace.Sdk.Core.Auth.AuthRequirement.<Clone>$() -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+Dexpace.Sdk.Core.Auth.AuthRequirement.AuthRequirement(Dexpace.Sdk.Core.Auth.AuthScheme scheme) -> void
+Dexpace.Sdk.Core.Auth.AuthRequirement.Equals(Dexpace.Sdk.Core.Auth.AuthRequirement? other) -> bool
+Dexpace.Sdk.Core.Auth.AuthRequirement.Parameters.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement.Parameters.init -> void
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scheme.get -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scopes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Auth.AuthRequirement.Scopes.init -> void
+Dexpace.Sdk.Core.Auth.AuthResolver
+Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.ApiKey = 1 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.Basic = 2 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.Digest = 3 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.NoAuth = 4 -> Dexpace.Sdk.Core.Auth.AuthScheme
+Dexpace.Sdk.Core.Auth.AuthScheme.OAuth2 = 0 -> Dexpace.Sdk.Core.Auth.AuthScheme
 Dexpace.Sdk.Core.Auth.BasicCredential
 Dexpace.Sdk.Core.Auth.BasicCredential.BasicCredential(string! username, string! password) -> void
 Dexpace.Sdk.Core.Auth.BasicCredential.Password.get -> string!
@@ -202,6 +224,10 @@ Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.RedactHeaderValue(string! value) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor() -> void
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.UrlRedactor(System.Collections.Generic.IEnumerable<string!>! queryAllowList) -> void
+Dexpace.Sdk.Core.Errors.AuthResolutionException
+Dexpace.Sdk.Core.Errors.AuthResolutionException.AuthResolutionException(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>! required, System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>! available) -> void
+Dexpace.Sdk.Core.Errors.AuthResolutionException.Available.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>!
+Dexpace.Sdk.Core.Errors.AuthResolutionException.Required.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthScheme>!
 Dexpace.Sdk.Core.Errors.BodyTooLargeException
 Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException() -> void
 Dexpace.Sdk.Core.Errors.BodyTooLargeException.BodyTooLargeException(string! message) -> void
@@ -557,6 +583,12 @@ Dexpace.Sdk.Core.Serialization.IStringSerde
 Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AuthDescriptor.ToString() -> string!
+override Dexpace.Sdk.Core.Auth.AuthRequirement.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Auth.AuthRequirement.GetHashCode() -> int
+override Dexpace.Sdk.Core.Auth.AuthRequirement.ToString() -> string!
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.GetHashCode() -> int
 override Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.ToString() -> string!
@@ -633,6 +665,12 @@ override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+static Dexpace.Sdk.Core.Auth.AuthDescriptor.operator !=(Dexpace.Sdk.Core.Auth.AuthDescriptor? left, Dexpace.Sdk.Core.Auth.AuthDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthDescriptor.operator ==(Dexpace.Sdk.Core.Auth.AuthDescriptor? left, Dexpace.Sdk.Core.Auth.AuthDescriptor? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthRequirement.NoAuth.get -> Dexpace.Sdk.Core.Auth.AuthRequirement!
+static Dexpace.Sdk.Core.Auth.AuthRequirement.operator !=(Dexpace.Sdk.Core.Auth.AuthRequirement? left, Dexpace.Sdk.Core.Auth.AuthRequirement? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthRequirement.operator ==(Dexpace.Sdk.Core.Auth.AuthRequirement? left, Dexpace.Sdk.Core.Auth.AuthRequirement? right) -> bool
+static Dexpace.Sdk.Core.Auth.AuthResolver.Resolve(Dexpace.Sdk.Core.Auth.AuthDescriptor? perCall, Dexpace.Sdk.Core.Auth.AuthDescriptor? operation, Dexpace.Sdk.Core.Auth.AuthDescriptor? client, System.Collections.Generic.IReadOnlyCollection<Dexpace.Sdk.Core.Auth.AuthScheme>! availableSchemes) -> Dexpace.Sdk.Core.Auth.AuthRequirement!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.Create(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!>! send) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.CreateBlocking(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, Dexpace.Sdk.Core.Http.Response.Response!>! send) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
@@ -924,6 +962,10 @@ Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException() ->
 Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message) -> void
 Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Auth.get -> Dexpace.Sdk.Core.Auth.AuthDescriptor?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.Auth.init -> void
+Dexpace.Sdk.Core.Http.Request.RequestOptions.OperationAuth.get -> Dexpace.Sdk.Core.Auth.AuthDescriptor?
+Dexpace.Sdk.Core.Http.Request.RequestOptions.OperationAuth.init -> void
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
