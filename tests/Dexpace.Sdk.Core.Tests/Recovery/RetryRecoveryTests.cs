@@ -340,12 +340,96 @@ public sealed class RetryRecoveryTests
     }
 
     [Fact]
-    public async Task A_transport_exception_is_retried_by_the_classifier_and_a_null_response_is_a_failure()
+    public async Task A_transport_exception_is_retried_by_the_classifier()
     {
         var transport = new ScriptedTransport(new ServiceRequestException("never sent"), new System.IO.IOException("reset"), TestResponses.Create(Status.Ok));
 
         using var response = await Run(Dispatcher(new RetryRecovery(Options())), transport, async: true);
 
         Assert.Equal(3, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_null_transport_response_is_a_non_retryable_failure_naming_the_transport(bool async)
+    {
+        var transport = new ScriptedTransport((Func<Response>)(() => null!), TestResponses.Create(Status.Ok));
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async));
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Contains(typeof(ScriptedTransport).FullName!, thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("null response", thrown.Message, StringComparison.Ordinal);
+    }
+
+    public static IEnumerable<object[]> GateCases()
+    {
+        var bodies = new (string Name, Func<RequestBody?> Make, bool Replayable)[]
+        {
+            ("none", () => null, false),
+            ("bytes", () => RequestBody.FromBytes(new byte[] { 1 }), true),
+            ("string", () => RequestBody.FromString("x"), true),
+            ("form", () => RequestBody.FromForm([new KeyValuePair<string, string>("a", "b")]), true),
+            ("file", () => RequestBody.FromFile(typeof(RetryRecoveryTests).Assembly.Location), true),
+            ("seekable stream", () => RequestBody.FromStream(new MemoryStream(new byte[] { 1 }), null, 1), true),
+            ("single-use stream", () => RequestBody.FromStream(new SingleUseStream()), false),
+        };
+        foreach (var method in new[] { "GET", "PUT", "DELETE", "POST", "PATCH" })
+        {
+            foreach (var (name, make, replayable) in bodies)
+            {
+                foreach (var transportFailure in new[] { true, false })
+                {
+                    var idempotent = method is "GET" or "PUT" or "DELETE";
+                    var resendable = name == "none" ? idempotent : replayable;
+                    yield return new object[] { method, name, transportFailure, resendable ? 3 : 1 };
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GateCases))]
+    public async Task The_resend_gate_decides_the_send_count_for_every_method_body_and_failure_kind(
+        string methodName, string bodyName, bool transportFailure, int expectedSends)
+    {
+        var body = bodyName switch
+        {
+            "none" => null,
+            "bytes" => RequestBody.FromBytes(new byte[] { 1 }),
+            "string" => RequestBody.FromString("x"),
+            "form" => RequestBody.FromForm([new KeyValuePair<string, string>("a", "b")]),
+            "file" => RequestBody.FromFile(typeof(RetryRecoveryTests).Assembly.Location),
+            "seekable stream" => RequestBody.FromStream(new MemoryStream(new byte[] { 1 }), null, 1),
+            _ => RequestBody.FromStream(new SingleUseStream()),
+        };
+        var method = Method.Of(methodName);
+        Request request;
+        try
+        {
+            request = new Request(method, new Uri("https://example.test/items"), null, body);
+        }
+        catch (ArgumentException)
+        {
+            return; // The model refuses a body on GET; there is no such request.
+        }
+
+        object Failure() => transportFailure ? new ServiceRequestException("never sent") : Unavailable();
+        var transport = new ScriptedTransport(Failure(), Failure(), Failure());
+
+        await Assert.ThrowsAnyAsync<SdkException>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async: true, request));
+
+        Assert.Equal(expectedSends, transport.CallCount);
+    }
+
+    private sealed class SingleUseStream : MemoryStream
+    {
+        public SingleUseStream()
+            : base(new byte[] { 1 })
+        {
+        }
+
+        public override bool CanSeek => false;
     }
 }

@@ -27,15 +27,20 @@ public sealed class RetryResendGateTests
     public static IEnumerable<object[]> Methods() =>
         new[] { Method.Get, Method.Put, Method.Delete, Method.Post, Method.Patch }.Select(m => new object[] { m.Name });
 
-    public static IEnumerable<(string Name, Func<RequestBody?> Make)> Bodies()
+    // The replayability of each body is hard-coded here, so a body that misreports IsReplayable fails the matrix.
+    public static IEnumerable<(string Name, Func<RequestBody?> Make, bool Replayable)> Bodies()
     {
-        yield return ("none", () => null);
-        yield return ("bytes", () => RequestBody.FromBytes(new byte[] { 1, 2 }));
-        yield return ("empty bytes", () => RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty));
-        yield return ("string", () => RequestBody.FromString("x"));
-        yield return ("form", () => RequestBody.FromForm([new KeyValuePair<string, string>("a", "b")]));
-        yield return ("seekable stream with length", () => RequestBody.FromStream(new MemoryStream(new byte[] { 1, 2, 3 }), null, 3));
-        yield return ("single-use stream", () => RequestBody.FromStream(new NonSeekable(new byte[] { 1, 2, 3 })));
+        yield return ("none", () => null, false);
+        yield return ("bytes", () => RequestBody.FromBytes(new byte[] { 1, 2 }), true);
+        yield return ("empty bytes", () => RequestBody.FromBytes(ReadOnlyMemory<byte>.Empty), true);
+        yield return ("string", () => RequestBody.FromString("x"), true);
+        yield return ("form", () => RequestBody.FromForm([new KeyValuePair<string, string>("a", "b")]), true);
+        yield return ("file", () => RequestBody.FromFile(typeof(RetryResendGateTests).Assembly.Location), true);
+        yield return ("seekable stream with length", () => RequestBody.FromStream(new MemoryStream(new byte[] { 1, 2, 3 }), null, 3), true);
+        yield return ("single-use stream", () => RequestBody.FromStream(new NonSeekable(new byte[] { 1, 2, 3 })), false);
+        yield return ("multipart, replayable parts", () => RequestBody.Multipart([new MultipartPart("a", RequestBody.FromString("x"))]), true);
+        yield return ("multipart, single-use part", () => RequestBody.Multipart(
+            [new MultipartPart("a", RequestBody.FromString("x")), new MultipartPart("b", RequestBody.FromStream(new NonSeekable(new byte[] { 1 })))]), false);
     }
 
     private sealed class NonSeekable(byte[] data) : MemoryStream(data)
@@ -48,7 +53,7 @@ public sealed class RetryResendGateTests
     public void IsResendable_matrix(string methodName)
     {
         var method = Method.Of(methodName);
-        foreach (var (name, make) in Bodies())
+        foreach (var (name, make, replayable) in Bodies())
         {
             var body = make();
             Request request;
@@ -63,7 +68,7 @@ public sealed class RetryResendGateTests
             }
 
             // The expected value is computed from the definition, not from IsResendable.
-            var expected = body is null ? new[] { "GET", "HEAD", "OPTIONS", "PUT", "DELETE" }.Contains(methodName) : body.IsReplayable;
+            var expected = body is null ? new[] { "GET", "HEAD", "OPTIONS", "PUT", "DELETE" }.Contains(methodName) : replayable;
 
             Assert.True(expected == RetryFacts.IsResendable(request), $"{methodName} / {name}");
         }

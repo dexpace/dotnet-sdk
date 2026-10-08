@@ -183,7 +183,6 @@ public sealed record DexpaceClientOptions
         return value;
     }
 
-    // The synthesised ToString calls this. BaseAddress goes through the redactor, never Uri.ToString() (design §3.5).
     private static void RequireTimeout(TimeSpan? value)
     {
         if (value is { } timeout && (timeout <= TimeSpan.Zero || timeout > s_maxTimeout))
@@ -194,6 +193,7 @@ public sealed record DexpaceClientOptions
         }
     }
 
+    // The synthesised ToString calls this. BaseAddress goes through the redactor, never Uri.ToString() (design §3.5).
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append("BaseAddress = ").Append(BaseAddress is null ? "(none)" : UrlRedactor.Default.Redact(BaseAddress));
