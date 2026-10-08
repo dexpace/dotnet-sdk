@@ -161,6 +161,9 @@ SDK from a scratch install rather than the global `dotnet`. The design's file-ba
 12. **`ChallengeHandlerContractTests` covers Basic, composite and two Digest challenges** (the plan listed two shipped handlers plus Digest "added in task 6.4").
 13. **The five-PR→commit mapping**: PR 5 and PR 6 were developed together and split into two commits by file; the PR 5 commit was built on its own and is green.
 14. **No `PackageReference` change and no lock file changed.**
+15. **Rebased onto 6b.** 6b merged first (`29a7754`); the rebase conflicted only in append-only files (`DexpaceLogEvents`, `LogVocabularyTests`, the AOT smoke, and the docs and checklists both sub-phases
+    correct), each resolved by keeping both sides, and §11 items 62 to 65 are 6c's after 6b's 57 to 61. 6b's credential-leak tests build their pipelines from the shipped policies with unchanged public
+    construction, so no construction needed adapting and no assertion changed. As 6b offered, `AuthOrigin.Same` compares with its internal `HttpOrigin` (a small `chore:` commit).
 
 ## Deviation ledger as built
 
@@ -190,16 +193,16 @@ Plan readings: **R3** (the temporary bearer sync bridge in PR 4) was built as wr
 
 Recorded when the branch was closed.
 
-Run on the branch head before the close-out commit, .NET SDK 10.0.401:
+Run on the branch head after rebasing onto `main` at `29a7754` (6b merged), .NET SDK 10.0.401:
 
 | Gate | Result |
 |---|---|
 | `dotnet restore Dexpace.Sdk.sln --locked-mode` | ok, no lock file changed |
 | `dotnet build Dexpace.Sdk.sln -c Release` (warnings as errors) | 0 warnings, 0 errors |
 | `dotnet format Dexpace.Sdk.sln --verify-no-changes` | clean |
-| `dotnet test --solution Dexpace.Sdk.sln -c Release` | 4 269 tests, 4 268 passed, 0 failed, 1 skipped (a pre-existing skip) |
-| `Security` suites (core, SystemNet) | 263 and 30 tests, all passed |
-| Coverage gate (floor 80 %) and its self-test | aggregate 97.56 % (Core 97.76 %, SystemNet 93.75 %, System.Text.Json 88.00 %); the three self-test cases ok |
+| `dotnet test --solution Dexpace.Sdk.sln -c Release` | 4 564 tests, 4 563 passed, 0 failed, 1 skipped (a pre-existing skip) |
+| `Security` suites (core, SystemNet) | 281 and 32 tests, all passed (including 6b's `RedirectCredentialLeakTests` and `RedirectCredentialLeakWireTests`, unedited) |
+| Coverage gate (floor 80 %) and its self-test | aggregate 97.45 % (Core 97.64 %, SystemNet 93.75 %, System.Text.Json 88.00 %); the three self-test cases ok |
 | NativeAOT smoke (`dotnet publish tests/Dexpace.Sdk.AotSmoke` and run) | "aot-smoke: all checks passed", no trim or AOT warning |
 | `dotnet pack`, `scripts/ci/dependency-audit.cs`, `scripts/ci/reproducible-pack.sh` | three libraries conform; the three packages are byte-identical across two packs |
 | `tools/Dexpace.Tools.sln` build and test | 0 warnings; 438 tests passed |
