@@ -283,6 +283,28 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
   the deadline.
 
+- **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
+  `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
+  applies); `MaxRedirects` defaults to `3` (was `20`) and a negative value throws `ArgumentOutOfRangeException` at `init`. New
+  `AllowedMethods` (default `{GET, HEAD}`, copied to a frozen set), `FollowSeeOther` (default `false`) and `Predicate`
+  (`Func<RedirectCondition, bool>`, with the new `RedirectCondition` snapshot).
+- **Breaking (phase 6b):** a `301` or `302` on a `POST` is no longer rewritten to a body-less `GET`. A 301, 302, 307 or 308 is followed
+  only when the original method is in `AllowedMethods`, with the method and body preserved; otherwise the 3xx is returned. Add the
+  method to `AllowedMethods` (or set a `Predicate`) to follow it; nothing restores the `POST` to `GET` rewrite (`REDIR-3`).
+- **Breaking (phase 6b):** a `303` is no longer followed by default; set `FollowSeeOther`. A followed 303 is a body-less `GET` and every
+  `Content-*` header is removed from it (`REDIR-5`).
+- **Breaking (phase 6b):** an https to http redirect without `AllowHttpsToHttpDowngrade` throws the new
+  `RedirectSchemeDowngradeException` (was: the 3xx returned), and a method-preserving redirect over a body that cannot be re-sent
+  throws `RedirectBodyNotReplayableException` (was: the 3xx returned). Both derive from the new `RedirectException`, dispose the
+  response first, carry no URL property and name only redacted URLs in the message (`REDIR-6`, `REDIR-15`).
+- **Breaking (phase 6b):** a redirect to a URI already visited on the call returns that 3xx (loop detection, `REDIR-16`), and a
+  response with more than one `Location` value is returned unfollowed (`REDIR-18`). `Location` resolution is total: an empty host, a
+  non-http(s) scheme or an unparseable value is returned unfollowed and never throws; an explicit default port in a target is
+  normalised away (`https://h:443/y` is sent as `https://h/y`).
+- **Breaking (phase 6b):** `RedirectPolicy` is rewritten as one loop over a pure decision function: the superseded response is
+  disposed before the next drive, every stop returns the in-flight response open, a cancelled call token is honoured between hops, and
+  a throwing predicate disposes the response and propagates unchanged (`REDIR-22` to `REDIR-24`, `PIPE-40`).
+
 ### Added
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two

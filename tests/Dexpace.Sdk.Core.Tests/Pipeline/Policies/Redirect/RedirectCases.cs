@@ -83,7 +83,8 @@ internal static class RedirectCases
         foreach (var status in new[] { 100, 200, 204, 300, 304, 305, 306, 399 })
         {
             yield return Row($"REDIR-1: a {status} with a Location is not a redirect", status, Stop(RedirectStopReason.NotARedirect, calls: 0))
-                with { Options = Opt(predicate: static _ => true) };
+                with
+            { Options = Opt(predicate: static _ => true) };
         }
 
         yield return Row("REDIR-2: a 300 Multiple Choices is returned, not followed", 300, Stop(RedirectStopReason.NotARedirect));
@@ -99,76 +100,93 @@ internal static class RedirectCases
             yield return Row($"REDIR-3: a {status} on a GET follows as a GET", status, Go($"{Host}/next"));
             yield return Row($"REDIR-4: a {status} on a HEAD follows as a HEAD", status, Go($"{Host}/next", "HEAD")) with { Method = "HEAD" };
             yield return Row($"REDIR-3: a {status} on a POST is not eligible under the default set", status, Stop(RedirectStopReason.NotEligible))
-                with { Method = "POST", Body = BodyKind.Bytes };
+                with
+            { Method = "POST", Body = BodyKind.Bytes };
             yield return Row($"REDIR-3: a {status} on a body-less POST is not eligible under the default set", status, Stop(RedirectStopReason.NotEligible))
-                with { Method = "POST" };
+                with
+            { Method = "POST" };
         }
 
         foreach (var method in new[] { "PUT", "DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT" })
         {
             yield return Row($"REDIR-3: a 301 on {method} is not eligible under the default set (added)", 301, Stop(RedirectStopReason.NotEligible))
-                with { Method = method };
+                with
+            { Method = method };
         }
 
         foreach (var status in new[] { 301, 302, 307, 308 })
         {
             yield return Row($"REDIR-3: a {status} on a POST in AllowedMethods keeps POST and the body", status, new Expect(RedirectDecisionKind.Follow) { NextMethod = "POST", NextUrl = $"{Host}/next", SameBody = true })
-                with { Method = "POST", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Post]) };
+                with
+            { Method = "POST", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Post]) };
         }
 
         yield return Row("REDIR-3: AllowedMethods containing POST follows a body-less POST (BODY-5, added)", 307, Go($"{Host}/next", "POST"))
-            with { Method = "POST", Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Options = Opt(methods: [Method.Post]) };
         yield return Row("REDIR-3: an empty AllowedMethods follows no 301 (added)", 301, Stop(RedirectStopReason.NotEligible))
-            with { Options = Opt(methods: []) };
+            with
+        { Options = Opt(methods: []) };
         yield return Row("REDIR-3: an empty AllowedMethods follows an opted-in 303 (added)", 303, Go($"{Host}/next"))
-            with { Options = Opt(see: true, methods: []) };
+            with
+        { Options = Opt(see: true, methods: []) };
         yield return Row("REDIR-3: eligibility is judged on the ORIGINAL method, not the current hop (inverted Node L758-802, P6b-4)", 301, Stop(RedirectStopReason.NotEligible))
-            with { Method = "POST", Visited = [$"{Host}/x"] };
+            with
+        { Method = "POST", Visited = [$"{Host}/x"] };
         yield return Row("REDIR-3: eligibility on the original method, allowed original follows later hops (added)", 301, Go($"{Host}/next", "GET"))
-            with { Method = "GET", Visited = [$"{Host}/x"] };
+            with
+        { Method = "GET", Visited = [$"{Host}/x"] };
     }
 
     // predicate override and safety mechanics (L163-242): REDIR-20, REDIR-21, P6b-7.
     private static IEnumerable<RedirectCase> Predicates()
     {
         yield return Row("REDIR-20: a predicate answering true follows a method outside the allowed set", 302, Go($"{Host}/next", "POST", calls: 1))
-            with { Method = "POST", Options = Opt(predicate: static _ => true) };
+            with
+        { Method = "POST", Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-20: a predicate answering false stops a GET", 302, Stop(RedirectStopReason.NotEligible, calls: 1))
-            with { Options = Opt(predicate: static _ => false) };
+            with
+        { Options = Opt(predicate: static _ => false) };
         yield return Row("REDIR-20: a predicate sees the snapshot", 302, Go($"{Host}/next", calls: 1))
             with
+        {
+            Followed = 1,
+            Options = Opt(predicate: static c =>
             {
-                Followed = 1,
-                Options = Opt(predicate: static c =>
-                {
-                    Xunit.Assert.Equal(302, c.Response.Status.Code);
-                    Xunit.Assert.Equal(1, c.RedirectsFollowed);
-                    Xunit.Assert.Equal($"{Host}/next", c.Target!.AbsoluteUri);
-                    Xunit.Assert.Equal(2, c.VisitedUris.Count);
-                    return true;
-                }),
-            };
+                Xunit.Assert.Equal(302, c.Response.Status.Code);
+                Xunit.Assert.Equal(1, c.RedirectsFollowed);
+                Xunit.Assert.Equal($"{Host}/next", c.Target!.AbsoluteUri);
+                Xunit.Assert.Equal(2, c.VisitedUris.Count);
+                return true;
+            }),
+        };
         yield return Row("REDIR-21: a predicate is called with no Location", 302, Stop(RedirectStopReason.MalformedLocation, malformed: false, calls: 1), location: string.Empty)
             with
+        {
+            Options = Opt(predicate: static c =>
             {
-                Options = Opt(predicate: static c =>
-                {
-                    Xunit.Assert.Null(c.Target);
-                    return true;
-                }),
-            };
+                Xunit.Assert.Null(c.Target);
+                return true;
+            }),
+        };
         yield return Row("REDIR-21: a predicate is called with an unusable Location", 302, Stop(RedirectStopReason.MalformedLocation, malformed: true, calls: 1), location: "ftp://x/y")
-            with { Options = Opt(predicate: static _ => true) };
+            with
+        { Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-21: a predicate is called at the cap", 302, Stop(RedirectStopReason.HopCap, calls: 1))
-            with { Followed = 3, Options = Opt(predicate: static _ => true) };
+            with
+        { Followed = 3, Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-20: a predicate cannot defeat loop detection", 302, Stop(RedirectStopReason.LoopDetected, calls: 1), location: $"{Host}/a/b")
-            with { Options = Opt(predicate: static _ => true) };
+            with
+        { Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-20: a predicate cannot defeat the downgrade guard", 302, Boom<RedirectSchemeDowngradeException>(), location: "http://api.example.com/x")
-            with { Options = Opt(predicate: static _ => true) };
+            with
+        { Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-20: a predicate cannot defeat the replay gate", 307, Boom<RedirectBodyNotReplayableException>())
-            with { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(predicate: static _ => true) };
+            with
+        { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(predicate: static _ => true) };
         yield return Row("REDIR-20: a predicate cannot force a malformed Location", 302, Stop(RedirectStopReason.MalformedLocation, malformed: true), location: "mailto:a@b")
-            with { Options = Opt(predicate: static _ => true) };
+            with
+        { Options = Opt(predicate: static _ => true) };
     }
 
     // Location resolution (L243-308), unfollowed paths (L309-358), totality (L359-406), RFC 3986 forms (L837-884): REDIR-12..14, 18, 19.
@@ -183,7 +201,8 @@ internal static class RedirectCases
         yield return Row("REDIR-14: a protocol-relative Location keeps the scheme", 302, Go("https://other.example/p"), "//other.example/p");
         yield return Row("REDIR-14: an absolute Location is used as is", 302, Go("https://other.example/p?q=1"), "https://other.example/p?q=1");
         yield return Row("REDIR-14: resolution is against the current hop, not the seed", 302, Go($"{Host}/m/c"))
-            with { SeedUrl = "https://seed.example/start", LocationValues = ["c"], Url = $"{Host}/m/n", Visited = [] };
+            with
+        { SeedUrl = "https://seed.example/start", LocationValues = ["c"], Url = $"{Host}/m/n", Visited = [] };
         yield return Row("REDIR-12: userinfo in the Location is dropped", 302, Go("https://other.example/y"), "https://u:p@other.example/y");
         yield return Row("REDIR-13: reserved escapes survive", 302, Go($"{Host}/y%2Fz?a=%26"), "https://u:p@api.example.com/y%2Fz?a=%26");
         yield return Row("REDIR-13: an IPv6 literal and a non-default port survive", 302, Go("https://[::1]:8443/y"), "https://u:p@[::1]:8443/y");
@@ -197,16 +216,18 @@ internal static class RedirectCases
         }
 
         yield return new RedirectCase("REDIR-18: two Location values are malformed (added, P6b-10)", 302, Stop(RedirectStopReason.MalformedLocation, malformed: true))
-            { LocationValues = ["/one", "/two"] };
+        { LocationValues = ["/one", "/two"] };
     }
 
     // loop detection (L407-438, L803-836) and hop cap (L439-490): REDIR-16, REDIR-17.
     private static IEnumerable<RedirectCase> LoopAndCap()
     {
         yield return Row("REDIR-16: A to B to A is a loop", 302, Stop(RedirectStopReason.LoopDetected), $"{Host}/a/b")
-            with { Visited = [$"{Host}/b"] };
+            with
+        { Visited = [$"{Host}/b"] };
         yield return Row("REDIR-16: a revisit of a userinfo-bearing seed is a loop", 302, Stop(RedirectStopReason.LoopDetected), $"{Host}/a/b")
-            with { Url = "https://u:p@api.example.com/a/b", Visited = [$"{Host}/b"] };
+            with
+        { Url = "https://u:p@api.example.com/a/b", Visited = [$"{Host}/b"] };
         yield return Row("REDIR-16: a Location pointing at the current URL is a loop", 302, Stop(RedirectStopReason.LoopDetected), $"{Host}/a/b");
         yield return Row("REDIR-16: loop detection survives case and default-port re-spelling", 302, Stop(RedirectStopReason.LoopDetected), "HTTPS://API.EXAMPLE.COM:443/a/b");
         yield return Row("REDIR-16: a different fragment is a different key", 302, Go($"{Host}/a/b#other"), "#other");
@@ -218,7 +239,8 @@ internal static class RedirectCases
                 $"REDIR-17: MaxRedirects {max} with {followed} followed {(follows ? "follows" : "stops at the cap")}",
                 302,
                 follows ? Go($"{Host}/next") : Stop(RedirectStopReason.HopCap))
-                with { Followed = followed, Options = Opt(max: max) };
+                with
+            { Followed = followed, Options = Opt(max: max) };
         }
     }
 
@@ -227,32 +249,43 @@ internal static class RedirectCases
     {
         yield return Row("REDIR-15: https to http without the opt-in fails", 302, Boom<RedirectSchemeDowngradeException>(), "http://api.example.com/x");
         yield return Row("REDIR-15: https to http with the opt-in follows, flagged", 302, new Expect(RedirectDecisionKind.Follow) { NextMethod = "GET", NextUrl = "http://api.example.com/x", Downgraded = true, CrossOrigin = true }, "http://api.example.com/x")
-            with { Options = Opt(downgrade: true) };
+            with
+        { Options = Opt(downgrade: true) };
         yield return Row("REDIR-15: http to https follows, not flagged", 302, new Expect(RedirectDecisionKind.Follow) { NextMethod = "GET", NextUrl = "https://api.example.com/x", Downgraded = false }, "https://api.example.com/x")
-            with { Url = "http://api.example.com/a" };
+            with
+        { Url = "http://api.example.com/a" };
         yield return Row("REDIR-15: https to http to https flags only the middle hop (added)", 302, new Expect(RedirectDecisionKind.Follow) { NextUrl = "https://api.example.com/z", Downgraded = false }, "https://api.example.com/z")
-            with { Visited = ["http://api.example.com/y"], Options = Opt(downgrade: true) };
+            with
+        { Visited = ["http://api.example.com/y"], Options = Opt(downgrade: true) };
         yield return Row("REDIR-15: the downgrade is judged on the hop, not the seed (added)", 302, new Expect(RedirectDecisionKind.Follow) { NextUrl = "http://api.example.com/z", Downgraded = false }, "http://api.example.com/z")
-            with { Url = "http://api.example.com/y", SeedUrl = "https://api.example.com/a" };
+            with
+        { Url = "http://api.example.com/y", SeedUrl = "https://api.example.com/a" };
 
         foreach (var status in new[] { 301, 302, 307, 308 })
         {
             yield return Row($"REDIR-6: a {status} over a single-use body fails", status, Boom<RedirectBodyNotReplayableException>())
-                with { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
+                with
+            { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
         }
 
         yield return Row("REDIR-6: a 303 is exempt from the replay gate", 303, Go($"{Host}/next"))
-            with { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(see: true) };
+            with
+        { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(see: true) };
         yield return Row("REDIR-6: no body follows", 307, Go($"{Host}/next", "POST"))
-            with { Method = "POST", Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Options = Opt(methods: [Method.Post]) };
         yield return Row("REDIR-6: a replayable body follows", 307, new Expect(RedirectDecisionKind.Follow) { NextMethod = "POST", SameBody = true })
-            with { Method = "POST", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Post]) };
         yield return Row("REDIR-6: a seekable FromStream body follows (3b hand-off, added)", 307, new Expect(RedirectDecisionKind.Follow) { NextMethod = "POST", SameBody = true })
-            with { Method = "POST", Body = BodyKind.Seekable, Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Body = BodyKind.Seekable, Options = Opt(methods: [Method.Post]) };
         yield return Row("REDIR-6: a non-seekable FromStream body fails (added)", 307, Boom<RedirectBodyNotReplayableException>())
-            with { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
         yield return Row("REDIR-15: the downgrade error wins over the replay error (design B)", 307, Boom<RedirectSchemeDowngradeException>(), "http://api.example.com/x")
-            with { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
+            with
+        { Method = "POST", Body = BodyKind.SingleUse, Options = Opt(methods: [Method.Post]) };
     }
 
     // header construction (L612-667), multi-valued headers (L885-943), body identity (L944-965): REDIR-7..11.
@@ -260,40 +293,52 @@ internal static class RedirectCases
     {
         yield return Row("REDIR-7: Authorization is removed on a same-origin hop", 302,
             new Expect(RedirectDecisionKind.Follow) { NextUrl = $"{Host}/next", HeadersAbsent = ["Authorization"], HeadersPresent = ["Cookie", "Proxy-Authorization", "X-Keep"], CrossOrigin = false })
-            with { RequestHeaders = s_creds };
+            with
+        { RequestHeaders = s_creds };
         yield return Row("REDIR-7: every Authorization value is removed", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = ["Authorization"] })
-            with { RequestHeaders = [("Authorization", "a"), ("Authorization", "b")] };
+            with
+        { RequestHeaders = [("Authorization", "a"), ("Authorization", "b")] };
         yield return Row("REDIR-9: Authorization, Cookie and Proxy-Authorization are removed cross-origin", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = s_all3, HeadersPresent = ["X-Keep"], CrossOrigin = true }, "https://evil.example/x")
-            with { RequestHeaders = s_creds };
+            with
+        { RequestHeaders = s_creds };
         yield return Row("REDIR-10: Cookie and Proxy-Authorization survive same-origin", 307,
             new Expect(RedirectDecisionKind.Follow) { HeadersPresent = s_both, CrossOrigin = false })
-            with { RequestHeaders = s_creds };
+            with
+        { RequestHeaders = s_creds };
         yield return Row("REDIR-8: a port change alone is cross-origin", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = s_all3, CrossOrigin = true }, "https://api.example.com:8443/x")
-            with { RequestHeaders = s_creds };
+            with
+        { RequestHeaders = s_creds };
         yield return Row("REDIR-8: a scheme change alone is cross-origin", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = s_all3, CrossOrigin = true }, "https://api.example.com/x")
-            with { Url = "http://api.example.com/a", RequestHeaders = s_creds };
+            with
+        { Url = "http://api.example.com/a", RequestHeaders = s_creds };
         yield return Row("REDIR-8: an explicit default port is the same origin", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersPresent = s_both, CrossOrigin = false }, "https://API.example.com:443/x")
-            with { RequestHeaders = s_creds };
+            with
+        { RequestHeaders = s_creds };
         yield return Row("REDIR-8: an IDN host spelled two ways is one origin (added)", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersPresent = s_both, CrossOrigin = false }, "https://xn--bcher-kva.example/b")
-            with { Url = "https://bücher.example/a", RequestHeaders = s_creds };
+            with
+        { Url = "https://bücher.example/a", RequestHeaders = s_creds };
         yield return Row("REDIR-8: cross-origin is judged against the seed, not the previous hop", 302,
             new Expect(RedirectDecisionKind.Follow) { CrossOrigin = true }, "https://other.example/x")
-            with { SeedUrl = "https://seed.example/a", Url = "https://other.example/a" };
+            with
+        { SeedUrl = "https://seed.example/a", Url = "https://other.example/a" };
         yield return Row("REDIR-8: a return to the seed origin is same-origin", 302,
             new Expect(RedirectDecisionKind.Follow) { CrossOrigin = false }, "https://seed.example/x")
-            with { SeedUrl = "https://seed.example/a", Url = "https://other.example/a" };
+            with
+        { SeedUrl = "https://seed.example/a", Url = "https://other.example/a" };
         yield return Row("REDIR-11: a marker-shaped header is an ordinary header (P6b-23)", 302,
             new Expect(RedirectDecisionKind.Follow) { HeadersPresent = ["x-dexpace-internal-redirect-cross-origin"], CrossOrigin = false })
-            with { RequestHeaders = [("x-dexpace-internal-redirect-cross-origin", "1")] };
+            with
+        { RequestHeaders = [("x-dexpace-internal-redirect-cross-origin", "1")] };
         yield return Row("REDIR-3: a 307 carries the body instance", 307,
             new Expect(RedirectDecisionKind.Follow) { NextMethod = "PUT", SameBody = true })
-            with { Method = "PUT", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Put]) };
+            with
+        { Method = "PUT", Body = BodyKind.Bytes, Options = Opt(methods: [Method.Put]) };
     }
 
     // 303 rebuild (L705-757): REDIR-5.
@@ -301,7 +346,8 @@ internal static class RedirectCases
     {
         yield return Row("REDIR-5: a 303 is not followed by default", 303, Stop(RedirectStopReason.NotEligible));
         yield return Row("REDIR-5: a 303 is not followed on a POST by default", 303, Stop(RedirectStopReason.NotEligible))
-            with { Method = "POST", Body = BodyKind.Bytes };
+            with
+        { Method = "POST", Body = BodyKind.Bytes };
 
         foreach (var method in new[] { "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE" })
         {
@@ -310,23 +356,26 @@ internal static class RedirectCases
                 $"REDIR-5: an opted-in 303 on {method} becomes a body-less GET",
                 303,
                 new Expect(RedirectDecisionKind.Follow) { NextMethod = "GET", NoBody = true, NextUrl = $"{Host}/next" })
-                with { Method = method, Body = hasBody ? BodyKind.Bytes : BodyKind.None, Options = Opt(see: true) };
+                with
+            { Method = method, Body = hasBody ? BodyKind.Bytes : BodyKind.None, Options = Opt(see: true) };
         }
 
         yield return Row("REDIR-5: a 303 removes Content-* headers by case-insensitive prefix (added)", 303,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = ["content-type", "CONTENT-LENGTH", "cOnTeNt-Language", "Content-MD5"], HeadersPresent = ["Accept"] })
             with
-            {
-                Method = "POST",
-                Body = BodyKind.Bytes,
-                Options = Opt(see: true),
-                RequestHeaders = [("content-type", "text/plain"), ("CONTENT-LENGTH", "1"), ("cOnTeNt-Language", "en"), ("Content-MD5", "x"), ("Accept", "*/*")],
-            };
+        {
+            Method = "POST",
+            Body = BodyKind.Bytes,
+            Options = Opt(see: true),
+            RequestHeaders = [("content-type", "text/plain"), ("CONTENT-LENGTH", "1"), ("cOnTeNt-Language", "en"), ("Content-MD5", "x"), ("Accept", "*/*")],
+        };
         yield return Row("REDIR-9: a cross-origin 303 also drops Cookie (added, Ruby round 1)", 303,
             new Expect(RedirectDecisionKind.Follow) { HeadersAbsent = s_all3, CrossOrigin = true }, "https://evil.example/x")
-            with { Options = Opt(see: true), RequestHeaders = s_creds };
+            with
+        { Options = Opt(see: true), RequestHeaders = s_creds };
         yield return Row("REDIR-5: a predicate that follows a 303 gets the same rebuild", 303,
             new Expect(RedirectDecisionKind.Follow) { NextMethod = "GET", NoBody = true, PredicateCalls = 1 })
-            with { Method = "POST", Body = BodyKind.Bytes, Options = Opt(predicate: static _ => true) };
+            with
+        { Method = "POST", Body = BodyKind.Bytes, Options = Opt(predicate: static _ => true) };
     }
 }

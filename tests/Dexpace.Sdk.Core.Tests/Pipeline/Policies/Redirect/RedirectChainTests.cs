@@ -4,8 +4,8 @@
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
-using Dexpace.Sdk.Core.Tests.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.Tests.Pipeline;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
