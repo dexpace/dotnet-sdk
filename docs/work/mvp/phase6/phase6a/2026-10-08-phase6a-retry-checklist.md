@@ -105,7 +105,7 @@ These rows stay in the 4b and 3b checklists; 6a's evidence is here, and each of 
 | `RECOV-30` | ✅ | `RetryBudgetEquivalenceTests` |
 | `RECOV-31` | ✅ (P6a-26: both stacks stamp from 1) | `RetryPolicyEngineTests.The_attempt_header_stamps_a_one_based_ordinal_on_a_per_attempt_copy`; `RetryRecoveryTests.The_attempt_header_stamps_from_one_on_every_send` |
 | `RECOV-34` | ✅ | `RetryOptionsTests` (validation, copy of the status set, equality) |
-| `BODY-5`; `BODY-4` (retry third) | ✅ | `RetryResendGateTests.IsResendable_matrix` (every `RequestBody` variant, incl. the seekable stream with a declared length) |
+| `BODY-5`; `BODY-4` (retry third) | ✅ | `RetryResendGateTests.IsResendable_matrix` (no body, bytes, empty bytes, string, form, file, a seekable stream with a declared length, a single-use stream, and multipart with replayable and with single-use parts, each with a hard-coded expectation; `FromValue` is not in the matrix); `RetryRecoveryTests.The_resend_gate_decides_the_send_count_for_every_method_body_and_failure_kind` (send counts across five methods, seven bodies and two failure kinds) |
 
 ### Work on other owners' rows (no row in this checklist)
 
