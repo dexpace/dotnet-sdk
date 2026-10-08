@@ -91,6 +91,14 @@ public sealed class ResponseRecoveryChain
         return await RunRecoveryPhaseAsync(afterResponses, async, cancellationToken).ConfigureAwait(false);
     }
 
+    // 6a (P6a-5): the retry composition runs the response steps once per send and the recovery steps once per call, so the
+    // two phases are reachable apart. Public Apply/ApplyAsync still run both.
+    internal ValueTask<Outcome> ApplyResponsePhaseAsync(Outcome outcome, bool async, CancellationToken cancellationToken) =>
+        RunResponsePhaseAsync(outcome, async, cancellationToken);
+
+    internal ValueTask<Outcome> ApplyRecoveryPhaseAsync(Outcome outcome, bool async, CancellationToken cancellationToken) =>
+        RunRecoveryPhaseAsync(outcome, async, cancellationToken);
+
     private async ValueTask<Outcome> RunResponsePhaseAsync(Outcome outcome, bool async, CancellationToken cancellationToken)
     {
         var current = outcome;

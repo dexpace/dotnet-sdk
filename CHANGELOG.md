@@ -447,5 +447,11 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   `RETRY-45`).
 - Phase 6a retry, PR 4: `OperationTimeoutException`, the non-retryable `SdkException` an expired overall deadline throws,
   with the failed attempts' trail copied onto it (`XCUT-1`, `RETRY-34`).
+- Phase 6a retry, PR 5: `RetryRecovery` (retry options, an optional total-time budget and a clock) and a `RecoveryDispatcher`
+  constructor that takes it, with `RecoveryDispatcher.Retry`. A retrying dispatcher runs the request chain once, sends through
+  the transport and the response steps, retries on the same engine as `RetryPolicy` (every surviving response whose status is
+  in the configured set is buffered and mapped to an `HttpResponseException` on arrival), and runs the recovery steps once on
+  the terminal outcome (`RETRY-14`, `RETRY-27`, `RETRY-36`, `RETRY-37`, `RECOV-16` to `RECOV-20`, `RECOV-27`, `RECOV-28`,
+  `RECOV-30`, `RECOV-31`).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

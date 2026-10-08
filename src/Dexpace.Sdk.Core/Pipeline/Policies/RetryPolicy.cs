@@ -142,6 +142,8 @@ public class RetryPolicy : HttpPipelinePolicy
         _engine = new RetryEngine(_timeProvider, random ?? Random.Shared.NextDouble);
     }
 
+    internal RetryEngine Engine => _engine;
+
     /// <inheritdoc/>
     public sealed override PipelineStage Stage => PipelineStage.Retry;
 

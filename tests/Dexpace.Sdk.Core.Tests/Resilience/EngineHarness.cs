@@ -86,3 +86,9 @@ internal static class EngineHarness
     internal static Exception Error(Outcome outcome) =>
         Assert.IsAssignableFrom<Outcome.Failure>(outcome).Error;
 }
+
+/// <summary>Test-only conversions between the option records.</summary>
+internal static class OptionsExtensions
+{
+    internal static DexpaceClientOptions ToClientOptions(this RetryOptions retry) => new() { Retry = retry };
+}

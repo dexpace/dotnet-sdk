@@ -987,5 +987,11 @@ Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.get -> System.Collections.G
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.init -> void
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.get -> bool
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.init -> void
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.RecoveryDispatcher(Dexpace.Sdk.Core.Recovery.RequestRecoveryChain! requestChain, Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain! responseChain, Dexpace.Sdk.Core.Recovery.RetryRecovery! retry) -> void
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.Retry.get -> Dexpace.Sdk.Core.Recovery.RetryRecovery?
+Dexpace.Sdk.Core.Recovery.RetryRecovery
+Dexpace.Sdk.Core.Recovery.RetryRecovery.Options.get -> Dexpace.Sdk.Core.Configuration.RetryOptions!
+Dexpace.Sdk.Core.Recovery.RetryRecovery.RetryRecovery(Dexpace.Sdk.Core.Configuration.RetryOptions! options, System.TimeSpan totalTimeout = default(System.TimeSpan), System.TimeProvider? timeProvider = null) -> void
+Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string
