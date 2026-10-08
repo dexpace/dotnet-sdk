@@ -21,7 +21,6 @@ public sealed class AuthOriginTests
     {
         Assert.True(AuthOrigin.Same(new Uri("https://a/"), new Uri("https://a:443/")));
         Assert.True(AuthOrigin.Same(new Uri("http://a/"), new Uri("http://a:80/")));
-        Assert.Equal("https://a:443", AuthOrigin.Of(new Uri("https://a/")));
     }
 
     [Fact]

@@ -41,7 +41,8 @@ public sealed record AuthRequirement
     public AuthScheme Scheme { get; }
 
     /// <summary>The scopes, copied at initialisation; empty by default.</summary>
-    /// <exception cref="ArgumentNullException">The value, or an element of it, is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">An element is <see langword="null"/>.</exception>
     public IReadOnlyList<string> Scopes
     {
         get => _scopes.IsDefault ? [] : _scopes;
