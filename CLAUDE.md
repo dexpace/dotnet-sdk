@@ -118,10 +118,11 @@ dotnet-sdk/
 │   │   ├── Http/Response/           # Response, ResponseBody, Status
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
 │   │   ├── Operations/              # OperationDescriptor, the operation-input projection
+│   │   ├── Resilience/              # internal: RetryFacts (classifier, re-send gate), RetryBackoff, RetryPacing, RetryBudget, RetryEngine (the one retry loop)
 │   │   ├── Pipeline/                # HttpPipeline (also a transport), PipelineBuilder, HttpPipelinePolicy,
 │   │   │   └── Policies/            #   PipelineContext, PipelineRunner, DexpacePipeline; operation, redirect, retry,
 │   │   │                            #   idempotency, set-date, client-identity, instrumentation, auth, error-mapping policies
-│   │   ├── Recovery/                # Outcome, the step contracts, request/response recovery chains, RecoveryDispatcher,
+│   │   ├── Recovery/                # Outcome, the step contracts, request/response recovery chains, RecoveryDispatcher, RetryRecovery,
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # TokenCredential, AccessTokenCache, ApiKeyCredential, BasicCredential
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
@@ -132,7 +133,7 @@ dotnet-sdk/
 │   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
 │   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
-│   │   └── Errors/                  # SdkException hierarchy, SerdeException, ExceptionFacts, ExceptionTrail
+│   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, SerdeException, ExceptionFacts, ExceptionTrail
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 ├── tests/
@@ -257,8 +258,9 @@ and phase 5b's logging and redaction — `HttpLoggingOptions`,
 the `http.request`/`http.response` events, header and URL redaction, the emission guard and body previews — see
 `docs/sdk-documentation/logging-and-redaction.md`; and phase 5c's tracing and metrics — the operation span, the attempt span rework, the
 `dexpace.*` span events, the two instruments with their stable attribute sets and `SystemNetHttpClient`'s `traceparent` rule — see
-`docs/sdk-documentation/tracing-and-metrics.md`):
-the retry engine over the recovery chain (6a), the auth resolver with RFC 7235
+`docs/sdk-documentation/tracing-and-metrics.md`; and phase 6a's retry — the classifier and `IRetryableError`, the re-send gate, `RetryOptions`' validation, the one `RetryEngine` under `RetryPolicy` and `RetryRecovery`, the pacing
+headers, the suppressed trail, `OperationTimeoutException` and the enforced `AttemptTimeout` — see `docs/sdk-documentation/retry.md`):
+the auth resolver with RFC 7235
 challenges and Digest (6c), tri-state PATCH, SSE and the remaining pagination surface (7), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

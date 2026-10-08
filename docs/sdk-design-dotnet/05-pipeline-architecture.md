@@ -308,6 +308,12 @@ contracts, `RequestRecoveryChain`, `ResponseRecoveryChain` and `RecoveryDispatch
   `InvalidOperationException` naming the type.
 - **`ErrorBodyBuffer` is 4b's (P4b-16)**; see §5.1.
 
+**As built (2026-10-08, phase 6a):** the recovery-stack retry is built. It composes the dispatcher's halves (the request chain once;
+the transport and the response steps per send; the recovery steps once on the terminal outcome) around the shared `RetryEngine`, and it is
+**not** an `IRecoveryStep` (P6a-5): a recovery step sees only an `Outcome`, so it could not re-send. `RetryRecovery` is configuration only;
+`RecoveryDispatcher` gains a constructor taking it and a `Retry` property. `RECOV-17`–`RECOV-31` and `RECOV-34` are closed by the
+6a checklist's carried-rows table.
+
 ### 5.3 The async mirror and the two bridges
 
 **One stage identity, two invocation protocols, one implementation per policy.** **PIPE-28**'s "the two MUST NOT

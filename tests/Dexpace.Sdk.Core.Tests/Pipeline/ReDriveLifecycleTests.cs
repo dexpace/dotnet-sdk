@@ -65,7 +65,8 @@ public sealed class ReDriveLifecycleTests
 
         using var response = await pipeline.SendAsync(MakeRequest(), Options(), TestContext.Current.CancellationToken);
 
-        Assert.Equal(["send:1", "retried:dispose", "send:2"], log);
+        // 6a (P6a-21): the engine drains a discarded error response before it releases it, so the body is opened once.
+        Assert.Equal(["send:1", "retried:open", "retried:dispose", "send:2"], log);
         Assert.Equal(0, finalBody.DisposeCount);
     }
 
@@ -153,7 +154,8 @@ public sealed class ReDriveLifecycleTests
 
         using var response = pipeline.Send(MakeRequest(), Options(), TestContext.Current.CancellationToken);
 
-        Assert.Equal(["send:1", "retried:dispose", "send:2"], log);
+        // 6a (P6a-21): the engine drains a discarded error response before it releases it, so the body is opened once.
+        Assert.Equal(["send:1", "retried:open", "retried:dispose", "send:2"], log);
     }
 
     [Fact]

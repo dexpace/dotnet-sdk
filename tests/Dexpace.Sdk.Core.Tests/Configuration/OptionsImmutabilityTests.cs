@@ -18,7 +18,7 @@ public class OptionsImmutabilityTests
         var options = new DexpaceClientOptions();
         var derived = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
 
-        Assert.Equal(3, options.Retry.MaxRetryAttempts);
+        Assert.Equal(2, options.Retry.MaxRetryAttempts);
         Assert.Equal(5, derived.Retry.MaxRetryAttempts);
         Assert.NotSame(options.Retry, derived.Retry);
         Assert.Same(options.Redirect, derived.Redirect);

@@ -39,6 +39,8 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.HttpResponseStatusCode = "http
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.RedactedHeaderValue = "REDACTED" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys.UrlFull = "url.full" -> string!
 const Dexpace.Sdk.Core.Configuration.BuildInfo.Unknown = "unknown" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailed = "dexpace.retry.delay_override_failed" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailedId = 140 -> int
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken
@@ -152,18 +154,26 @@ Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigi
 Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions
 Dexpace.Sdk.Core.Configuration.RetryOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RetryOptions!
+Dexpace.Sdk.Core.Configuration.RetryOptions.AttemptHeaderName.get -> string?
+Dexpace.Sdk.Core.Configuration.RetryOptions.AttemptHeaderName.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.get -> System.TimeSpan
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(Dexpace.Sdk.Core.Configuration.RetryOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.RetryOptions.FixedDelay.get -> System.TimeSpan?
+Dexpace.Sdk.Core.Configuration.RetryOptions.FixedDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.get -> bool
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Jitter.get -> double
+Dexpace.Sdk.Core.Configuration.RetryOptions.Jitter.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.get -> System.TimeSpan
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.get -> int
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.init -> void
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.get -> double
+Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.get -> System.Collections.Generic.IReadOnlySet<int>!
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.init -> void
 Dexpace.Sdk.Core.Configuration.TimeProviderWaits
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents
@@ -496,7 +506,6 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.InstrumentationPolicy.InstrumentationPolicy(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy
-Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.RedirectPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy
@@ -576,9 +585,6 @@ override Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.ProcessAsync(Dexpace
 override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override Dexpace.Sdk.Core.Pipeline.Policies.RedirectPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
-override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
-override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
-override Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
@@ -586,6 +592,9 @@ override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Process(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.ToString() -> string!
+override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
+override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
+override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
@@ -753,6 +762,7 @@ static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
 static readonly Dexpace.Sdk.Core.Diagnostics.UrlRedactor.DefaultQueryAllowList -> System.Collections.Generic.IReadOnlyCollection<string!>!
 virtual Dexpace.Sdk.Core.Auth.TokenCredential.GetToken(Dexpace.Sdk.Core.Auth.TokenRequestContext context, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Auth.AccessToken
+virtual Dexpace.Sdk.Core.Errors.SdkException.IsRetryable.get -> bool
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ContentLength.get -> long
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.IsReplayable.get -> bool
 virtual Dexpace.Sdk.Core.Http.Request.RequestBody.ToReplayable(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Request.RequestBody!
@@ -851,6 +861,9 @@ override sealed Dexpace.Sdk.Core.Execution.CallContext.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Execution.DispatchContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
 override sealed Dexpace.Sdk.Core.Execution.ExchangeContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
 override sealed Dexpace.Sdk.Core.Execution.RequestContext.Equals(Dexpace.Sdk.Core.Execution.CallContext? other) -> bool
+override sealed Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
+override sealed Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
+override sealed Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 static Dexpace.Sdk.Core.Execution.CallContext.operator !=(Dexpace.Sdk.Core.Execution.CallContext? left, Dexpace.Sdk.Core.Execution.CallContext? right) -> bool
 static Dexpace.Sdk.Core.Execution.CallContext.operator ==(Dexpace.Sdk.Core.Execution.CallContext? left, Dexpace.Sdk.Core.Execution.CallContext? right) -> bool
 static Dexpace.Sdk.Core.Execution.DexpaceCallContexts.TryGet(Dexpace.Sdk.Core.Execution.CallKey key, out Dexpace.Sdk.Core.Execution.CallContext? context) -> bool
@@ -865,14 +878,25 @@ virtual Dexpace.Sdk.Core.Execution.CallContext.Equals(Dexpace.Sdk.Core.Execution
 virtual Dexpace.Sdk.Core.Execution.CallContext.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 virtual Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.GetCredential(Dexpace.Sdk.Core.Pipeline.PipelineContext! context) -> (string! HeaderName, string! HeaderValue)
+virtual Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.GetDelayOverride(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext attempt) -> System.TimeSpan?
+virtual Dexpace.Sdk.Core.Pipeline.Policies.RetryPolicy.ShouldRetry(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext attempt) -> bool?
 Dexpace.Sdk.Core.Errors.ExceptionFacts
 Dexpace.Sdk.Core.Errors.ExceptionTrail
+Dexpace.Sdk.Core.Errors.IRetryableError
+Dexpace.Sdk.Core.Errors.IRetryableError.IsRetryable.get -> bool
+Dexpace.Sdk.Core.Errors.OperationTimeoutException
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException() -> void
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message) -> void
+Dexpace.Sdk.Core.Errors.OperationTimeoutException.OperationTimeoutException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.SdkException.Suppressed.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
+override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.IsFatal(System.Exception! exception) -> bool
 static Dexpace.Sdk.Core.Errors.ExceptionTrail.AddSuppressed(System.Exception! primary, System.Exception! secondary) -> void
 static Dexpace.Sdk.Core.Errors.ExceptionTrail.GetSuppressed(System.Exception! exception) -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+static Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.operator !=(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext left, Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext right) -> bool
+static Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.operator ==(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext left, Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext right) -> bool
 Dexpace.Sdk.Core.Recovery.Outcome
 Dexpace.Sdk.Core.Recovery.Outcome.Failure
 Dexpace.Sdk.Core.Recovery.Outcome.Failure.Error.get -> System.Exception!
@@ -923,6 +947,22 @@ Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy(Dexpace.S
 Dexpace.Sdk.Core.Pipeline.Policies.IdempotencyPolicy.IdempotencyPolicy() -> void
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ErrorMappingPolicy() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.OperationPolicy.OperationPolicy(System.TimeProvider? timeProvider = null) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.get -> int
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Attempt.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Context.get -> Dexpace.Sdk.Core.Pipeline.PipelineContext!
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Context.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Deconstruct(out int Attempt, out Dexpace.Sdk.Core.Http.Request.Request! Request, out Dexpace.Sdk.Core.Http.Response.Response? Response, out System.Exception? Failure, out Dexpace.Sdk.Core.Pipeline.PipelineContext! Context) -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext other) -> bool
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Failure.get -> System.Exception?
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Failure.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Request.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Response.get -> Dexpace.Sdk.Core.Http.Response.Response?
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Response.init -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.RetryAttemptContext() -> void
+Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.RetryAttemptContext(int Attempt, Dexpace.Sdk.Core.Http.Request.Request! Request, Dexpace.Sdk.Core.Http.Response.Response? Response, System.Exception? Failure, Dexpace.Sdk.Core.Pipeline.PipelineContext! Context) -> void
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Append = 0 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
 Dexpace.Sdk.Core.Recovery.ClientIdentityMode.Replace = 1 -> Dexpace.Sdk.Core.Recovery.ClientIdentityMode
@@ -947,3 +987,11 @@ Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.get -> System.Collections.G
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.Methods.init -> void
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.get -> bool
 Dexpace.Sdk.Core.Recovery.IdempotencyKeyStep.RespectExisting.init -> void
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.RecoveryDispatcher(Dexpace.Sdk.Core.Recovery.RequestRecoveryChain! requestChain, Dexpace.Sdk.Core.Recovery.ResponseRecoveryChain! responseChain, Dexpace.Sdk.Core.Recovery.RetryRecovery! retry) -> void
+Dexpace.Sdk.Core.Recovery.RecoveryDispatcher.Retry.get -> Dexpace.Sdk.Core.Recovery.RetryRecovery?
+Dexpace.Sdk.Core.Recovery.RetryRecovery
+Dexpace.Sdk.Core.Recovery.RetryRecovery.Options.get -> Dexpace.Sdk.Core.Configuration.RetryOptions!
+Dexpace.Sdk.Core.Recovery.RetryRecovery.RetryRecovery(Dexpace.Sdk.Core.Configuration.RetryOptions! options, System.TimeSpan totalTimeout = default(System.TimeSpan), System.TimeProvider? timeProvider = null) -> void
+Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
+~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
+~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string

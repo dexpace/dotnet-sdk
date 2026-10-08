@@ -147,13 +147,38 @@ public sealed class ActivityScopeTests
     public async Task Sdk_writes_to_a_non_recording_span_are_skipped()
     {
         using var listener = TracingFixtures.NonRecordingListener();
-        var started = new List<Activity>();
-        listener.ActivityStarted = started.Add;
+
+        // The listener sees every pipeline running in this process, and the suite runs classes in parallel; a test-owned
+        // parent span gives this call a trace id of its own to filter on.
+        using var parentSource = new ActivitySource("Dexpace.Sdk.Tests.NonRecording");
+        using var parentListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == parentSource.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(parentListener);
+        using var parent = parentSource.StartActivity("test-parent")!;
+        var traceId = parent.TraceId;
+
+        var all = new List<Activity>();
+        listener.ActivityStarted = activity =>
+        {
+            lock (all)
+            {
+                all.Add(activity);
+            }
+        };
         var pipeline = TracingFixtures.Pipeline(new ScriptedTransport(
             () => TestResponses.Create(Status.ServiceUnavailable),
             () => TestResponses.Create(Status.Ok)));
 
         using var response = await pipeline.SendAsync(Get(), TestContext.Current.CancellationToken);
+
+        List<Activity> started;
+        lock (all)
+        {
+            started = [.. all.Where(a => a.TraceId == traceId)];
+        }
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Equal(2, started.Count(a => a.Kind == ActivityKind.Client));

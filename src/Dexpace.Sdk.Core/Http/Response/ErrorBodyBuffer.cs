@@ -5,6 +5,7 @@ using System.Buffers;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Internal;
 using Dexpace.Sdk.Core.IO;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Core.Http.Response;
 
@@ -23,8 +24,9 @@ internal static class ErrorBodyBuffer
     /// <summary>Buffers the error body of <paramref name="response"/> and disposes it.</summary>
     /// <param name="response">The error response; disposed before this returns, whether or not the drain completed.</param>
     /// <param name="cancellationToken">A token that stops the drain.</param>
+    /// <param name="logger">When set, a failure to dispose the original after a successful drain is reported to it and suppressed (the retry engine); when <see langword="null"/> it propagates.</param>
     /// <returns>A new response over a replayable copy of the (possibly truncated) body.</returns>
-    internal static Response Capture(Response response, CancellationToken cancellationToken)
+    internal static Response Capture(Response response, CancellationToken cancellationToken, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(response);
         var contentType = response.Body.ContentType;
@@ -42,15 +44,26 @@ internal static class ErrorBodyBuffer
             throw;
         }
 
-        response.Dispose();
+        if (logger is null)
+        {
+            response.Dispose();
+        }
+        else
+        {
+            // 6a (P6a-21): the retry engine drains a discarded response, and a failure to release it after a successful
+            // drain is reported (dexpace.dispose.suppressed), never raised or kept as the failure.
+            Disposal.DisposeQuietly(response, logger: logger);
+        }
+
         return response.WithBody(ResponseBody.FromReplayableBytes(bytes, contentType));
     }
 
     /// <summary>Buffers the error body of <paramref name="response"/> and disposes it, asynchronously.</summary>
     /// <param name="response">The error response; disposed before this returns, whether or not the drain completed.</param>
     /// <param name="cancellationToken">A token that stops the drain.</param>
+    /// <param name="logger">When set, a failure to dispose the original after a successful drain is reported to it and suppressed (the retry engine); when <see langword="null"/> it propagates.</param>
     /// <returns>A new response over a replayable copy of the (possibly truncated) body.</returns>
-    internal static async ValueTask<Response> CaptureAsync(Response response, CancellationToken cancellationToken)
+    internal static async ValueTask<Response> CaptureAsync(Response response, CancellationToken cancellationToken, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(response);
         var contentType = response.Body.ContentType;
@@ -70,7 +83,15 @@ internal static class ErrorBodyBuffer
             throw;
         }
 
-        await response.DisposeAsync().ConfigureAwait(false);
+        if (logger is null)
+        {
+            await response.DisposeAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            await Disposal.DisposeQuietlyAsync(response, logger: logger).ConfigureAwait(false);
+        }
+
         return response.WithBody(ResponseBody.FromReplayableBytes(bytes, contentType));
     }
 }

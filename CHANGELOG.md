@@ -245,6 +245,43 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   child span id; a caller-supplied client without runtime propagation sends no `traceparent` for such a traced call. Enable
   the `Dexpace.Sdk` meter or `System.Net.Http`'s, not both.
 - Internal gate: `BannedSymbols.txt` bans `Activity.TraceIdGenerator` in `src/` (`OBS-27`); no consumer-visible change.
+- **Breaking:** `RetryOptions` defaults change to `MaxRetryAttempts = 2` (was 3: three sends, was four) and `MaxDelay` = 8 s
+  (was 30 s) (`RETRY-12`). It also gains `Multiplier` (2.0), `Jitter` (0.2), `FixedDelay`, `RetryableStatusCodes`
+  (`{408, 429, 500, 502, 503, 504}`) and `AttemptHeaderName`, and compares and hashes by value (the status set by content).
+- **Breaking:** `RetryOptions.RetryNonIdempotentWhenReplayable` is removed. A request is re-sent when it has no body and an
+  idempotent method, or when its body is replayable, whatever the method: a POST or PATCH with a replayable body is now
+  retried by default and a POST with no body never is (`RETRY-5`, `RETRY-7`).
+- **Breaking:** `RetryOptions` validates every member when it is set (`RECOV-34`): a negative count or duration, a duration
+  above about 292 years, a multiplier below 1 or not finite, a jitter outside `[0, 1]`, a status outside 400 to 599 and an
+  attempt-header name that is not an HTTP token throw `ArgumentOutOfRangeException` or `ArgumentException`.
+- **Breaking:** the retry schedule is now live: `BaseDelay × Multiplier^(n−1)` capped at `MaxDelay`, with symmetric jitter of
+  `±Jitter/2` around the capped delay (was full jitter over `[0, min(BaseDelay × 2^n, MaxDelay)]`), and a server pacing hint
+  replaces it with no jitter (`RETRY-9` to `RETRY-11`, `RETRY-20`).
+- **Breaking:** `RetryPolicy` classifies by one rule: a response is retried when its status is in
+  `RetryOptions.RetryableStatusCodes`; an exception is retried when it or any cause reports `IRetryableError.IsRetryable` or
+  is in the I/O family (`IOException`, `SocketException`, `TimeoutException`, an `HttpRequestException` with no status), so a
+  third-party transport's raw `HttpRequestException` or `IOException` is now retried (was: only `ServiceRequestException`
+  and `ServiceResponseException`); an `HttpResponseException` anywhere in the chain is decided by the configured set alone
+  (`RETRY-2`, `RETRY-37`).
+- **Breaking:** `RetryOptions.HonorRetryAfter` now governs `retry-after-ms`, `x-ms-retry-after-ms` and `X-RateLimit-Reset`
+  as well as a fractional `Retry-After`, in that fixed order (`RETRY-15`, `RETRY-21`).
+- **Breaking:** a retried error response is drained (at most 1 MiB) before it is disposed (was: disposed unread), and the
+  exception a failed call throws carries every earlier attempt's failure in `SdkException.Suppressed` /
+  `ExceptionTrail` (`RETRY-34`, `RETRY-35`).
+- **Breaking:** `RetryPolicy` is no longer `sealed`; `Stage`, `Process` and `ProcessAsync` are sealed overrides, and the two
+  new protected hooks `ShouldRetry` and `GetDelayOverride` are its extension points.
+- **Breaking:** `DexpaceClientOptions.AttemptTimeout` is enforced by `RetryPolicy` (was: read by nothing); an attempt that
+  exceeds it is a retried `ServiceRequestTimeoutException`, cooperatively (`XCUT-2`).
+- **Breaking:** a response that arrives after the caller's token fired is disposed and the call throws
+  `OperationCanceledException` (`RETRY-32`).
+- **Breaking:** an expired `DexpaceClientOptions.OverallTimeout` surfaces `OperationTimeoutException` (was
+  `OperationCanceledException`/`TaskCanceledException`), a caller-cancelled call still surfaces
+  `OperationCanceledException`, and `OverallTimeout` and `AttemptTimeout` reject zero, a negative value (including
+  `Timeout.InfiniteTimeSpan`) and anything above 49 days where they are set (a non-positive `OverallTimeout` used to mean
+  "none"; use `null`) (`XCUT-1`, `XCUT-2`).
+- **Breaking:** `OperationPolicy`'s parameterless constructor becomes `OperationPolicy(TimeProvider? timeProvider = null)`
+  (source-compatible, binary-incompatible); `AddStandardResilience` passes its `timeProvider` to it, so a fake clock drives
+  the deadline.
 
 ### Added
 
@@ -393,5 +430,30 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   Internal: `RetryFacts.IsRetryableStatus` and `IsRetryableCause` (`CFG-35`, wired by phase 6a) and `DeepValue`
   (`CFG-33`, `CFG-34`); no consumer-visible change.
 - `docs/sdk-documentation/configuration.md`; the AOT smoke covers the options records, `HttpDate`, `ProxyOptions` and `BuildInfo`.
+- Phase 6a retry, PR 1: `IRetryableError` (the capability a custom exception implements to be retried, `XCUT-6`),
+  `SdkException.IsRetryable` (`false`), the sealed overrides on `ServiceRequestException` and `ServiceResponseException`
+  (`true`) and `HttpResponseException` (baked once from the status classifier, `XCUT-5`, `RETRY-3`). Internal: `RetryFacts`
+  moves to the `Dexpace.Sdk.Core.Resilience` namespace and gains `DefaultRetryableStatusCodes`, `IsRetryableFailure` and
+  `IsResendable` (`RETRY-1` to `RETRY-8`, `RECOV-17`, `RECOV-18`).
+- Phase 6a retry, PR 2 (internal): `RetryBackoff` (the one calculator: `BaseDelay × Multiplier^(n−1)`, capped, symmetric jitter,
+  saturating, clamped to 365 days) and `RetryPacing` (the strict `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms` and
+  `X-RateLimit-Reset` parser), with the vectors `tests/vectors/retry/backoff.json` and `pacing.json`
+  (`RETRY-9` to `RETRY-22`, `RECOV-21` to `RECOV-26`, `RECOV-29`, `RECOV-34`). The live scheduler changes with the engine in PR 3.
+- Phase 6a retry, PR 3: the shared retry engine (`RetryEngine`, `RetryBudget`, internal) under `RetryPolicy`;
+  `RetryAttemptContext` and the protected hooks `RetryPolicy.ShouldRetry` and `RetryPolicy.GetDelayOverride` (`RETRY-29`,
+  `RETRY-39`, `RETRY-40`); the attempt header (`RetryOptions.AttemptHeaderName`, `RETRY-38`); the log event
+  `dexpace.retry.delay_override_failed` (`DexpaceLogEvents.RetryDelayOverrideFailed`, id 140). The `MA0051` waiver on the old
+  `ProcessCoreAsync` is gone (`RETRY-8`, `RETRY-13`, `RETRY-14`, `RETRY-23` to `RETRY-35`, `RETRY-38` to `RETRY-42`, `RETRY-44`,
+  `RETRY-45`).
+- Phase 6a retry, PR 4: `OperationTimeoutException`, the non-retryable `SdkException` an expired overall deadline throws,
+  with the failed attempts' trail copied onto it (`XCUT-1`, `RETRY-34`).
+- Phase 6a retry, PR 5: `RetryRecovery` (retry options, an optional total-time budget and a clock) and a `RecoveryDispatcher`
+  constructor that takes it, with `RecoveryDispatcher.Retry`. A retrying dispatcher runs the request chain once, sends through
+  the transport and the response steps, retries on the same engine as `RetryPolicy` (every surviving response whose status is
+  in the configured set is buffered and mapped to an `HttpResponseException` on arrival), and runs the recovery steps once on
+  the terminal outcome (`RETRY-14`, `RETRY-27`, `RETRY-36`, `RETRY-37`, `RECOV-16` to `RECOV-20`, `RECOV-27`, `RECOV-28`,
+  `RECOV-30`, `RECOV-31`).
+- `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
+  and the `RetryOptions` validation.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

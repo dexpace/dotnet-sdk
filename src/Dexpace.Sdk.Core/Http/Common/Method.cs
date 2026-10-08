@@ -2,7 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Text;
-using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.Resilience;
 
 namespace Dexpace.Sdk.Core.Http.Common;
 

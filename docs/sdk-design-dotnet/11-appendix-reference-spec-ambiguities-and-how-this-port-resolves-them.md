@@ -285,6 +285,21 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
 51. **`CFG-12` asks for a builder that is safe to share while unfinished; core has no configuration builder.** *Added by dated
     correction, 2026-10-07 (phase 5a, P5a-25).* *Resolved* (§8.2): an object initializer runs on an instance no other code can reach, so
     the clause is vacuous and the row is N/A.
+52. **`RETRY-41` says to clamp a negative retry count to the default; `RECOV-34` and `HTTP-35` say to reject it.** *Added by dated
+    correction, 2026-10-08 (phase 6a, P6a-13).* *Resolved* (§6.1): `RetryOptions` rejects a negative `MaxRetryAttempts` where it is set, so the
+    clamp clause is vacuous; the row is met on its override and zero clauses.
+53. **`RETRY-10` and `RETRY-15` speak of nanoseconds; `TimeSpan` has 100 ns ticks.** *Added by dated correction, 2026-10-08 (phase 6a,
+    P6a-14).* *Resolved* (§6.1): a jitter width below one tick returns the base delay and a fractional `Retry-After` is honoured to seven
+    decimal places.
+54. **`RETRY-21` describes the stage stack's pacing headers as a caller-configurable ordered list.** *Added by dated correction, 2026-10-08
+    (phase 6a, P6a-17).* *Resolved* (§6.1): both stacks use one fixed precedence; the configurability is `HonorRetryAfter`, an on/off switch
+    for all four headers on the stage stack, ignored by the recovery stack.
+55. **`RETRY-16` maps an "out-of-range" value to no hint; `RETRY-18` clamps computed deltas to 365 days.** *Added by dated correction,
+    2026-10-08 (phase 6a, P6a-18).* *Resolved* (§6.1): "out of range" is outside the grammar or a date field's range; a well-formed numeral of any
+    size saturates and is clamped, so a 30-digit `Retry-After` waits 365 days rather than 200 ms.
+56. **`RECOV-19` classifies each RE-SENT attempt's response.** *Added by dated correction, 2026-10-08 (phase 6a, P6a-6).* *Resolved* (§5.2,
+    §6.1): the dispatcher composition performs the initial send itself, so it classifies every send, and an initial 503 is retried whether
+    or not `ErrorMappingStep` is installed.
 
 **Correction 2026-10-07 (phase 5c, P5c-10).** Item 38 as built: `http.client.request.duration` (histogram, `s`, OpenTelemetry's bucket advice
 `0.005`, `0.01`, `0.025`, `0.05`, `0.075`, `0.1`, `0.25`, `0.5`, `0.75`, `1`, `2.5`, `5`, `7.5`, `10`, through `InstrumentAdvice<double>`, which

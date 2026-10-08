@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Resilience;
 using Dexpace.Sdk.Core.Serialization;
 
 namespace Dexpace.Sdk.Core.Errors;
@@ -12,6 +13,9 @@ namespace Dexpace.Sdk.Core.Errors;
 /// <remarks>Safe to retry on idempotent methods.</remarks>
 public class ServiceRequestException : SdkException
 {
+    /// <summary>Gets <see langword="true"/>: a failure before a response was received is always retryable (XCUT-4, RETRY-4).</summary>
+    public sealed override bool IsRetryable => true;
+
     /// <summary>Initializes a new instance.</summary>
     public ServiceRequestException()
     {
@@ -65,6 +69,9 @@ public sealed class ServiceRequestTimeoutException : ServiceRequestException
 /// </summary>
 public class ServiceResponseException : SdkException
 {
+    /// <summary>Gets <see langword="true"/>: a failure to read a received response is always retryable (XCUT-4, RETRY-4).</summary>
+    public sealed override bool IsRetryable => true;
+
     /// <summary>Initializes a new instance.</summary>
     public ServiceResponseException()
     {
@@ -92,6 +99,8 @@ public class ServiceResponseException : SdkException
 /// </summary>
 public class HttpResponseException : SdkException
 {
+    private readonly bool _isRetryable;
+
     /// <summary>Initializes a new instance carrying the offending response.</summary>
     /// <param name="response">The received error response.</param>
     /// <param name="message">An optional message; defaults to the status line.</param>
@@ -100,7 +109,14 @@ public class HttpResponseException : SdkException
     {
         Response = response;
         Status = response.Status;
+        _isRetryable = RetryFacts.IsRetryableStatus(response.Status.Code);
     }
+
+    /// <summary>
+    /// Gets whether the status is retryable by the single classifier (408, 429, 500 to 599 except 501 and 505), computed
+    /// once at construction (XCUT-5, RETRY-3). The retry engines decide by the configured status set instead (RETRY-37).
+    /// </summary>
+    public sealed override bool IsRetryable => _isRetryable;
 
     /// <summary>The received error response.</summary>
     public Response Response { get; }

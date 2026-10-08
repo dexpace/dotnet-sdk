@@ -11,11 +11,12 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.Resilience;
 using Dexpace.Sdk.TestSupport.Time;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
-namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
+namespace Dexpace.Sdk.Core.Tests.Resilience;
 
 /// <summary>HTTP-9: the single source of method idempotency (design section 6.1).</summary>
 [Trait("Category", "Unit")]

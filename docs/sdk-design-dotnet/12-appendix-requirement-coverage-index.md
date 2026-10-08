@@ -86,3 +86,7 @@ at the head of this appendix); the vacuous ones are listed there too. Every othe
 covered by a §10 entry that argues its guarantee is kept.
 
 ---
+
+**Correction 2026-10-08 (phase 6a).** The `RETRY` row is now 45 of 45: **RETRY-29**, **RETRY-38** and **RETRY-43** are built (the `ShouldRetry` hook,
+`RetryOptions.AttemptHeaderName`, `RetryOptions.FixedDelay`), and nothing in `RETRY` is deferred. The `RECOV` rows **RECOV-17**–**RECOV-31** and
+**RECOV-34** are built (**RECOV-31** with **RETRY-38**, one feature under two IDs); see the 6a checklist's carried-rows table.

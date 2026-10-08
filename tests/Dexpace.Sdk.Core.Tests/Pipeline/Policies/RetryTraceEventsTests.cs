@@ -108,13 +108,13 @@ public sealed class RetryTraceEventsTests
     }
 
     [Fact]
-    public async Task A_non_idempotent_request_is_not_exhausted()
+    public async Task A_request_that_cannot_be_resent_is_not_exhausted()
     {
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var pipeline = TracingFixtures.Pipeline(new ScriptedTransport(s_serviceUnavailable), mapped: true);
 
         await Assert.ThrowsAsync<HttpResponseException>(
-            async () => await pipeline.SendAsync(Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes("x"u8.ToArray())), TestContext.Current.CancellationToken));
+            async () => await pipeline.SendAsync(new Request(Method.Post, new Uri("https://api.example.com/v1/items")), TestContext.Current.CancellationToken));
 
         Assert.Equal(["exception"], TracingFixtures.EventNames(Operation(recorder)));
     }
@@ -139,6 +139,34 @@ public sealed class RetryTraceEventsTests
         await Assert.ThrowsAsync<HttpResponseException>(async () => await pipeline.SendAsync(Get(), TestContext.Current.CancellationToken));
 
         Assert.Equal(["exception"], TracingFixtures.EventNames(Operation(recorder)));
+    }
+
+    [Fact]
+    public async Task The_exhausted_event_follows_the_final_predicate()
+    {
+        // OBS-29, P6a-28: exhausted = the cap was spent while the condition and the re-send gate held and the effective count
+        // was above zero. Each other combination ends without the event.
+        async Task<string[]> RunAsync(IAsyncHttpClient transport, Request request, int retries)
+        {
+            using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
+            var pipeline = TracingFixtures.Pipeline(transport, retries: retries);
+            await Assert.ThrowsAnyAsync<Exception>(async () => await pipeline.SendAsync(request, TestContext.Current.CancellationToken));
+            return TracingFixtures.EventNames(Operation(recorder));
+        }
+
+        static ScriptedTransport Thrower(int count) =>
+            new(Enumerable.Range(0, count).Select(_ => (object)new ServiceRequestException("never sent")).ToArray());
+
+        Assert.Equal(
+            ["dexpace.attempt.failed", "dexpace.attempt.failed", "dexpace.retry.exhausted", "exception"],
+            await RunAsync(Thrower(3), Get(), retries: 2));
+        Assert.Equal(["exception"], await RunAsync(Thrower(1), Get(), retries: 0));
+        Assert.Equal(
+            ["exception"],
+            await RunAsync(new ScriptedTransport(new InvalidOperationException("not retryable")), Get(), retries: 2));
+        Assert.Equal(
+            ["exception"],
+            await RunAsync(Thrower(1), new Request(Method.Post, new Uri("https://api.example.com/v1/items")), retries: 2));
     }
 
     [Fact]

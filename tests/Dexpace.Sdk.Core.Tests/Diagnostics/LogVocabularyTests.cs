@@ -86,8 +86,11 @@ public sealed class LogVocabularyTests
 
         Assert.InRange(ids["DisposeSuppressedId"], 130, 139);
 
-        // 110-119 (8b header drops) and 140-169 (retry, redirect, auth) are reserved and unused in 5b.
-        Assert.DoesNotContain(ids.Values, id => id is (>= 110 and <= 119) or (>= 140 and <= 169));
+        // 6a (P6a-28): 140 is the only id in the retry block; 141-149 stay reserved. 6b and 6c each edit their own block.
+        Assert.Equal(140, ids["RetryDelayOverrideFailedId"]);
+
+        // 110-119 (8b header drops), 141-149 (retry), 150-159 (redirect) and 160-169 (auth) are reserved and unused.
+        Assert.DoesNotContain(ids.Values, id => id is (>= 110 and <= 119) or (>= 141 and <= 169));
         Assert.Equal(ids.Count, ids.Values.Distinct().Count());
     }
 

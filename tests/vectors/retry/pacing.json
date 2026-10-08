@@ -1,0 +1,425 @@
+{
+ "source": "nodejs-sdk@54aeed4 packages/core/src/retry/pacing.test.ts (plus ruby-sdk@5b17395 gems/dexpace-core/test/dexpace/resilience/policy_test.rb pacing cases and java-sdk RetryAfterParser cases)",
+ "note": "Each case calls RetryPacing.TryGetHint(headers, now, () => u) with now = 2026-01-01T00:00:00Z plus nowOffsetSeconds. expectedTicks is in 100 ns ticks; null means no hint. Cases that assert a host fact of Node or Ruby (Number() reading an exponent, Float() reading underscores) are not ported (roadmap constraint 10). Where .NET differs from the sibling a note names the ruling.",
+ "cases": [
+  {
+   "name": "Retry-After integer seconds",
+   "headers": {
+    "Retry-After": "30"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 300000000
+  },
+  {
+   "name": "Retry-After fractional seconds",
+   "headers": {
+    "Retry-After": "1.5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 15000000
+  },
+  {
+   "name": "Retry-After zero",
+   "headers": {
+    "Retry-After": "0"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 0
+  },
+  {
+   "name": "Retry-After http-date",
+   "headers": {
+    "Retry-After": "Thu, 01 Jan 2026 00:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 100000000
+  },
+  {
+   "name": "Retry-After http-date single-digit day",
+   "headers": {
+    "Retry-After": "Thu, 1 Jan 2026 00:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 100000000
+  },
+  {
+   "name": "Retry-After http-date wrong weekday is ignored",
+   "headers": {
+    "Retry-After": "Mon, 01 Jan 2026 00:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 100000000
+  },
+  {
+   "name": "Retry-After past http-date is zero",
+   "headers": {
+    "Retry-After": "Thu, 01 Jan 2026 00:00:00 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 5,
+   "expectedTicks": 0
+  },
+  {
+   "name": "Retry-After year 0026 is a valid past instant",
+   "headers": {
+    "Retry-After": "Thu, 01 Jan 0026 00:00:00 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 0
+  },
+  {
+   "name": "Retry-After day 32 is no hint",
+   "headers": {
+    "Retry-After": "Thu, 32 Jan 2026 00:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After hour 24 is no hint",
+   "headers": {
+    "Retry-After": "Thu, 01 Jan 2026 24:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After unknown month is no hint",
+   "headers": {
+    "Retry-After": "Thu, 01 Foo 2026 00:00:10 GMT"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '30d' is no hint",
+   "headers": {
+    "Retry-After": "30d"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '30f' is no hint",
+   "headers": {
+    "Retry-After": "30f"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '0x1p3' is no hint",
+   "headers": {
+    "Retry-After": "0x1p3"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After 'NaN' is no hint",
+   "headers": {
+    "Retry-After": "NaN"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After 'Infinity' is no hint",
+   "headers": {
+    "Retry-After": "Infinity"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '-Infinity' is no hint",
+   "headers": {
+    "Retry-After": "-Infinity"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '1e3' is no hint",
+   "headers": {
+    "Retry-After": "1e3"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '+30' is no hint",
+   "headers": {
+    "Retry-After": "+30"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '-5' is no hint",
+   "headers": {
+    "Retry-After": "-5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '.5' is no hint",
+   "headers": {
+    "Retry-After": ".5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '5.' is no hint",
+   "headers": {
+    "Retry-After": "5."
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '1,5' is no hint",
+   "headers": {
+    "Retry-After": "1,5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After '' is no hint",
+   "headers": {
+    "Retry-After": ""
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After padded with spaces is trimmed",
+   "headers": {
+    "Retry-After": " 30 "
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 300000000,
+   "note": "Node rejects a padded value; RFC 9110 field values are trimmed of SP and HTAB, so .NET reads it (P6a-18)."
+  },
+  {
+   "name": "Retry-After with an interior space is no hint",
+   "headers": {
+    "Retry-After": "3 0"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "Retry-After eight fraction digits truncates the eighth",
+   "headers": {
+    "Retry-After": "0.12345679"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 1234567
+  },
+  {
+   "name": "Retry-After one tick",
+   "headers": {
+    "Retry-After": "0.0000001"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 1
+  },
+  {
+   "name": "Retry-After huge numeral saturates at 365 days",
+   "headers": {
+    "Retry-After": "99999999999"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 315360000000000
+  },
+  {
+   "name": "Retry-After thirty digits saturates at 365 days",
+   "headers": {
+    "Retry-After": "100000000000000000000000000000"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 315360000000000
+  },
+  {
+   "name": "Retry-After int.MaxValue saturates",
+   "headers": {
+    "Retry-After": "2147483647"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 315360000000000
+  },
+  {
+   "name": "Retry-After 60 days is kept",
+   "headers": {
+    "Retry-After": "5184000"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 51840000000000
+  },
+  {
+   "name": "retry-after-ms honoured",
+   "headers": {
+    "retry-after-ms": "250"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 2500000
+  },
+  {
+   "name": "x-ms-retry-after-ms honoured",
+   "headers": {
+    "x-ms-retry-after-ms": "250"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 2500000
+  },
+  {
+   "name": "retry-after-ms fractional is no hint",
+   "headers": {
+    "retry-after-ms": "25.5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "retry-after-ms precedes x-ms-retry-after-ms",
+   "headers": {
+    "retry-after-ms": "250",
+    "x-ms-retry-after-ms": "999"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 2500000
+  },
+  {
+   "name": "a malformed Retry-After falls through to retry-after-ms",
+   "headers": {
+    "Retry-After": "garbage",
+    "retry-after-ms": "250"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 2500000
+  },
+  {
+   "name": "a malformed retry-after-ms falls through to x-ms-retry-after-ms",
+   "headers": {
+    "retry-after-ms": "x",
+    "x-ms-retry-after-ms": "7"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 70000
+  },
+  {
+   "name": "numeric Retry-After beats every other form",
+   "headers": {
+    "Retry-After": "30",
+    "retry-after-ms": "1",
+    "x-ms-retry-after-ms": "2",
+    "X-RateLimit-Reset": "1767225699"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 300000000
+  },
+  {
+   "name": "X-RateLimit-Reset epoch delta",
+   "headers": {
+    "X-RateLimit-Reset": "1767225610"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 100000000
+  },
+  {
+   "name": "X-RateLimit-Reset adds up to 20 percent at u=1",
+   "headers": {
+    "X-RateLimit-Reset": "1767225610"
+   },
+   "u": 1.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 120000000
+  },
+  {
+   "name": "X-RateLimit-Reset adds 10 percent at u=0.5",
+   "headers": {
+    "X-RateLimit-Reset": "1767225610"
+   },
+   "u": 0.5,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 110000000
+  },
+  {
+   "name": "X-RateLimit-Reset in the past is zero",
+   "headers": {
+    "X-RateLimit-Reset": "1767225590"
+   },
+   "u": 1.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": 0
+  },
+  {
+   "name": "X-RateLimit-Reset signed is no hint",
+   "headers": {
+    "X-RateLimit-Reset": "+1767225610"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "X-RateLimit-Reset fractional is no hint",
+   "headers": {
+    "X-RateLimit-Reset": "1767225610.5"
+   },
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  },
+  {
+   "name": "no pacing header is no hint",
+   "headers": {},
+   "u": 0.0,
+   "nowOffsetSeconds": 0,
+   "expectedTicks": null
+  }
+ ]
+}

@@ -155,3 +155,9 @@ plus the new wire test `Without_a_runtime_listener_the_sdk_stamp_survives_even_a
 - `TracePropagationWireTests` is its own `DisableParallelization` collection (`TracePropagation`): it installs listeners and reads headers that depend on an ambient activity.
 - The AOT smoke check (`CheckTracingAndMetricsAsync`) saw no trim or AOT warning; `InternalsVisibleTo` was not extended.
 - `DexpaceDiagnostics`, `HttpPipeline`, `PipelineStage.Operation`, `OperationPolicy`, `PipelineContext.Instrumentation` and `SystemNetHttpClient` gained documentation only (no signature).
+
+## Correction 2026-10-08 (phase 6a)
+
+The `RETRY-*` row's "`IsExhausted` is the one method 6a replaces" is closed: `RetryPolicy.IsExhausted` is gone, the engine's observer calls
+`OperationTelemetry.RetriesExhausted` under the final predicate (the cap was spent while the condition and the re-send gate held and the effective retry count was
+above zero), and the three calls stay at the same decisions (`RetryTraceEventsTests.The_exhausted_event_follows_the_final_predicate`). The rows above stand as written at 5c's exit.

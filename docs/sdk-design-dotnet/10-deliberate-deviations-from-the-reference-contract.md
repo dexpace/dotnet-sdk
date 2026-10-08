@@ -82,6 +82,8 @@ line and in the roadmap.
    other clause holds. For classification the retryable I/O family is read as `IOException`, `HttpRequestException`
    without a status, `SocketException` and `TimeoutException`, plus the `IRetryableError` capability (**XCUT-6**);
    that reading is §11 item 23. §3.2 (failure mapping), §6.1 (classification).
+   *Correction 2026-10-08 (phase 6a, P6a-8):* the capability widens the classification and never vetoes it: an SDK wrapper whose
+   `IsRetryable` is `false` around an `IOException` is still retried, because **RETRY-2** says "anywhere in its cause chain".
 8. **Cancellation is a cooperative `CancellationToken`; interrupts, interrupt modes and interrupt-flag restoration
    have no counterpart.** *Touches* **TRANSPORT-3**, **XCUT-1**, **ASYNC-3**, **ASYNC-4**, **ASYNC-14**, **SEAM-18**
    and **PIPE-34** (their interrupt clauses), **SEAM-14** clause (3), **XCUT-13** (its interrupt-flag clause),

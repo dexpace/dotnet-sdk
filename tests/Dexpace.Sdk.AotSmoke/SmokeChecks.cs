@@ -58,6 +58,7 @@ internal static class SmokeChecks
             await CheckHttpLoggingAsync();
             await CheckPhase5aConfigurationAsync();
             await CheckTracingAndMetricsAsync();
+            await CheckPhase6aRetryAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -557,7 +558,7 @@ internal static class SmokeChecks
     {
         var options = new DexpaceClientOptions { BaseAddress = new Uri("https://api.example.test/v1?sig=secret") };
         var derived = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
-        Expect(options.Retry.MaxRetryAttempts == 3 && derived.Retry.MaxRetryAttempts == 5, "options derive with `with`");
+        Expect(options.Retry.MaxRetryAttempts == 2 && derived.Retry.MaxRetryAttempts == 5, "options derive with `with`");
         Expect(!options.ToString().Contains("secret", StringComparison.Ordinal), "options ToString redacts the base address");
         var relativeRejected = false;
         try
@@ -597,6 +598,116 @@ internal static class SmokeChecks
         await TimeProvider.System.DelayAsync(TimeSpan.Zero, CancellationToken.None);
     }
 
+    // Phase 6a: the retry surface under NativeAOT, on a clock whose timers fire almost at once (no reflection).
+    private static async Task CheckPhase6aRetryAsync()
+    {
+        var clock = new InstantClock();
+        var retryOptions = new RetryOptions { Jitter = 0, BaseDelay = TimeSpan.FromMilliseconds(200) };
+        var clientOptions = new DexpaceClientOptions { Retry = retryOptions };
+
+        // RetryPolicy: 503 then 200 is two sends and the 200 comes back.
+        var sends = 0;
+        await using var flaky = DelegateHttpClient.Create((request, _, _) =>
+        {
+            sends++;
+            return Task.FromResult(new Response(request, sends == 1 ? Status.ServiceUnavailable : Status.Ok, Protocol.Http11));
+        });
+        var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(flaky);
+        using var recovered = await pipeline.SendAsync(Request.Get("https://smoke.example.test/"), clientOptions, CancellationToken.None);
+        Expect(recovered.Status == Status.Ok && sends == 2, "RetryPolicy retries a 503 once and returns the 200");
+
+        // RetryRecovery through RecoveryDispatcher: 503, 503, 200 reaches the 200.
+        var dispatched = 0;
+        await using var recoveryTransport = DelegateHttpClient.Create((request, _, _) =>
+        {
+            dispatched++;
+            return Task.FromResult(new Response(request, dispatched < 3 ? Status.ServiceUnavailable : Status.Ok, Protocol.Http11));
+        });
+        var dispatcher = new RecoveryDispatcher(
+            RequestRecoveryChain.Empty,
+            ResponseRecoveryChain.Empty,
+            new RetryRecovery(retryOptions, timeProvider: clock));
+        using var reached = await dispatcher.DispatchAsync(recoveryTransport, Request.Get("https://smoke.example.test/"), RequestOptions.Empty);
+        Expect(reached.Status == Status.Ok && dispatched == 3, "RetryRecovery retries through RecoveryDispatcher to the 200");
+
+        await CheckPhase6aTimeoutAndCapabilityAsync(clock, clientOptions);
+        CheckPhase6aOptionValidation();
+    }
+
+    private static async Task CheckPhase6aTimeoutAndCapabilityAsync(TimeProvider clock, DexpaceClientOptions clientOptions)
+    {
+        // OperationPolicy: an expired overall deadline is an OperationTimeoutException.
+        await using var hanging = DelegateHttpClient.Create(async (request, _, token) =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return new Response(request, Status.Ok, Protocol.Http11);
+        });
+        var timed = new PipelineBuilder().Add(new OperationPolicy(clock)).Build(hanging);
+        var timedOut = false;
+        try
+        {
+            await timed.SendAsync(Request.Get("https://smoke.example.test/"), new DexpaceClientOptions { OverallTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None);
+        }
+        catch (OperationTimeoutException)
+        {
+            timedOut = true;
+        }
+
+        Expect(timedOut, "OperationPolicy throws OperationTimeoutException when the deadline expires");
+
+        // IRetryableError: a custom exception is retried and a plain one is not.
+        var custom = 0;
+        await using var customTransport = DelegateHttpClient.Create((request, _, _) =>
+            ++custom == 1 ? Task.FromException<Response>(new RetryableSmokeException()) : Task.FromResult(new Response(request, Status.Ok, Protocol.Http11)));
+        var customPipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(customTransport);
+        using var retriedCustom = await customPipeline.SendAsync(Request.Get("https://smoke.example.test/"), clientOptions, CancellationToken.None);
+        Expect(retriedCustom.Status == Status.Ok && custom == 2, "an IRetryableError exception is retried");
+
+        var plain = 0;
+        await using var plainTransport = DelegateHttpClient.Create((request, _, _) =>
+        {
+            plain++;
+            return Task.FromException<Response>(new InvalidOperationException("plain"));
+        });
+        var plainPipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(plainTransport);
+        var plainThrown = false;
+        try
+        {
+            await plainPipeline.SendAsync(Request.Get("https://smoke.example.test/"), clientOptions, CancellationToken.None);
+        }
+        catch (InvalidOperationException)
+        {
+            plainThrown = true;
+        }
+
+        Expect(plainThrown && plain == 1, "a plain exception is not retried");
+    }
+
+    private static void CheckPhase6aOptionValidation()
+    {
+        // RetryOptions validates in its init accessors.
+        var rejected = 0;
+        try
+        {
+            _ = new RetryOptions { MaxRetryAttempts = -1 };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            rejected++;
+        }
+
+        try
+        {
+            _ = new RetryOptions { Jitter = 2 };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            rejected++;
+        }
+
+        Expect(rejected == 2, "RetryOptions rejects a negative MaxRetryAttempts and a Jitter of 2");
+    }
+
     private static void Expect(bool condition, string what)
     {
         if (!condition)
@@ -622,6 +733,19 @@ internal static class SmokeChecks
             Interlocked.Increment(ref _releases);
             base.Dispose(disposing);
         }
+    }
+
+    /// <summary>A clock whose timers fire almost at once, so a retry wait or a deadline passes without waiting.</summary>
+    private sealed class InstantClock : TimeProvider
+    {
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+            base.CreateTimer(callback, state, TimeSpan.FromMilliseconds(1), period);
+    }
+
+    /// <summary>An exception that opts into retries through the capability, with no SDK base type.</summary>
+    private sealed class RetryableSmokeException : Exception, IRetryableError
+    {
+        public bool IsRetryable => true;
     }
 
     /// <summary>An in-process dual-interface transport that counts which member was reached.</summary>

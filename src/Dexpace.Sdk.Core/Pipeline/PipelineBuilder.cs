@@ -210,7 +210,7 @@ public sealed class PipelineBuilder
     /// <see cref="RetryPolicy"/> and <see cref="InstrumentationPolicy"/>, into EMPTY pillars only (PIPE-24). All four are
     /// checked up front; if any target pillar is occupied nothing is installed.
     /// </summary>
-    /// <param name="timeProvider">The time provider for <see cref="RetryPolicy"/>, or <see langword="null"/> for the system clock.</param>
+    /// <param name="timeProvider">The time provider for <see cref="OperationPolicy"/> and <see cref="RetryPolicy"/>, or <see langword="null"/> for the system clock.</param>
     /// <param name="logger">The logger for <see cref="InstrumentationPolicy"/>, or <see langword="null"/>.</param>
     /// <returns>This builder (fluent interface).</returns>
     /// <exception cref="InvalidOperationException">A target pillar is occupied; the builder is unchanged.</exception>
@@ -218,7 +218,7 @@ public sealed class PipelineBuilder
     {
         HttpPipelinePolicy[] preset =
         [
-            new OperationPolicy(),
+            new OperationPolicy(timeProvider),
             new RedirectPolicy(),
             new RetryPolicy(timeProvider),
             new InstrumentationPolicy(logger),

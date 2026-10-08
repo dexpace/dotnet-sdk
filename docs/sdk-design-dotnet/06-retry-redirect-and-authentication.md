@@ -194,6 +194,24 @@ set; no classifier or `IsRetryable`; safety predicate wrong both ways; `Retry-Af
 only, unclamped (60-day hint throws); no `-ms`/rate-limit headers; no suppressed trail; overall deadline surfaces
 as cancellation; `AttemptTimeout` unused; no recovery-chain stack.
 
+**As built (2026-10-08, phase 6a):** built. `RetryFacts` moved to the internal `Dexpace.Sdk.Core.Resilience` namespace (P6a-4), which holds the
+classifier, the one backoff calculator (`RetryBackoff`), the one pacing parser (`RetryPacing`), `RetryBudget` and `RetryEngine`. The text
+above stands as written, with six *dated corrections*:
+
+- **One loop under both stacks (P6a-3).** "Both stacks share `RetryFacts`, the pacing parser and `RetryWait`" reads "… and one loop":
+  `RetryPolicy` and `RetryRecovery` are adapters over the same `RetryEngine`. This single-sources the loop; it does not unify the stacks,
+  so §11 item 19 stands (the budget stays recovery-only).
+- **The classifier's capability widens and never vetoes (P6a-8).** An `HttpResponseException` anywhere in the cause chain is decided by
+  `RetryOptions.RetryableStatusCodes` alone; otherwise a `true` `IRetryableError` or the I/O family anywhere in the chain is retryable.
+- **`OperationTimeoutException` (P6a-24).** An expired `OverallTimeout` throws it (non-retryable, the inner trail copied onto it);
+  `OverallTimeout` and `AttemptTimeout` accept `null` or `(0, 49 days]`.
+- **`AttemptTimeout` is cooperative, not abandoning (P6a-23).** A per-attempt linked token source on the `TimeProvider`, mapped to a
+  retried `ServiceRequestTimeoutException`; no `LateResult`.
+- **The recovery stack's position (P6a-5).** `RetryRecovery` is configuration composed by `RecoveryDispatcher` (request chain once;
+  transport and response steps per send; recovery steps once), not an `IRecoveryStep`; every send's surviving response in the configured
+  set is classified (P6a-6).
+- **The random source is injectable through internal constructors only (P6a-27)**, not a public parameter.
+
 ### 6.2 Redirect
 
 **P13 — the transport follows redirects by default, and does it wrong.** `HttpClientHandler.AllowAutoRedirect` and

@@ -103,3 +103,9 @@ Evidence: `git diff --stat main...HEAD -- tests/Dexpace.Sdk.Http.SystemNet.Tests
   (`CA1068`).
 - `TestSupport/Recovery/` also holds `ProbeResponseBody`, a response body that supports both read forms and fails its read or release on demand, because
   `DisposalCountingBody` has no synchronous `OpenRead`.
+
+## Correction 2026-10-08 (phase 6a)
+
+`RECOV-17`–`RECOV-25`, `RECOV-27`–`RECOV-31` and `RECOV-34` are no longer ⏳: phase 6a built them, and the evidence is in the
+[carried-rows table of the 6a checklist](../../phase6/phase6a/2026-10-08-phase6a-retry-checklist.md#carried-rows), which also covers the re-sent-response
+clause of `RECOV-16` and the engine clause of `RECOV-26`. The rows above stand as written at 4b's exit.

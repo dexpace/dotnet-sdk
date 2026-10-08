@@ -1,54 +1,58 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
-using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Internal;
+using Dexpace.Sdk.Core.Recovery;
+using Dexpace.Sdk.Core.Resilience;
 
 namespace Dexpace.Sdk.Core.Pipeline.Policies;
 
 /// <summary>
-/// A retry pipeline policy that retries failed requests with exponential back-off and
-/// full jitter, optionally honoring <c>Retry-After</c> response headers.
+/// The retry pipeline policy: it re-sends a failed request on a jittered exponential schedule, honouring the server's
+/// pacing headers, and bounds each attempt with <see cref="DexpaceClientOptions.AttemptTimeout"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Retryable statuses:</b> 408, 429, 500, 502, 503, 504. Any other status (including 4xx)
-/// is returned immediately.
+/// <b>One engine.</b> The policy is an adapter over <c>RetryEngine</c>, the loop the recovery stack
+/// (<c>RetryRecovery</c>) drives too, so the classifier, the backoff calculator and the pacing parser are written
+/// once (RETRY-13). The policy has no total-time budget (RETRY-28); <see cref="DexpaceClientOptions.OverallTimeout"/> is
+/// enforced outside it.
 /// </para>
 /// <para>
-/// <b>Retryable exceptions:</b> <see cref="ServiceRequestException"/> (request never sent) and
-/// <see cref="ServiceResponseException"/> (sent but response unreadable). All other exceptions,
-/// including <see cref="OperationCanceledException"/>, propagate unchanged.
+/// <b>Classification.</b> A response is retried when its status is in <see cref="RetryOptions.RetryableStatusCodes"/>
+/// (default 408, 429, 500, 502, 503, 504). An exception is retried when it, or any cause in its chain, reports
+/// <see cref="IRetryableError.IsRetryable"/> or is in the I/O family (<see cref="System.IO.IOException"/>,
+/// <see cref="System.Net.Sockets.SocketException"/>, <see cref="TimeoutException"/>, an
+/// <see cref="System.Net.Http.HttpRequestException"/> with no status); an <see cref="HttpResponseException"/> anywhere in
+/// the chain is decided by the configured status set alone. A cancelled call is never retried.
 /// </para>
 /// <para>
-/// <b>Non-idempotent requests</b> are retried only when the request body is replayable
-/// (or absent) AND <see cref="RetryOptions.RetryNonIdempotentWhenReplayable"/> is
-/// <see langword="true"/>.
+/// <b>Re-send gate.</b> A request is re-sent only when it has no body and an idempotent method (GET, HEAD, OPTIONS, PUT,
+/// DELETE), or when its body is replayable (RETRY-5); the same gate applies to every failure. At most
+/// <c>MaxRetryAttempts</c> retries follow the first send, or <c>RequestOptions.MaxRetries</c> when it is set; zero means
+/// one send (RETRY-41).
 /// </para>
 /// <para>
-/// <b>Breaking (behaviour):</b> TRACE is no longer retried; idempotency is read from the single internal
-/// set GET, HEAD, OPTIONS, PUT, DELETE (HTTP-9).
+/// <b>Delay.</b> In order: <see cref="GetDelayOverride"/>, the server's pacing hint (when
+/// <see cref="RetryOptions.HonorRetryAfter"/> is on), <see cref="RetryOptions.FixedDelay"/>, then
+/// <c>BaseDelay × Multiplier^(n−1)</c> capped at <c>MaxDelay</c> with symmetric jitter (RETRY-39). Every delay is clamped
+/// to 365 days and waited through <see cref="TimeProvider"/>: the clock passed to the constructor, which the SDK never
+/// disposes (RETRY-45).
 /// </para>
 /// <para>
-/// <b>Breaking (behaviour):</b> an HTTP-date <c>Retry-After</c> is parsed by <see cref="HttpDate"/> (CFG-30, RETRY-15;
-/// phase 5a). Values the BCL parser rejected are now honoured: lower case, a weekday inconsistent with the date, the
-/// <c>UTC</c>, <c>+0000</c> and <c>+00:00</c> zones, and a single-digit day. RFC 850 and asctime are still ignored (a
-/// rejected date is "no hint", never a wrong wait; design §11 item 27).
-/// </para>
-/// <para>
-/// <b>Delay:</b> when <c>Retry-After</c> is present and
-/// <see cref="RetryOptions.HonorRetryAfter"/> is <see langword="true"/>, the parsed value
-/// is used; otherwise the delay is drawn from a uniform random distribution over
-/// <c>[0, min(BaseDelay × 2^attempt, MaxDelay)]</c> (full jitter). The
-/// <see cref="TimeProvider"/> passed to the constructor drives both the current-time lookup
-/// (for HTTP-date parsing) and both waits, <see cref="TimeProviderWaits.DelayAsync"/> and
-/// <see cref="TimeProviderWaits.Sleep"/>, so tests can control delays without real sleeps. Every delay, hinted or
-/// computed, is clamped to 365 days, and a delay longer than a timer accepts is waited as successive shorter waits.
+/// <b>Failures.</b> A discarded error response is drained (at most 1 MiB) into an <see cref="HttpResponseException"/>; when
+/// the call fails, the exception it throws carries every earlier attempt's failure in <see cref="SdkException.Suppressed"/>
+/// or <see cref="ExceptionTrail"/>, oldest first (RETRY-34). When the retries are spent on a response, that response is
+/// returned live and unread (PIPE-40). An attempt that exceeds <see cref="DexpaceClientOptions.AttemptTimeout"/> is a
+/// retried <see cref="ServiceRequestTimeoutException"/>; the timeout is cooperative, so a transport that ignores its token
+/// is not bounded by it.
 /// </para>
 /// <para>
 /// <b>Request isolation:</b> every attempt is driven with the request held at entry, so a retry never carries what a
@@ -56,246 +60,242 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// blocking wait over the <see cref="TimeProvider"/>, not sync-over-async (PIPE-28).
 /// </para>
 /// <para>
+/// <b>Hooks.</b> <see cref="ShouldRetry"/> and <see cref="GetDelayOverride"/> are the two extension points; every other
+/// member is sealed, so a subclass cannot change the stage or the loop (PIPE-36). They must be pure, stateless and fast:
+/// the policy is shared across concurrent calls (RETRY-42). A server-driven override (RETRY-29) is a subclass:
+/// </para>
+/// <code>
+/// public sealed class ServerHintRetryPolicy : RetryPolicy
+/// {
+///     protected override bool? ShouldRetry(RetryAttemptContext attempt) =>
+///         attempt.Response?.Headers.Get("X-Should-Retry") switch
+///         {
+///             "true" or "1" or "yes" or "retry" =&gt; true,
+///             "false" or "0" or "no" or "stop" =&gt; false,
+///             _ =&gt; null,
+///         };
+/// }
+/// </code>
+/// <para>
 /// <b>Diagnostic events (OBS-28, OBS-29):</b> the policy reports each retried failure, with the wait before the next
 /// attempt, and a spent budget through the operation span's events (<c>dexpace.attempt.failed</c>,
-/// <c>dexpace.retry.exhausted</c>; design 5c position E). Phase 6a's engine keeps the same calls at the same decisions.
+/// <c>dexpace.retry.exhausted</c>), and a failing delay override through the log event 140
+/// (<c>dexpace.retry.delay_override_failed</c>).
 /// </para>
 /// <para>
-/// <b>Response disposal:</b> when a retryable response is going to be retried, the response
-/// is disposed before sleeping to release the connection promptly.
+/// <b>Breaking (behaviour):</b> TRACE is no longer retried; idempotency is read from the single internal set GET, HEAD,
+/// OPTIONS, PUT, DELETE (HTTP-9).
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> an HTTP-date <c>Retry-After</c> is parsed by <see cref="Http.Common.HttpDate"/> (CFG-30, RETRY-15;
+/// phase 5a); RFC 850 and asctime are still ignored (a rejected date is "no hint", never a wrong wait; design §11 item 27).
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> classification is no longer limited to <see cref="ServiceRequestException"/> and
+/// <see cref="ServiceResponseException"/>: a raw I/O-family exception, or any exception reporting
+/// <see cref="IRetryableError.IsRetryable"/>, is retried, and the configured status set decides for a wrapped
+/// <see cref="HttpResponseException"/> (RETRY-2, RETRY-37).
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> <c>HonorRetryAfter</c> now covers <c>retry-after-ms</c>, <c>x-ms-retry-after-ms</c> and
+/// <c>X-RateLimit-Reset</c> as well as a fractional <c>Retry-After</c> (RETRY-15), and the schedule is symmetric jitter
+/// around the capped delay (was full jitter over <c>[0, delay]</c>).
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> a retried error response's body is drained (at most 1 MiB) before it is disposed (was:
+/// disposed unread), and the exception a failed call throws carries every earlier attempt's failure (RETRY-34).
+/// </para>
+/// <para>
+/// <b>Breaking (source):</b> the class is no longer <see langword="sealed"/>; <see cref="HttpPipelinePolicy.Stage"/>,
+/// <see cref="Process"/> and <see cref="ProcessAsync"/> are sealed overrides. Reflection over <c>IsSealed</c> changes.
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> <see cref="DexpaceClientOptions.AttemptTimeout"/> is enforced here (was: read by nothing).
+/// </para>
+/// <para>
+/// <b>Breaking (behaviour):</b> a response that arrives after the caller's token fired is disposed and the call throws
+/// <see cref="OperationCanceledException"/> (RETRY-32).
 /// </para>
 /// </remarks>
-public sealed class RetryPolicy : HttpPipelinePolicy
+public class RetryPolicy : HttpPipelinePolicy
 {
-    private static readonly HashSet<int> s_retryableStatusCodes = [408, 429, 500, 502, 503, 504];
-
-    // RETRY-18 / RECOV-26: the ceiling every pacing delta is clamped to, whether it came from a server hint or the
-    // back-off schedule.
-    private static readonly TimeSpan s_maxPacingDelay = TimeSpan.FromDays(365);
-
     private readonly TimeProvider _timeProvider;
+    private readonly RetryEngine _engine;
 
     /// <summary>
     /// Initializes a new <see cref="RetryPolicy"/>.
     /// </summary>
     /// <param name="timeProvider">
-    /// The time source used to obtain the current UTC instant (for <c>Retry-After</c> HTTP-date
-    /// parsing) and to drive <see cref="TimeProviderWaits"/>.
-    /// Defaults to <see cref="TimeProvider.System"/> when <see langword="null"/>.
+    /// The time source used to obtain the current UTC instant (for HTTP-date and epoch pacing hints), to drive
+    /// <see cref="TimeProviderWaits"/> and to arm the attempt timeout. It is never disposed. Defaults to
+    /// <see cref="TimeProvider.System"/> when <see langword="null"/>.
     /// </param>
     public RetryPolicy(TimeProvider? timeProvider = null)
+        : this(timeProvider, null)
     {
-        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <inheritdoc/>
-    public override PipelineStage Stage => PipelineStage.Retry;
+    // P6a-27: the random source is injectable only here, for tests.
+    internal RetryPolicy(TimeProvider? timeProvider, Func<double>? random)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _engine = new RetryEngine(_timeProvider, random ?? Random.Shared.NextDouble);
+    }
+
+    internal RetryEngine Engine => _engine;
 
     /// <inheritdoc/>
-    public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+    public sealed override PipelineStage Stage => PipelineStage.Retry;
+
+    /// <inheritdoc/>
+    public sealed override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
         ProcessCoreAsync(request, context, continuation, async: true);
 
     /// <inheritdoc/>
-    public override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
+    public sealed override Response Process(Request request, PipelineContext context, PipelineRunner continuation) =>
         SyncPath.GetCompletedResult(ProcessCoreAsync(request, context, continuation, async: false), nameof(RetryPolicy));
 
-    // MA0051 waiver: phase 6a rewrites the retry policy on this signature (design §6.1); splitting it now would be
-    // rewritten there.
-#pragma warning disable MA0051
+    /// <summary>
+    /// Overrides the retry condition for one finished send (RETRY-29, RETRY-40).
+    /// </summary>
+    /// <remarks>
+    /// Return <see langword="true"/> or <see langword="false"/> to force the condition, or <see langword="null"/> (the
+    /// default) to defer to the classifier. The override flips the condition only: the re-send gate and the attempt cap
+    /// still apply, and the hook is never asked about a cancelled call. If it throws, the call fails with an
+    /// <see cref="InvalidOperationException"/> carrying the exception, the live response is disposed, and the attempt's own
+    /// failure is attached as suppressed. Must be pure, stateless and fast.
+    /// </remarks>
+    /// <param name="attempt">The finished send.</param>
+    /// <returns>The forced condition, or <see langword="null"/>.</returns>
+    protected virtual bool? ShouldRetry(RetryAttemptContext attempt) => null;
+
+    /// <summary>
+    /// Overrides the wait before the next send (RETRY-39, RETRY-40).
+    /// </summary>
+    /// <remarks>
+    /// Return the delay to use, or <see langword="null"/> (the default) to fall through to the server's pacing hint, the
+    /// fixed delay and the backoff. A negative value, or an exception, is reported as the log event
+    /// <c>dexpace.retry.delay_override_failed</c> (id 140) and falls through. Must be pure, stateless and fast.
+    /// </remarks>
+    /// <param name="attempt">The finished send.</param>
+    /// <returns>The delay, or <see langword="null"/>.</returns>
+    protected virtual TimeSpan? GetDelayOverride(RetryAttemptContext attempt) => null;
+
     private async ValueTask<Response> ProcessCoreAsync(Request request, PipelineContext context, PipelineRunner continuation, bool async)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var options = context.Options.Retry;
-        var attempt = 0;
         OperationTelemetry.RetrySequenceStarted(context);
-
-        // RETRY-44 / PIPE-16: every attempt re-sends the request this policy received; a downstream stamp (auth, a
-        // per-attempt header) is on the callee's copy and there is nothing to restore.
-        while (true)
+        var options = context.Options.Retry;
+        var run = new RetryRun(request, options, (req, send, isAsync, token) => SendAttemptAsync(req, send, isAsync, context, continuation, token))
         {
-            Response? response = null;
-            Exception? caughtException = null;
+            // RETRY-41, HTTP-35: the per-call override wins; zero means one send.
+            MaxRetries = context.RequestOptions.MaxRetries ?? options.MaxRetryAttempts,
+            Budget = RetryBudget.Unbounded,
+            HonorPacing = options.HonorRetryAfter,
+            Condition = attempt => ConsultShouldRetry(attempt, request, context),
+            DelayOverride = attempt => GetDelayOverride(ToHookContext(attempt, request, context)),
+            Observer = new RetryObserver(
+                (outcome, delay) => ReportAttemptFailed(context, outcome, delay),
+                sends => OperationTelemetry.RetriesExhausted(context, sends),
+                failure => RetryLog.DelayOverrideFailed(context.State.Logger, failure)),
+            Logger = context.State.Logger,
+        };
 
-            try
-            {
-                var drive = context.ForAttempt(attempt);
-                response = async
-                    ? await continuation.RunAsync(request, drive).ConfigureAwait(false)
-                    : continuation.Run(request, drive);
-            }
-            catch (Exception ex) when (IsRetryableException(ex))
-            {
-                caughtException = ex;
-            }
+        var terminal = await _engine.RunAsync(run, async, context.CancellationToken).ConfigureAwait(false);
+        return Conclude(terminal);
+    }
 
-            var canRetryRequest = CanRetryRequest(request, options);
-
-            if (caughtException is not null)
-            {
-                // Exception path: re-throw if exhausted or not retryable.
-                if (attempt >= options.MaxRetryAttempts || !canRetryRequest)
-                {
-                    if (IsExhausted(options, attempt, canRetryRequest))
-                    {
-                        OperationTelemetry.RetriesExhausted(context, attempt + 1);
-                    }
-
-                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(caughtException);
-                }
-
-                var exceptionDelay = DelayFor(null, attempt, options);
-                OperationTelemetry.AttemptFailed(context, response: null, caughtException, exceptionDelay);
-                await SleepAsync(exceptionDelay, async, context.CancellationToken).ConfigureAwait(false);
-                attempt++;
-                continue;
-            }
-
-            // Success or non-retryable response path (PIPE-40: the in-flight response is returned undisposed).
-            if (attempt >= options.MaxRetryAttempts
-                || !canRetryRequest
-                || !IsRetryableStatus(response!.Status.Code))
-            {
-                if (IsExhausted(options, attempt, canRetryRequest) && IsRetryableStatus(response!.Status.Code))
-                {
-                    OperationTelemetry.RetriesExhausted(context, attempt + 1);
-                }
-
-                return response!;
-            }
-
-            // Parse Retry-After before disposing the response.
-            TimeSpan? retryAfterDelay = null;
-            if (options.HonorRetryAfter)
-            {
-                var retryAfterHeader = response.Headers.Get(HttpHeaderName.WellKnown.RetryAfter);
-                retryAfterDelay = ParseRetryAfter(retryAfterHeader);
-            }
-
-            var statusDelay = DelayFor(retryAfterDelay, attempt, options);
-            OperationTelemetry.AttemptFailed(context, response, failure: null, statusDelay);
-
-            // PIPE-40: dispose the superseded response before sleeping, to release the connection promptly; a throwing
-            // dispose is suppressed and cannot mask the continuation attempt's outcome.
-            if (async)
-            {
-                await Disposal.DisposeQuietlyAsync(response, logger: context.State.Logger).ConfigureAwait(false);
-            }
-            else
-            {
-                Disposal.DisposeQuietly(response, logger: context.State.Logger);
-            }
-
-            await SleepAsync(statusDelay, async, context.CancellationToken).ConfigureAwait(false);
-            attempt++;
+    private static Response Conclude(Outcome terminal)
+    {
+        switch (terminal)
+        {
+            case Outcome.Success success:
+                // PIPE-40: the returned response is live and unread.
+                return success.Response;
+            case Outcome.Failure failure:
+                ExceptionDispatchInfo.Capture(failure.Error).Throw();
+                throw new UnreachableException();
+            default:
+                throw new UnreachableException();
         }
     }
-#pragma warning restore MA0051
 
-    // P5c-6 interim predicate: a failure that would otherwise be retried met a spent, non-zero budget. A budget of zero means
-    // retries are off, and "exhausted" with no retry is noise. Phase 6a owns the final predicate and keeps the call sites.
-    private static bool IsExhausted(RetryOptions options, int attempt, bool canRetryRequest) =>
-        options.MaxRetryAttempts > 0 && attempt >= options.MaxRetryAttempts && canRetryRequest;
-
-    private static bool IsRetryableException(Exception ex) =>
-        ex is ServiceRequestException or ServiceResponseException;
-
-    private static bool IsRetryableStatus(int code) =>
-        s_retryableStatusCodes.Contains(code);
-
-    private static bool CanRetryRequest(
+    // RETRY-44, PIPE-16: each send drives a fresh ForAttempt copy with the request the policy received. send is 1-based and
+    // ForAttempt is 0-based (R6).
+    private async ValueTask<Outcome> SendAttemptAsync(
         Request request,
-        RetryOptions options)
+        int send,
+        bool async,
+        PipelineContext context,
+        PipelineRunner continuation,
+        CancellationToken callToken)
     {
-        var bodyReplayable = request.Body is null || request.Body.IsReplayable;
-        return bodyReplayable
-            && (request.Method.IsIdempotent || options.RetryNonIdempotentWhenReplayable);
+        var drive = context.ForAttempt(send - 1);
+        if (context.Options.AttemptTimeout is not { } timeout)
+        {
+            return new Outcome.Success(async
+                ? await continuation.RunAsync(request, drive).ConfigureAwait(false)
+                : continuation.Run(request, drive));
+        }
+
+        // P6a-23: a cooperative per-attempt deadline, linked to the call's token, disposed when the drive returns (the
+        // response body is read afterwards without it; design fact 10).
+        using var attemptSource = new CancellationTokenSource(timeout, _timeProvider);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(callToken, attemptSource.Token);
+        try
+        {
+            var linkedDrive = drive.WithCancellationToken(linked.Token);
+            return new Outcome.Success(async
+                ? await continuation.RunAsync(request, linkedDrive).ConfigureAwait(false)
+                : continuation.Run(request, linkedDrive));
+        }
+        catch (OperationCanceledException ex) when (attemptSource.IsCancellationRequested && !callToken.IsCancellationRequested)
+        {
+            return new Outcome.Failure(new ServiceRequestTimeoutException(
+                $"The attempt exceeded its timeout of {timeout}.",
+                ex));
+        }
     }
 
-    /// <summary>
-    /// Parses a <c>Retry-After</c> header value.
-    /// Returns the delay as a <see cref="TimeSpan"/>, or <see langword="null"/> when the
-    /// value cannot be interpreted.
-    /// </summary>
-    /// <remarks>
-    /// Accepts two forms per RFC 7231 §7.1.3:
-    /// <list type="bullet">
-    ///   <item>An integer representing a delta-seconds value.</item>
-    ///   <item>An HTTP-date whose distance from the current instant is the delay (floored at zero).</item>
-    /// </list>
-    /// </remarks>
-    private TimeSpan? ParseRetryAfter(string? headerValue)
+    private static RetryAttemptContext ToHookContext(RetryAttempt attempt, Request request, PipelineContext context) =>
+        new(
+            attempt.Send,
+            request,
+            (attempt.Outcome as Outcome.Success)?.Response,
+            (attempt.Outcome as Outcome.Failure)?.Error,
+            context);
+
+    private bool? ConsultShouldRetry(RetryAttempt attempt, Request request, PipelineContext context)
     {
-        if (string.IsNullOrEmpty(headerValue))
+        var hookContext = ToHookContext(attempt, request, context);
+        try
         {
-            return null;
+            return ShouldRetry(hookContext);
         }
-
-        // Delta-seconds form.
-        if (int.TryParse(headerValue, System.Globalization.NumberStyles.None, null, out var seconds))
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            return TimeSpan.FromSeconds(seconds);
-        }
+            var wrapped = new InvalidOperationException($"{nameof(RetryPolicy)}.{nameof(ShouldRetry)} threw {ex.GetType().Name}.", ex);
+            if (hookContext.Failure is { } failure)
+            {
+                ExceptionTrail.AddSuppressed(wrapped, failure);
+            }
 
-        // HTTP-date form (RFC 1123), through the shared parser (CFG-30, RETRY-15).
-        if (HttpDate.TryParse(headerValue, out var httpDate))
-        {
-            var delta = httpDate - _timeProvider.GetUtcNow();
-            return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
+            throw wrapped;
         }
-
-        return null;
     }
 
-    /// <summary>
-    /// Sleeps for the appropriate back-off delay, using <paramref name="explicitDelay"/> when
-    /// supplied (from <c>Retry-After</c>) or full-jitter exponential back-off otherwise.
-    /// </summary>
-    private static TimeSpan DelayFor(TimeSpan? explicitDelay, int attempt, RetryOptions options)
+    private static void ReportAttemptFailed(PipelineContext context, Outcome outcome, TimeSpan delay)
     {
-        TimeSpan delay;
-
-        if (explicitDelay.HasValue)
+        switch (outcome)
         {
-            delay = explicitDelay.Value;
-        }
-        else
-        {
-            // Full jitter: uniform in [0, min(BaseDelay * 2^attempt, MaxDelay)].
-            // Guard the shift: cap at 30 to avoid overflow (2^30 ≈ 1e9 ms >> any MaxDelay).
-            // Saturate BEFORE multiplying: if BaseDelay.Ticks * 2^shift would overflow,
-            // clamp to MaxDelay.Ticks rather than letting the long wrap negative.
-            var shift = Math.Min(attempt, 30);
-            var baseTicks = options.BaseDelay.Ticks;
-            var maxTicks = options.MaxDelay.Ticks;
-            var capTicks = baseTicks <= (maxTicks >> shift)
-                ? baseTicks << shift
-                : maxTicks;
-            var cap = TimeSpan.FromTicks(Math.Min(capTicks, maxTicks));
-            delay = TimeSpan.FromTicks((long)(cap.Ticks * Random.Shared.NextDouble()));
-        }
-
-        return delay > s_maxPacingDelay ? s_maxPacingDelay : delay;
-    }
-
-    // Both paths run through TimeProviderWaits (CFG-15, CFG-18): the async path awaits a timer, the sync path is a genuine
-    // blocking wait, and each runs a delay above the timer's ceiling as successive bounded waits (S7). A non-positive
-    // delay is skipped so a hinted zero never arms a timer.
-    private async ValueTask SleepAsync(TimeSpan delay, bool async, CancellationToken cancellationToken)
-    {
-        if (delay <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        if (async)
-        {
-            await _timeProvider.DelayAsync(delay, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            _timeProvider.Sleep(delay, cancellationToken);
+            case Outcome.Success success:
+                OperationTelemetry.AttemptFailed(context, success.Response, failure: null, delay);
+                break;
+            case Outcome.Failure failure:
+                OperationTelemetry.AttemptFailed(context, response: null, failure.Error, delay);
+                break;
         }
     }
 }
