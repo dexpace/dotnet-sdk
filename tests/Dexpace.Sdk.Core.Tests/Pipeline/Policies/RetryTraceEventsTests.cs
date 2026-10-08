@@ -108,13 +108,13 @@ public sealed class RetryTraceEventsTests
     }
 
     [Fact]
-    public async Task A_non_idempotent_request_is_not_exhausted()
+    public async Task A_request_that_cannot_be_resent_is_not_exhausted()
     {
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var pipeline = TracingFixtures.Pipeline(new ScriptedTransport(s_serviceUnavailable), mapped: true);
 
         await Assert.ThrowsAsync<HttpResponseException>(
-            async () => await pipeline.SendAsync(Request.Post("https://api.example.com/v1/items", RequestBody.FromBytes("x"u8.ToArray())), TestContext.Current.CancellationToken));
+            async () => await pipeline.SendAsync(new Request(Method.Post, new Uri("https://api.example.com/v1/items")), TestContext.Current.CancellationToken));
 
         Assert.Equal(["exception"], TracingFixtures.EventNames(Operation(recorder)));
     }

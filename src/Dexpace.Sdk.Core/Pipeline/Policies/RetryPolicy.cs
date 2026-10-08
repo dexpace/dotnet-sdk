@@ -26,9 +26,8 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// including <see cref="OperationCanceledException"/>, propagate unchanged.
 /// </para>
 /// <para>
-/// <b>Non-idempotent requests</b> are retried only when the request body is replayable
-/// (or absent) AND <see cref="RetryOptions.RetryNonIdempotentWhenReplayable"/> is
-/// <see langword="true"/>.
+/// <b>Re-sending:</b> a request is re-sent only when it has no body and an idempotent method, or when its body is
+/// replayable (RETRY-5); there is no switch for it.
 /// </para>
 /// <para>
 /// <b>Breaking (behaviour):</b> TRACE is no longer retried; idempotency is read from the single internal
@@ -204,14 +203,9 @@ public sealed class RetryPolicy : HttpPipelinePolicy
     private static bool IsRetryableStatus(int code) =>
         s_retryableStatusCodes.Contains(code);
 
-    private static bool CanRetryRequest(
-        Request request,
-        RetryOptions options)
-    {
-        var bodyReplayable = request.Body is null || request.Body.IsReplayable;
-        return bodyReplayable
-            && (request.Method.IsIdempotent || options.RetryNonIdempotentWhenReplayable);
-    }
+    // 6a PR 3 rewrites this policy over the engine; until then the re-send gate is the new one (RETRY-5, RETRY-7).
+    private static bool CanRetryRequest(Request request, RetryOptions options) =>
+        Dexpace.Sdk.Core.Resilience.RetryFacts.IsResendable(request);
 
     /// <summary>
     /// Parses a <c>Retry-After</c> header value.

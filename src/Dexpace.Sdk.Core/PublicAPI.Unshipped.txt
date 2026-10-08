@@ -152,18 +152,26 @@ Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigi
 Dexpace.Sdk.Core.Configuration.RedirectOptions.StripSensitiveHeadersOnCrossOrigin.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions
 Dexpace.Sdk.Core.Configuration.RetryOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.RetryOptions!
+Dexpace.Sdk.Core.Configuration.RetryOptions.AttemptHeaderName.get -> string?
+Dexpace.Sdk.Core.Configuration.RetryOptions.AttemptHeaderName.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.get -> System.TimeSpan
 Dexpace.Sdk.Core.Configuration.RetryOptions.BaseDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.Equals(Dexpace.Sdk.Core.Configuration.RetryOptions? other) -> bool
+Dexpace.Sdk.Core.Configuration.RetryOptions.FixedDelay.get -> System.TimeSpan?
+Dexpace.Sdk.Core.Configuration.RetryOptions.FixedDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.get -> bool
 Dexpace.Sdk.Core.Configuration.RetryOptions.HonorRetryAfter.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Jitter.get -> double
+Dexpace.Sdk.Core.Configuration.RetryOptions.Jitter.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.get -> System.TimeSpan
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxDelay.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.get -> int
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.init -> void
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.get -> bool
-Dexpace.Sdk.Core.Configuration.RetryOptions.RetryNonIdempotentWhenReplayable.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.get -> double
+Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.get -> System.Collections.Generic.IReadOnlySet<int>!
+Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.init -> void
 Dexpace.Sdk.Core.Configuration.TimeProviderWaits
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents

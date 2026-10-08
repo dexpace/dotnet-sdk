@@ -245,6 +245,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   child span id; a caller-supplied client without runtime propagation sends no `traceparent` for such a traced call. Enable
   the `Dexpace.Sdk` meter or `System.Net.Http`'s, not both.
 - Internal gate: `BannedSymbols.txt` bans `Activity.TraceIdGenerator` in `src/` (`OBS-27`); no consumer-visible change.
+- **Breaking:** `RetryOptions` defaults change to `MaxRetryAttempts = 2` (was 3: three sends, was four) and `MaxDelay` = 8 s
+  (was 30 s) (`RETRY-12`). It also gains `Multiplier` (2.0), `Jitter` (0.2), `FixedDelay`, `RetryableStatusCodes`
+  (`{408, 429, 500, 502, 503, 504}`) and `AttemptHeaderName`, and compares and hashes by value (the status set by content).
+- **Breaking:** `RetryOptions.RetryNonIdempotentWhenReplayable` is removed. A request is re-sent when it has no body and an
+  idempotent method, or when its body is replayable, whatever the method: a POST or PATCH with a replayable body is now
+  retried by default and a POST with no body never is (`RETRY-5`, `RETRY-7`).
+- **Breaking:** `RetryOptions` validates every member when it is set (`RECOV-34`): a negative count or duration, a duration
+  above about 292 years, a multiplier below 1 or not finite, a jitter outside `[0, 1]`, a status outside 400 to 599 and an
+  attempt-header name that is not an HTTP token throw `ArgumentOutOfRangeException` or `ArgumentException`.
 
 ### Added
 
@@ -398,5 +407,9 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   (`true`) and `HttpResponseException` (baked once from the status classifier, `XCUT-5`, `RETRY-3`). Internal: `RetryFacts`
   moves to the `Dexpace.Sdk.Core.Resilience` namespace and gains `DefaultRetryableStatusCodes`, `IsRetryableFailure` and
   `IsResendable` (`RETRY-1` to `RETRY-8`, `RECOV-17`, `RECOV-18`).
+- Phase 6a retry, PR 2 (internal): `RetryBackoff` (the one calculator: `BaseDelay × Multiplier^(n−1)`, capped, symmetric jitter,
+  saturating, clamped to 365 days) and `RetryPacing` (the strict `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms` and
+  `X-RateLimit-Reset` parser), with the vectors `tests/vectors/retry/backoff.json` and `pacing.json`
+  (`RETRY-9` to `RETRY-22`, `RECOV-21` to `RECOV-26`, `RECOV-29`, `RECOV-34`). The live scheduler changes with the engine in PR 3.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

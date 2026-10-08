@@ -33,8 +33,7 @@ public sealed class RetryPolicyTests
 
     private static DexpaceClientOptions MakeOptions(
         int maxRetryAttempts = 3,
-        bool honorRetryAfter = true,
-        bool retryNonIdempotentWhenReplayable = false)
+        bool honorRetryAfter = true)
     {
         return new DexpaceClientOptions
         {
@@ -44,7 +43,6 @@ public sealed class RetryPolicyTests
                 BaseDelay = TimeSpan.FromMilliseconds(1),
                 MaxDelay = TimeSpan.FromMilliseconds(10),
                 HonorRetryAfter = honorRetryAfter,
-                RetryNonIdempotentWhenReplayable = retryNonIdempotentWhenReplayable,
             }
         };
     }
@@ -192,32 +190,32 @@ public sealed class RetryPolicyTests
         var transport = new ScriptedTransport(new object[] { response503 });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken);
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, result.Status);
         Assert.Equal(1, transport.CallCount);
     }
 
     [Fact]
-    public async Task ProcessAsync_Post_ReplayableBody_RetryNonIdempotentEnabled_503_IsRetried()
+    public async Task ProcessAsync_Post_ReplayableBody_503_IsRetried()
     {
         var transport = new ScriptedTransport(
             new object[] { TestResponses.Create(Status.ServiceUnavailable), TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(maxRetryAttempts: 1, retryNonIdempotentWhenReplayable: true), TestContext.Current.CancellationToken);
+        var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(maxRetryAttempts: 1), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.Ok, result.Status);
         Assert.Equal(2, transport.CallCount);
     }
 
     [Fact]
-    public async Task ProcessAsync_Post_ReplayableBody_RetryNonIdempotentDisabled_503_NotRetried()
+    public async Task ProcessAsync_Post_NoBody_503_IsSentOnce()
     {
         var transport = new ScriptedTransport(new object[] { TestResponses.Create(Status.ServiceUnavailable) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
-        var result = await pipeline.SendAsync(MakePostRequest(replayable: true), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken);
+        var result = await pipeline.SendAsync(new Request(Method.Post, new Uri("https://api.example.com/v1/items")), MakeOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(Status.ServiceUnavailable, result.Status);
         Assert.Equal(1, transport.CallCount);
@@ -279,7 +277,7 @@ public sealed class RetryPolicyTests
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
 
         await Assert.ThrowsAsync<ServiceRequestException>(
-            () => pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(retryNonIdempotentWhenReplayable: false), TestContext.Current.CancellationToken).AsTask());
+            () => pipeline.SendAsync(MakePostRequest(replayable: false), MakeOptions(), TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(1, transport.CallCount);
     }

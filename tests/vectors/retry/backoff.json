@@ -1,0 +1,272 @@
+{
+ "source": "nodejs-sdk@54aeed4 packages/core/src/retry/backoff.test.ts",
+ "note": "Each case computes RetryBackoff.Compute(attempt, options, () => u). baseMs, maxMs, fixedMs are milliseconds; expectedTicks is in 100 ns ticks (the .NET resolution, P6a-14). throws=true expects ArgumentOutOfRangeException. A null fixedMs means no fixed delay.",
+ "cases": [
+  {
+   "name": "attempt 1 is the base delay",
+   "attempt": 1,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 2000000
+  },
+  {
+   "name": "attempt 2 doubles",
+   "attempt": 2,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 4000000
+  },
+  {
+   "name": "attempt 3 quadruples",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 8000000
+  },
+  {
+   "name": "attempt 4",
+   "attempt": 4,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 16000000
+  },
+  {
+   "name": "growth is capped at maxDelay",
+   "attempt": 20,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 80000000
+  },
+  {
+   "name": "an overflowing attempt saturates at the cap",
+   "attempt": 5000,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 80000000
+  },
+  {
+   "name": "attempt 0 is a programmer error",
+   "attempt": 0,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "throws": true
+  },
+  {
+   "name": "attempt -1 is a programmer error",
+   "attempt": -1,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "throws": true
+  },
+  {
+   "name": "zero base stays zero under a huge multiplier",
+   "attempt": 3,
+   "baseMs": 0,
+   "multiplier": 1e+200,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 0
+  },
+  {
+   "name": "zero base stays zero where the power overflows",
+   "attempt": 1100,
+   "baseMs": 0,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 0
+  },
+  {
+   "name": "zero base stays zero under jitter at u=0",
+   "attempt": 4,
+   "baseMs": 0,
+   "multiplier": 1e+200,
+   "maxMs": 8000,
+   "jitter": 1.0,
+   "fixedMs": null,
+   "u": 0.0,
+   "expectedTicks": 0
+  },
+  {
+   "name": "zero base stays zero under jitter at u=1",
+   "attempt": 4,
+   "baseMs": 0,
+   "multiplier": 1e+200,
+   "maxMs": 8000,
+   "jitter": 1.0,
+   "fixedMs": null,
+   "u": 1.0,
+   "expectedTicks": 0
+  },
+  {
+   "name": "jitter 0 at u=0 returns the base",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.0,
+   "expectedTicks": 8000000
+  },
+  {
+   "name": "jitter 0 at u=1 returns the base",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 1.0,
+   "expectedTicks": 8000000
+  },
+  {
+   "name": "midpoint sample returns the delay",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.2,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 8000000
+  },
+  {
+   "name": "u=0 gives d(1-j/2)",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.2,
+   "fixedMs": null,
+   "u": 0.0,
+   "expectedTicks": 7200000
+  },
+  {
+   "name": "u=1 gives d(1+j/2)",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.2,
+   "fixedMs": null,
+   "u": 1.0,
+   "expectedTicks": 8800000
+  },
+  {
+   "name": "jitter is applied after the cap",
+   "attempt": 20,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.2,
+   "fixedMs": null,
+   "u": 1.0,
+   "expectedTicks": 88000000,
+   "note": "Node applies jitter after the cap too; the design E step order is cap then jitter."
+  },
+  {
+   "name": "a negative sample floors to zero",
+   "attempt": 1,
+   "baseMs": 10,
+   "multiplier": 1.0,
+   "maxMs": 10,
+   "jitter": 1.0,
+   "fixedMs": null,
+   "u": -100,
+   "expectedTicks": 0
+  },
+  {
+   "name": "fixed delay replaces the schedule",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": 500,
+   "u": 0.5,
+   "expectedTicks": 5000000
+  },
+  {
+   "name": "fixed delay is not capped by maxDelay",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": 20000,
+   "u": 0.5,
+   "expectedTicks": 200000000
+  },
+  {
+   "name": "fixed delay gets no jitter",
+   "attempt": 3,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 1.0,
+   "fixedMs": 500,
+   "u": 1.0,
+   "expectedTicks": 5000000
+  },
+  {
+   "name": "fixed delay has no growth",
+   "attempt": 9,
+   "baseMs": 200,
+   "multiplier": 2.0,
+   "maxMs": 8000,
+   "jitter": 0.0,
+   "fixedMs": 500,
+   "u": 0.5,
+   "expectedTicks": 5000000
+  },
+  {
+   "name": "a base above the cap is capped",
+   "attempt": 1,
+   "baseMs": 34560000000,
+   "multiplier": 2.0,
+   "maxMs": 34560000000,
+   "jitter": 0.0,
+   "fixedMs": null,
+   "u": 0.5,
+   "expectedTicks": 315360000000000,
+   "note": "400 days clamps to the 365-day ceiling (RECOV-26)"
+  }
+ ]
+}

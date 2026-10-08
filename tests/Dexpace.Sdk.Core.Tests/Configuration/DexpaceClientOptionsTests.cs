@@ -49,11 +49,14 @@ public class DexpaceClientOptionsTests
     {
         var retry = new RetryOptions();
 
-        Assert.Equal(3, retry.MaxRetryAttempts);
+        Assert.Equal(2, retry.MaxRetryAttempts);
         Assert.Equal(TimeSpan.FromMilliseconds(200), retry.BaseDelay);
-        Assert.Equal(TimeSpan.FromSeconds(30), retry.MaxDelay);
+        Assert.Equal(2.0, retry.Multiplier);
+        Assert.Equal(TimeSpan.FromSeconds(8), retry.MaxDelay);
+        Assert.Equal(0.2, retry.Jitter);
+        Assert.Null(retry.FixedDelay);
         Assert.True(retry.HonorRetryAfter);
-        Assert.False(retry.RetryNonIdempotentWhenReplayable);
+        Assert.Null(retry.AttemptHeaderName);
     }
 
     [Fact]
@@ -134,7 +137,7 @@ public class DexpaceClientOptionsTests
         var retry = new RetryOptions().ToString();
         var redirect = new RedirectOptions().ToString();
 
-        foreach (var name in new[] { "MaxRetryAttempts", "BaseDelay", "MaxDelay", "HonorRetryAfter", "RetryNonIdempotentWhenReplayable" })
+        foreach (var name in new[] { "MaxRetryAttempts", "BaseDelay", "Multiplier", "MaxDelay", "Jitter", "FixedDelay", "HonorRetryAfter", "RetryableStatusCodes", "AttemptHeaderName" })
         {
             Assert.Contains(name, retry, StringComparison.Ordinal);
         }

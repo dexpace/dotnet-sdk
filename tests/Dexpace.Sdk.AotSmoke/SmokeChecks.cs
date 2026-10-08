@@ -557,7 +557,7 @@ internal static class SmokeChecks
     {
         var options = new DexpaceClientOptions { BaseAddress = new Uri("https://api.example.test/v1?sig=secret") };
         var derived = options with { Retry = options.Retry with { MaxRetryAttempts = 5 } };
-        Expect(options.Retry.MaxRetryAttempts == 3 && derived.Retry.MaxRetryAttempts == 5, "options derive with `with`");
+        Expect(options.Retry.MaxRetryAttempts == 2 && derived.Retry.MaxRetryAttempts == 5, "options derive with `with`");
         Expect(!options.ToString().Contains("secret", StringComparison.Ordinal), "options ToString redacts the base address");
         var relativeRejected = false;
         try
