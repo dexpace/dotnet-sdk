@@ -59,18 +59,10 @@ public sealed class BasicAuthPolicyTests
     }
 
     [Fact]
-    public async Task ProcessAsync_EmptyPassword_StampsCorrectly()
+    public void BasicCredential_with_an_empty_password_is_rejected_at_construction()
     {
-        var credential = new BasicCredential("user", string.Empty);
-        var transport = new RecordingTransport();
-        var pipeline = new PipelineBuilder()
-            .Add(new BasicAuthPolicy(credential))
-            .Build(transport);
-
-        await pipeline.SendAsync(MakeRequest(), MakeOptions(), TestContext.Current.CancellationToken);
-
-        var value = transport.LastRequest!.Headers.Get("Authorization");
-        Assert.Equal($"Basic {Base64("user", "")}", value);
+        // AUTH-14 (breaking 3): the empty password the policy once stamped is now unreachable.
+        Assert.Throws<ArgumentException>(() => new BasicCredential("user", string.Empty));
     }
 
     [Fact]

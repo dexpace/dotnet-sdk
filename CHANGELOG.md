@@ -284,6 +284,14 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   the deadline.
 - **Breaking:** `RequestOptions` equality now includes the new `Auth` and `OperationAuth` descriptors (`AUTH-4`); two
   options differing only in a descriptor were equal before.
+- **Breaking:** `AccessToken.ExpiresOn` is `DateTimeOffset?` (a token may never expire); the token must be non-blank; equality
+  is by value (token, expiry, refresh) with `==`/`!=`; `ToString` redacts the token (`AUTH-8`..`AUTH-10`).
+- **Breaking:** `ApiKeyCredential` rejects a whitespace-only key, a blank or whitespace-containing `Scheme`, and a key or
+  scheme the outbound header grammar refuses, at construction (was: an empty key only); `ToString` redacts the key
+  (`AUTH-26`, `XCUT-18`).
+- **Breaking:** `BasicCredential` rejects an empty username or password and a `:` in the username (was: `null` only);
+  `ToString` redacts the password (`AUTH-14`).
+- **Breaking:** `TokenRequestContext.Scopes` is a copy of the caller's list (was: the list itself).
 
 - **Breaking (phase 6b redirect, PR 1):** `RedirectOptions` is reshaped (`REDIR-3`, `REDIR-4`, `REDIR-5`, `REDIR-15`, `REDIR-17`,
   `REDIR-20`, `REDIR-26`). `StripSensitiveHeadersOnCrossOrigin` is removed (it has had no effect since phase 1; stripping always
@@ -495,5 +503,7 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - Phase 6c descriptor and resolver: `AuthScheme`, `AuthRequirement`, `AuthDescriptor`, `AuthResolver` (per-call, operation and
   client tiers, no fall-through), `AuthResolutionException`, and the `RequestOptions.Auth` / `OperationAuth` carriers
   (`AUTH-1`..`AUTH-7`).
+- `DigestCredential` and `AuthCredentials` (with a `TokenRefreshMargin`); `CredentialRedactionTests` (`Security`) pins that no
+  credential type formats its secret (`XCUT-19`(d)).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

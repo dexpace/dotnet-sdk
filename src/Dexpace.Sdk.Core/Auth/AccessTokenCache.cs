@@ -123,7 +123,7 @@ public sealed class AccessTokenCache
 
     // A token is "valid" while the clock hasn't yet reached ExpiresOn.
     private static bool IsValid(AccessToken token, DateTimeOffset now) =>
-        now < token.ExpiresOn;
+        token.ExpiresOn is not { } expiresOn || now < expiresOn;
 
     // A token "needs refresh" once RefreshOn has been reached (proactive hint).
     private static bool NeedsRefresh(AccessToken token, DateTimeOffset now) =>
