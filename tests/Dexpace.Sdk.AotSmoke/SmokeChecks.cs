@@ -59,6 +59,7 @@ internal static class SmokeChecks
             await CheckPhase5aConfigurationAsync();
             await CheckTracingAndMetricsAsync();
             await CheckPhase6aRetryAsync();
+            await CheckPhase6bRedirectAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -706,6 +707,60 @@ internal static class SmokeChecks
         }
 
         Expect(rejected == 2, "RetryOptions rejects a negative MaxRetryAttempts and a Jitter of 2");
+    }
+
+    // Phase 6b: the redirect surface under NativeAOT (no reflection): a frozen allowed-method set with a predicate lambda, a
+    // followed 307, and an https to http refusal that names only redacted URLs.
+    private static async Task CheckPhase6bRedirectAsync()
+    {
+        var options = new RedirectOptions
+        {
+            AllowedMethods = new HashSet<Method> { Method.Get, Method.Post },
+            Predicate = static condition => condition.Target is { } target && target.Host == "smoke.example.test",
+        };
+        Expect(options.AllowedMethods.Contains(Method.Post) && !options.AllowedMethods.Contains(Method.Put), "RedirectOptions.AllowedMethods is a copied set");
+
+        var sends = 0;
+        Request? second = null;
+        await using var scripted = DelegateHttpClient.Create((request, _, _) =>
+        {
+            sends++;
+            if (sends == 1)
+            {
+                var location = new Headers.Builder().Set("Location", "/moved").Build();
+                return Task.FromResult(new Response(request, Status.TemporaryRedirect, Protocol.Http11, location));
+            }
+
+            second = request;
+            return Task.FromResult(new Response(request, Status.Ok, Protocol.Http11));
+        });
+        var pipeline = new PipelineBuilder().Add(new RedirectPolicy()).Build(scripted);
+        var post = Request.Post("https://smoke.example.test/start", RequestBody.FromString("payload"));
+        using var followed = await pipeline.SendAsync(post, new DexpaceClientOptions { Redirect = options }, CancellationToken.None);
+        Expect(
+            followed.Status == Status.Ok && sends == 2 && second is { } hop && hop.Method == Method.Post && hop.Url.AbsolutePath == "/moved",
+            "RedirectPolicy follows an allowed POST 307 with the method preserved");
+
+        await using var downgrading = DelegateHttpClient.Create((request, _, _) =>
+        {
+            var location = new Headers.Builder().Set("Location", "http://smoke.example.test/plain?sig=secret").Build();
+            return Task.FromResult(new Response(request, Status.Found, Protocol.Http11, location));
+        });
+        var refusing = new PipelineBuilder().Add(new RedirectPolicy()).Build(downgrading);
+        string? message = null;
+        try
+        {
+            using var never = await refusing.SendAsync(Request.Get("https://smoke.example.test/start?token=abc"), CancellationToken.None);
+        }
+        catch (RedirectSchemeDowngradeException ex)
+        {
+            message = ex.Message;
+        }
+
+        Expect(
+            message is not null && message.Contains("smoke.example.test", StringComparison.Ordinal)
+                && !message.Contains("secret", StringComparison.Ordinal) && !message.Contains("abc", StringComparison.Ordinal),
+            "RedirectSchemeDowngradeException names the redacted URLs");
     }
 
     private static void Expect(bool condition, string what)
