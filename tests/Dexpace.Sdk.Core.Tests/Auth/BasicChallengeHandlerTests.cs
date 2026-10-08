@@ -238,6 +238,8 @@ public sealed class ChallengeHandlerContractTests
             ChallengeFixtures.Basic,
             new CompositeChallengeHandler(new BasicChallengeHandler(new BasicCredential("u", "p")))
         },
+        { "digest", ChallengeFixtures.DigestMd5, new DigestChallengeHandler(new DigestCredential("u", "p")) },
+        { "digest-sha256-sess", ChallengeFixtures.DigestSha256Sess, new DigestChallengeHandler(new DigestCredential("u", "p")) },
     };
 
     [Theory]

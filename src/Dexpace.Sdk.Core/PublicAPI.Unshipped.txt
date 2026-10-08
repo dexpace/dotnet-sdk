@@ -131,6 +131,15 @@ Dexpace.Sdk.Core.Auth.BasicCredential.Username.get -> string!
 Dexpace.Sdk.Core.Auth.CompositeChallengeHandler
 Dexpace.Sdk.Core.Auth.CompositeChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
 Dexpace.Sdk.Core.Auth.CompositeChallengeHandler.CompositeChallengeHandler(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.IChallengeHandler!>! handlers) -> void
+Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Md5 = 0 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Md5Sess = 1 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Sha256 = 2 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestAlgorithm.Sha256Sess = 3 -> Dexpace.Sdk.Core.Auth.DigestAlgorithm
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.Authorize(System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>! challenges, Dexpace.Sdk.Core.Http.Request.Request! request, bool proxy) -> Dexpace.Sdk.Core.Http.Request.Request?
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DigestChallengeHandler(Dexpace.Sdk.Core.Auth.DigestCredential! credential) -> void
+Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DigestChallengeHandler(Dexpace.Sdk.Core.Auth.DigestCredential! credential, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Auth.DigestAlgorithm>! preference) -> void
 Dexpace.Sdk.Core.Auth.DigestCredential
 Dexpace.Sdk.Core.Auth.DigestCredential.DigestCredential(string! username, string! password) -> void
 Dexpace.Sdk.Core.Auth.DigestCredential.Password.get -> string!
@@ -725,6 +734,7 @@ static Dexpace.Sdk.Core.Auth.AuthRequirement.operator ==(Dexpace.Sdk.Core.Auth.A
 static Dexpace.Sdk.Core.Auth.AuthResolver.Resolve(Dexpace.Sdk.Core.Auth.AuthDescriptor? perCall, Dexpace.Sdk.Core.Auth.AuthDescriptor? operation, Dexpace.Sdk.Core.Auth.AuthDescriptor? client, System.Collections.Generic.IReadOnlyCollection<Dexpace.Sdk.Core.Auth.AuthScheme>! availableSchemes) -> Dexpace.Sdk.Core.Auth.AuthRequirement!
 static Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Parse(System.ReadOnlySpan<char> value) -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>!
 static Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Parse(string? value) -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.AuthenticationChallenge!>!
+static Dexpace.Sdk.Core.Auth.DigestChallengeHandler.DefaultPreference.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Core.Auth.DigestAlgorithm>!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.Create(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!>! send) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 static Dexpace.Sdk.Core.Client.DelegateHttpClient.CreateBlocking(System.Func<Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.RequestOptions!, System.Threading.CancellationToken, Dexpace.Sdk.Core.Http.Response.Response!>! send) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Core.Client.IHttpClient! client, System.Threading.Tasks.TaskScheduler! scheduler) -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!

@@ -531,5 +531,10 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - `AccessTokenCache.Get` (a real synchronous path), `AccessTokenCache.DefaultRefreshMargin` and `RefreshMargin`,
   `BearerTokenAuthPolicy(AccessTokenCache, params string[])`, `TokenProviderException`, and log event 160
   `DexpaceLogEvents.TokenRefreshFailed` (`AUTH-35`, `AUTH-37`).
+- RFC 7616 Digest authentication: `DigestChallengeHandler` (MD5, MD5-sess, SHA-256, SHA-256-sess, `qop=auth` or the legacy
+  no-qop form; a configurable algorithm preference, SHA-256 first by default; `username*` for a non-ASCII user name; a
+  per-nonce counter bounded to 1024 entries) and `DigestAlgorithm`. A host whose crypto provider refuses MD5 (FIPS) drops the
+  MD5 algorithms instead of failing, so an MD5-only challenge is declined and a server offering both gets SHA-256
+  (`AUTH-15`..`AUTH-22`, `AUTH-24`). No **Breaking** change.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

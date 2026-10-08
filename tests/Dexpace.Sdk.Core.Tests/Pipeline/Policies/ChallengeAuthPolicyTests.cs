@@ -8,6 +8,7 @@ using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.Tests.Auth;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
@@ -93,6 +94,61 @@ public sealed class ChallengeAuthPolicyTests
 
         Assert.Equal(200, response.Status.Code);
         Assert.NotNull(transport.Requests[1].Headers.Get("Authorization"));
+    }
+
+    [Fact]
+    public async Task A_digest_401_is_answered_once_end_to_end()
+    {
+        var handler = new DigestChallengeHandler(
+            new DigestCredential("Mufasa", "Circle Of Life"),
+            [DigestAlgorithm.Md5],
+            md5Available: true,
+            () => "0a4f113b");
+        using var transport = new ScriptedTransport(
+            TestResponses.Unauthorized(ChallengeFixtures.DigestMd5),
+            TestResponses.Unauthorized(ChallengeFixtures.DigestMd5));
+
+        using var response = await SendAsync(Pipeline(handler, transport), "https://host/dir/index.html", async: true);
+
+        // The replay is answered once; a second 401 is returned as it is (AUTH-30).
+        Assert.Equal(401, response.Status.Code);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Null(transport.Requests[0].Headers.Get("Authorization"));
+        var header = transport.Requests[1].Headers.Get("Authorization")!;
+        Assert.Contains("response=\"6629fae49393a05397450978507c4ef1\"", header, StringComparison.Ordinal);
+        Assert.Contains("uri=\"/dir/index.html\"", header, StringComparison.Ordinal);
+        Assert.Contains("opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", header, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_composite_digest_then_basic_falls_back_to_basic_when_digest_declines(bool async)
+    {
+        var composite = new CompositeChallengeHandler(
+            new DigestChallengeHandler(new DigestCredential("alice", "s3cr3t")),
+            BasicHandler());
+        using var transport = new ScriptedTransport(TestResponses.Unauthorized("Basic realm=\"r\""), TestResponses.Create(Status.Ok));
+
+        using var response = await SendAsync(Pipeline(composite, transport), Url, async);
+
+        Assert.Equal(200, response.Status.Code);
+        Assert.Equal("Basic YWxpY2U6czNjcjN0", transport.Requests[1].Headers.Get("Authorization"));
+    }
+
+    [Fact]
+    public async Task A_composite_prefers_digest_when_the_server_offers_both()
+    {
+        var composite = new CompositeChallengeHandler(
+            new DigestChallengeHandler(new DigestCredential("alice", "s3cr3t")),
+            BasicHandler());
+        using var transport = new ScriptedTransport(
+            TestResponses.Unauthorized("Basic realm=\"r\"", "Digest realm=\"r\", nonce=\"n\", qop=\"auth\""),
+            TestResponses.Create(Status.Ok));
+
+        using var response = await SendAsync(Pipeline(composite, transport), Url, async: true);
+
+        Assert.StartsWith("Digest ", transport.Requests[1].Headers.Get("Authorization"), StringComparison.Ordinal);
     }
 
     [Theory]
