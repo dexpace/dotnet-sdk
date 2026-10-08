@@ -99,6 +99,13 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`REDIR-27` (MAY): the redirect target header is not configurable.** The header is `Location`; a `LocationHeader` option has no consumer
   and no trigger is named. Phase 6b (2026-10-08); design §12's deferred list and P6b-21.
 
+- **Authentication features outside the requirements (phase 6c, P6c-13, P6c-19, P6c-35, P6c-40).** Not built, and not planned for v1: **claims challenges**
+  (`WWW-Authenticate: Bearer … claims="…"`, continuous access evaluation; the bearer hook re-fetches with the same `TokenRequestContext`), an **`apiKey` in a query
+  string or a cookie** (`AUTH-26` is header-only; no policy stamps either), a **preemptive Digest** (the handler answers a challenge and remembers only counts),
+  **`407` proxy challenges in the pipeline** (a forward proxy's `407` is answered by the transport from `ProxyOptions.ChallengeCredentials`, phase 8b), and a
+  **`NamedKeyCredential`** (a prefixed key is `new ApiKeyCredential(key, scheme: "SharedAccessKey")`). Digest's MD5 algorithms are unavailable on a host whose crypto
+  provider refuses MD5 (design §10 entry 16).
+
 ### Behavioural asymmetries a consumer must know
 
 - **`async-redirect-pillar` (design §10 entry 14; `PIPE-32`, `REDIR-25`).** The reference contract has the asynchronous standard pipeline

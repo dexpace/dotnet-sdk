@@ -142,3 +142,8 @@ and `git diff -U0 main -- tests/Dexpace.Sdk.Core.Tests/Security` shows exactly t
 predicate dispose first, a failing dispose riding the exception's suppressed trail; every one of the five stop reasons returns the response open) and the split
 `ReDriveLifecycleTests`. The "non-replayable body" abandon path in `PIPE-40`'s list is read as retry's; redirect's is governed by `REDIR-6` and `REDIR-22`(b), which throw after
 disposing (design §11 item 59, P6b-17). The row above stands as written at 4c's exit.
+
+## Correction 2026-10-08 (phase 6c)
+
+P4c-13's hand-off to 6c is closed: `AuthorizationPolicy.GetCredential` is abstract and the base's sync-over-async bridge and its `RS0030` pragma are gone; the bearer policy's synchronous path is
+`AccessTokenCache.Get` (see the [6c checklist](../../phase6/phase6c/2026-10-08-phase6c-auth-checklist.md)). One fewer documented bridge remains in core. The rows above stand as written.

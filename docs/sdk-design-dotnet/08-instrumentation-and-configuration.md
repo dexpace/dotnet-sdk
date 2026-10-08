@@ -116,7 +116,7 @@ contract) — **ASYNC-9**'s save/install/restore is the runtime's behaviour. The
 two APIs opt out: `ExecutionContext.SuppressFlow()` and `ThreadPool.UnsafeQueueUserWorkItem` each delivered `null`
 for a set `AsyncLocal` (verified), so both are banned in SDK code by §9.1's banned-API gate — with one sanctioned
 exception, the internal helper that launches SDK-owned background work (the token cache's refresh), which suppresses
-flow on purpose so that work does not pin the triggering call's context (§5.4, §6.3). The span-model
+flow on purpose so that work does not pin the triggering call's context (§5.4, §6.3). *(Dated correction, 2026-10-08, phase 6c: the helper is `Internal/BackgroundWork.cs`, §5.4.)* The span-model
 residuals — the `null` no-op, the key names, the host-owned allow-list default — are recorded together as §10
 entry 23.
 

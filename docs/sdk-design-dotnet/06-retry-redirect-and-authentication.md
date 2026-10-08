@@ -428,4 +428,20 @@ wait-free, single-flight cache; missing the HTTPS guard, descriptor/resolver, ch
 401 handling, refresh margin, expired-at-fetch rejection, background refresh, bounded cache, optional expiry and
 non-blank validation.
 
+**As built (2026-10-08, phase 6c):** built. The text above stands as written, with six *dated corrections*:
+
+- **The tiers ride `RequestOptions` (P6c-6, P6c-7).** `AuthScheme`, `AuthRequirement`, `AuthDescriptor` and `AuthResolver` are built; the per-call and
+  operation tiers are `RequestOptions.Auth` / `OperationAuth` and the client tier is the auth policy's own descriptor. Every auth policy resolves, so a
+  per-call `NoAuth` sends anonymously and an unservable scheme throws `AuthResolutionException` before anything is sent.
+- **Credentials redact by an explicit `ToString` (P6c-20)**, pinned by the `Security` class `CredentialRedactionTests`. The named-key credential of
+  **AUTH-8**/**AUTH-9** is not built (P6c-19): `new ApiKeyCredential(key, scheme: "SharedAccessKey")` is its one stamping use.
+- **The `401` hook lives in `AuthorizationPolicy` (P6c-9 to P6c-12).** Cross-origin first (no guard, no hook, the `401` returned as it is), then resolve, the
+  HTTPS guard (`HttpsRequiredException`, also on a reactive scheme's outbound pass, P6c-8), stamp, drive, challenge, the same-origin and replayability checks,
+  one replay. Sync and async are one body.
+- **The cache is built as designed (P6c-23 to P6c-28)**: fresh, expiring and expired zones; a per-key semaphore with a fetch generation; one background refresh
+  per key from `Internal/BackgroundWork.cs`; event 160; a real `Get`; a `BoundedMap` of 1024 keys.
+- **Digest is built (P6c-29 to P6c-35)** with the default preference SHA-256 first, a once-per-process MD5 probe, `-sess` without `qop` declined (new §11 item 62),
+  `username*` for a non-ASCII user name, and the escaped request-target as `digest-uri` (verified against the wire).
+- **Hex.** "on the `net8.0` target the port lower-cases" reads: `Convert.ToHexStringLower`, since the port targets `net10.0` only (roadmap D1, P6c-38).
+
 ---

@@ -539,5 +539,6 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
 - `MultiSchemeAuthPolicy`: the descriptor-driven, multi-credential auth step (`AuthCredentials` for OAuth2, API key, Basic and
   Digest) for APIs that declare several security schemes, sharing its stamping logic with the single-scheme policies;
   the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
+- `docs/sdk-documentation/auth.md`; the AOT smoke covers the challenge parser, the resolver, Digest (SHA-256 and the CSPRNG cnonce), the redacting credentials and the bearer policy with its background refresh.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

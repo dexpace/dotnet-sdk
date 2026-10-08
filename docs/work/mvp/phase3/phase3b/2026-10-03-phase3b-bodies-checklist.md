@@ -191,3 +191,9 @@ body that cannot be re-sent throws `RedirectBodyNotReplayableException` (a seeka
 idempotency is consulted, so a body-less `POST` is followed when `POST` is allowed). The evidence is the `REDIR-6:` rows of `RedirectDecisionMatrixTests`, the matrix row
 `REDIR-3: AllowedMethods containing POST follows a body-less POST` and `ReDriveLifecycleTests.A_redirect_over_a_non_replayable_body_throws_and_disposes_the_in_flight_response_once`
 (see the [6b checklist](../../phase6/phase6b/2026-10-08-phase6b-redirect-checklist.md#work-on-other-owners-rows)). The auth third of `BODY-4` stays ⏳ 6c.
+
+## Correction 2026-10-08 (phase 6c)
+
+The auth third of `BODY-4` is no longer ⏳: `AuthorizationPolicy` returns the original `401` undisposed instead of sending a replacement whose body is not replayable, on both
+paths and for the bearer retry too (`AuthorizationPolicyChallengeTests.A_replacement_with_a_non_replayable_body_is_not_sent_…`, `BearerTokenAuthPolicyTests.A_stream_body_is_not_retried_…`;
+see the [6c checklist](../../phase6/phase6c/2026-10-08-phase6c-auth-checklist.md#work-on-other-owners-rows)). The redirect third stays ⏳ 6b. The rows above stand as written.

@@ -90,3 +90,6 @@ covered by a §10 entry that argues its guarantee is kept.
 **Correction 2026-10-08 (phase 6a).** The `RETRY` row is now 45 of 45: **RETRY-29**, **RETRY-38** and **RETRY-43** are built (the `ShouldRetry` hook,
 `RetryOptions.AttemptHeaderName`, `RetryOptions.FixedDelay`), and nothing in `RETRY` is deferred. The `RECOV` rows **RECOV-17**–**RECOV-31** and
 **RECOV-34** are built (**RECOV-31** with **RETRY-38**, one feature under two IDs); see the 6a checklist's carried-rows table.
+
+**Correction 2026-10-08 (phase 6c).** The `AUTH` row is now 38 of 38: **AUTH-26** is addressed (the key policy and credential stamp and validate the value once, P6c-19) and every other
+`AUTH` row is built (the 6c checklist). The notes gain **AUTH-16**'s `-sess`-without-`qop` decline (§11 item 62) and the vacuous named-key clauses of **AUTH-8**/**AUTH-9** (§11 item 64).
