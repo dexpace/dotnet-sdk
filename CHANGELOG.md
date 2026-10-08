@@ -481,6 +481,13 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   in the configured set is buffered and mapped to an `HttpResponseException` on arrival), and runs the recovery steps once on
   the terminal outcome (`RETRY-14`, `RETRY-27`, `RETRY-36`, `RETRY-37`, `RECOV-16` to `RECOV-20`, `RECOV-27`, `RECOV-28`,
   `RECOV-30`, `RECOV-31`).
+- Phase 6b redirect, PR 1: `RedirectCondition` (the predicate's read-only snapshot), `RedirectOptions.AllowedMethods`, `FollowSeeOther` and `Predicate`, and the
+  `RedirectException`, `RedirectSchemeDowngradeException` and `RedirectBodyNotReplayableException` family; internal `HttpOrigin`, `RedirectLocation`, `RedirectChain`, `RedirectDecider`
+  and `RedirectReissue` behind a rewritten `RedirectPolicy` (`REDIR-1`-`REDIR-24`, `REDIR-26`).
+- Phase 6b redirect, PR 2: `DexpaceLogEvents.RedirectHop`, `RedirectLoopDetected`, `RedirectSchemeDowngradeRejected`, `RedirectSchemeDowngradePermitted`, `RedirectLocationMalformed` and
+  their ids 150 to 154, and `DexpaceLogKeys.RedirectHop`, `RedirectTarget`, `RedirectCrossOrigin` and `RedirectLocation` (`REDIR-28`, `OBS-39`); internal `RedirectLog` and `EmissionGuard`.
+- Phase 6b redirect, PR 3: the permanent `Security` tests `RedirectCredentialLeakTests` and `RedirectCredentialLeakWireTests` (the phase 6 convergence exit: no credential survives a
+  cross-origin hop or a retry across one), the NativeAOT smoke check `CheckPhase6bRedirectAsync`, and `docs/sdk-documentation/redirect.md`.
 - `docs/sdk-documentation/retry.md`; the AOT smoke covers `RetryPolicy`, `RetryRecovery` through `RecoveryDispatcher`, `OperationTimeoutException`, a custom `IRetryableError`
   and the `RetryOptions` validation.
 

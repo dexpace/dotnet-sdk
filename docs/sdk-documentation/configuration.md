@@ -27,7 +27,7 @@ var patient = options with { Retry = options.Retry with { MaxRetryAttempts = 5 }
   naming the redacted address is thrown where it is set, not at `BuildRequest`. Numeric and cross-property rules (a negative retry count,
   `BaseDelay` above `MaxDelay`) were deliberately **not** checked in 5a. *Correction, 2026-10-08 (phase 6a):* `RetryOptions` now validates every
   member where it is set, and `OverallTimeout` / `AttemptTimeout` accept `null` or `(0, 49 days]`; `BaseDelay` above `MaxDelay` stays
-  legal (the cap wins). See [`retry.md`](./retry.md). Phases 6b and 9 own the other options.
+  legal (the cap wins). See [`retry.md`](./retry.md). *Correction, 2026-10-08 (phase 6b):* `RedirectOptions.MaxRedirects` rejects a negative value where it is set and defaults to `3`, and `AllowedMethods` rejects a null set or element; see [`redirect.md`](./redirect.md). Phase 9 owns the other options.
 - **`ToString`** renders every member with `BaseAddress` through `UrlRedactor`, so a signed query never reaches a log.
 - **Per call.** `HttpPipeline.SendAsync` and `Send` overloads taking a `DexpaceClientOptions` run one call with that value;
   `RequestOptions` remains the transport seam's per-call carrier (timeout, retry cap, tags).

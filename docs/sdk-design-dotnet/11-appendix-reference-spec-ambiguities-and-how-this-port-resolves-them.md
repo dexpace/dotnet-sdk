@@ -300,6 +300,18 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
 56. **`RECOV-19` classifies each RE-SENT attempt's response.** *Added by dated correction, 2026-10-08 (phase 6a, P6a-6).* *Resolved* (§5.2,
     §6.1): the dispatcher composition performs the initial send itself, so it classifies every send, and an initial 503 is retried whether
     or not `ErrorMappingStep` is installed.
+57. **`REDIR-3` says "the ORIGINAL request method"; Node judges the current hop.** *Added by dated correction, 2026-10-08 (phase 6b, P6b-4).* *Resolved* (§6.2): the first request
+    the policy drives is the original, and a 301 that follows an opted-in 303 is judged as the original `POST` was, so it is returned under the default set.
+58. **`REDIR-20` says the predicate "fully overrides the built-in follow decision".** *Added by dated correction, 2026-10-08 (phase 6b, P6b-7).* *Resolved* (§6.2): it replaces
+    eligibility (method, status, `FollowSeeOther`) only. Loop detection, the cap, the `Location` screen, the downgrade guard, the replay gate and credential stripping are MUSTs with
+    no carve-out for a predicate, so a predicate can make the policy stricter and never looser.
+59. **`PIPE-40` lists a "non-replayable body" among the abandon paths that return the in-flight response unclosed; `REDIR-6` and `REDIR-22`(b) fail and close it.** *Added by dated
+    correction, 2026-10-08 (phase 6b, P6b-17).* *Resolved* (§5.2, §6.2): the list is read as the union over the three re-driving pillars. Retry declines a non-replayable body by
+    surfacing the last outcome (returned open); redirect declines by throwing, so nobody receives the response and it is disposed first. `BODY-4` states the same split.
+60. **The reference does not say what several `Location` values mean.** *Added by dated correction, 2026-10-08 (phase 6b, P6b-10).* *Resolved* (§6.2): two or more values are
+    malformed and the 3xx is returned unfollowed; taking the first would let an intermediary that appends a field choose the target.
+61. **`REDIR-28` says the malformed-`Location` event logs the raw string.** *Added by dated correction, 2026-10-08 (phase 6b, P6b-20).* *Resolved* (§6.2): the value goes through
+    `UrlRedactor.RedactHeaderValue`, which is total over unparseable text; stricter than the letter, and the letter's own caveat about credential-bearing values is the reason.
 
 **Correction 2026-10-07 (phase 5c, P5c-10).** Item 38 as built: `http.client.request.duration` (histogram, `s`, OpenTelemetry's bucket advice
 `0.005`, `0.01`, `0.025`, `0.05`, `0.075`, `0.1`, `0.25`, `0.5`, `0.75`, `1`, `2.5`, `5`, `7.5`, `10`, through `InstrumentAdvice<double>`, which

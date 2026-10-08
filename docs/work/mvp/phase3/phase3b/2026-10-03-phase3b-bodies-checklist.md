@@ -183,3 +183,11 @@ Evidence: `git diff --stat ffd6d7d -- tests/Dexpace.Sdk.Http.SystemNet.Tests/Sec
 `BODY-5` and the retry third of `BODY-4` are no longer ⏳: `RetryFacts.IsResendable` is the retry-only gate, and `RetryResendGateTests.IsResendable_matrix` covers every
 `RequestBody` variant (see the [carried-rows table of the 6a checklist](../../phase6/phase6a/2026-10-08-phase6a-retry-checklist.md#carried-rows)). The redirect and auth
 thirds of `BODY-4` stay ⏳ 6b and 6c. The rows above stand as written at 3b's exit.
+
+## Correction 2026-10-08 (phase 6b)
+
+The redirect third of `BODY-4` and the redirect clause of `BODY-5` are no longer ⏳: `RedirectDecider` consults `IsReplayable` alone and a method-preserving hop over a
+body that cannot be re-sent throws `RedirectBodyNotReplayableException` (a seekable, length-known `FromStream` body follows; a 303 is exempt because it drops the body; no
+idempotency is consulted, so a body-less `POST` is followed when `POST` is allowed). The evidence is the `REDIR-6:` rows of `RedirectDecisionMatrixTests`, the matrix row
+`REDIR-3: AllowedMethods containing POST follows a body-less POST` and `ReDriveLifecycleTests.A_redirect_over_a_non_replayable_body_throws_and_disposes_the_in_flight_response_once`
+(see the [6b checklist](../../phase6/phase6b/2026-10-08-phase6b-redirect-checklist.md#work-on-other-owners-rows)). The auth third of `BODY-4` stays ⏳ 6c.
