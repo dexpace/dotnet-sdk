@@ -1260,3 +1260,5 @@ override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!

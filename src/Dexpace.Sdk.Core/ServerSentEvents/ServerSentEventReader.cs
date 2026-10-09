@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Dexpace.Sdk.Core.IO;
 
 namespace Dexpace.Sdk.Core.ServerSentEvents;
@@ -128,6 +129,81 @@ public sealed class ServerSentEventReader
             {
                 return dispatched;
             }
+        }
+    }
+
+    /// <summary>Walks every event of <paramref name="source"/> lazily and asynchronously (SSE-40).</summary>
+    /// <remarks>
+    /// <para>
+    /// One reader is built per walk, at its first pull, so the BOM is consumed per stream; nothing is read before then. A
+    /// read error surfaces at the pull that hit it, after the events already parsed. The sequence can be enumerated once:
+    /// a second <see cref="IAsyncEnumerable{T}.GetAsyncEnumerator"/> throws <see cref="InvalidOperationException"/> at the
+    /// call. The enumeration token (<c>WithCancellation</c>) reaches every read.
+    /// </para>
+    /// <para>
+    /// <b>Caller obligation (SSE-40):</b> do not call this twice over the same source; a second reader would start
+    /// mid-stream and the first one's read-ahead bytes are lost to it. The sequence never closes <paramref name="source"/>
+    /// (SSE-17).
+    /// </para>
+    /// </remarks>
+    /// <param name="source">A readable stream positioned at the start of the event stream.</param>
+    /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <returns>A single-use, lazy sequence of the events.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="source"/> is not readable.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> is not positive.</exception>
+    public static IAsyncEnumerable<ServerSentEvent> ReadAllAsync(Stream source, int maxLineBytes = DefaultMaxLineBytes)
+    {
+        Validate(source, maxLineBytes);
+        return new SingleUseAsyncSequence<ServerSentEvent>(token => WalkAsync(source, maxLineBytes, token).GetAsyncEnumerator(token));
+    }
+
+    /// <summary>Walks every event of <paramref name="source"/> lazily and synchronously (SSE-40).</summary>
+    /// <remarks>
+    /// The blocking twin of <see cref="ReadAllAsync"/>, with the same laziness, single-use rule, per-stream BOM and caller
+    /// obligation; it reads with <see cref="Stream.Read(byte[], int, int)"/>.
+    /// </remarks>
+    /// <param name="source">A readable stream positioned at the start of the event stream.</param>
+    /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <returns>A single-use, lazy sequence of the events.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="source"/> is not readable.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> is not positive.</exception>
+    public static IEnumerable<ServerSentEvent> ReadAll(Stream source, int maxLineBytes = DefaultMaxLineBytes)
+    {
+        Validate(source, maxLineBytes);
+        return new SingleUseSequence<ServerSentEvent>(() => Walk(source, maxLineBytes).GetEnumerator());
+    }
+
+    // The arguments are checked eagerly, at the call, even though iteration is lazy: the public views are not iterators.
+    private static void Validate(Stream source, int maxLineBytes)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxLineBytes);
+        if (!source.CanRead)
+        {
+            throw new ArgumentException("The source stream must be readable.", nameof(source));
+        }
+    }
+
+    private static async IAsyncEnumerable<ServerSentEvent> WalkAsync(
+        Stream source,
+        int maxLineBytes,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var reader = new ServerSentEventReader(source, maxLineBytes);
+        while (await reader.ReadNextAsync(cancellationToken).ConfigureAwait(false) is { } next)
+        {
+            yield return next;
+        }
+    }
+
+    private static IEnumerable<ServerSentEvent> Walk(Stream source, int maxLineBytes)
+    {
+        var reader = new ServerSentEventReader(source, maxLineBytes);
+        while (reader.ReadNext() is { } next)
+        {
+            yield return next;
         }
     }
 

@@ -231,6 +231,144 @@ public class ServerSentEventReaderTests
         Assert.Same(failure, Assert.Throws<IOException>(reader.ReadNext));
     }
 
+    [Fact]
+    public async Task ReadAll_is_lazy_and_reads_nothing_until_enumerated()
+    {
+        using var blockingInner = new MemoryStream(Utf8("data: a\n\n"));
+        using var blockingSource = new CountingReadStream(blockingInner);
+        using var asyncInner = new MemoryStream(Utf8("data: a\n\n"));
+        using var asyncSource = new CountingReadStream(asyncInner);
+
+        var blocking = ServerSentEventReader.ReadAll(blockingSource);
+        var asynchronous = ServerSentEventReader.ReadAllAsync(asyncSource);
+
+        Assert.Equal(0, blockingSource.ReadCount);
+        Assert.Equal(0, asyncSource.ReadCount);
+
+        using var enumerator = blocking.GetEnumerator();
+        await using var asyncEnumerator = asynchronous.GetAsyncEnumerator(Token);
+        Assert.Equal(0, blockingSource.ReadCount);
+        Assert.Equal(0, asyncSource.ReadCount);
+
+        Assert.True(enumerator.MoveNext());
+        Assert.True(await asyncEnumerator.MoveNextAsync());
+        Assert.Equal(1, blockingSource.ReadCount);
+        Assert.Equal(1, asyncSource.ReadCount);
+    }
+
+    [Fact]
+    public async Task ReadAll_yields_every_event_then_ends()
+    {
+        const string Wire = "data: a\n\nid: 2\ndata: b\n\n: tail";
+
+        var blocking = ServerSentEventReader.ReadAll(new MemoryStream(Utf8(Wire))).ToList();
+        var asynchronous = new List<ServerSentEvent>();
+        await foreach (var ev in ServerSentEventReader.ReadAllAsync(new MemoryStream(Utf8(Wire))))
+        {
+            asynchronous.Add(ev);
+        }
+
+        Assert.Equal(3, blocking.Count);
+        Assert.Equal(blocking, asynchronous);
+        Assert.Equal("2", blocking[1].Id);
+        Assert.Equal("tail", blocking[2].Comment);
+    }
+
+    [Fact]
+    public async Task Each_view_builds_its_own_reader_so_the_BOM_is_per_stream()
+    {
+        byte[] wire = [0xEF, 0xBB, 0xBF, .. Utf8("data: x\n\n")];
+
+        var first = ServerSentEventReader.ReadAll(new MemoryStream(wire)).ToList();
+        var second = new List<ServerSentEvent>();
+        await foreach (var ev in ServerSentEventReader.ReadAllAsync(new MemoryStream(wire)))
+        {
+            second.Add(ev);
+        }
+
+        Assert.Equal(["x"], Assert.Single(first).Data);
+        Assert.Equal(["x"], Assert.Single(second).Data);
+    }
+
+    [Fact]
+    public async Task A_view_enumerated_twice_throws_InvalidOperationException()
+    {
+        var blocking = ServerSentEventReader.ReadAll(new MemoryStream(Utf8("data: a\n\n")));
+        using var first = blocking.GetEnumerator();
+        Assert.Throws<InvalidOperationException>(() => blocking.GetEnumerator());
+
+        var asynchronous = ServerSentEventReader.ReadAllAsync(new MemoryStream(Utf8("data: a\n\n")));
+        await using var firstAsync = asynchronous.GetAsyncEnumerator(Token);
+        Assert.Throws<InvalidOperationException>(() => asynchronous.GetAsyncEnumerator(Token));
+    }
+
+    [Fact]
+    public async Task A_read_failure_surfaces_at_the_failing_pull_after_the_earlier_events()
+    {
+        var failure = new IOException("connection dropped");
+        var wire = Utf8("data: 1\n\ndata: 2\n\n");
+
+        using var blocking = ServerSentEventReader.ReadAll(new FailingAfterStream(wire, failure)).GetEnumerator();
+        Assert.True(blocking.MoveNext());
+        Assert.True(blocking.MoveNext());
+        Assert.Same(failure, Assert.Throws<IOException>(() => blocking.MoveNext()));
+
+        await using var asynchronous = ServerSentEventReader.ReadAllAsync(new FailingAfterStream(wire, failure)).GetAsyncEnumerator(Token);
+        Assert.True(await asynchronous.MoveNextAsync());
+        Assert.True(await asynchronous.MoveNextAsync());
+        Assert.Same(failure, await Assert.ThrowsAsync<IOException>(async () => await asynchronous.MoveNextAsync()));
+    }
+
+    [Fact]
+    public async Task The_enumeration_token_reaches_every_read()
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        await using var enumerator = ServerSentEventReader
+            .ReadAllAsync(new ParkedAfterStream(Utf8("data: a\n\n")))
+            .GetAsyncEnumerator(cancel.Token);
+
+        Assert.True(await enumerator.MoveNextAsync());
+        await cancel.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await enumerator.MoveNextAsync());
+    }
+
+    [Fact]
+    public async Task The_view_does_not_close_the_source()
+    {
+        using var inner = new MemoryStream(Utf8("data: a\n\ndata: b\n\n"));
+        using var source = new DisposeCountingStream(inner);
+
+        Assert.Equal(2, ServerSentEventReader.ReadAll(source).Count());
+        await using var early = ServerSentEventReader.ReadAllAsync(new DisposeCountingStream(new MemoryStream(Utf8("data: a\n\n")))).GetAsyncEnumerator(Token);
+        Assert.True(await early.MoveNextAsync());
+
+        Assert.Equal(0, source.DisposeCount);
+        Assert.True(source.CanRead);
+    }
+
+    [Fact]
+    public void ReadAll_validates_its_arguments_at_the_call_not_at_the_first_pull()
+    {
+        Assert.Equal("source", Assert.Throws<ArgumentNullException>(() => ServerSentEventReader.ReadAll(null!)).ParamName);
+        Assert.Equal("source", Assert.Throws<ArgumentNullException>(() => ServerSentEventReader.ReadAllAsync(null!)).ParamName);
+        Assert.Equal("maxLineBytes", Assert.Throws<ArgumentOutOfRangeException>(() => ServerSentEventReader.ReadAll(new MemoryStream(), 0)).ParamName);
+        Assert.Equal("maxLineBytes", Assert.Throws<ArgumentOutOfRangeException>(() => ServerSentEventReader.ReadAllAsync(new MemoryStream(), -5)).ParamName);
+        Assert.Equal("source", Assert.Throws<ArgumentException>(() => ServerSentEventReader.ReadAll(new UnreadableStream())).ParamName);
+        Assert.Equal("source", Assert.Throws<ArgumentException>(() => ServerSentEventReader.ReadAllAsync(new UnreadableStream())).ParamName);
+    }
+
+    [Fact]
+    public void A_line_over_the_cap_surfaces_from_the_view_as_the_SSE_exception()
+    {
+        var view = ServerSentEventReader.ReadAll(new MemoryStream(Utf8("data: " + new string('x', 100) + "\n\n")), 32);
+
+        using var enumerator = view.GetEnumerator();
+
+        var ex = Assert.Throws<ServerSentEventLineTooLongException>(() => enumerator.MoveNext());
+        Assert.Equal(32, ex.MaxLineBytes);
+    }
+
     private sealed class CountingReadStream(Stream inner) : Stream
     {
         private int _reads;
