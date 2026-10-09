@@ -1,5 +1,47 @@
 #nullable enable
+Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.AfterDisposeBehavior.ThrowsObjectDisposedException = 1 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.AfterDisposeBehavior.Unspecified = 0 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.ConformanceException
+Dexpace.Sdk.Conformance.ConformanceException.Actual.get -> string?
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException() -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message) -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, string? expected, string? actual) -> void
+Dexpace.Sdk.Conformance.ConformanceException.Expected.get -> string?
+Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Errored = 2 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Failed = 1 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.NotExercised = 5 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Passed = 0 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Vacuous = 3 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Waived = 4 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceVacuousException
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException() -> void
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException(string! message) -> void
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver
+Dexpace.Sdk.Conformance.ConformanceWaiver.<Clone>$() -> Dexpace.Sdk.Conformance.ConformanceWaiver!
+Dexpace.Sdk.Conformance.ConformanceWaiver.Assertion.get -> string?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Assertion.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.ConformanceWaiver(string! RequirementId, string! Reason) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Deconstruct(out string! RequirementId, out string! Reason) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(Dexpace.Sdk.Conformance.ConformanceWaiver? other) -> bool
+Dexpace.Sdk.Conformance.ConformanceWaiver.Face.get -> Dexpace.Sdk.Conformance.TransportFace?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Face.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Owner.get -> string?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Owner.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Reason.get -> string!
+Dexpace.Sdk.Conformance.ConformanceWaiver.RequirementId.get -> string!
 Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.May = 2 -> Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.Must = 0 -> Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
+override Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.ConformanceWaiver.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
+static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
+static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
