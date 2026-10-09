@@ -7,3 +7,6 @@ Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.Serialize<T>(System
 Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SystemTextJsonSerde(System.Text.Json.JsonSerializerOptions! options) -> void
 Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.SystemTextJsonSerde(System.Text.Json.Serialization.JsonSerializerContext! context) -> void
+Dexpace.Sdk.Serialization.SystemTextJson.TristateJsonSerializerOptionsExtensions
+static Dexpace.Sdk.Serialization.SystemTextJson.SystemTextJsonSerde.CreateDefaultOptions(System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver! typeInfoResolver) -> System.Text.Json.JsonSerializerOptions!
+static Dexpace.Sdk.Serialization.SystemTextJson.TristateJsonSerializerOptionsExtensions.AddTristateSupport(this System.Text.Json.JsonSerializerOptions! options) -> void

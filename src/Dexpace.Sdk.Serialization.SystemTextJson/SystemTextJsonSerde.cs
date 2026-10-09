@@ -23,12 +23,19 @@ public sealed class SystemTextJsonSerde : ISerde
     /// <summary>Initializes a new instance from explicit options.</summary>
     /// <param name="options">
     /// Options whose <see cref="JsonSerializerOptions.TypeInfoResolver"/> is set (typically a
-    /// source-generated <see cref="JsonSerializerContext"/>). The supplied options are made
-    /// read-only by this constructor. The guard only verifies that a <see cref="JsonSerializerOptions.TypeInfoResolver"/>
+    /// source-generated <see cref="JsonSerializerContext"/>). The serde works on a private copy: the supplied instance is
+    /// never made read-only, never gains a converter and keeps its resolver (SERDE-26), so a later change to it does not
+    /// affect the serde. The copy is Tristate-wired (SERDE-19, see <see cref="TristateJsonSerializerOptionsExtensions"/>) and
+    /// then frozen. The guard only verifies that a <see cref="JsonSerializerOptions.TypeInfoResolver"/>
     /// is present; AOT-safety holds only when that resolver is a source-generated
     /// <see cref="JsonSerializerContext"/> — use the <see cref="SystemTextJsonSerde(JsonSerializerContext)"/>
     /// constructor to make this explicit.
     /// </param>
+    /// <remarks>
+    /// <b>Breaking:</b> this constructor used to call <see cref="JsonSerializerOptions.MakeReadOnly()"/> on the caller's
+    /// instance, which froze it and let a second serde built from the same options fail on a later mutation (SERDE-26).
+    /// To start from the SDK's recommended configuration use <see cref="CreateDefaultOptions"/>.
+    /// </remarks>
     /// <exception cref="ArgumentException">The options have no type-info resolver.</exception>
     public SystemTextJsonSerde(JsonSerializerOptions options)
     {
@@ -41,8 +48,12 @@ public sealed class SystemTextJsonSerde : ISerde
                 nameof(options));
         }
 
-        options.MakeReadOnly();
-        _options = options;
+        // An independent mutable copy, including of a source-generated context's read-only options (design fact 6): the
+        // caller's instance is never frozen or wired (SERDE-26), so the "cannot be copied" fallback is unreachable.
+        var copy = new JsonSerializerOptions(options);
+        copy.AddTristateSupport();
+        copy.MakeReadOnly();
+        _options = copy;
     }
 
     /// <summary>Initializes a new instance from a source-generated context.</summary>
@@ -50,6 +61,47 @@ public sealed class SystemTextJsonSerde : ISerde
     public SystemTextJsonSerde(JsonSerializerContext context)
         : this((context ?? throw new ArgumentNullException(nameof(context))).Options)
     {
+    }
+
+    /// <summary>
+    /// Creates the SDK's recommended <see cref="JsonSerializerOptions"/> over <paramref name="typeInfoResolver"/>: a fresh,
+    /// mutable instance per call (SERDE-25), Tristate-wired.
+    /// </summary>
+    /// <param name="typeInfoResolver">
+    /// The metadata source, typically a source-generated <see cref="JsonSerializerContext"/> such as
+    /// <c>MyContext.Default</c>. It is required: the AOT-safe path needs one, and the Tristate modifier wraps it.
+    /// </param>
+    /// <returns>New options; pass them to <see cref="SystemTextJsonSerde(JsonSerializerOptions)"/>.</returns>
+    /// <remarks>
+    /// <para>
+    /// Usage: <c>new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(MyContext.Default))</c>.
+    /// </para>
+    /// <para>
+    /// Three choices are made here (design 7.3, P7a-8). Naming is <see cref="JsonSerializerDefaults.Web"/> (camelCase
+    /// properties, case-insensitive reads). <see cref="JsonSerializerOptions.NumberHandling"/> is forced back to
+    /// <see cref="JsonNumberHandling.Strict"/>, because <c>Web</c> sets <c>AllowReadingFromString</c>, which would bind
+    /// <c>"5"</c> to an integer and so break SERDE-21's strict coercion. <see cref="JsonSerializerOptions.RespectNullableAnnotations"/>
+    /// is on, so a JSON <c>null</c> for a non-nullable member is a failure rather than a silent <see langword="null"/>; a
+    /// model for a loose server declares the member nullable.
+    /// </para>
+    /// <para>
+    /// This governs the <i>default</i> configuration only. A caller who passes their own options (or a context with its
+    /// own <c>[JsonSourceGenerationOptions]</c>) to a constructor keeps those choices: the serde injects Tristate wiring and
+    /// nothing else.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="typeInfoResolver"/> is <see langword="null"/>.</exception>
+    public static JsonSerializerOptions CreateDefaultOptions(IJsonTypeInfoResolver typeInfoResolver)
+    {
+        ArgumentNullException.ThrowIfNull(typeInfoResolver);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            NumberHandling = JsonNumberHandling.Strict,
+            RespectNullableAnnotations = true,
+            TypeInfoResolver = typeInfoResolver,
+        };
+        options.AddTristateSupport();
+        return options;
     }
 
     /// <inheritdoc/>
