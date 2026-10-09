@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The conformance kit's own suite (phase 8a, design P8a-26): unit tests of the report, waiver and catalogue
+       machinery, integration tests of the promoted wire fixture, a negative control for every assertion, and the
+       second conformance driver, which runs the kit over a test-only raw-socket client through DelegateHttpClient
+       (D3). It references core, the kit and the in-memory fakes, and never a transport adapter. -->
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.Conformance.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Tests are exempt from the strict documentation gate. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The specification appendices the drift tests read (R9): copied beside the test assembly, so no test walks up
+         the directory tree looking for the repository root. -->
+    <None Include="..\..\docs\product-spec\appendix-b-conformance-test-checklist.md" Link="spec\appendix-b.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\product-spec\appendix-c-consolidated-normative-requirement-index.md" Link="spec\appendix-c.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
+    <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
+  </ItemGroup>
+
+</Project>
