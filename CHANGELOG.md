@@ -541,4 +541,17 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
 - `docs/sdk-documentation/auth.md`; the AOT smoke covers the challenge parser, the resolver, Digest (SHA-256 and the CSPRNG cnonce), the redacting credentials and the bearer policy with its background refresh.
 
+### Phase 7a — serde
+
+Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP-45` carried from 3b); design and plan under
+`docs/work/mvp/phase7/phase7a/`.
+
+#### Added
+
+- `Tristate<T>`, the three-state PATCH field (Absent, Null, Present; `default` is Absent), with the static `Tristate` helper
+  (`Absent`, `Null`, `Present`, `FromNullable`, `GetValueOrNull`), `TristateSentinel`, `TristateState`, and the codec-adapter hook
+  `ITristate` / `ITristateVisitor<TResult>`. `Present(null)` throws, an implicit conversion from `T` maps `null` to Null,
+  `ToString` is `Absent`, `Null` or `Present(<value>)` (`SERDE-14`, `SERDE-17`, `SERDE-18`, `SERDE-30`). The type carries no
+  System.Text.Json attribute (an architecture test pins it).
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
