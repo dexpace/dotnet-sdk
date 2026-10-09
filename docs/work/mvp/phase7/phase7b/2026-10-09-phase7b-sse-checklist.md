@@ -146,7 +146,7 @@ Plan task 0.1, on SDK 10.0.401, `net10.0`, `ImplicitUsings` off:
 9. **D9 — `PublicAPI.Unshipped.txt` was produced from the build's `RS0016` messages** by a throwaway script (the IDE code fix is not available from the command line), appended as one block sorted case-insensitively at the end of the file. Every line is reviewed in the diff; the file's last block is the only hunk, which is also where 7a and 7c append.
 10. **D10 — `dotnet test` cannot take the resource flags.** In Microsoft.Testing.Platform mode `dotnet test … -m:3` is forwarded to the test application and ends in "Zero tests ran"; every run therefore built under the limits first and tested `--no-build`.
 11. **D11 — `CA2201`** is waived in two tests with a scoped `#pragma` (a test double throws `OutOfMemoryException` to prove a fatal exception is never wrapped, swallowed or attached to); the two library waivers below are the plan's. No other analyzer is waived.
-12. **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
+12. **Knowledge corpus.** The new `docs/knowledge/notes/sse-streaming.md` supersedes six harvested design entries (`ArrayPool` and the three-byte BOM check, `ReadAsync(Stream)`, the `SseMapResult` shape, "every absent field null", the facade's logger, the net8.0 floor) and records two conclusions (the LINQ ambiguity, the SystemNet `OpenRead` gap); `scripts/knowledge verify-structure` passes.
 
 ## Analyzer waivers
 
