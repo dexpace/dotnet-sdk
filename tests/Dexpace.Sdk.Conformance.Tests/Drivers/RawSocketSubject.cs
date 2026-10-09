@@ -34,6 +34,13 @@ internal static class RawSocketSubject
     internal static TransportSuiteOptions Options { get; } = new()
     {
         AssertionTimeout = TimeSpan.FromSeconds(10),
-        Waivers = [],
+        Waivers =
+        [
+            new("TRANSPORT-13", "test-only transport: it drops no header, so it has no drop-logging policy to implement"),
+            new("TRANSPORT-11", "test-only transport: it computes the framing headers but logs nothing about the caller's copies it drops")
+            {
+                Assertion = "transport-11.drop-logged",
+            },
+        ],
     };
 }
