@@ -1260,11 +1260,39 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.AsEnumerable() -> System
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Equals(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Kind.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.SseMapResult() -> void
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.ToSseMapResult<T>() -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Equals(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Kind.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.SseMapResult() -> void
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Value.get -> T
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Done = 3 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Skip = 2 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Value = 1 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
+override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.GetHashCode() -> int
+override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.GetHashCode() -> int
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes = 1048576, Microsoft.Extensions.Logging.ILogger? logger = null) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Done.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator !=(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator ==(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Skip.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Value<T>(T value) -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.implicit operator Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult signal) -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.operator !=(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.operator ==(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> right) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Equals(object obj) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.ToString() -> string
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Equals(object obj) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.ToString() -> string
