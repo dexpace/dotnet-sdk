@@ -321,6 +321,26 @@ public sealed class TristateJsonTests
     }
 
     [Fact]
+    public void Without_AddTristateSupport_an_Absent_or_Null_field_throws_and_a_Present_field_is_written_as_an_object()
+    {
+        // What the AddTristateSupport remarks and serde.md say: unwired, System.Text.Json reads Tristate<T>.Value, whose getter
+        // throws for Absent and Null (the failure is loud, not a silent object), and a Present field is written as an object of
+        // the struct's public properties rather than as its value.
+        var options = new JsonSerializerOptions { TypeInfoResolver = TristateTestContext.Default };
+        var info = (JsonTypeInfo<WidgetPatch>)options.GetTypeInfo(typeof(WidgetPatch));
+
+        var absent = Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(new WidgetPatch(default, 3, "n"), info));
+        var @null = Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(new WidgetPatch(Tristate.Null, 3, "n"), info));
+        var present = JsonSerializer.Serialize(new WidgetPatch("a", 3, "n"), info);
+
+        Assert.Contains("Absent", absent.Message, StringComparison.Ordinal);
+        Assert.Contains("Null", @null.Message, StringComparison.Ordinal);
+        Assert.StartsWith("""{"Name":{""", present, StringComparison.Ordinal);
+        Assert.Contains("\"Value\":\"a\"", present, StringComparison.Ordinal);
+        Assert.NotEqual("""{"Name":"a","Size":3,"Note":"n"}""", present);
+    }
+
+    [Fact]
     public void AddTristateSupport_on_read_only_options_throws_InvalidOperationException()
     {
         // R10: the extension mutates; frozen options reject it, and the serde never hits this (it wires its private copy).

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Serialization;
 using Xunit;
@@ -27,6 +28,10 @@ public sealed class SerdeOptionsTests
         serde.Serialize(writer, value);
         return Encoding.UTF8.GetString(writer.WrittenSpan);
     }
+
+    // The caller's own use of their options: JsonSerializer over the options' type info, no serde involved.
+    private static string SerializeDirect<T>(JsonSerializerOptions options, T value) =>
+        JsonSerializer.Serialize(value, (JsonTypeInfo<T>)options.GetTypeInfo(typeof(T)));
 
     // ---- SERDE-26: the caller's options are never frozen or wired -------------------------------------------------
 
@@ -54,6 +59,27 @@ public sealed class SerdeOptionsTests
         Assert.Equal(convertersBefore, options.Converters.Count);
         Assert.DoesNotContain(options.Converters, c => c.GetType().Name == "TristateConverterFactory");
         Assert.Same(resolver, options.TypeInfoResolver);
+    }
+
+    [Fact]
+    public void Serializing_a_Tristate_model_through_the_callers_options_shows_no_omission()
+    {
+        // SERDE-26, behaviourally: the serde wires its private copy, so the caller's own JsonSerializer use of their options is
+        // exactly what it would have been had no serde ever been built from them. The control options never meet a serde.
+        var control = CallerOptions();
+        var subject = CallerOptions();
+        _ = new SystemTextJsonSerde(subject);
+        var allPresent = new WidgetPatch("a", 3, "n");
+        var withAbsent = new WidgetPatch("a", default, "n");
+
+        var controlJson = SerializeDirect(control, allPresent);
+        var subjectJson = SerializeDirect(subject, allPresent);
+
+        Assert.Equal(controlJson, subjectJson);
+        Assert.NotEqual("""{"Name":"a","Size":3,"Note":"n"}""", subjectJson);
+        var controlFailure = Assert.Throws<InvalidOperationException>(() => SerializeDirect(control, withAbsent));
+        var subjectFailure = Assert.Throws<InvalidOperationException>(() => SerializeDirect(subject, withAbsent));
+        Assert.Equal(controlFailure.Message, subjectFailure.Message);
     }
 
     [Fact]
