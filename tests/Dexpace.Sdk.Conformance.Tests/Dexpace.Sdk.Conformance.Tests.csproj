@@ -25,6 +25,10 @@
          the directory tree looking for the repository root. -->
     <None Include="..\..\docs\product-spec\appendix-b-conformance-test-checklist.md" Link="spec\appendix-b.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\docs\product-spec\appendix-c-consolidated-normative-requirement-index.md" Link="spec\appendix-c.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The user page and the driver it quotes, so ConformancePageTests can keep the documented sample, the catalogue table and
+         the preamble identical to the code. -->
+    <None Include="..\..\docs\sdk-documentation\conformance.md" Link="spec\conformance.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Drivers\RawSocketConformanceTests.cs" Link="spec\RawSocketConformanceTests.cs.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

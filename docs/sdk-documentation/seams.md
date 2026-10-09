@@ -150,7 +150,9 @@ Additive: `SerdeException`, `IStringSerde`, `SerdeExtensions`, the option-less `
 
 ## What is not built yet
 
-The per-transport proofs of `SEAM-11` (no pre-buffering), `SEAM-12` (concurrency) and `SEAM-13` (async abort) are phase
-8a's conformance kit; the real synchronous send, the `ObjectDisposedException` latch and `RequestOptions.Timeout` are
-phase 8b's; the SDK-owned dispose latch and `DisposeQuietly` are phase 3b's; attaching `OperationId` to the context chain
-is phase 4a's; the DI half of `SEAM-5` and `SEAM-6` is phase 9's.
+The per-transport proofs of `SEAM-11` (no pre-buffering), `SEAM-12` (concurrency) and `SEAM-13` (async abort) are phase 8a's
+conformance kit, built: `transport-25.lazy-body`, `transport-29.concurrent-no-crosstalk` and `transport-3.cancel-is-terminal`, run
+against both the reference transport and a test-only raw-socket client; see [`conformance.md`](./conformance.md). The real
+synchronous send, the `ObjectDisposedException` latch (`seam-15.after-dispose`, waived on the reference transport until then) and
+`RequestOptions.Timeout` are phase 8b's; the SDK-owned dispose latch and `DisposeQuietly` are phase 3b's; attaching `OperationId`
+to the context chain is phase 4a's; the DI half of `SEAM-5` and `SEAM-6` is phase 9's.

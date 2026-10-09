@@ -13,17 +13,18 @@ Java and Python ports.
 
 ## Status
 
-Pre-release: nothing is published yet, and every package is at `0.0.1-alpha.1`. Three NuGet packages are built:
+Pre-release: nothing is published yet, and every package is at `0.0.1-alpha.1`. Four NuGet packages are built:
 
 | Package | What it is |
 |---|---|
 | [`Dexpace.Sdk.Core`](src/Dexpace.Sdk.Core/README.md) | The toolkit: HTTP models, bodies, the transport SPI, errors, the staged pipeline and its policies (operation timeout, redirect, retry, idempotency, `Date`, client identity, instrumentation), auth (credentials, token cache, auth policies), pagination, options, diagnostics and the `ISerde` seam |
 | [`Dexpace.Sdk.Http.SystemNet`](src/Dexpace.Sdk.Http.SystemNet/README.md) | The reference transport over `System.Net.Http.HttpClient` |
 | [`Dexpace.Sdk.Serialization.SystemTextJson`](src/Dexpace.Sdk.Serialization.SystemTextJson/README.md) | The `ISerde` codec over source-generated `System.Text.Json` |
+| [`Dexpace.Sdk.Conformance`](src/Dexpace.Sdk.Conformance/README.md) | The transport conformance kit: framework-free assertions for the `TRANSPORT` and `ASYNC` requirements, a loopback HTTP/1.1 wire fixture, and per-requirement reporting with waivers; for adapter authors' test projects ([guide](docs/sdk-documentation/conformance.md)) |
 
 What is not built yet — the domain-model rework (query parameters, request options and conditions), file,
 form and multipart bodies, the execution-context and recovery chains, layered configuration and body logging,
-RFC 7235 challenges and Digest auth, tri-state PATCH, SSE, the transport conformance kit and the DI package — is
+RFC 7235 challenges and Digest auth, tri-state PATCH, SSE, the reference transport's hardening and the DI package — is
 scheduled by the [v1 roadmap](docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md), and what the first release needs is
 in [docs/first-release.md](docs/first-release.md). The normative specification is
 [docs/product-spec/](docs/product-spec.md) and the .NET design is [docs/sdk-design-dotnet/](docs/sdk-design-dotnet.md);
@@ -54,10 +55,12 @@ dotnet-sdk/
 │   │   ├── Serialization/           # the ISerde seam
 │   │   └── Errors/                  # SdkException hierarchy
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
-│   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+│   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+│   └── Dexpace.Sdk.Conformance/                 # transport conformance kit + Wire/ loopback fixture
 ├── tests/
 │   ├── Dexpace.Sdk.Core.Tests/                  # core against in-memory fakes only
-│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. loopback wire tests
+│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. loopback wire tests and its conformance driver
+│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, the negative controls and the raw-socket driver
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # shared fakes (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer
