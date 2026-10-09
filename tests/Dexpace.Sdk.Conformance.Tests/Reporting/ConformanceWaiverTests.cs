@@ -64,7 +64,7 @@ public sealed class ConformanceWaiverTests
         Assert.Throws<ArgumentException>(() => new ConformanceWaiver("TRANSPORT-8", "r") { Assertion = "" });
     }
 
-    [Theory(Skip = "enabled in task 1.5: needs the requirement catalogue")]
+    [Theory]
     [InlineData("TRANSPORT-99")]
     [InlineData("NOPE-1")]
     [InlineData("transport-8")]

@@ -46,4 +46,10 @@ public sealed class ConformanceAssertionTests
         Assert.Throws<ArgumentException>(() => new ConformanceAssertion("a.b", [], RequirementLevel.Must, [TransportFace.Async]));
         Assert.Throws<ArgumentException>(() => new ConformanceAssertion("a.b", ["TRANSPORT-1"], RequirementLevel.Must, []));
     }
+
+    [Fact]
+    public void An_assertion_cannot_cite_a_requirement_the_catalogue_does_not_hold()
+    {
+        Assert.Throws<ArgumentException>(() => new ConformanceAssertion("a.b", ["TRANSPORT-99"], RequirementLevel.Must, [TransportFace.Async]));
+    }
 }
