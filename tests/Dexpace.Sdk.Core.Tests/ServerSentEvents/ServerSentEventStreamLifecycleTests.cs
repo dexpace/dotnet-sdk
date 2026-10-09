@@ -1,18 +1,34 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Diagnostics;
+using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.ServerSentEvents;
+using Dexpace.Sdk.TestSupport.Diagnostics;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.ServerSentEvents;
 
 /// <summary>The facade's ownership and release rules: SSE-23 to SSE-28, SSE-30, SSE-32, SSE-39 (P7b-9 to P7b-14).</summary>
 [Trait("Category", "Unit")]
-public class ServerSentEventStreamLifecycleTests
+public sealed class ServerSentEventStreamLifecycleTests : IDisposable
 {
+    private readonly ActivitySource _source = new("Dexpace.Sdk.Core.Tests.ServerSentEventStream");
+    private readonly ActivityListener _listener;
+
+    public ServerSentEventStreamLifecycleTests()
+    {
+        _listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == _source.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(_listener);
+    }
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     public static TheoryData<string> BodylessCases =>
@@ -144,6 +160,244 @@ public class ServerSentEventStreamLifecycleTests
         stream.Dispose();
         await stream.DisposeAsync();
 
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    public void Dispose()
+    {
+        _listener.Dispose();
+        _source.Dispose();
+    }
+
+    // The out-of-band report of Disposal (P4b-15): an exception event on the current activity tagged
+    // dexpace.dispose.suppressed.
+    private static bool Reported(Activity activity) =>
+        activity.Events.Any(e => e.Name == "exception" && e.Tags.Any(tag => tag.Key == "dexpace.dispose.suppressed"));
+
+    private static async Task<List<ServerSentEvent>> Collect(IAsyncEnumerable<ServerSentEvent> events)
+    {
+        var all = new List<ServerSentEvent>();
+        await foreach (var ev in events)
+        {
+            all.Add(ev);
+        }
+
+        return all;
+    }
+
+    [Fact]
+    public async Task The_events_are_the_readers_events()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\nevent: e\ndata: b\n\n");
+        await using var stream = ServerSentEventStream.FromResponse(response);
+
+        var events = await Collect(stream);
+
+        Assert.Equal(["a", "b"], events.Select(e => e.Data[0]));
+        Assert.Equal("e", events[1].Event);
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task Natural_end_releases_once_and_a_release_failure_is_reported_not_thrown()
+    {
+        var logger = new RecordingLogger();
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n", disposeFailure: new InvalidOperationException("close boom"));
+        using var activity = _source.StartActivity("sse-natural-end");
+        Assert.NotNull(activity);
+        var stream = ServerSentEventStream.FromResponse(response, logger: logger);
+
+        var events = await Collect(stream);
+
+        Assert.Equal(2, events.Count);
+        Assert.Equal(1, body.DisposeCount);
+        Assert.True(Reported(activity));
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressedId, entry.EventId.Id);
+        Assert.DoesNotContain("boom", entry.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Breaking_out_early_releases_once_and_swallows_a_release_failure()
+    {
+        var logger = new RecordingLogger();
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n", disposeFailure: new InvalidOperationException("close boom"));
+        using var activity = _source.StartActivity("sse-break");
+        Assert.NotNull(activity);
+        var stream = ServerSentEventStream.FromResponse(response, logger: logger);
+
+        await foreach (var ev in stream)
+        {
+            Assert.Equal(["a"], ev.Data);
+            break;
+        }
+
+        Assert.Equal(1, body.DisposeCount);
+        Assert.True(Reported(activity));
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressedId, Assert.Single(logger.Entries).EventId.Id);
+        await stream.DisposeAsync();
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task A_consumers_own_exception_in_the_loop_body_is_not_replaced_by_a_release_failure()
+    {
+        // Fact 5: a finally that throws replaces the exception in flight, so the early-dispose release must never throw.
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n", disposeFailure: new InvalidOperationException("close boom"));
+        var stream = ServerSentEventStream.FromResponse(response);
+
+        var thrown = await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await foreach (var unused in stream)
+            {
+                throw new ArgumentException("consumer");
+            }
+        });
+
+        Assert.Equal("consumer", thrown.Message);
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task A_GetAsyncEnumerator_that_is_never_disposed_leaves_release_to_the_facade()
+    {
+        // Fact 4: a compiler-generated enumerator that is abandoned never runs its finally, so the facade owns the
+        // release itself; an abandoned stream is released by the explicit dispose and by nothing else.
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        var abandoned = stream.GetAsyncEnumerator(Token);
+        Assert.True(await abandoned.MoveNextAsync());
+
+        Assert.Equal(0, body.DisposeCount);
+
+        await stream.DisposeAsync();
+
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Explicit_dispose_propagates_a_release_failure(bool useAsync)
+    {
+        var failure = new InvalidOperationException("close boom");
+        var (response, body) = SseResponses.Respond("data: a\n\n", disposeFailure: failure);
+        var stream = ServerSentEventStream.FromResponse(response);
+
+        var thrown = useAsync
+            ? await Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.DisposeAsync())
+            : Assert.Throws<InvalidOperationException>(stream.Dispose);
+
+        Assert.Same(failure, thrown);
+        Assert.Equal(1, body.DisposeCount);
+
+        // Only the first call propagates; the second is a no-op (SSE-28).
+        await stream.DisposeAsync();
+        stream.Dispose();
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task On_an_explicit_dispose_the_streams_failure_is_primary_and_the_responses_is_attached(bool useAsync)
+    {
+        var streamFailure = new InvalidOperationException("stream boom");
+        var responseFailure = new IOException("response boom");
+        var body = new SseBody(() => new ThrowingDisposeStream(new MemoryStream("data: a\n\n"u8.ToArray()), streamFailure))
+        {
+            DisposeFailure = responseFailure,
+        };
+        var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body));
+        var live = stream.GetAsyncEnumerator(Token);
+        Assert.True(await live.MoveNextAsync());
+
+        var thrown = useAsync
+            ? await Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.DisposeAsync())
+            : Assert.Throws<InvalidOperationException>(stream.Dispose);
+
+        Assert.Same(streamFailure, thrown);
+        Assert.Same(responseFailure, Assert.Single(ExceptionTrail.GetSuppressed(thrown)));
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task Taking_a_view_after_close_throws_ObjectDisposedException()
+    {
+        var (response, _) = SseResponses.Respond("data: a\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        await stream.DisposeAsync();
+
+        var ex = Assert.Throws<ObjectDisposedException>(() => stream.GetAsyncEnumerator(Token));
+
+        Assert.IsAssignableFrom<InvalidOperationException>(ex);
+    }
+
+    [Fact]
+    public async Task A_second_GetAsyncEnumerator_throws_InvalidOperationException_at_the_call()
+    {
+        var (response, _) = SseResponses.Respond("data: a\n\n");
+        await using var stream = ServerSentEventStream.FromResponse(response);
+        _ = stream.GetAsyncEnumerator(Token);
+
+        // Synchronous: the throw is at the call, before any MoveNextAsync.
+        var ex = Assert.Throws<InvalidOperationException>(() => stream.GetAsyncEnumerator(Token));
+
+        Assert.IsType<InvalidOperationException>(ex);
+    }
+
+    [Fact]
+    public async Task The_body_is_opened_at_the_first_pull_through_OpenReadAsync()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\n");
+        await using var stream = ServerSentEventStream.FromResponse(response);
+
+        await using var enumerator = stream.GetAsyncEnumerator(Token);
+        Assert.Equal(0, body.OpenCount);
+
+        Assert.True(await enumerator.MoveNextAsync());
+
+        Assert.Equal(1, body.AsyncOpenCount);
+        Assert.Equal(0, body.SyncOpenCount);
+    }
+
+    [Fact]
+    public async Task The_opened_stream_is_released_before_the_response()
+    {
+        var log = new List<string>();
+        var body = new SseBody(() => new ThrowingDisposeStream(new MemoryStream("data: a\n\n"u8.ToArray()), null, log)) { Log = log };
+        var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body));
+
+        await Collect(stream);
+
+        Assert.Equal(["body:open-async", "stream:dispose", "body:dispose"], log);
+    }
+
+    [Fact]
+    public async Task A_close_between_pulls_ends_the_iterator_cleanly()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        await using var enumerator = stream.GetAsyncEnumerator(Token);
+        Assert.True(await enumerator.MoveNextAsync());
+
+        await stream.DisposeAsync();
+
+        Assert.False(await enumerator.MoveNextAsync());
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public async Task A_view_taken_before_close_but_first_pulled_after_it_ends_cleanly_without_opening()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        await using var enumerator = stream.GetAsyncEnumerator(Token);
+
+        await stream.DisposeAsync();
+
+        Assert.False(await enumerator.MoveNextAsync());
+        Assert.Equal(0, body.OpenCount);
         Assert.Equal(1, body.DisposeCount);
     }
 }
