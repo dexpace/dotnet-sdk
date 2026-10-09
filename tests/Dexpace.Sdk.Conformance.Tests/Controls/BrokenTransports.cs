@@ -437,4 +437,109 @@ internal static class BrokenTransports
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
+
+    /// <summary>A transport that follows a redirect itself.</summary>
+    internal static IAsyncHttpClient FollowsRedirects() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var response = await inner.ExecuteAsync(request, options, ct);
+            if (response.IsRedirect && response.Headers.Get("Location") is { } location)
+            {
+                response.Dispose();
+                return await inner.ExecuteAsync(request.WithUrl(new Uri(location)), options, ct);
+            }
+
+            return response;
+        });
+
+    /// <summary>A transport that reports an elapsed per-call timeout as a cancellation.</summary>
+    internal static IAsyncHttpClient TimeoutAsCancellation() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException ex)
+            {
+                throw new OperationCanceledException("timed out", ex);
+            }
+        });
+
+    /// <summary>A transport that never passes the per-call options on, so the timeout is ignored.</summary>
+    internal static IAsyncHttpClient IgnoresTimeout() =>
+        Around((request, _, ct, inner) => inner.ExecuteAsync(request, RequestOptions.Empty, ct));
+
+    /// <summary>A transport that remembers the first call's timeout and applies it to every later call.</summary>
+    internal static IAsyncHttpClient LeaksFirstTimeout()
+    {
+        TimeSpan? first = null;
+        var seen = false;
+        return Around((request, options, ct, inner) =>
+        {
+            lock (inner)
+            {
+                if (!seen)
+                {
+                    seen = true;
+                    first = options.Timeout;
+                }
+            }
+
+            return inner.ExecuteAsync(request, new RequestOptions { Timeout = first }, ct);
+        });
+    }
+
+    /// <summary>A transport that truncates a timeout below one millisecond to "no timeout".</summary>
+    internal static IAsyncHttpClient TruncatesSubMillisecondTimeouts() =>
+        Around((request, options, ct, inner) =>
+            inner.ExecuteAsync(request, options.Timeout is { } timeout && timeout < TimeSpan.FromMilliseconds(1) ? new RequestOptions { Timeout = null } : options, ct));
+
+    /// <summary>
+    /// A transport that stops waiting for a call when its token is cancelled but never disposes the response that then
+    /// arrives for nobody: the orphaned response of a lost cancel race.
+    /// </summary>
+    internal static IAsyncHttpClient OrphansLateResponses() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var call = inner.ExecuteAsync(request, options, CancellationToken.None);
+            _ = call.ContinueWith(task => Leaks.Root(task), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = ct.Register(() => cancelled.TrySetResult());
+            await Task.WhenAny(call, cancelled.Task);
+            ct.ThrowIfCancellationRequested();
+            return await call;
+        });
+
+    /// <summary>
+    /// A transport over the raw-socket client with a handle that cancels every in-flight call from the native side, the way a
+    /// native client's own cancel does; <paramref name="mapsToTimeout"/> reports that cancel as a retryable timeout (the F3 defect).
+    /// </summary>
+    internal sealed class InternalCancelTransport(bool mapsToTimeout) : IAsyncHttpClient
+    {
+        private readonly CancellationTokenSource _internal = new();
+        private readonly RawSocketHttpClient _raw = new();
+
+        /// <summary>Cancels every call in flight, leaving the callers' tokens alone.</summary>
+        internal void CancelInFlight() => _internal.Cancel();
+
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _internal.Token);
+            try
+            {
+                return await _raw.ExecuteAsync(request, options, linked.Token);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && mapsToTimeout)
+            {
+                throw new Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException("The request timed out before a response was received.", ex);
+            }
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            _internal.Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
 }

@@ -37,6 +37,13 @@ internal sealed class SuiteContext(TransportSubject subject, TransportFace face,
     /// <summary>The bound on observing a release (and the window of the one timed negative).</summary>
     internal TimeSpan ReleaseTimeout => Options.ReleaseTimeout;
 
+    /// <summary>
+    /// How long an assertion waits for a call that should have been cut by a per-call timeout: three seconds, or half the
+    /// assertion's own bound when that is shorter. A transport that ignores the timeout then fails fast and named, instead of
+    /// running to the assertion's full bound.
+    /// </summary>
+    internal TimeSpan TimeoutBound => TimeSpan.FromSeconds(Math.Min(3, Options.AssertionTimeout.TotalSeconds / 2));
+
     /// <summary>The bound on a long-running step inside an assertion, such as streaming a large body: the assertion's own bound.</summary>
     internal TimeSpan AssertionBound => Options.AssertionTimeout;
 

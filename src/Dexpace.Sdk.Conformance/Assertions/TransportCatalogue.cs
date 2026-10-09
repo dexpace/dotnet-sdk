@@ -20,5 +20,6 @@ internal static class TransportCatalogue
         .. ConcurrencyAssertions.Assertions(),
         .. FailureAssertions.Assertions(),
         .. LifecycleAssertions.Assertions(),
+        .. RedirectAndTimeoutAssertions.Assertions(),
     ];
 }

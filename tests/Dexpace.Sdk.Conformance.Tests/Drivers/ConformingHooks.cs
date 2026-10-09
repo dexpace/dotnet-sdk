@@ -27,6 +27,7 @@ internal static class ConformingHooks
             CreateBlocking = plain.CreateBlocking,
             CreateBorrowed = _ => Borrowed(),
             CreateWithFaultingAdaptation = _ => new FaultsAfterReleasing(),
+            CreateWithInternalCancel = _ => InternalCancel(mapsToTimeout: false),
         };
     }
 
@@ -35,6 +36,13 @@ internal static class ConformingHooks
     {
         var native = new NativeClient();
         return new BorrowedTransport(new OverNative(native, disposesNative: false), native.SendAsync, native);
+    }
+
+    /// <summary>A transport and a handle that cancels its in-flight calls from the native side.</summary>
+    internal static InternalCancellation InternalCancel(bool mapsToTimeout)
+    {
+        var transport = new Controls.BrokenTransports.InternalCancelTransport(mapsToTimeout);
+        return new InternalCancellation(transport, transport.CancelInFlight);
     }
 
     /// <summary>A "native client" the transport borrows: it can be disposed, after which it refuses to send.</summary>
