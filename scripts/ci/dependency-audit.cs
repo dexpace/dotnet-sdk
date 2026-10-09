@@ -41,6 +41,7 @@ var policies = new Dictionary<string, string?>(StringComparer.Ordinal)
     [Core] = null,
     ["Dexpace.Sdk.Http.SystemNet"] = null,
     ["Dexpace.Sdk.Serialization.SystemTextJson"] = null,
+    ["Dexpace.Sdk.Conformance"] = null,
 };
 
 if (args.Length != 2)

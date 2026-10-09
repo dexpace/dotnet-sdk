@@ -1,0 +1,5 @@
+#nullable enable
+Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.May = 2 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.Must = 0 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.RequirementLevel
