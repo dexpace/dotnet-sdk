@@ -345,6 +345,33 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   (153) and `location_malformed` (154) at `Warning`. Every URL is redacted, and a malformed `Location` goes through
   `UrlRedactor.RedactHeaderValue`. A logger that watched `http.request` and `http.response` only will now see these too (`REDIR-28`).
 
+- **Breaking (phase 7c pagination, `PAGE-1`..`PAGE-36`):** `Pageable.Create` takes the transport seam (`IAsyncHttpClient`; an `HttpPipeline` still
+  converts), an `IPageStrategy<TPage, T>` and `RequestOptions?` instead of an `HttpPipeline`, a `DexpaceClientOptions` and the two delegates
+  `selectItems` and `nextRequest` (`PAGE-4`, `PAGE-5`, `PAGE-36`). `PaginationStrategies.Create(selectItems, nextRequest)` wraps the old delegates; a
+  caller who passed different client options builds a pipeline with them.
+- **Breaking (phase 7c):** the `PaginationStrategies` factories return an `IPageStrategy<TPage, T>` and take the item selector, so each gains a
+  second type parameter. `Cursor`'s parameter name defaults to `"cursor"`; `PageNumber` loses `hasMore` and gains `startPage` (default `1`, `0`
+  allowed); `LinkHeader` loses `rel` and gains `headerName` and `allowCrossOrigin` (`PAGE-16`..`PAGE-20`).
+- **Breaking (phase 7c):** `PageNumber` ends on an empty page only, so a non-empty last page now costs one more, empty, exchange where a
+  `hasMore` predicate used to stop early; the current page is read from the executed request with invariant, sign-less ASCII-digit parsing, and a
+  page at `int.MaxValue` ends the stream (`PAGE-17`). Write `PaginationStrategies.Create` to keep a predicate.
+- **Breaking (phase 7c):** the `Link` strategy ends the stream, quietly, on a target on another origin than the first request (a scheme downgrade
+  included) unless `allowCrossOrigin: true`, on a target holding a space, control character, `<`, `>` or `"` (`not a url` used to resolve as a
+  relative path), and follows a userinfo-bearing target with the userinfo removed; it reads every instance of the header and resolves against the
+  response URL, not the current request (`PAGE-18`..`PAGE-20`). The guard exists because each page is a fresh pipeline call whose auth policy
+  stamps the credential for any origin it is same-origin with; `allowCrossOrigin: true` re-opens that, deliberately.
+- **Breaking (phase 7c):** the query splice matches parameter names case-sensitively (`?Page=1` is no longer replaced when the parameter is
+  `page`) and drops later duplicates of the parameter it sets; it rebuilds the URL from its components, so no explicit default port is written
+  (`PAGE-21`..`PAGE-24`).
+- **Breaking (phase 7c):** `AsyncPageable<T>.AsPages()` loses `pageSizeHint`, becomes non-virtual and returns a single-use view (a second
+  `GetAsyncEnumerator` throws `InvalidOperationException`); `GetAsyncEnumerator` becomes non-virtual and subclasses override the protected
+  abstract `WalkPagesAsync` (`PAGE-14`).
+- **Breaking (phase 7c):** `Page<T>`'s constructor requires the `Request` the walk sent for the page (`PAGE-2`), exposed as `Page<T>.Request`.
+- **Breaking (phase 7c):** `maxPages` of zero or less, and a first request whose body cannot be written twice, throw at construction (`PAGE-9`).
+- **Breaking (phase 7c):** a `null` page envelope throws `DeserializationException` naming the page type, where it threw
+  `InvalidOperationException`; a `null` response from the client and a `null` `PageInfo` from a strategy throw `InvalidOperationException` naming
+  the client or strategy type, after the response is closed (`PAGE-4`, `PAGE-28`).
+
 ### Added
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two
@@ -556,6 +583,16 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 - `Dexpace.Sdk.Http.SystemNet`: the response body gained a synchronous `OpenRead` (internal class, no API change), sharing the open latch with `OpenReadAsync`, so the blocking `ServerSentEventStream` views work over the reference transport.
 - Tests and docs: `Sse37ArchitectureTests` now enforces (and scans for a sentinel or `"message"` literal), `Sse38ArchitectureTests` (no `Last-Event-ID`, no transport or `Send` in an SSE type), `tests/vectors/sse/grammar.json` (105 cases from Node `c0ff3fd` and chapter 13), an exhaustive
   chunk-split property and a seeded round trip, a streamed `LoopbackResponse` and wire tests, the NativeAOT smoke check `CheckServerSentEventsAsync`, and `docs/sdk-documentation/sse.md` (including the reconnect recipe: core ships no reconnecting client, `SSE-38`).
+- Phase 7c pagination: `Pageable.CreateBlocking` and `Pageable<T>` (the blocking pager, over the same fetch-and-parse step as the async one),
+  `PageInfo<T>`, `IPageStrategy<in TPage, T>`, `Pageable.FromFetchers`, `FetchedPage<T>` and `PagingOptions` (the fetcher front-end, where a fetcher
+  disposes its own response), `Page<T>.Request` (`PAGE-1`..`PAGE-36`; `PAGE-3`, `PAGE-29` and `PAGE-30` are permanent simplifications under design section 10
+  entries 17 and 19). The page is closed before it is yielded, so no response is live at any `yield`; a release failure rides the parse error's
+  `ExceptionTrail`; a response delivered after a cancel is disposed and discarded.
+- Phase 7c tests: the permanent `Security` test `PaginationLinkOriginTests` (a server cannot take a credential with one `Link` header, and a
+  first page that redirected cannot launder an origin), the shared vector `tests/vectors/pagination/link-header.json`, seeded property tests for
+  the splice, a loopback wire class `PaginationWireTests`, `PaginationArchitectureTests`, and the NativeAOT smoke check
+  `CheckPhase7cPaginationAsync` (a cursor walk, a `Link` walk, the single-use page view and the blocking pager).
+- `docs/sdk-documentation/pagination.md`.
 
 ### Phase 7a — serde
 

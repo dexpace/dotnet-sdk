@@ -129,7 +129,7 @@ dotnet-sdk/
 │   │   │                            #   ErrorMappingStep, IdempotencyKeyStep, ClientIdentityStep
 │   │   ├── Auth/                    # AuthScheme, AuthRequirement, AuthDescriptor, AuthResolver, AuthCredentials, TokenCredential, AccessToken, AccessTokenCache,
 │   │   │                            #   ApiKey/Basic/DigestCredential, AuthenticationChallenge, IChallengeHandler + Basic/Digest/Composite handlers
-│   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
+│   │   ├── Pagination/              # AsyncPageable<T>, Pageable<T>, Page<T>, PageInfo<T>, IPageStrategy, Pageable (Create, CreateBlocking, FromFetchers), PaginationStrategies, PagingOptions, FetchedPage<T>
 │   │   ├── ServerSentEvents/        # ServerSentEvent, ServerSentEventReader, ServerSentEventStream, SseMapResult, ServerSentEventLineTooLongException; internal EventAccumulator, RetryField
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions (sealed records), HttpLogLevel, ProxyOptions, TimeProviderWaits, BuildInfo
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter,
@@ -284,6 +284,8 @@ bounded token cache with its background refresh, Digest with the MD5 probe, and 
 serde — `Tristate<T>` and its System.Text.Json wiring, `CreateDefaultOptions`, the options-copying constructors, the streaming typed readers, the two response handlers and
 `TypedResponse<T>` — see `docs/sdk-documentation/serde.md`; and phase 7b's server-sent events —
 the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerSentEvent`, the `ServerSentEventStream` facade that owns a response (four single-use views, one release rule per path) and the typed
-`MapAsync` / `Map` adapter — see `docs/sdk-documentation/sse.md`): the remaining pagination surface (7c), the transport
+`MapAsync` / `Map` adapter — see `docs/sdk-documentation/sse.md`; and phase 7c's pagination — the
+`IPageStrategy` contract and `PageInfo<T>`, the three factories (`Pageable.Create`, `CreateBlocking`, `FromFetchers`), the single-use page view, the `Link` strategy's cross-origin guard and the fetcher
+form — see `docs/sdk-documentation/pagination.md`): the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

@@ -1273,3 +1273,13 @@ Task count: 0.1 (pre-flight) + 5 (group 1) + 9 (group 2) + 7 (group 3) = **22 ta
    branch is reviewable, and task 3.6's roadmap note records them as taken-by-default. P7c-12 (the cross-origin guard) is implemented as specified; if the
    lead rejects it, reverting means deleting the origin comparison in `LinkTarget`, the `allowCrossOrigin` parameter and `PaginationLinkOriginTests` — which is a
    **Security** class, and constraint 5 forbids loosening one, so the lead decides that before group 2 merges, not after.
+
+## Findings while implementing
+
+Added at close-out (2026-10-09); the [checklist](2026-10-09-phase7c-pagination-checklist.md) holds the full deviation list. Three readings above proved wrong against the tree:
+
+1. **`ResponseBody.ReadAsBytes` closes the body** (BODY-16), so task 2.4's blocking read through it would surface a release failure from the read, before the strategy ran, and could never attach it to a parse failure's
+   trail. The step reads the stream through `BodyMaterializer.ReadAll` under the same 64 MiB cap instead (checklist deviation 4).
+2. **`SystemNetHttpClient` ignores `RequestOptions.Timeout` until 8b**, so task 3.2's row 2 cannot fire a `ServiceRequestTimeoutException`; it became an options-instance row (checklist deviation 5).
+3. **In Microsoft.Testing.Platform mode `dotnet test` forwards MSBuild flags to the test application**; the resource-limited form is `dotnet build … -m:3 -nr:false --disable-build-servers` then `dotnet test --no-build`
+   (checklist deviation 2). CA1716 also forced the `first` parameter name (deviation 3).

@@ -156,6 +156,26 @@ today (§5.3), and a sync pager built on it would inherit the thread-pool starva
 guard, construction-time cap validation, suppressed-close helper, `Page.Request`, case-sensitive single-value splice,
 strategy defaults, multi-instance Link headers, invalid-target rejection, fetcher front-end, and the blocking view.
 
+**As built (2026-10-09, phase 7c):** built; `PAGE-3`, `PAGE-29` and `PAGE-30` stay 🚫 under §10 entries 17 and 19. The text above stands as written, with
+six *dated corrections*:
+
+- **The strategy contract is `IPageStrategy<in TPage, T>.Parse(TPage, Response, Request first) -> PageInfo<T>` (P7c-2).** The engine reads the body once into
+  `TPage` through the serde and the strategy is synchronous over that value, so `PageNumber` can end on an empty item list and one strategy serves both engines.
+  The two-delegate shape (`selectItems`, `nextRequest`) survives as `PaginationStrategies.Create`. The interface parameter is named `first`, not `template`
+  (CA1716 reserves the word on an interface member).
+- **The factories take the transport seams and `RequestOptions` (P7c-5, P7c-6).** `Pageable.Create` takes an `IAsyncHttpClient` and `Pageable.CreateBlocking` an
+  `IHttpClient` (an `HttpPipeline` converts to both, which is why the names differ); the per-call carrier is `RequestOptions`, the same instance on every page,
+  not the client's `DexpaceClientOptions`. `pageSizeHint` is removed (P7c-3).
+- **The blocking view is built (P7c-4).** The text above says it waits for a synchronous pipeline path; 4c delivered one, so `Pageable<T>` is one
+  `PageStep.FetchAsync(..., async: false)` read through `SyncPath.GetCompletedResult`, with no sync-over-async in the pager. The page envelope is buffered under the
+  64 MiB materialisation cap; `SystemNetHttpClient.Execute` stays sync-over-async until 8b (`PIPE-28`).
+- **The fetcher front-end returns `FetchedPage<T>`, not a `Page<T>` carrying `ContinuationToken`/`NextLink` (P7c-15, P7c-16).** `Page<T>` stays a response-free value;
+  one mutable `PagingOptions` is passed to every fetcher call of a walk and is fresh per walk; the fetcher disposes its own response (see §10 entry 17's amendment).
+- **The `Link` strategy ends the walk on a cross-origin target and strips userinfo (P7c-12).** §11 item 66. Targets holding a space, control, `<`, `>` or `"` are
+  rejected before resolving, because `System.Uri` accepts `not a url` as a relative path.
+- **The splice no longer uses `UriBuilder` (P7c-9)**: it rebuilds from `GetComponents`, so no explicit default port is written, matches names ordinally on the decoded
+  name and drops later duplicates (§10 entry 18's amendment).
+
 ### 7.2 Server-Sent Events
 
 .NET *does* ship an SSE parser, which makes this section the reverse of Ruby's: the work is arguing against the

@@ -194,6 +194,12 @@ line and in the roadmap.
     **PAGE-12** protect — no stranded connection — is strengthened; the capability lost is streaming a page's raw
     body from the page view. **PAGE-12**'s look-ahead machinery and **PAGE-15**'s two-page case become unreachable
     (P4). §7.1.
+
+    *Dated amendment, 2026-10-09 (phase 7c, P7c-15).* The entry also touches **PAGE-34**'s ownership clause ("the fetcher MUST NOT close;
+    ownership transfers to the page"): a page owns no response, so nothing can transfer, and `Pageable.FromFetchers` inverts the clause the
+    way this entry inverts **PAGE-3**. A fetcher reads its response, builds a materialized page and disposes the response itself
+    (`await using`); the engine never sees one. The guarantee the clause protects, no leaked response, is kept by the fetcher's own scope, and
+    a fetcher that throws before building its page owns what it opened, as **PAGE-34** says.
 18. **The query splice is verbatim relative to `System.Uri`'s canonical form, not the caller's original bytes.**
     *Touches* **PAGE-21**, and **PAGE-24** insofar as `UriBuilder` writes an explicit default port.
     *Judged, and admitted as a platform limitation* (P8). `System.Uri` decodes percent-encoded unreserved characters
@@ -202,6 +208,11 @@ line and in the roadmap.
     3986 §6.2.2.2 normalization of unreserved characters only, which the RFC defines as equivalent; reserved
     characters, value-less flags, order and `+` are preserved (verified). The as-built splice's own defects
     (case-insensitive key match, retained duplicates) are bugs, not part of this entry. §7.1.
+
+    *Dated amendment, 2026-10-09 (phase 7c).* The **PAGE-24** clause ("insofar as `UriBuilder` writes an explicit default port") is retired:
+    the splice no longer uses `UriBuilder`. It rebuilds the URL from `Uri.GetComponents(SchemeAndServer | UserInfo | Path, UriEscaped)`, the
+    new query and the fragment, so `https://h:443/p` is rebuilt as `https://h/p` and scheme, userinfo, host, port, path and fragment survive
+    (verified on SDK 10.0.401; `QuerySpliceTests`). The **PAGE-21** residual stands, and the as-built defects it names are fixed.
 19. **One pull-based paging engine: no executor mode and no rejection path.** *Touches* **PAGE-29** (its executor
     clause), **PAGE-30**. *Judged.* .NET has one iteration protocol and it is already non-blocking, so the
     sync/async engine split collapses (P4). A pull-based `IAsyncEnumerable<T>` never invokes a consumer callback —
