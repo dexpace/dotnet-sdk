@@ -25,7 +25,10 @@ namespace Dexpace.Sdk.Core.Serialization;
 /// The third branch's message leads with the code, copies <c>ETag</c> raw (an opaque validator: parsing it on an error path
 /// would turn a diagnostic into a second failure), and passes <c>Location</c> through <see cref="UrlRedactor"/> after resolving it
 /// against the request URL. Both headers are read raw, never through <c>HTTP-48</c>'s validating helpers (P7a-23), and a control
-/// character in any interpolated part becomes <c>?</c> so the message stays on one line.
+/// character in any interpolated part becomes <c>?</c> so the message stays on one line. For <c>Location</c> that rewrite runs
+/// <b>after</b> redaction: a received header may carry HTAB, and turning it into <c>?</c> first would move the userinfo into the
+/// query (<c>https://alice&#9;:pw@h/p</c> would read as host <c>alice</c> with a bare-token query <c>:pw@h/p</c>, which redaction
+/// keeps verbatim), whereas the redactor canonicalises the raw value and masks the userinfo (OBS-11, XCUT-19).
 /// </para>
 /// </remarks>
 internal sealed class SuccessDeserializingHandler<T>(ISerde serde) : IResponseHandler<T>
@@ -78,7 +81,7 @@ internal sealed class SuccessDeserializingHandler<T>(ISerde serde) : IResponseHa
 
         if (location is not null)
         {
-            message.Append(" Location: ").Append(RedactLocation(OneLine(location), requestUrl)).Append('.');
+            message.Append(" Location: ").Append(OneLine(RedactLocation(location, requestUrl))).Append('.');
         }
 
         return message.ToString();
@@ -92,7 +95,8 @@ internal sealed class SuccessDeserializingHandler<T>(ISerde serde) : IResponseHa
             response.Headers.Get("Location"),
             response.Request.Url);
 
-    // The same location resolution the redirect policy uses, but total and redacting: nothing here may throw or leak.
+    // The same location resolution the redirect policy uses, but total and redacting: nothing here may throw or leak. It takes the
+    // raw header value: the caller makes the redacted result one line, never the other way round (see the class remarks).
     private static string RedactLocation(string location, Uri requestUrl) =>
         Uri.TryCreate(requestUrl, location, out var resolved) ? UrlRedactor.Default.Redact(resolved) : Unparseable;
 

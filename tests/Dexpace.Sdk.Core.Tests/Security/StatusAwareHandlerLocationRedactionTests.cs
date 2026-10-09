@@ -17,7 +17,8 @@ namespace Dexpace.Sdk.Core.Tests.Security;
 /// SERDE-28 / XCUT-19 (P7a-19, P7a-23): a response the status-aware handler can neither decode nor map (a 3xx nobody followed)
 /// fails with a message that names the <c>Location</c>, and an exception message is logged and shown. A redirect target
 /// routinely carries a credential in its query or userinfo, so the message carries the target only through
-/// <c>UrlRedactor</c>'s default-deny redaction. Permanent: never delete or loosen a test in this class.
+/// <c>UrlRedactor</c>'s default-deny redaction, applied to the raw header value before the message is made one line (a HTAB
+/// rewritten to <c>?</c> first would move userinfo into the query). Permanent: never delete or loosen a test in this class.
 /// </summary>
 [Trait("Category", "Security")]
 public sealed class StatusAwareHandlerLocationRedactionTests
@@ -58,6 +59,35 @@ public sealed class StatusAwareHandlerLocationRedactionTests
 
         Assert.DoesNotContain("p4ss", message, StringComparison.Ordinal);
         Assert.DoesNotContain("u:p4ss", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_HTAB_inside_the_Location_userinfo_is_redacted_before_it_is_made_one_line()
+    {
+        // The control-character rewrite turns HTAB into '?', which moves a URL's structure: "https://alice?:hunter2@h/p" has host
+        // "alice" and a bare-token query ":hunter2@h/p" that default-deny redaction keeps verbatim. The value is therefore redacted
+        // first and made one line second (OBS-11: userinfo is always redacted). Headers.Builder.AddInbound accepts HTAB.
+        var message = await MessageForAsync("https://alice\t:hunter2@h/p");
+
+        Assert.DoesNotContain("hunter2", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("alice", message, StringComparison.Ordinal);
+        Assert.Contains(" Location: https://***:***@h/p.", message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("https://alice:hunter2\t@h/p")]
+    [InlineData("https://alice:hun\tter2@h/p")]
+    [InlineData("https://\talice:hunter2@h/p")]
+    [InlineData("https://alice:hunter2@\th/p")]
+    [InlineData("/\tp?access_token=hunter2")]
+    public async Task A_HTAB_anywhere_in_the_Location_never_carries_a_secret_into_the_message(string location)
+    {
+        var message = await MessageForAsync(location, Request.Get("https://h/start"));
+
+        Assert.DoesNotContain("hunter2", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("hun?ter2", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("alice", message, StringComparison.Ordinal);
+        Assert.DoesNotContain('\t', message);
     }
 
     [Fact]
