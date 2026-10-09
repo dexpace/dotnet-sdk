@@ -1,0 +1,1897 @@
+{
+  "source": "nodejs-sdk@c0ff3fd packages/core/src/sse/parser.test.ts; docs/product-spec/13-server-sent-events-and-streaming.md (the chapter's conformance fixtures)",
+  "note": "Each case is the whole input of one stream and the events a reader must produce, in order. input is UTF-8 text with \\r, \\n, \\u0000 and \\ufeff escapes; inputHex replaces it where the bytes are not valid text. The over-cap retry cases are re-derived for the int.MaxValue ms cap this port documents (Node caps at Number.MAX_SAFE_INTEGER). The line-cap cases are .NET's and live in the Security tests, not here (Node has no default cap). Ruby's SSE test paths did not exist at ruby-sdk@fa402cd, so no case is ported from them.",
+  "cases": [
+    {
+      "name": "blank-line-dispatches-exactly-one-event-each",
+      "ids": [
+        "SSE-1"
+      ],
+      "input": "data: 1\n\ndata: 2\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "1"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "2"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "per-event-id-does-not-carry-forward",
+      "ids": [
+        "SSE-1",
+        "SSE-16"
+      ],
+      "input": "id: 1\ndata: a\n\ndata: b\n\n",
+      "events": [
+        {
+          "id": "1",
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "every-accumulator-is-fresh-after-a-dispatch",
+      "ids": [
+        "SSE-1",
+        "SSE-16"
+      ],
+      "input": "event: e\nid: 9\nretry: 5\n: c\ndata: x\n\ndata: y\n\n",
+      "events": [
+        {
+          "id": "9",
+          "event": "e",
+          "data": [
+            "x"
+          ],
+          "comment": "c",
+          "retryMs": 5
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "y"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "two-blank-lines-dispatch-once",
+      "ids": [
+        "SSE-1",
+        "SSE-13"
+      ],
+      "input": "data: a\n\n\ndata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "lf-terminators",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "event: x\ndata: a\ndata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "cr-terminators",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "event: x\rdata: a\rdata: b\r\r",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "crlf-terminators",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "event: x\r\ndata: a\r\ndata: b\r\n\r\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "mixed-terminators",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "event: x\rdata: a\r\ndata: b\n\r\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "mixed-terminators-cr-first",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "event: x\ndata: a\rdata: b\r\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "crlf-is-one-terminator-so-one-blank-line-dispatches-once",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "data: a\r\n\r\ndata: b\r\n\r\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "cr-cr-is-two-terminators",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "data: a\r\rdata: b\r\r",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "cr-lf-lf-is-a-line-end-then-a-blank-line",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "data: a\r\n\ndata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "lf-cr-is-a-line-end-then-a-blank-line",
+      "ids": [
+        "SSE-2"
+      ],
+      "input": "data: a\n\rdata: b\n\r",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "cr-terminated-event-at-eof",
+      "ids": [
+        "SSE-2",
+        "SSE-14"
+      ],
+      "input": "data: x\r\r",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "colon-less-data-is-one-empty-data-line",
+      "ids": [
+        "SSE-3",
+        "SSE-4"
+      ],
+      "input": "data\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            ""
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "trailing-colon-is-an-empty-value",
+      "ids": [
+        "SSE-3",
+        "SSE-4"
+      ],
+      "input": "data:\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            ""
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "colon-less-unknown-field-dispatches-nothing",
+      "ids": [
+        "SSE-3",
+        "SSE-7"
+      ],
+      "input": "garbage\n\n",
+      "events": []
+    },
+    {
+      "name": "the-first-colon-splits-and-later-colons-are-value",
+      "ids": [
+        "SSE-3"
+      ],
+      "input": "data: a:b:c\nevent: x:y\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x:y",
+          "data": [
+            "a:b:c"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "colon-less-event-is-present-but-empty",
+      "ids": [
+        "SSE-3",
+        "SSE-4"
+      ],
+      "input": "event\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "",
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "colon-less-id-is-present-but-empty",
+      "ids": [
+        "SSE-3",
+        "SSE-4"
+      ],
+      "input": "id\n\n",
+      "events": [
+        {
+          "id": "",
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "colon-less-retry-is-ignored",
+      "ids": [
+        "SSE-3",
+        "SSE-11"
+      ],
+      "input": "retry\n\n",
+      "events": []
+    },
+    {
+      "name": "empty-event-is-present-but-empty-not-absent",
+      "ids": [
+        "SSE-4"
+      ],
+      "input": "event:\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "",
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "empty-id-is-present-but-empty-not-absent",
+      "ids": [
+        "SSE-4"
+      ],
+      "input": "id:\ndata:x\n\n",
+      "events": [
+        {
+          "id": "",
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-empty-id-alone-dispatches-an-event",
+      "ids": [
+        "SSE-4",
+        "SSE-13"
+      ],
+      "input": "id:\n\n",
+      "events": [
+        {
+          "id": "",
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-empty-comment-is-present-but-empty",
+      "ids": [
+        "SSE-4",
+        "SSE-6"
+      ],
+      "input": ":\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "present-but-empty-data-differs-from-no-data",
+      "ids": [
+        "SSE-4"
+      ],
+      "input": "data:\n\nevent: e\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            ""
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": "e",
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "one-leading-space-is-stripped",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data: hello\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "hello"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "no-leading-space-needs-no-strip",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data:hello\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "hello"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "only-one-of-several-leading-spaces-is-stripped",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data:   hello\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "  hello"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-tab-is-not-stripped",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data:\thello\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "\thello"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-single-space-value-becomes-empty",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data: \n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            ""
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "two-spaces-value-keeps-one",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data:  \n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            " "
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "one-leading-space-stripped-from-event-and-id",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "event: a\nid: b\ndata: c\n\n",
+      "events": [
+        {
+          "id": "b",
+          "event": "a",
+          "data": [
+            "c"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "one-leading-space-stripped-from-a-comment",
+      "ids": [
+        "SSE-5",
+        "SSE-6"
+      ],
+      "input": ": hi\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "hi",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "two-leading-spaces-of-a-comment-keep-one",
+      "ids": [
+        "SSE-5",
+        "SSE-6"
+      ],
+      "input": ":  two spaces\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": " two spaces",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "trailing-spaces-are-kept",
+      "ids": [
+        "SSE-5"
+      ],
+      "input": "data: hello  \n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "hello  "
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-comment-only-block-dispatches",
+      "ids": [
+        "SSE-6",
+        "SSE-13"
+      ],
+      "input": ":keep-alive\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "keep-alive",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "comment-latest-wins",
+      "ids": [
+        "SSE-6"
+      ],
+      "input": ": first\n: second\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "second",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-comment-rides-with-data",
+      "ids": [
+        "SSE-6"
+      ],
+      "input": ": hi\ndata: x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": "hi",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-comment-after-data-still-counts",
+      "ids": [
+        "SSE-6"
+      ],
+      "input": "data: x\n: hi\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": "hi",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-comment-with-a-colon-keeps-it",
+      "ids": [
+        "SSE-6",
+        "SSE-3"
+      ],
+      "input": ": a: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "a: b",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-unknown-field-sets-no-state-and-causes-no-dispatch",
+      "ids": [
+        "SSE-7"
+      ],
+      "input": "garbage: zzz\nevent: kept\ndata: p\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "kept",
+          "data": [
+            "p"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-unknown-field-alone-dispatches-nothing",
+      "ids": [
+        "SSE-7",
+        "SSE-13"
+      ],
+      "input": "garbage: zzz\n\n",
+      "events": []
+    },
+    {
+      "name": "field-names-are-case-sensitive",
+      "ids": [
+        "SSE-7"
+      ],
+      "input": "Data: x\nEVENT: y\nId: z\nRetry: 5\n\n",
+      "events": []
+    },
+    {
+      "name": "field-names-are-not-trimmed",
+      "ids": [
+        "SSE-7"
+      ],
+      "input": " data: x\ndata : y\n\n",
+      "events": []
+    },
+    {
+      "name": "an-unknown-field-between-known-ones-is-dropped",
+      "ids": [
+        "SSE-7"
+      ],
+      "input": "data: a\nunknown: b\ndata: c\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a",
+            "c"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "data-lines-accumulate-unjoined-in-wire-order",
+      "ids": [
+        "SSE-8"
+      ],
+      "input": "data: line1\ndata: line2\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "line1",
+            "line2"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "empty-data-lines-are-kept-in-order",
+      "ids": [
+        "SSE-8",
+        "SSE-4"
+      ],
+      "input": "data: a\ndata\ndata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a",
+            "",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "data-lines-split-by-other-fields-still-accumulate",
+      "ids": [
+        "SSE-8"
+      ],
+      "input": "data: a\nevent: e\ndata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "e",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-id-containing-nul-is-ignored-entirely",
+      "ids": [
+        "SSE-9"
+      ],
+      "input": "id: a\u0000b\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-nul-id-does-not-overwrite-a-valid-id",
+      "ids": [
+        "SSE-9"
+      ],
+      "input": "id: good\nid: a\u0000b\ndata:x\n\n",
+      "events": [
+        {
+          "id": "good",
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-nul-id-alone-is-not-a-field-seen",
+      "ids": [
+        "SSE-9",
+        "SSE-13"
+      ],
+      "input": "id: a\u0000b\n\n",
+      "events": []
+    },
+    {
+      "name": "a-nul-in-data-is-kept",
+      "ids": [
+        "SSE-9"
+      ],
+      "input": "data: a\u0000b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a\u0000b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "id-is-latest-wins-and-verbatim",
+      "ids": [
+        "SSE-9"
+      ],
+      "input": "id: 1\nid: a b  c\ndata:x\n\n",
+      "events": [
+        {
+          "id": "a b  c",
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-absent-event-is-null-never-message",
+      "ids": [
+        "SSE-10"
+      ],
+      "input": "data:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "event-is-latest-wins",
+      "ids": [
+        "SSE-10"
+      ],
+      "input": "event: a\nevent: b\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "b",
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "event-is-stored-raw",
+      "ids": [
+        "SSE-10"
+      ],
+      "input": "event: Message\ndata: x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "Message",
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-all-digit-retry-is-accepted",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 5000\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": 5000
+        }
+      ]
+    },
+    {
+      "name": "retry-zero-is-accepted",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 0\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": 0
+        }
+      ]
+    },
+    {
+      "name": "retry-leading-zeros-are-accepted",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 0005\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": 5
+        }
+      ]
+    },
+    {
+      "name": "retry-at-the-cap-is-accepted",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 2147483647\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "retry-one-over-the-cap-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 2147483648\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-twenty-digit-retry-is-ignored-without-wrapping",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 99999999999999999999\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-non-numeric-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: bad\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-negative-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: -100\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-signed-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: +5\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-empty-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry:\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-retry-with-a-trailing-letter-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 12x\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-retry-with-an-inner-space-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 1 2\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-fractional-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 1.5\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-arabic-indic-digit-retry-is-ignored",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: \u0663\ndata:x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-invalid-retry-does-not-overwrite-a-prior-valid-one",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 1000\nretry: bad\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": 1000
+        }
+      ]
+    },
+    {
+      "name": "the-latest-valid-retry-wins",
+      "ids": [
+        "SSE-11"
+      ],
+      "input": "retry: 1\nretry: 2\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": 2
+        }
+      ]
+    },
+    {
+      "name": "a-retry-only-block-dispatches",
+      "ids": [
+        "SSE-11",
+        "SSE-13"
+      ],
+      "input": "retry: 2500\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": 2500
+        }
+      ]
+    },
+    {
+      "name": "an-invalid-retry-alone-dispatches-nothing",
+      "ids": [
+        "SSE-11",
+        "SSE-13"
+      ],
+      "input": "retry: bad\n\n",
+      "events": []
+    },
+    {
+      "name": "a-leading-bom-is-consumed-once",
+      "ids": [
+        "SSE-12"
+      ],
+      "input": "\ufeffdata: x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-leading-bom-before-a-comment",
+      "ids": [
+        "SSE-12"
+      ],
+      "input": "\ufeff: hi\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "hi",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-bom-alone-is-an-empty-stream",
+      "ids": [
+        "SSE-12",
+        "SSE-14"
+      ],
+      "input": "\ufeff",
+      "events": []
+    },
+    {
+      "name": "a-doubled-bom-keeps-the-second-so-the-line-is-an-unknown-field",
+      "ids": [
+        "SSE-12",
+        "SSE-7"
+      ],
+      "input": "\ufeff\ufeffdata: x\n\n",
+      "events": []
+    },
+    {
+      "name": "a-bom-on-a-later-line-makes-it-an-unknown-field",
+      "ids": [
+        "SSE-12",
+        "SSE-7"
+      ],
+      "input": "data: a\n\ufeffdata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-bom-after-the-first-event-is-not-consumed",
+      "ids": [
+        "SSE-12"
+      ],
+      "input": "data: a\n\n\ufeffdata: b\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-bom-inside-a-data-value-survives",
+      "ids": [
+        "SSE-12"
+      ],
+      "input": "data: a\ufeffb\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a\ufeffb"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-bom-then-an-event-in-the-first-block",
+      "ids": [
+        "SSE-12"
+      ],
+      "input": "\ufeffevent: e\ndata: x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "e",
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-partial-bom-is-content-not-a-bom",
+      "ids": [
+        "SSE-12"
+      ],
+      "inputHex": "EFBB",
+      "events": []
+    },
+    {
+      "name": "a-partial-bom-line-is-an-unknown-field-and-swallows-nothing",
+      "ids": [
+        "SSE-12",
+        "SSE-7"
+      ],
+      "inputHex": "EFBB0A646174613A20780A0A",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-partial-bom-followed-by-a-letter-is-content",
+      "ids": [
+        "SSE-12",
+        "SSE-7"
+      ],
+      "inputHex": "EFBB410A646174613A20780A0A",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-bom-from-bytes",
+      "ids": [
+        "SSE-12"
+      ],
+      "inputHex": "EFBBBF646174613A20780A0A",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "x"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-doubled-bom-from-bytes",
+      "ids": [
+        "SSE-12",
+        "SSE-7"
+      ],
+      "inputHex": "EFBBBFEFBBBF646174613A20780A0A",
+      "events": []
+    },
+    {
+      "name": "an-id-only-block-dispatches",
+      "ids": [
+        "SSE-13"
+      ],
+      "input": "id: 42\n\n",
+      "events": [
+        {
+          "id": "42",
+          "event": null,
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-event-only-block-dispatches",
+      "ids": [
+        "SSE-13"
+      ],
+      "input": "event: x\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": "x",
+          "data": [],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-block-with-no-field-set-is-skipped",
+      "ids": [
+        "SSE-13"
+      ],
+      "input": "\n\n\n",
+      "events": []
+    },
+    {
+      "name": "blank-lines-between-events-are-skipped",
+      "ids": [
+        "SSE-13"
+      ],
+      "input": "\n\ndata: a\n\n\n\ndata: b\n\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-block-of-only-ignored-fields-is-skipped",
+      "ids": [
+        "SSE-13",
+        "SSE-9",
+        "SSE-11"
+      ],
+      "input": "id: a\u0000b\nretry: bad\ngarbage: x\n\ndata: y\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "y"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "eof-dispatches-a-pending-unterminated-block",
+      "ids": [
+        "SSE-14"
+      ],
+      "input": "data: hello",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "hello"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "an-empty-stream-ends-immediately",
+      "ids": [
+        "SSE-14",
+        "SSE-15"
+      ],
+      "input": "",
+      "events": []
+    },
+    {
+      "name": "eof-after-a-terminated-line-without-a-blank-line",
+      "ids": [
+        "SSE-14"
+      ],
+      "input": "data: a\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "eof-after-a-cr-terminated-line",
+      "ids": [
+        "SSE-14"
+      ],
+      "input": "data: a\r",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-dispatched-block-leaves-nothing-pending-at-eof",
+      "ids": [
+        "SSE-14"
+      ],
+      "input": "data: a\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "a"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "eof-dispatches-an-unterminated-comment",
+      "ids": [
+        "SSE-14",
+        "SSE-6"
+      ],
+      "input": ": hi",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "hi",
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "eof-with-only-an-unknown-field-dispatches-nothing",
+      "ids": [
+        "SSE-14",
+        "SSE-7"
+      ],
+      "input": "garbage: x",
+      "events": []
+    },
+    {
+      "name": "eof-with-several-pending-fields-dispatches-one-event",
+      "ids": [
+        "SSE-14"
+      ],
+      "input": "id: 1\nevent: e\ndata: a\ndata: b",
+      "events": [
+        {
+          "id": "1",
+          "event": "e",
+          "data": [
+            "a",
+            "b"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "malformed-utf8-decodes-to-the-replacement-character",
+      "ids": [
+        "SSE-1"
+      ],
+      "inputHex": "646174613A20FF0A0A",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "\ufffd"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "multi-byte-characters-survive",
+      "ids": [
+        "SSE-8"
+      ],
+      "input": "data: h\u00e9llo \u4e16\u754c \ud83d\ude00\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "h\u00e9llo \u4e16\u754c \ud83d\ude00"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-json-completion-stream-with-a-done-sentinel-line",
+      "ids": [
+        "SSE-1",
+        "SSE-8"
+      ],
+      "input": "data: {\"a\":1}\n\ndata: {\"a\":2}\n\ndata: [DONE]\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "{\"a\":1}"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "{\"a\":2}"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [
+            "[DONE]"
+          ],
+          "comment": null,
+          "retryMs": null
+        }
+      ]
+    },
+    {
+      "name": "a-named-event-stream-with-ids-and-a-keep-alive",
+      "ids": [
+        "SSE-1",
+        "SSE-6",
+        "SSE-10"
+      ],
+      "input": ": ping\n\nid: 1\nevent: tick\ndata: one\n\n: ping\n\nid: 2\nevent: tick\nretry: 3000\ndata: two\n\n",
+      "events": [
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "ping",
+          "retryMs": null
+        },
+        {
+          "id": "1",
+          "event": "tick",
+          "data": [
+            "one"
+          ],
+          "comment": null,
+          "retryMs": null
+        },
+        {
+          "id": null,
+          "event": null,
+          "data": [],
+          "comment": "ping",
+          "retryMs": null
+        },
+        {
+          "id": "2",
+          "event": "tick",
+          "data": [
+            "two"
+          ],
+          "comment": null,
+          "retryMs": 3000
+        }
+      ]
+    }
+  ]
+}
