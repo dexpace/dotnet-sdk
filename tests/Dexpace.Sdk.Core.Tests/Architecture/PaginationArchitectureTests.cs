@@ -24,21 +24,12 @@ public sealed class PaginationArchitectureTests
     private static IEnumerable<Type> PublicTypes() =>
         s_core.GetExportedTypes().Where(t => t.Namespace == Namespace);
 
-    // FetchedPage<T> arrives with the fetcher front-end (task 3.1): until then its rows skip rather than fail. // 3.1 removes the skip.
     private static readonly string[] s_valueTypeNames = ["Page`1", "PageInfo`1", "FetchedPage`1"];
 
     public static TheoryData<string> ValueTypeNames() => [.. s_valueTypeNames];
 
-    private static Type ValueType(string metadataName)
-    {
-        var type = s_core.GetType(Namespace + "." + metadataName);
-        if (type is null)
-        {
-            Assert.Skip($"{metadataName} is not built yet.");
-        }
-
-        return type;
-    }
+    private static Type ValueType(string metadataName) =>
+        s_core.GetType(Namespace + "." + metadataName) ?? throw new InvalidOperationException($"{metadataName} is missing from the public surface.");
 
     [Theory]
     [MemberData(nameof(ValueTypeNames))]
@@ -75,11 +66,7 @@ public sealed class PaginationArchitectureTests
     [Fact]
     public void PagingOptions_is_the_one_documented_mutable_type_and_is_not_in_the_value_rules()
     {
-        var type = s_core.GetType(Namespace + ".PagingOptions");
-        if (type is null)
-        {
-            Assert.Skip("PagingOptions is not built yet.");
-        }
+        var type = s_core.GetType(Namespace + ".PagingOptions")!;
 
         Assert.NotNull(type.GetProperty("NextLink")!.SetMethod);
         Assert.NotNull(type.GetProperty("ContinuationToken")!.SetMethod);

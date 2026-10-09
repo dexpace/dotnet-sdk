@@ -112,4 +112,47 @@ public static class Pageable
         new StrategyBlockingPageable<TPage, T>(
             PageWalk<TPage, T>.ForBlocking(client, first, serde, strategy, options, maxPages),
             cancellationToken);
+
+    /// <summary>
+    /// Creates an <see cref="AsyncPageable{T}"/> driven by caller-supplied fetchers instead of a strategy (PAGE-34, PAGE-35).
+    /// </summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="firstPage">
+    /// Called exactly once per walk with the walk's <see cref="PagingOptions"/>; return <see langword="null"/> for an empty
+    /// stream.
+    /// </param>
+    /// <param name="nextPage">
+    /// Called with the previous page's next link when it is not blank, else its continuation token, and the same
+    /// <see cref="PagingOptions"/>; return <see langword="null"/> to end the stream.
+    /// </param>
+    /// <param name="maxPages">The maximum number of pages delivered, or <see langword="null"/> for no limit; set a finite cap in production.</param>
+    /// <returns>A lazy pageable: no fetcher runs until the first <c>MoveNextAsync</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="firstPage"/> or <paramref name="nextPage"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is zero or negative.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>Ownership (P7c-15).</b> Each fetcher reads its own response, builds a materialized <see cref="Page{T}"/> and
+    /// disposes the response itself, typically with <c>await using</c>; the engine never sees a response (see
+    /// <see cref="FetchedPage{T}"/>). A fetcher that throws propagates unwrapped.
+    /// </para>
+    /// <para>
+    /// <b>One <see cref="PagingOptions"/> per walk</b>, shared by every fetcher call of that walk and fresh for the next
+    /// enumeration; the page view is single-use like <see cref="AsyncPageable{T}.AsPages"/>. Fetchers are asynchronous only:
+    /// a blocking fetcher front-end is not built (a <see cref="Pageable{T}"/> subclass covers it).
+    /// </para>
+    /// </remarks>
+    public static AsyncPageable<T> FromFetchers<T>(
+        Func<PagingOptions, CancellationToken, ValueTask<FetchedPage<T>?>> firstPage,
+        Func<string, PagingOptions, CancellationToken, ValueTask<FetchedPage<T>?>> nextPage,
+        int? maxPages = null)
+    {
+        ArgumentNullException.ThrowIfNull(firstPage);
+        ArgumentNullException.ThrowIfNull(nextPage);
+        if (maxPages is { } cap)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(cap, nameof(maxPages));
+        }
+
+        return new FetcherPageable<T>(firstPage, nextPage, maxPages);
+    }
 }
