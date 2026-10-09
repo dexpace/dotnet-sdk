@@ -1255,6 +1255,10 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNext() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?>
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes = 1048576) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
@@ -1262,3 +1266,4 @@ static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes = 1048576, Microsoft.Extensions.Logging.ILogger? logger = null) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
