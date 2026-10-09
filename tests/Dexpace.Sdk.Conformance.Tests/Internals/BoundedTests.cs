@@ -83,4 +83,10 @@ public sealed class BoundedTests
     {
         Assert.Equal(expected, Bounded.Format(TimeSpan.FromMilliseconds(milliseconds)));
     }
+
+    [Fact]
+    public void Format_renders_microseconds_below_one_millisecond()
+    {
+        Assert.Equal("100 \u00b5s", Bounded.Format(TimeSpan.FromTicks(1000)));
+    }
 }

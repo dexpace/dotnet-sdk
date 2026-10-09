@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Dexpace.Sdk.Conformance.Wire;
+using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
 
 namespace Dexpace.Sdk.Conformance;
@@ -111,10 +112,12 @@ internal static class Check
     /// <summary>
     /// Fails unless the client has <em>released</em> connection <paramref name="connection"/> within the release bound. A
     /// pooling client returns a released connection to its pool instead of closing it, so when <paramref name="probe"/> is
-    /// given the check first sends one request through it to the server's probe path: a pool that reuses the connection
-    /// shows it as a further request on it, one that closed it shows the close, and a connection still held by a leaked
-    /// response shows neither. The server must answer <see cref="ProbePath"/> with a keep-alive reply
-    /// (<see cref="SuiteContext.StartProbeableServer"/>).
+    /// given the check sends bursts of requests through it to the server's probe path until the connection shows up as
+    /// released: a pool that reuses the connection shows it as a further request on it, one that closed it shows the close,
+    /// and a connection still held by a leaked response shows neither, however many probes are sent. A burst, not a single
+    /// request, because a pool reuses its most recently idle connection first, so with several connections idle it takes as
+    /// many concurrent probes as there are idle connections to reach the oldest. The server must answer
+    /// <see cref="ProbePath"/> with a keep-alive reply (<see cref="SuiteContext.StartProbeableServer"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// The server, not the client, closed the connection (a kit bug, so <see cref="ConformanceStatus.Errored"/>): after a
@@ -122,14 +125,14 @@ internal static class Check
     /// </exception>
     internal static async Task ReleasedAsync(SuiteContext context, LoopbackServer server, int connection, IFaceTransport? probe, CancellationToken cancellationToken)
     {
+        var released = server.WaitForConnectionReleasedAsync(connection, cancellationToken);
         if (probe is not null)
         {
-            using var response = await probe.ExpectResponseAsync(Request.Get(server.Url(ProbePath).AbsoluteUri), "the probe request that shows whether the connection was reused", cancellationToken).ConfigureAwait(false);
-            _ = await response.ReadBodyAsync("the probe response", cancellationToken).ConfigureAwait(false);
+            await ProbeUntilReleasedAsync(context, server, released, probe, cancellationToken).ConfigureAwait(false);
         }
 
         await Bounded.WaitAsync(
-            server.WaitForConnectionReleasedAsync(connection, cancellationToken),
+            released,
             context.ReleaseTimeout,
             $"the server to see the client release connection {connection}",
             cancellationToken).ConfigureAwait(false);
@@ -138,6 +141,35 @@ internal static class Check
             throw new InvalidOperationException($"Connection {connection} was closed by the server, so its release proves nothing: script a keep-alive reply (plan reading R13).");
         }
     }
+
+    private static async Task ProbeUntilReleasedAsync(SuiteContext context, LoopbackServer server, Task released, IFaceTransport probe, CancellationToken cancellationToken)
+    {
+        // A client that closes the connection shows it at once; give that a moment before probing.
+        if (await SettlesWithinAsync(released, TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        using var expiry = new CancellationTokenSource(context.ReleaseTimeout);
+        while (!released.IsCompleted && !expiry.IsCancellationRequested)
+        {
+            var burst = Math.Clamp(server.ConnectionCount, 2, 16);
+            await Task.WhenAll(Enumerable.Range(0, burst).Select(_ => ProbeOnceAsync(server, probe, cancellationToken))).ConfigureAwait(false);
+            if (await SettlesWithinAsync(released, TimeSpan.FromMilliseconds(20), cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+        }
+    }
+
+    private static async Task ProbeOnceAsync(LoopbackServer server, IFaceTransport probe, CancellationToken cancellationToken)
+    {
+        using var response = await probe.ExpectResponseAsync(Request.Get(server.Url(ProbePath).AbsoluteUri), "the probe request that shows whether the connection was reused", cancellationToken).ConfigureAwait(false);
+        _ = await response.ReadBodyAsync("the probe response", cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> SettlesWithinAsync(Task task, TimeSpan window, CancellationToken cancellationToken) =>
+        await Task.WhenAny(task, TimeProvider.System.DelayAsync(window, cancellationToken)).ConfigureAwait(false) == task;
 
     private static string Render<T>(T value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
 }

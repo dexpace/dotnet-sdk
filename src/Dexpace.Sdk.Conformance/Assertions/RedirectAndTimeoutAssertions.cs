@@ -53,7 +53,7 @@ internal static class RedirectAndTimeoutAssertions
     private static async Task ExpectTimeoutAsync(SuiteContext context, IFaceTransport transport, Uri url, TimeSpan timeout, string what, CancellationToken cancellationToken)
     {
         var options = new RequestOptions { Timeout = timeout };
-        var failure = await Outcome.OfAsync(transport.SendAsync(Request.Get(url.AbsoluteUri), options, cancellationToken), context.TimeoutBound, $"{what} to be cut by its {Bounded.Format(timeout)} timeout", cancellationToken).ConfigureAwait(false);
+        var failure = await Outcome.OfAsync(transport.SendAsync(Request.Get(url.AbsoluteUri), options, cancellationToken), context.TimeoutBound, $"{what} to be cut by its timeout of {Bounded.Format(timeout)}", cancellationToken).ConfigureAwait(false);
 
         Check.True(failure is ServiceRequestTimeoutException, $"{what} must fail with a ServiceRequestTimeoutException when its per-call timeout elapses, never a cancellation and never a hang", "ServiceRequestTimeoutException", Outcome.Name(failure));
         Check.True(failure is SdkException { IsRetryable: true }, $"{what}: a timeout is retryable (XCUT-2)", "IsRetryable == true", "false");
@@ -74,7 +74,7 @@ internal static class RedirectAndTimeoutAssertions
     {
         var transport = context.CreateTransport();
         var hanging = context.StartServer(LoopbackResponse.Hang());
-        await ExpectTimeoutAsync(context, transport, hanging.Url("/first"), s_deadline, "the first call (200 ms timeout)", cancellationToken).ConfigureAwait(false);
+        await ExpectTimeoutAsync(context, transport, hanging.Url("/first"), s_deadline, "the first call", cancellationToken).ConfigureAwait(false);
 
         foreach (var (name, timeout) in new (string, TimeSpan?)[] { ("the second call (5 s timeout)", TimeSpan.FromSeconds(5)), ("the third call (no timeout)", null) })
         {
@@ -98,7 +98,7 @@ internal static class RedirectAndTimeoutAssertions
         var server = context.StartServer(LoopbackResponse.Hang());
         var transport = context.CreateTransport();
 
-        await ExpectTimeoutAsync(context, transport, server.Url("/hang"), TimeSpan.FromTicks(1000), "a call with a 100 microsecond timeout", cancellationToken).ConfigureAwait(false);
+        await ExpectTimeoutAsync(context, transport, server.Url("/hang"), TimeSpan.FromTicks(1000), "a call to a server that never answers", cancellationToken).ConfigureAwait(false);
     }
 
     // TRANSPORT-8: a cancel from the native side with the caller's token unsignalled is terminal, and a real timeout still is not.

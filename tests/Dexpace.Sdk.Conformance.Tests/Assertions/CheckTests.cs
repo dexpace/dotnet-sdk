@@ -123,8 +123,44 @@ public sealed class CheckTests
 
         await Check.ReleasedAsync(context, server, 0, transport, Ct);
 
-        Assert.Equal(Check.ProbePath, server.Requests[1].Target);
-        Assert.Equal(["/a", Check.ProbePath], server.Requests.Select(r => r.Target));
+        Assert.Equal("/a", server.Requests[0].Target);
+    }
+
+    [Fact]
+    public async Task A_pooled_connection_is_shown_released_by_the_probe_because_the_pool_reuses_it()
+    {
+        await using var context = new SuiteContext(
+            new TransportSubject { Name = "pooled", CreateAsync = _ => new PooledStreamingTransport() },
+            TransportFace.Async,
+            new TransportSuiteOptions { ReleaseTimeout = TimeSpan.FromSeconds(3) });
+        var server = context.StartProbeableServer(LoopbackResponse.Ok("first", keepAlive: true));
+        var transport = context.CreateTransport();
+        using (var response = await transport.SendAsync(Dexpace.Sdk.Core.Http.Request.Request.Get(server.Url("/a").AbsoluteUri), Ct))
+        {
+            Assert.Equal("first", await response.Body.ReadAsStringAsync(Ct));
+        }
+
+        await Check.ReleasedAsync(context, server, 0, transport, Ct);
+
+        Assert.Contains(server.Requests, request => request.Target == Check.ProbePath && request.Connection == 0);
+    }
+
+    [Fact]
+    public async Task A_connection_held_by_an_undisposed_response_is_never_shown_released_however_many_probes_are_sent()
+    {
+        await using var context = new SuiteContext(
+            new TransportSubject { Name = "pooled", CreateAsync = _ => new PooledStreamingTransport() },
+            TransportFace.Async,
+            new TransportSuiteOptions { ReleaseTimeout = TimeSpan.FromMilliseconds(800) });
+        var server = context.StartProbeableServer(LoopbackResponse.Large(4 * 1024 * 1024, seed: 1, keepAlive: true));
+        var transport = context.CreateTransport();
+        var held = await transport.SendAsync(Dexpace.Sdk.Core.Http.Request.Request.Get(server.Url("/a").AbsoluteUri), Ct);
+
+        var error = await Assert.ThrowsAsync<ConformanceException>(() => Check.ReleasedAsync(context, server, 0, transport, Ct));
+
+        Assert.Contains("connection 0", error.Message, StringComparison.Ordinal);
+        Assert.True(server.ConnectionCount > 1, "the probes had to open connections of their own");
+        held.Dispose();
     }
 
     [Fact]

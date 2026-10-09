@@ -73,18 +73,21 @@ internal static class LifecycleAssertions
             Check.True(parked.ObservedCancellation || parked.IsDisposed, "the parked body source must be unblocked by the cancellation: it observed its token or was disposed", "an unblocked source", "a source still parked");
         }
 
-        await FileHandleReleasedAsync(context, server, transport, cancellationToken).ConfigureAwait(false);
+        await FileHandleReleasedAsync(context, transport, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task FileHandleReleasedAsync(SuiteContext context, LoopbackServer server, IFaceTransport transport, CancellationToken cancellationToken)
+    private static async Task FileHandleReleasedAsync(SuiteContext context, IFaceTransport transport, CancellationToken cancellationToken)
     {
+        // A server of its own: the parked upload above never completes, so the fixture never recorded it, and this request would
+        // otherwise be the first the server recorded, not the second.
+        var server = context.StartServer(_ => LoopbackResponse.Hang());
         var path = Path.GetTempFileName();
         try
         {
             await File.WriteAllBytesAsync(path, new byte[64 * 1024], cancellationToken).ConfigureAwait(false);
             using var cancelled = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var call = transport.SendAsync(Request.Post(server.Url("/file").AbsoluteUri, RequestBody.FromFile(path)), cancelled.Token);
-            await Bounded.WaitAsync(server.WaitForRequestAsync(1, cancellationToken), context.ReleaseTimeout, "the server to receive the file upload", cancellationToken).ConfigureAwait(false);
+            await Bounded.WaitAsync(server.WaitForRequestAsync(0, cancellationToken), context.ReleaseTimeout, "the server to receive the file upload", cancellationToken).ConfigureAwait(false);
 
             await cancelled.CancelAsync().ConfigureAwait(false);
             await Outcome.OfAsync(call, context.ReleaseTimeout, "the file upload to end after cancellation", cancellationToken).ConfigureAwait(false);

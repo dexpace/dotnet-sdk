@@ -93,7 +93,9 @@ internal static class Bounded
     internal static string Format(TimeSpan bound) =>
         bound >= TimeSpan.FromSeconds(1)
             ? string.Create(CultureInfo.InvariantCulture, $"{bound.TotalSeconds:0.##} s")
-            : string.Create(CultureInfo.InvariantCulture, $"{bound.TotalMilliseconds:0} ms");
+            : bound >= TimeSpan.FromMilliseconds(1)
+                ? string.Create(CultureInfo.InvariantCulture, $"{bound.TotalMilliseconds:0} ms")
+                : string.Create(CultureInfo.InvariantCulture, $"{bound.Ticks / (TimeSpan.TicksPerMillisecond / 1000)} \u00b5s");
 
     private static ConformanceException Exceeded(string what, TimeSpan bound) =>
         new(
