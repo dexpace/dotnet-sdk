@@ -7,6 +7,8 @@ using System.Net;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Serialization;
+using Dexpace.Sdk.TestSupport.Serialization;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;
 
@@ -56,6 +58,12 @@ public sealed class HttpResponseMessageBodyTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+
+    private sealed class TextHandler(string text) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(text) });
     }
 
     private static async Task<(Response Response, TrackingContent Content)> SendAsync()
@@ -168,5 +176,20 @@ public sealed class HttpResponseMessageBodyTests
         _ = read.Body.ReadAsBytes(Token);
         read.Dispose();
         Assert.Throws<StreamConsumedException>(() => read.Body.OpenRead(Token));
+    }
+
+    [Fact]
+    public async Task ReadValue_decodes_the_transport_body_synchronously()
+    {
+        // Phase 7a's synchronous typed reader over the reference transport: it needs the OpenRead above (7a handed it to 8b).
+        using var transport = new SystemNetHttpClient(new SystemHttpClient(new TextHandler("ok:widget")));
+        using var response = await transport.ExecuteAsync(Request.Get("https://example.test/"), Token);
+        var serde = new Utf8LiteralSerde();
+
+        var value = response.Body.ReadValue<string>(serde, Token);
+
+        Assert.Equal("widget", value);
+        Assert.Equal(1, serde.StreamReads);
+        Assert.Throws<StreamConsumedException>(() => response.Body.OpenRead(Token));
     }
 }
