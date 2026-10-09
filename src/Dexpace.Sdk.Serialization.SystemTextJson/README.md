@@ -43,7 +43,7 @@ var pipeline = DexpacePipeline.CreateDefault(transport);
 var request = Request.Post("https://api.example.com/widgets", RequestBody.FromValue(new Widget("gear", 9), serde));
 using var response = await pipeline.SendAsync(request, new DexpaceClientOptions(), CancellationToken.None);
 await response.EnsureSuccessAsync();
-Widget? created = await response.Body.ReadValueAsync<Widget>(serde);
+Widget created = await response.Body.ReadValueAsync<Widget>(serde);
 
 internal sealed record Widget(string Name, int Teeth);
 

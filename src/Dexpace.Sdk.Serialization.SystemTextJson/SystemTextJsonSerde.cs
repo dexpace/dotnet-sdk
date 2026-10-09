@@ -137,6 +137,30 @@ public sealed class SystemTextJsonSerde : ISerde
         }
     }
 
+    /// <summary>
+    /// Deserializes a value of type <typeparamref name="T"/> from <paramref name="source"/>, synchronously, streaming: it
+    /// does not materialise the payload (it overrides the seam's bounded default, P7a-13).
+    /// </summary>
+    /// <typeparam name="T">The target type.</typeparam>
+    /// <param name="source">The stream to read; left open (SERDE-3).</param>
+    /// <returns>The deserialized value, or <see langword="null"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="DeserializationException">Deserialization failed; the cause is chained (SERDE-9).</exception>
+    /// <exception cref="IOException">The stream failed; it propagates unwrapped (SERDE-12).</exception>
+    public T? Deserialize<T>(Stream source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var info = GetTypeInfo<T>(forSerialize: false);
+        try
+        {
+            return JsonSerializer.Deserialize(source, info);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new DeserializationException($"Failed to deserialize JSON to '{typeof(T)}'.", ex);
+        }
+    }
+
     /// <inheritdoc/>
     public void Serialize<T>(IBufferWriter<byte> destination, T value)
     {
