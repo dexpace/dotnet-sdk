@@ -19,6 +19,7 @@ using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Operations;
+using Dexpace.Sdk.Core.Pagination;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.Core.Recovery;
@@ -64,6 +65,7 @@ internal static partial class SmokeChecks
             await CheckPhase6cAuthAsync();
             await CheckPhase7aSerdeAsync();
             await CheckServerSentEventsAsync();
+            await CheckPhase7cPaginationAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -875,6 +877,124 @@ internal static partial class SmokeChecks
 
         public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext context, CancellationToken ct = default) =>
             new(new AccessToken("smoke-" + Interlocked.Increment(ref _calls), DateTimeOffset.UtcNow.AddSeconds(20)));
+    }
+
+    // Phase 7c: a paged round trip through the real default pipeline and the source-generated JSON serde (an async cursor walk, a
+    // Link-header walk, the single-use page view), then the same cursor walk through the blocking pager; no reflection on the path.
+    private static async Task CheckPhase7cPaginationAsync()
+    {
+        var serde = new SystemTextJsonSerde(PaginationSmokeContext.Default);
+        await CheckPagedCursorWalkAsync(serde);
+        await CheckPagedLinkWalkAsync(serde);
+        CheckBlockingPagedWalk(serde);
+    }
+
+    private static Response PagedResponse(Request request, string json, Headers? headers = null) =>
+        new(request, Status.Ok, Protocol.Http11, headers, ResponseBody.FromBytes(Encoding.UTF8.GetBytes(json), MediaType.Parse("application/json")));
+
+    // Three pages keyed by the cursor query parameter: none, p2, p3.
+    private static string CursorPageJson(string? cursor) => cursor switch
+    {
+        null => "{\"Items\":[{\"Name\":\"a\",\"Size\":1},{\"Name\":\"b\",\"Size\":2}],\"Next\":\"p2\"}",
+        "p2" => "{\"Items\":[{\"Name\":\"c\",\"Size\":3}],\"Next\":\"p3\"}",
+        _ => "{\"Items\":[{\"Name\":\"d\",\"Size\":4}],\"Next\":null}",
+    };
+
+    private static async Task CheckPagedCursorWalkAsync(SystemTextJsonSerde serde)
+    {
+        await using var transport = DelegateHttpClient.Create((request, _, _) =>
+            Task.FromResult(PagedResponse(request, CursorPageJson(Query.Parse(request.Url.Query).Get("cursor")))));
+        using var pipeline = DexpacePipeline.CreateDefault(transport);
+        var pageable = Pageable.Create<WidgetPage, Widget>(
+            pipeline,
+            Request.Get(s_endpoint.OriginalString),
+            serde,
+            PaginationStrategies.Cursor<WidgetPage, Widget>(page => page.Items, page => page.Next),
+            maxPages: 10);
+
+        var names = new List<string>();
+        await foreach (var widget in pageable)
+        {
+            names.Add(widget.Name);
+        }
+
+        Expect(names is ["a", "b", "c", "d"], "a three-page cursor walk yields the items in server order");
+
+        var view = pageable.AsPages();
+        var pages = new List<Page<Widget>>();
+        await foreach (var page in view)
+        {
+            pages.Add(page);
+        }
+
+        Expect(
+            pages.Count == 3 && pages[0].Status == Status.Ok && pages[1].Status == Status.Ok && pages[2].Status == Status.Ok
+                && pages[0].Request.Url.Query.Length == 0
+                && pages[1].Request.Url.Query == "?cursor=p2"
+                && pages[2].Request.Url.Query == "?cursor=p3",
+            "each page records its status and the request the walk sent for it");
+        var secondPass = false;
+        try
+        {
+            _ = view.GetAsyncEnumerator();
+        }
+        catch (InvalidOperationException)
+        {
+            secondPass = true;
+        }
+
+        Expect(secondPass, "a second GetAsyncEnumerator on one AsPages view throws");
+    }
+
+    private static async Task CheckPagedLinkWalkAsync(SystemTextJsonSerde serde)
+    {
+        await using var transport = DelegateHttpClient.Create((request, _, _) =>
+        {
+            var page = Query.Parse(request.Url.Query).Get("page");
+            var link = page switch
+            {
+                null => "</widgets?page=2>; rel=\"next\"",
+                "2" => "</widgets?page=3>; rel=\"next\"",
+                _ => null,
+            };
+            var headers = link is null ? null : new Headers.Builder().Add("Link", link).Build();
+            return Task.FromResult(PagedResponse(request, CursorPageJson(page is null ? null : page == "2" ? "p2" : "p3"), headers));
+        });
+        using var pipeline = DexpacePipeline.CreateDefault(transport);
+        var pageable = Pageable.Create<WidgetPage, Widget>(
+            pipeline,
+            Request.Get(s_endpoint.OriginalString),
+            serde,
+            PaginationStrategies.LinkHeader<WidgetPage, Widget>(page => page.Items),
+            maxPages: 10);
+
+        var names = new List<string>();
+        await foreach (var widget in pageable)
+        {
+            names.Add(widget.Name);
+        }
+
+        Expect(names is ["a", "b", "c", "d"], "a Link-header walk follows rel=next across three pages");
+    }
+
+    private static void CheckBlockingPagedWalk(SystemTextJsonSerde serde)
+    {
+        using var transport = DelegateHttpClient.CreateBlocking((request, _, _) =>
+            PagedResponse(request, CursorPageJson(Query.Parse(request.Url.Query).Get("cursor"))));
+        var pageable = Pageable.CreateBlocking<WidgetPage, Widget>(
+            transport,
+            Request.Get(s_endpoint.OriginalString),
+            serde,
+            PaginationStrategies.Cursor<WidgetPage, Widget>(page => page.Items, page => page.Next),
+            maxPages: 10);
+
+        var names = new List<string>();
+        foreach (var widget in pageable)
+        {
+            names.Add(widget.Name);
+        }
+
+        Expect(names is ["a", "b", "c", "d"], "the blocking pager walks the same three pages");
     }
 
     private static void Expect(bool condition, string what)
