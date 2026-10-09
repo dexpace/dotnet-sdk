@@ -595,6 +595,18 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   the splice, a loopback wire class `PaginationWireTests`, `PaginationArchitectureTests`, and the NativeAOT smoke check
   `CheckPhase7cPaginationAsync` (a cursor walk, a `Link` walk, the single-use page view and the blocking pager).
 - `docs/sdk-documentation/pagination.md`.
+- **Transport conformance kit** (phase 8a; `TRANSPORT-2`, `-3`, `-7`, `-11`, `-15`, `-16`, `-19` to `-27`, `-29`, `ASYNC-1` to `ASYNC-22`; the other 14 `TRANSPORT` rows are phase 8b's, and the kit
+  asserts them too). New package **`Dexpace.Sdk.Conformance`**, referencing `Dexpace.Sdk.Core` only: a framework-free `TransportSuite` with 42 named assertions (each is a plain method that throws
+  `ConformanceException`, never an `SdkException`), `TransportSubject` (two faces and five optional capability hooks), `ConformanceReport` with per-requirement and appendix B.6/B.7 views, six result
+  statuses including `NotExercised` for a missing hook and `Vacuous` measured from inside, and waivers by requirement ID that must stay needed (a waived assertion that passes fails the run). The loopback
+  wire fixture is promoted into it as `Dexpace.Sdk.Conformance.Wire` and gains request-arrival and connection-release observation and the `Gated`, `HeadersThenGate`, `Abort`, `Hang`, `Large` and `EchoId`
+  replies. The requirement catalogue is generated from appendix C by `scripts/ci/requirement-catalog.cs`. The kit runs against `SystemNetHttpClient` (with the ten rows phase 8b owns waived, each `Owner = "8b"`)
+  and, through `DelegateHttpClient`, against a test-only raw-socket client that shares no code with `HttpClient`; a slice of it runs in the NativeAOT smoke. **Test-only move:**
+  `Dexpace.Sdk.Http.SystemNet.Tests.Loopback.*` is now `Dexpace.Sdk.Conformance.Wire.*`. No change to any published package surface.
+- Phase 8a tests: a negative control for every kit assertion (71 deliberately broken subjects), the kit's own unit and fixture tests, and `ASYNC` pins in `Dexpace.Sdk.Core.Tests` (`ASYNC-7`, `-8`, `-9`,
+  `-10`, `-11`, `-12`, `-13`, `-14`). `ASYNC-2`'s worker-pool-rejection clause is not met: a scheduler whose `QueueTask` throws makes `AsAsync(...).ExecuteAsync` throw `TaskSchedulerException`
+  synchronously instead of faulting the task; the fix is a core change left for a later phase.
+- `docs/sdk-documentation/conformance.md`.
 
 ### Phase 7a — serde
 
