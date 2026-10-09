@@ -96,3 +96,8 @@ covered by a §10 entry that argues its guarantee is kept.
 
 **Correction 2026-10-09 (phase 7b).** The `SSE` row is now 40 built and 1 not applicable: **SSE-41** is N/A, adapter-scoped (§11 item 21), where this index said "deferred"; **SSE-19**'s cap is built as `ServerSentEventLineTooLongException` (§10 entry 20, P7b-4); **SSE-18** is a documented
 contract and **SSE-2**'s line layer was met by phase 3a. The notes gain **SSE-37**'s turned-on gate and **SSE-38**'s architecture test (the 7b checklist).
+
+**Correction 2026-10-09 (phase 8a).** The `TRANSPORT` and `ASYNC` rows keep their counts (30 of 30 and 22 of 22) and gain per-ID evidence: the kit's 42-assertion catalogue (`docs/sdk-documentation/conformance.md`) names, for every `TRANSPORT` row, the
+assertion that checks it, and the [8a checklist](../work/mvp/phase8/phase8a/2026-10-09-phase8a-conformance-kit-checklist.md) maps all 38 rows 8a owns. **ASYNC-6** is met on the two bridges (cancellation crosses `AsAsync` and `AsBlocking` in both
+directions) and vacuous only for a runtime facade, refining the *Vacuous* note above; **ASYNC-4** and **ASYNC-21** stay vacuous. **ASYNC-2**'s worker-pool-rejection clause is not met: a scheduler whose `QueueTask` throws makes
+`AsAsync(scheduler).ExecuteAsync` throw `TaskSchedulerException` synchronously (finding F-A2); the fix is a core change left for a later phase.
