@@ -190,4 +190,64 @@ public sealed class SerdeOptionsTests
 
         Assert.Null(serde.Deserialize<NonNullable>("null"u8));
     }
+
+    // ---- SERDE-23, SERDE-24, SERDE-29: STJ defaults that the conformance suite asserts ----------------------------
+
+    [Fact]
+    public void An_unmapped_member_is_skipped()
+    {
+        // SERDE-23: forward compatibility, under the defaults and under a plain context.
+        const string Json = """{"name":"a","size":1,"extra":{"x":[1,2]}}""";
+        var bytes = Encoding.UTF8.GetBytes(Json);
+
+        Assert.Equal(new Widget("a", 1), new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(CoercionContext.Default)).Deserialize<Widget>(bytes));
+        Assert.Equal(new Widget("a", 1), new SystemTextJsonSerde(CoercionContext.Default).Deserialize<Widget>(Encoding.UTF8.GetBytes("""{"Name":"a","Size":1,"Extra":{"x":[1,2]}}""")));
+    }
+
+    [Fact]
+    public void DateTimeOffset_round_trips_as_ISO_8601_and_the_same_instant()
+    {
+        // SERDE-24: an offset survives as text (+05:30), and the decoded value is the same instant.
+        var serde = new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(CoercionContext.Default));
+        var stamped = new Stamped(
+            new DateTimeOffset(2026, 10, 9, 12, 30, 15, TimeSpan.FromMinutes(330)),
+            new DateTime(2026, 10, 9, 7, 0, 0, DateTimeKind.Utc));
+
+        var json = Encode(serde, stamped);
+        var decoded = serde.Deserialize<Stamped>(Encoding.UTF8.GetBytes(json))!;
+
+        Assert.Contains("\"at\":\"2026-10-09T12:30:15+05:30\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"utc\":\"2026-10-09T07:00:00Z\"", json, StringComparison.Ordinal);
+        Assert.Equal(stamped.At.UtcDateTime, decoded.At.UtcDateTime);
+        Assert.Equal(stamped.At.Offset, decoded.At.Offset);
+        Assert.Equal(stamped.Utc, decoded.Utc);
+        Assert.Equal(DateTimeKind.Utc, decoded.Utc.Kind);
+    }
+
+    [Fact]
+    public async Task Many_workers_share_one_serde_without_cross_talk()
+    {
+        // SERDE-29: a fresh serde (cold metadata cache, so the first-use initialisation races), then the warm path.
+        const int Workers = 32;
+        const int Iterations = 500;
+        var serde = new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(CoercionContext.Default));
+        var gate = new TaskCompletionSource();
+
+        var tasks = Enumerable.Range(0, Workers).Select(worker => Task.Run(async () =>
+        {
+            await gate.Task;
+            for (var i = 0; i < Iterations; i++)
+            {
+                var widget = new Widget($"w{worker}-{i}", (worker * 1000) + i);
+                var writer = new ArrayBufferWriter<byte>();
+                serde.Serialize(writer, widget);
+                Assert.Equal(widget, serde.Deserialize<Widget>(writer.WrittenSpan));
+            }
+        }, TestContext.Current.CancellationToken)).ToArray();
+
+        gate.SetResult();
+        await Task.WhenAll(tasks);
+
+        Assert.All(tasks, t => Assert.True(t.IsCompletedSuccessfully));
+    }
 }
