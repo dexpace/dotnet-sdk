@@ -309,11 +309,18 @@ public sealed class PageStepTests
             var transport = new SyncFirstTransport(PageFixtures.Respond(make()));
             var task = PageStep.FetchAsync(BlockingWalk(transport, strategy), s_first, async: false, Ct);
             Assert.True(task.IsCompleted, "a blocking path suspended");
+            Observe(task);
         }
 
         var nullResponse = new SyncFirstTransport(_ => null!);
-        Assert.True(PageStep.FetchAsync(BlockingWalk(nullResponse), s_first, async: false, Ct).IsCompleted);
+        var nullResponseTask = PageStep.FetchAsync(BlockingWalk(nullResponse), s_first, async: false, Ct);
+        Assert.True(nullResponseTask.IsCompleted);
+        Observe(nullResponseTask);
     }
+
+    // Reads the already-completed task so a faulted one is observed here, not by the finalizer: an unobserved fault would
+    // raise TaskScheduler.UnobservedTaskException in whichever test is listening when the GC runs (LateResultTests).
+    private static void Observe<T>(ValueTask<T> task) => _ = Record.Exception(() => SyncResult(task));
 
     [Fact]
     public void A_blocking_parse_failure_closes_once_with_the_parse_error_primary()
