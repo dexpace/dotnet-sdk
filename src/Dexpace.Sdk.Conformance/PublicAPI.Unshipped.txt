@@ -2,6 +2,11 @@
 Dexpace.Sdk.Conformance.AfterDisposeBehavior
 Dexpace.Sdk.Conformance.AfterDisposeBehavior.ThrowsObjectDisposedException = 1 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
 Dexpace.Sdk.Conformance.AfterDisposeBehavior.Unspecified = 0 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.ConformanceAssertion
+Dexpace.Sdk.Conformance.ConformanceAssertion.Faces.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.TransportFace>!
+Dexpace.Sdk.Conformance.ConformanceAssertion.Level.get -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.ConformanceAssertion.Name.get -> string!
+Dexpace.Sdk.Conformance.ConformanceAssertion.RequirementIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Dexpace.Sdk.Conformance.ConformanceException
 Dexpace.Sdk.Conformance.ConformanceException.Actual.get -> string?
 Dexpace.Sdk.Conformance.ConformanceException.ConformanceException() -> void
@@ -9,6 +14,29 @@ Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! messag
 Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, string? expected, string? actual) -> void
 Dexpace.Sdk.Conformance.ConformanceException.Expected.get -> string?
+Dexpace.Sdk.Conformance.ConformanceReport
+Dexpace.Sdk.Conformance.ConformanceReport.ByAppendixBItem.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
+Dexpace.Sdk.Conformance.ConformanceReport.ByRequirement.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
+Dexpace.Sdk.Conformance.ConformanceReport.IsGreen.get -> bool
+Dexpace.Sdk.Conformance.ConformanceReport.Results.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceResult!>!
+Dexpace.Sdk.Conformance.ConformanceReport.SubjectName.get -> string!
+Dexpace.Sdk.Conformance.ConformanceResult
+Dexpace.Sdk.Conformance.ConformanceResult.<Clone>$() -> Dexpace.Sdk.Conformance.ConformanceResult!
+Dexpace.Sdk.Conformance.ConformanceResult.Assertion.get -> Dexpace.Sdk.Conformance.ConformanceAssertion!
+Dexpace.Sdk.Conformance.ConformanceResult.Assertion.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.ConformanceResult(Dexpace.Sdk.Conformance.ConformanceAssertion! Assertion, Dexpace.Sdk.Conformance.TransportFace Face, Dexpace.Sdk.Conformance.ConformanceStatus Status, string! Detail) -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Deconstruct(out Dexpace.Sdk.Conformance.ConformanceAssertion! Assertion, out Dexpace.Sdk.Conformance.TransportFace Face, out Dexpace.Sdk.Conformance.ConformanceStatus Status, out string! Detail) -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Detail.get -> string!
+Dexpace.Sdk.Conformance.ConformanceResult.Detail.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Equals(Dexpace.Sdk.Conformance.ConformanceResult? other) -> bool
+Dexpace.Sdk.Conformance.ConformanceResult.Exception.get -> System.Exception?
+Dexpace.Sdk.Conformance.ConformanceResult.Exception.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Face.get -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.ConformanceResult.Face.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Status.get -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceResult.Status.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Waiver.get -> Dexpace.Sdk.Conformance.ConformanceWaiver?
+Dexpace.Sdk.Conformance.ConformanceResult.Waiver.init -> void
 Dexpace.Sdk.Conformance.ConformanceStatus
 Dexpace.Sdk.Conformance.ConformanceStatus.Errored = 2 -> Dexpace.Sdk.Conformance.ConformanceStatus
 Dexpace.Sdk.Conformance.ConformanceStatus.Failed = 1 -> Dexpace.Sdk.Conformance.ConformanceStatus
@@ -40,8 +68,17 @@ Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.R
 Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
+override Dexpace.Sdk.Conformance.ConformanceAssertion.ToString() -> string!
+override Dexpace.Sdk.Conformance.ConformanceReport.ToString() -> string!
+override Dexpace.Sdk.Conformance.ConformanceResult.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.ConformanceResult.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.ConformanceResult.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.ConformanceWaiver.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
+static Dexpace.Sdk.Conformance.ConformanceReport.Create(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceResult!>! results) -> Dexpace.Sdk.Conformance.ConformanceReport!
+static Dexpace.Sdk.Conformance.ConformanceReport.Preamble.get -> string!
+static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
+static Dexpace.Sdk.Conformance.ConformanceResult.operator ==(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
