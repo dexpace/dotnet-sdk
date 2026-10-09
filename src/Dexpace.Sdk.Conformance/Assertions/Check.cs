@@ -18,6 +18,35 @@ internal static class Check
     /// <summary>The path a server answers with a keep-alive reply, used to prove that a connection was reused (see <see cref="ReleasedAsync"/>).</summary>
     internal const string ProbePath = "/__conformance-probe";
 
+    /// <summary>
+    /// Runs a transport operation whose success the clause requires. A transport failure (any exception that is neither a
+    /// <see cref="ConformanceException"/> nor the assertion's own cancellation) means the transport broke the clause, so it is
+    /// reported as a <see cref="ConformanceException"/> naming <paramref name="what"/> and the exception type, and never as
+    /// an <see cref="ConformanceStatus.Errored"/> result: that status is for kit bugs.
+    /// </summary>
+    /// <param name="operation">The operation.</param>
+    /// <param name="what">What was being done, for the message.</param>
+    /// <param name="cancellationToken">The assertion's token: its cancellation propagates.</param>
+    internal static async Task<T> GuardAsync<T>(Func<Task<T>> operation, string what, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await operation().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not ConformanceException && !cancellationToken.IsCancellationRequested)
+        {
+            throw new ConformanceException($"{what}: the transport failed with {ex.GetType().Name} where success was required", ex);
+        }
+    }
+
+    /// <summary>The non-generic form of <see cref="GuardAsync{T}"/>.</summary>
+    internal static async Task GuardAsync(Func<Task> operation, string what, CancellationToken cancellationToken) =>
+        await GuardAsync<bool>(async () =>
+        {
+            await operation().ConfigureAwait(false);
+            return true;
+        }, what, cancellationToken).ConfigureAwait(false);
+
     /// <summary>Fails the assertion.</summary>
     /// <param name="message">The clause that was broken, one line.</param>
     /// <param name="expected">What the clause requires.</param>
@@ -95,8 +124,8 @@ internal static class Check
     {
         if (probe is not null)
         {
-            using var response = await probe.SendAsync(Request.Get(server.Url(ProbePath).AbsoluteUri), cancellationToken).ConfigureAwait(false);
-            _ = await response.Body.ReadAsBytesAsync(cancellationToken).ConfigureAwait(false);
+            using var response = await probe.ExpectResponseAsync(Request.Get(server.Url(ProbePath).AbsoluteUri), "the probe request that shows whether the connection was reused", cancellationToken).ConfigureAwait(false);
+            _ = await response.ReadBodyAsync("the probe response", cancellationToken).ConfigureAwait(false);
         }
 
         await Bounded.WaitAsync(

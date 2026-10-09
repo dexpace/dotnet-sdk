@@ -33,4 +33,22 @@ internal static class FaceTransportExtensions
     /// <param name="cancellationToken">The call's token.</param>
     internal static Task<Response> SendAsync(this IFaceTransport transport, Request request, CancellationToken cancellationToken) =>
         transport.SendAsync(request, RequestOptions.Empty, cancellationToken);
+
+    /// <summary>
+    /// Sends <paramref name="request"/> where the clause requires a response: a transport failure is a
+    /// <see cref="ConformanceException"/> naming <paramref name="what"/>, not an error of the kit (see <see cref="Check.GuardAsync{T}"/>).
+    /// </summary>
+    /// <param name="transport">The face to send through.</param>
+    /// <param name="request">The request.</param>
+    /// <param name="what">What is being sent, for the failure message.</param>
+    /// <param name="cancellationToken">The assertion's token.</param>
+    internal static Task<Response> ExpectResponseAsync(this IFaceTransport transport, Request request, string what, CancellationToken cancellationToken) =>
+        Check.GuardAsync(() => transport.SendAsync(request, RequestOptions.Empty, cancellationToken), what, cancellationToken);
+
+    /// <summary>Reads the whole body of <paramref name="response"/>, a transport failure being a <see cref="ConformanceException"/> naming <paramref name="what"/>.</summary>
+    /// <param name="response">The response whose body to read; the body is disposed by the read.</param>
+    /// <param name="what">What is being read, for the failure message.</param>
+    /// <param name="cancellationToken">The assertion's token.</param>
+    internal static Task<byte[]> ReadBodyAsync(this Response response, string what, CancellationToken cancellationToken) =>
+        Check.GuardAsync(() => response.Body.ReadAsBytesAsync(cancellationToken), what, cancellationToken);
 }

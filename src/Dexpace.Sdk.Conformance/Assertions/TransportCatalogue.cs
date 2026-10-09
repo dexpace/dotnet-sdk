@@ -4,11 +4,13 @@
 namespace Dexpace.Sdk.Conformance;
 
 /// <summary>
-/// The assertion catalogue, in the order of the design's table. Empty until the assertion groups of plan tasks 2.5 to 2.11
-/// register themselves here.
+/// The assertion catalogue, in the order of the design's table: each group contributes its assertions in declaration order.
 /// </summary>
 internal static class TransportCatalogue
 {
     /// <summary>Every assertion the suite runs.</summary>
-    internal static IReadOnlyList<ConformanceAssertion> All { get; } = [];
+    internal static IReadOnlyList<ConformanceAssertion> All { get; } =
+    [
+        .. ResponseShapeAssertions.Assertions(),
+    ];
 }
