@@ -1228,6 +1228,7 @@ Dexpace.Sdk.Core.Recovery.RetryRecovery.RetryRecovery(Dexpace.Sdk.Core.Configura
 Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string
+const Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.DefaultMaxLineBytes = 1048576 -> int
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.<Clone>$() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.get -> string?
@@ -1250,6 +1251,10 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSent
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNext() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?>
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes = 1048576) -> void
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
