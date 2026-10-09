@@ -89,7 +89,10 @@ var serde = new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(App
   you pass yourself, or a context's own `[JsonSourceGenerationOptions]`, keep your choices, and the serde adds the Tristate wiring and
   nothing else.
 - **`AddTristateSupport(this JsonSerializerOptions)`** does the same wiring in place, for callers who use `JsonSerializer` directly on
-  SDK models (an ASP.NET endpoint, a test); without it an Absent field would serialize as an object. Call it *after* setting the
+  SDK models (an ASP.NET endpoint, a test). Without it `JsonSerializer` reads `Tristate<T>`'s public `Value` property as it would any
+  struct's: its getter throws `InvalidOperationException` for an Absent or a Null field, so serializing a model that holds either fails, and a
+  Present field is written as an object of the struct's properties (`State`, `IsAbsent`, `Value` and the rest) instead of as its value
+  (pinned by `TristateJsonTests.Without_AddTristateSupport_an_Absent_or_Null_field_throws_and_a_Present_field_is_written_as_an_object`). Call it *after* setting the
   resolver; it is idempotent in effect, throws `ArgumentException` without a resolver and `InvalidOperationException` on read-only
   options.
 - **Generation mode.** Use a `JsonSerializerContext` in the default mode or `Metadata`. A context generated with
@@ -171,7 +174,9 @@ The third branch leads with the code and names what it saw: `304 Not Modified: e
 "abc". Location: https://host/path?token=***.` Each part is omitted when its header is absent. `ETag` is copied raw (an opaque validator:
 parsing it on an error path would turn a diagnostic into a second failure). `Location` is resolved against the request URL and passed
 through `UrlRedactor`, because an exception message is logged and a redirect target can carry a credential in its query or userinfo; one
-that does not parse is shown as `<unparseable>`. A control character in any part becomes `?`, so the message is one line.
+that does not parse is shown as `<unparseable>`. A control character in any part becomes `?`, so the message is one line; for `Location`
+that rewrite runs after the redaction, because a received header may carry a tab and turning it into `?` first can move userinfo into the
+query, where default-deny redaction keeps a bare token verbatim.
 
 A generated SDK supplies its own handler by implementing the interface. This one maps a `404` to its own exception and defers to the
 status-aware handler for everything else:

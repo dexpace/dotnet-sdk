@@ -16,8 +16,11 @@ namespace Dexpace.Sdk.Serialization.SystemTextJson;
 /// <remarks>
 /// <see cref="SystemTextJsonSerde"/> does this on its own private copy of the options, always. This extension is for the
 /// caller who serializes SDK models with <see cref="System.Text.Json.JsonSerializer"/> themselves (an ASP.NET endpoint, a
-/// test): without it, an Absent field would serialize as an object holding the struct's public properties, which is exactly
-/// the silent PATCH corruption SERDE-19 warns of.
+/// test). Without it <see cref="System.Text.Json.JsonSerializer"/> treats <see cref="Tristate{T}"/> as an ordinary struct and
+/// reads its public <c>Value</c> property, whose getter throws <see cref="InvalidOperationException"/> for an Absent or a Null
+/// field, so serializing a model that holds either fails; a Present field does not fail but is written as an object of the
+/// struct's public properties (<c>State</c>, <c>IsAbsent</c>, <c>Value</c> and the rest) instead of as its value, which is the
+/// wrong PATCH body that SERDE-19 warns of.
 /// </remarks>
 public static class TristateJsonSerializerOptionsExtensions
 {

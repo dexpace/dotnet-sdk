@@ -558,7 +558,8 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   reads as Null and a missing key as Absent, for reference and value-type `T` alike and with no reflection (a public
   `ITristate` visitor hook and one justified `IL2067` suppression, exercised by the AOT smoke's `Tristate<int>`). Where the wire has no
   key (the document root, an array element, a dictionary value) an Absent degrades to `null`. New public
-  `TristateJsonSerializerOptionsExtensions.AddTristateSupport(JsonSerializerOptions)` for callers who use `JsonSerializer` directly on SDK models.
+  `TristateJsonSerializerOptionsExtensions.AddTristateSupport(JsonSerializerOptions)` for callers who use `JsonSerializer` directly on SDK models
+  (without it `JsonSerializer` throws `InvalidOperationException` for an Absent or Null field and writes a Present one as an object of the struct's properties).
 - `SystemTextJsonSerde.CreateDefaultOptions(IJsonTypeInfoResolver)`: a fresh, mutable instance per call with `Web` naming, strict numbers
   (`NumberHandling.Strict`, forced back from `Web`'s `AllowReadingFromString`) and `RespectNullableAnnotations`, Tristate-wired
   (`SERDE-21`, `SERDE-25`). Tests pin the nine strict-coercion rows individually, the two permitted widenings, unmapped-member skipping,
@@ -576,7 +577,8 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `ResponseHandlers.DeserializeOnSuccess<T>(ISerde)` (`SERDE-27`, `SERDE-28`). The status-aware handler decodes a 2xx; throws
   `HttpResponseException` over the bounded error-body buffer for a 400 to 599 (the one capture site, with the 1 MiB bound); and for anything else
   (a 1xx, an unfollowed 3xx, a 304) disposes the response and fails with a `DeserializationException` that leads with the status code and carries the
-  raw `ETag` and the `Location` resolved against the request URL and redacted through `UrlRedactor`. A new `Security` test pins the redaction.
+  raw `ETag` and the `Location` resolved against the request URL and redacted through `UrlRedactor` (the one-line rewrite of control characters runs after the
+  redaction, so a tab inside the userinfo cannot move the credential into the query). A new `Security` class pins the redaction.
 - `TypedResponse<T>` (`HTTP-44`, `HTTP-45`): a response whose metadata is readable at once and whose body is parsed lazily, once, on the first
   `GetValueAsync`. Success (a `null` included) and failure are memoized, a failure as the same exception object; exactly-once is a compare-and-swap on a
   `TaskCompletionSource<T>`, so no caller blocks a thread behind another's parse, and a caller's token cancels only its own wait. The wrapped response is not exposed.
