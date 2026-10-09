@@ -563,6 +563,15 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   (`NumberHandling.Strict`, forced back from `Web`'s `AllowReadingFromString`) and `RespectNullableAnnotations`, Tristate-wired
   (`SERDE-21`, `SERDE-25`). Tests pin the nine strict-coercion rows individually, the two permitted widenings, unmapped-member skipping,
   ISO-8601 dates and 32 concurrent workers on one serde (`SERDE-22`, `SERDE-23`, `SERDE-24`, `SERDE-29`).
+- The typed readers on `ResponseBody` (`SERDE-7`, `SERDE-13`, `SERDE-27`): `ReadValueOrDefaultAsync<T>` (admits a wire `null`),
+  `ReadValue<T>` and `ReadValueOrDefault<T>` (the synchronous twins), beside `ReadValueAsync<T>`. Each streams (one byte is peeked
+  to tell a missing payload from a present one, then replayed to the codec; nothing is materialised) and disposes the body on every
+  path, attaching a dispose failure to the failure in flight. A body with no payload (a 204, a zero-length body) fails with a
+  `DeserializationException` naming `T`.
+- `ISerde.Deserialize<T>(Stream)`, the synchronous stream decode, as a **default interface member**: source- and
+  binary-compatible for every implementer. The default reads the stream under `ResponseBody.DefaultMaxMaterializedBytes`
+  (a seekable source that declares more is refused before any read) and calls the span decode; `SystemTextJsonSerde` overrides it
+  and streams. `HttpResponseException.GetError<T>(ISerde)`, the synchronous twin of `GetErrorAsync` (`SERDE-3`, `SERDE-9`, `SERDE-12`).
 
 #### Changed
 
@@ -570,6 +579,16 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   copy of the options, wire `Tristate<T>` on the copy and freeze the copy. The caller's `JsonSerializerOptions` is no longer made
   read-only, gains no converter and keeps its resolver; a later change to it does not affect the serde (was: the caller's instance was
   frozen) (`SERDE-19`, `SERDE-26`).
+- **Breaking (phase 7a):** `ResponseBodySerdeExtensions.ReadValueAsync<T>` returns `ValueTask<T>` (was: `ValueTask<T?>`) and throws a
+  `DeserializationException` naming `T` for a wire `null` into a reference-type target (was: returned `null`). Use
+  `ReadValueOrDefaultAsync<T>` to accept `null`; a `Nullable<>` target still decodes `null` (`SERDE-13`).
+- **Breaking (phase 7a):** `ReadValueAsync<T>` disposes the **body** on every path (was: only the stream it opened), so a body is
+  spent after a typed read whether or not it succeeded.
+- **Breaking (phase 7a):** `ReadValueAsync<T>` on an empty body (a 204, a zero-length body) throws a `DeserializationException`
+  `The response has no body to deserialize as '{T}'.` with no inner exception (was: a `DeserializationException` wrapping the
+  codec's "no JSON tokens" failure) (`SERDE-27`).
+- **Breaking (phase 7a), binary-compatible:** `ISerde` gains `Deserialize<T>(Stream)` with a default implementation, so every
+  existing implementer keeps compiling and loading; it is listed because the public API snapshot diffs it.
 
 #### Fixed
 
