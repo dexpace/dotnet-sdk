@@ -64,8 +64,18 @@ public sealed class LateResultTests
     [Fact]
     public async Task A_faulted_late_task_is_observed_and_raises_no_UnobservedTaskException()
     {
+        // The event is process-wide and every subscriber sees every raise: count only this test's own failure, or a task
+        // another test leaves unobserved on purpose (TypedResponseTests' fatal parse) fails this one when their GC passes overlap.
+        var lateFailure = new InvalidOperationException("late failure");
         var unobserved = 0;
-        void Handler(object? sender, UnobservedTaskExceptionEventArgs e) => Interlocked.Increment(ref unobserved);
+        void Handler(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            if (e.Exception.Flatten().InnerExceptions.Contains(lateFailure))
+            {
+                Interlocked.Increment(ref unobserved);
+            }
+        }
+
         TaskScheduler.UnobservedTaskException += Handler;
         try
         {
@@ -75,7 +85,7 @@ public sealed class LateResultTests
 
             await cts.CancelAsync();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
-            source.SetException(new InvalidOperationException("late failure"));
+            source.SetException(lateFailure);
             source = null!;
             wait = null!;
 

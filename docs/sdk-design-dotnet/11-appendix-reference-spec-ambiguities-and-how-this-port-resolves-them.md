@@ -327,6 +327,13 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
 65. **`AUTH-36` surfaces a `401` unchanged when the rejected request carried no `Authorization` header (cross-origin suppression); the same hazard exists for every scheme.**
     *Added by dated correction, 2026-10-08 (phase 6c, P6c-12).* *Resolved* (§6.3, §10 entry 15): a `401` on a cross-origin hop is returned without challenge handling for any scheme,
     so a foreign server cannot draw the caller's credential by answering `401`.
+66. **`PAGE-19` says an absolute `Link` target "is used as-is"; each page is a fresh pipeline call whose auth policy trusts that page's own URL.**
+    *Added by dated correction, 2026-10-09 (phase 7c, P7c-12).* *Resolved* (§7.1, §10 entry 15): the `Link` strategy ends the walk, quietly, on a target on another origin
+    than the walk's **first** request (a scheme downgrade included) unless the caller sets `allowCrossOrigin`, and removes userinfo from a target it follows. Following the
+    letter would let a hostile or compromised server harvest the bearer token with one header, because the authorization policies stamp a request that is same-origin with
+    its own call's seed (§10 entry 15) and the next page's seed is the server-chosen URL. The origin compared is the first request's, not the response's, so a first page that
+    redirected cannot launder an origin. Stronger than the letter, and recorded as a reading rather than a §10 deviation because a server cannot observe it except by not
+    being followed (`PaginationLinkOriginTests`). `first-release.md` carries the asymmetry.
 
 **Correction 2026-10-07 (phase 5c, P5c-10).** Item 38 as built: `http.client.request.duration` (histogram, `s`, OpenTelemetry's bucket advice
 `0.005`, `0.01`, `0.025`, `0.05`, `0.075`, `0.1`, `0.25`, `0.5`, `0.75`, `1`, `2.5`, `5`, `7.5`, `10`, through `InstrumentAdvice<double>`, which

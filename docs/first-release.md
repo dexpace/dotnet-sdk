@@ -119,6 +119,16 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`borrowed-client-traceparent` (design §8.1, P5c-11).** `SystemNetHttpClient` drops the SDK's own `traceparent` stamp when a
   `System.Net.Http` listener exists, so the runtime's child span id is on the wire. A caller-supplied `HttpClient` whose handler chain does not
   propagate sends no `traceparent` for a traced call while that listener exists. Recorded by phase 5c (2026-10-07).
+- **`link-cross-origin-guard` (design §11 item 66, P7c-12; `PAGE-19`).** `PAGE-19` says an absolute `Link` target is used as it stands. The
+  `Link` strategy instead **ends the walk** on a target on another origin than the walk's first request (another host or port, or `https` to
+  `http`), unless the caller passes `allowCrossOrigin: true`, and removes userinfo from a target it follows. Each page is a fresh pipeline call
+  whose authorization policy stamps the credential for any origin its own request is same-origin with, so following a server-chosen origin
+  would hand that server the bearer token. An API that pages across hosts (a CDN, a regional host) opts in, knowing the credential then goes to
+  the new origin. A custom strategy and `PaginationStrategies.Create` get no such guard. Recorded by phase 7c (2026-10-09); see
+  [`pagination.md`](./sdk-documentation/pagination.md).
+- **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
+  strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
+  strategies turn out to need it. Recorded by phase 7c (2026-10-09).
 
 ### Post-v1 packages
 

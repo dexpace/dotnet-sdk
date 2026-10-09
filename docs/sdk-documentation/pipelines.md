@@ -102,7 +102,8 @@ var pipeline = new PipelineBuilder()
 ## `HttpPipeline`
 
 - **As a transport.** `HttpPipeline` implements `IAsyncHttpClient` and `IHttpClient` (`PIPE-26`), so one pipeline can wrap
-  another and back a paginator. Disposal is a no-op toward the transport, which the pipeline never owns, and there is no
+  another and back a paginator (`Pageable.Create` takes the `IAsyncHttpClient` seam and `Pageable.CreateBlocking` the `IHttpClient` one; see
+  [`pagination.md`](./pagination.md)). Disposal is a no-op toward the transport, which the pipeline never owns, and there is no
   latch: a disposed pipeline stays usable (`PIPE-27`; `SEAM-15` is a MAY).
 - **Two kinds of options.** The seam carries `RequestOptions` (per call), which reach every policy and the transport by
   reference; the policies read `DexpaceClientOptions`, which the pipeline captures at `Build`. The overloads taking a
@@ -136,7 +137,8 @@ kept by the transport (S3). A caller who wants the 3xx verbatim sets `MaxRedirec
 `Send` drives `Process` all the way down; the retry policy waits with a genuine blocking wait over the `TimeProvider`
 (`TimeProviderWaits.Sleep`, no task under it). Two residuals remain, both documented bridges: `BearerTokenAuthPolicy` resolves its
 token through the async token cache until phase 6c gives `AccessTokenCache` a synchronous path, and
-`SystemNetHttpClient.Execute` blocks on the async send until phase 8b (`PIPE-28`).
+`SystemNetHttpClient.Execute` blocks on the async send until phase 8b (`PIPE-28`). The body it returns does read synchronously
+(phase 7b), so a blocking `Pageable.CreateBlocking` walk over it works ([`pagination.md`](./pagination.md#the-blocking-pager)).
 
 ## Migrating a policy from phase 4b and earlier
 
