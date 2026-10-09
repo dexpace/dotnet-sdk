@@ -229,22 +229,18 @@ public sealed class PaginationLifecycleTests
     public async Task Every_response_is_released_on_every_path(bool blocking)
     {
         // success, early break, consumer throw, parse failure, null envelope, null PageInfo: fetched == released.
-        var matrix = new List<(string Path, EnvelopeBody[] Bodies, Func<ScriptedTransport, Task> Run)>();
         EnvelopeBody[] Two() => [EnvelopeBody.Of([1], "b"), EnvelopeBody.Of([2])];
 
-        var drainBodies = Two();
-        matrix.Add(("drain", drainBodies, t => Drain(Items(blocking, t))));
-        var breakBodies = Two();
-        matrix.Add(("break", breakBodies, async t =>
+        async Task Break(ScriptedTransport t)
         {
             await foreach (var item in Items(blocking, t))
             {
                 _ = item;
                 break;
             }
-        }));
-        var consumerBodies = Two();
-        matrix.Add(("consumer throws", consumerBodies, async t =>
+        }
+
+        async Task ConsumerThrows(ScriptedTransport t)
         {
             await Assert.ThrowsAsync<ConsumerException>(async () =>
             {
@@ -254,16 +250,26 @@ public sealed class PaginationLifecycleTests
                     throw new ConsumerException("consumer blew up");
                 }
             });
-        }));
-        var parseBodies = Two();
-        matrix.Add(("parse failure", parseBodies, async t =>
-            await Assert.ThrowsAsync<SentinelException>(async () => await Drain(Items(blocking, t, new ThrowingStrategy(new SentinelException("parse")))))));
-        var nullEnvelopeBodies = new[] { new EnvelopeBody(System.Text.Encoding.UTF8.GetBytes("null")) };
-        matrix.Add(("null envelope", nullEnvelopeBodies, async t =>
-            await Assert.ThrowsAsync<DeserializationException>(async () => await Drain(Items(blocking, t)))));
-        var nullInfoBodies = Two();
-        matrix.Add(("null PageInfo", nullInfoBodies, async t =>
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await Drain(Items(blocking, t, new NullReturningStrategy())))));
+        }
+
+        async Task ParseFails(ScriptedTransport t) =>
+            await Assert.ThrowsAsync<SentinelException>(async () => await Drain(Items(blocking, t, new ThrowingStrategy(new SentinelException("parse")))));
+
+        async Task NullEnvelope(ScriptedTransport t) =>
+            await Assert.ThrowsAsync<DeserializationException>(async () => await Drain(Items(blocking, t)));
+
+        async Task NullPageInfo(ScriptedTransport t) =>
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await Drain(Items(blocking, t, new NullReturningStrategy())));
+
+        var matrix = new List<(string Path, EnvelopeBody[] Bodies, Func<ScriptedTransport, Task> Run)>
+        {
+            ("drain", Two(), t => Drain(Items(blocking, t))),
+            ("break", Two(), Break),
+            ("consumer throws", Two(), ConsumerThrows),
+            ("parse failure", Two(), ParseFails),
+            ("null envelope", [new EnvelopeBody(System.Text.Encoding.UTF8.GetBytes("null"))], NullEnvelope),
+            ("null PageInfo", Two(), NullPageInfo),
+        };
 
         var expected = new Dictionary<string, int[]>
         {
