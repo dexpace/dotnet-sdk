@@ -126,6 +126,43 @@ internal static class BrokenTransports
             }
         });
 
+    /// <summary>
+    /// A transport that does cancel the call but reports it as a cancellation that does not carry the caller's token: a bare
+    /// <c>new OperationCanceledException()</c> (<paramref name="internalSource"/> <see langword="false"/>), or one tied to a
+    /// source of its own, as a transport that links its own token does. A caller that filters on <c>ex.CancellationToken == ct</c>
+    /// does not recognise either as its own.
+    /// </summary>
+    internal static IAsyncHttpClient CancellationWithoutCallersToken(bool internalSource) =>
+        Around(async (request, options, ct, inner) =>
+        {
+            using var own = new CancellationTokenSource();
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // The original cancellation (which carries the caller's token) is dropped, not chained: a cause chain that
+                // still reached the caller's token is accepted by the assertion.
+                await own.CancelAsync();
+                throw internalSource ? new OperationCanceledException("cancelled", own.Token) : new OperationCanceledException("cancelled");
+            }
+        });
+
+    /// <summary>
+    /// A transport that reacts to the call's token firing with an unrelated, non-timeout SDK failure instead of a cancellation:
+    /// the attempt token the pipeline links in means "this attempt timed out", and this transport reports something else.
+    /// </summary>
+    internal static IAsyncHttpClient CancellationAsUnrelatedSdkFailure() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var call = inner.ExecuteAsync(request, options, CancellationToken.None);
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = ct.Register(() => cancelled.TrySetResult());
+            await Task.WhenAny(call, cancelled.Task);
+            return ct.IsCancellationRequested ? throw new Dexpace.Sdk.Core.Errors.SdkException("the exchange failed") : await call;
+        });
+
     /// <summary>A transport whose second disposal throws.</summary>
     internal sealed class ThrowsOnSecondDispose : IAsyncHttpClient
     {

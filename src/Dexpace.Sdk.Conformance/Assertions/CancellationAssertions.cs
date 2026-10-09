@@ -63,13 +63,19 @@ internal static class CancellationAssertions
         return (server, failure, cancelled);
     }
 
-    // TRANSPORT-3, XCUT-1, SEAM-13: a cancelled call ends in cancellation, the flag stays set, and it is never retryable.
+    // TRANSPORT-3, XCUT-1, SEAM-13: a cancelled call ends in a cancellation that carries the caller's own token (a caller that
+    // filters on ex.CancellationToken must recognise it), the flag stays set, and it is never retryable.
     private static async Task CancelIsTerminalAsync(SuiteContext context, CancellationToken cancellationToken)
     {
         var (_, failure, cancelled) = await CancelledHangAsync(context, cancellationToken).ConfigureAwait(false);
         using var scope = cancelled;
 
         Check.True(failure is OperationCanceledException, "a cancelled call must end in an OperationCanceledException, not in a transport failure", "OperationCanceledException", Outcome.Name(failure));
+        Check.True(
+            Outcome.FindCancellationOf(failure, cancelled.Token) is not null,
+            "the OperationCanceledException must carry the caller's own token (or one in its cause chain must), so a caller that filters on ex.CancellationToken still recognises its own cancellation (TRANSPORT-3, XCUT-1)",
+            "a cancellation whose CancellationToken is the caller's token",
+            failure is OperationCanceledException { CancellationToken.CanBeCanceled: true } ? "a cancellation carrying some other token" : "a cancellation carrying no token");
         Check.True(cancelled.Token.IsCancellationRequested, "the caller's cancellation flag must still be set after the call ended (XCUT-1)");
         Check.True(failure is not SdkException { IsRetryable: true }, "a cancellation must never be a retryable failure (XCUT-1)", "a non-retryable cancellation", Outcome.Name(failure));
     }
@@ -85,7 +91,8 @@ internal static class CancellationAssertions
         Check.NoFaults(server);
     }
 
-    // TRANSPORT-7, phase 6a hand-off: a pipeline attempt deadline is the attempt token firing, and the transport honours it.
+    // TRANSPORT-7, phase 6a hand-off: a pipeline attempt deadline is the attempt token firing, and the transport honours it as a
+    // timeout: the failure is an SDK exception that is, or whose causes or trail hold, a timeout (not any SDK failure).
     private static async Task AttemptTimeoutAbortsAsync(SuiteContext context, CancellationToken cancellationToken)
     {
         var server = context.StartServer(LoopbackResponse.Hang());
@@ -101,6 +108,11 @@ internal static class CancellationAssertions
         var failure = await Outcome.OfAsync(call, context.ReleaseTimeout, "the attempt to end after its 300 ms deadline", cancellationToken).ConfigureAwait(false);
 
         Check.True(failure is SdkException, "an attempt that outlives its deadline must fail with an SDK exception, not hang or surface a bare cancellation", "an SdkException", Outcome.Name(failure));
+        Check.True(
+            Outcome.FindTimeout(failure) is not null,
+            "the transport must honour the attempt-linked token as a timeout: the failure, its cause chain or its trail must hold a timeout, not an unrelated SDK failure (the phase 6a hand-off, XCUT-2)",
+            "an OperationTimeoutException, ServiceRequestTimeoutException or TimeoutException on the failure, its causes or its trail",
+            Outcome.Name(failure));
         Check.True(!cancellationToken.IsCancellationRequested, "the caller's own token must not be signalled by an attempt deadline (XCUT-2)");
         await Check.ReleasedAsync(context, server, 0, probe: null, cancellationToken).ConfigureAwait(false);
     }
