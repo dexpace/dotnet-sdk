@@ -168,7 +168,8 @@ six *dated corrections*:
   not the client's `DexpaceClientOptions`. `pageSizeHint` is removed (P7c-3).
 - **The blocking view is built (P7c-4).** The text above says it waits for a synchronous pipeline path; 4c delivered one, so `Pageable<T>` is one
   `PageStep.FetchAsync(..., async: false)` read through `SyncPath.GetCompletedResult`, with no sync-over-async in the pager. The page envelope is buffered under the
-  64 MiB materialisation cap; `SystemNetHttpClient.Execute` stays sync-over-async until 8b (`PIPE-28`).
+  64 MiB materialisation cap. Over `SystemNetHttpClient` it does not work until 8b: `Execute` stays sync-over-async (`PIPE-28`), and the transport's
+  `HttpResponseMessageBody` has no `OpenRead`, so `CreateBlocking` throws `NotSupportedException` on the first page (review correction, 2026-10-09; use `Pageable.Create` there).
 - **The fetcher front-end returns `FetchedPage<T>`, not a `Page<T>` carrying `ContinuationToken`/`NextLink` (P7c-15, P7c-16).** `Page<T>` stays a response-free value;
   one mutable `PagingOptions` is passed to every fetcher call of a walk and is fresh per walk; the fetcher disposes its own response (see §10 entry 17's amendment).
 - **The `Link` strategy ends the walk on a cross-origin target and strips userinfo (P7c-12).** §11 item 66. Targets holding a space, control, `<`, `>` or `"` are

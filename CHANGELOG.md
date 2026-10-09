@@ -587,7 +587,9 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `PageInfo<T>`, `IPageStrategy<in TPage, T>`, `Pageable.FromFetchers`, `FetchedPage<T>` and `PagingOptions` (the fetcher front-end, where a fetcher
   disposes its own response), `Page<T>.Request` (`PAGE-1`..`PAGE-36`; `PAGE-3`, `PAGE-29` and `PAGE-30` are permanent simplifications under design section 10
   entries 17 and 19). The page is closed before it is yielded, so no response is live at any `yield`; a release failure rides the parse error's
-  `ExceptionTrail`; a response delivered after a cancel is disposed and discarded.
+  `ExceptionTrail`; a response delivered after a cancel is disposed and discarded. Until phase 8b gives `SystemNetHttpClient`'s response body a synchronous
+  read (`HttpResponseMessageBody.OpenRead`), `Pageable.CreateBlocking` over it, directly or through a pipeline, throws `NotSupportedException` on the first
+  page: use `Pageable.Create` there. The query splice strips only the delimiting `?` of the raw query and keeps an IPv6 zone id (`PAGE-21`, `PAGE-24`).
 - Phase 7c tests: the permanent `Security` test `PaginationLinkOriginTests` (a server cannot take a credential with one `Link` header, and a
   first page that redirected cannot launder an origin), the shared vector `tests/vectors/pagination/link-header.json`, seeded property tests for
   the splice, a loopback wire class `PaginationWireTests`, `PaginationArchitectureTests`, and the NativeAOT smoke check

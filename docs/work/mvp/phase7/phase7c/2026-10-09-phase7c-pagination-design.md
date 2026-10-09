@@ -40,7 +40,7 @@ line; the corrections it owes are listed in [Corrections owed at close-out](#des
 | 4b (`Disposal.DisposeQuietly[Async](resource, primary)`, `ExceptionTrail`, `ExceptionFacts.IsFatal`) | **dependency** | Met. The card's "suppressed-close helper from 4b" is `Disposal`; 4b's hand-off "7c uses `ExceptionTrail` for `PAGE-13`" is taken. |
 | 4c (`HttpPipeline` implements `IAsyncHttpClient` and `IHttpClient`; the real sync `Send`; `SyncPath.GetCompletedResult`) | **dependency** | Met. 4c's hand-off "7c may take `HttpPipeline` as an `IAsyncHttpClient` in `Pageable`" is taken (P7c-5). |
 | 6a/6b/6c (retry, redirect, auth over the pipeline; `AuthOrigin`/`HttpOrigin`) | **convenience** | Met. Each page is an independent pipeline call, so retry, redirect and auth govern every page. 6c's per-call seed-origin stamping is why the `Link` cross-origin guard exists (P7c-12). |
-| 8b (the real synchronous transport) | 7c's blocking pager **inherits** its gap | Not built. Until 8b, `SystemNetHttpClient.Execute` is sync-over-async inside the transport (roadmap ordering strand 5). The blocking pager is honest above the transport and inherits `PIPE-28`'s ⏳. |
+| 8b (the real synchronous transport) | 7c's blocking pager **inherits** its gap | Not built. Until 8b, `SystemNetHttpClient.Execute` is sync-over-async inside the transport (roadmap ordering strand 5). The blocking pager is honest above the transport and inherits `PIPE-28`'s ⏳. **Corrected 2026-10-09 (review):** the gap is wider than sync-over-async. The pager reads through `ResponseBody.OpenRead`, and `HttpResponseMessageBody` does not override it, so `CreateBlocking` over `SystemNetHttpClient` throws `NotSupportedException` on the first page until 8b adds `HttpResponseMessageBody.OpenRead`. |
 | **7a** (serde), **7b** (SSE) | **convenience**, both ways | Designed in parallel. 7c consumes none of their new types. See [Cross-sub-phase interfaces](#cross-sub-phase-interfaces-with-7a-and-7b). |
 
 **No dependency edge inverts the roadmap's order.** The card's entry criterion ("3a … and 4b/4c have exited") is met.
@@ -573,7 +573,10 @@ conformance case.
 
 - **8a (conformance kit):** the `link-header.json` vector and the splice properties are candidates for the shared kit.
 - **8b:** the blocking pager becomes truly synchronous end to end when `SystemNetHttpClient.Execute` calls
-  `HttpClient.Send`; no 7c code changes.
+  `HttpClient.Send` **and** `HttpResponseMessageBody` overrides `ResponseBody.OpenRead` (corrected 2026-10-09: without
+  the override `CreateBlocking` over `SystemNetHttpClient` throws `NotSupportedException` on the first page, pinned by
+  `PaginationWireTests.A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead`,
+  which 8b flips to a passing walk); no 7c source changes.
 - **9 (DI):** nothing; pageables are per-call objects.
 - **12 (release):** `docs/first-release.md` gains a "Behavioural asymmetries" entry for the `Link` cross-origin guard and
   `allowCrossOrigin`, and the public-splice question (P7c-9) is listed as a post-1.0 candidate.
@@ -615,7 +618,7 @@ Proposals; 7c's PR applies them as dated corrections.
 | R2 | 7a may change root-`null` deserialization semantics underneath the engine | 7c does its own null check through the seam; converges if 7a lands a helper. |
 | R3 | The Ruby test sources the card names are absent from the local checkout (`90075b1` has no `gems/`) | Port from Node at `c0ff3fd`, which covers every row's conformance clause; vectors cite Node. Fetch Ruby from GitHub only for a gap. |
 | R4 | FsCheck is not a pinned package, and 7b may add it in parallel | 7c's property tests use a seeded `System.Random` generator; no package, no lock-file churn (P7c-18). |
-| R5 | The blocking pager is sync-over-async inside `SystemNetHttpClient` until 8b | Stated on the checklist as `PIPE-28`'s inherited ⏳, not a 7c gap. The pager itself never blocks on a task. |
+| R5 | The blocking pager is sync-over-async inside `SystemNetHttpClient` until 8b | Stated on the checklist as `PIPE-28`'s inherited ⏳, not a 7c gap. The pager itself never blocks on a task. **Corrected 2026-10-09:** over `SystemNetHttpClient` the blocking pager does not merely wait on a thread, it fails with `NotSupportedException` (no `OpenRead` on the transport's body until 8b); the docs say to use `Pageable.Create` there, and a wire test pins the failure. |
 | R6 | The blocking path buffers each page through `ReadAsBytes`, so it inherits 3a's 64 MiB materialisation cap; the async path streams | Accepted and documented on `CreateBlocking`: a page envelope over 64 MiB is not a paging use case. `ISerde` has no sync stream overload to avoid it. |
 | R7 | The cross-origin guard stops APIs that legitimately page across hosts (a CDN or a regional host) | `allowCrossOrigin: true` opts in; its XML doc warns that per-call auth will stamp the credential for the new origin. **Open for the lead** (P7c-12). |
 | R8 | An ended `Link` walk (rejected target) is silent, which can hide a misconfigured server | Accepted for v1: strategies have no logger and `PAGE-19` mandates a quiet end. Noted in the user page; a debug event is a later option. |
