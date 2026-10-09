@@ -1,0 +1,201 @@
+{
+ "source": "nodejs-sdk@c0ff3fd packages/core/src/pagination/link-header.test.ts",
+ "note": "Each case calls LinkHeaderParser.FindNext(header) on the already-joined value of every Link header instance; expected is the raw URI-reference between the angle brackets of the first link-value whose first rel parameter lists the token next (case-insensitive), or null. The first 15 cases are the 15 Node cases (the array-of-instances ones are joined with a comma, as the strategy joins them); the rest are the .NET-specific cases of phase 7c. Resolution of the reference is LinkTargetTests, not this file: Node follows a target that is not a URL as a relative path, this port ends the stream there. Node reads every rel parameter of a link-value, this port reads only the first (RFC 8288 section 3.3).",
+ "cases": [
+  {
+   "name": "PAGE-18: a simple rel=\"next\" is found",
+   "header": "</p?page=2>; rel=\"next\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: an unquoted rel works",
+   "header": "</p?page=2>; rel=next",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: rel matching is case-insensitive",
+   "header": "</p?page=2>; rel=\"NEXT\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: a multi-token rel containing next matches",
+   "header": "</p?page=2>; rel=\"prev next last\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: a tab-separated multi-token rel matches",
+   "header": "</p?page=2>; rel=\"prev\tnext\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: the first link-value whose rel contains next wins",
+   "header": "</a>; rel=\"next\", </b>; rel=\"next\"",
+   "expected": "/a"
+  },
+  {
+   "name": "PAGE-18: rel=prev and rel=last decoys are skipped",
+   "header": "</a>; rel=\"prev\", </b>; rel=\"last\", </c>; rel=\"next\"",
+   "expected": "/c"
+  },
+  {
+   "name": "PAGE-18: a comma inside the angle-bracketed URL does not split link-values",
+   "header": "</p?ids=1,2,3>; rel=\"next\"",
+   "expected": "/p?ids=1,2,3"
+  },
+  {
+   "name": "PAGE-18: a comma inside a quoted parameter value does not split link-values",
+   "header": "</a>; title=\"one, two\"; rel=\"next\", </b>; rel=\"prev\"",
+   "expected": "/a"
+  },
+  {
+   "name": "PAGE-18: a quoted-pair escape is honored",
+   "header": "</a>; title=\"say \\\"hi\\\", ok\"; rel=\"next\"",
+   "expected": "/a"
+  },
+  {
+   "name": "PAGE-18: an empty header means end of stream",
+   "header": "",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: a Link header with no rel=next means end of stream",
+   "header": "</a>; rel=\"prev\"",
+   "expected": null
+  },
+  {
+   "name": "PAGE-20: split header instances joined with a comma are one list",
+   "header": "</a>; rel=\"last\", </b>; rel=\"next\"",
+   "expected": "/b"
+  },
+  {
+   "name": "PAGE-20: a whitespace-only header set maps to no next link",
+   "header": "   ",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: surrounding whitespace is tolerated",
+   "header": "  </p?page=2> ;  rel = \"next\"  ",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: an unquoted upper-case REL=NEXT matches",
+   "header": "</p?page=2>; REL=NEXT",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: a mixed-case quoted Rel=\"Next\" matches",
+   "header": "</p?page=2>; Rel=\"Next\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: rel=\"nextish\" is not next",
+   "header": "</p?page=2>; rel=\"nextish\"",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: a rel token list separated by several spaces matches",
+   "header": "</p?page=2>; rel=\"prev   next\"",
+   "expected": "/p?page=2"
+  },
+  {
+   "name": "PAGE-18: a decoy inside a quoted parameter is not a rel",
+   "header": "<https://h/a>; title=\"rel=next\"; rel=prev",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: a decoy link-value inside a quoted parameter is not followed",
+   "header": "<https://h/a>; title=\"<https://evil.example/x>; rel=next\"; rel=prev",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: a semicolon and a comma inside a quoted value are data",
+   "header": "<https://h/n>; title=\"a, b; c\"; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: a quoted-pair backslash escape inside rel unescapes to next",
+   "header": "<https://h/n>; rel=\"ne\\xt\"",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: an escaped quote inside a quoted title does not end the string",
+   "header": "<https://h/n>; title=\"say \\\"hi\\\"\"; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: an unterminated angle bracket yields no link",
+   "header": "<https://h/n; rel=next",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: an unterminated quoted string yields no link",
+   "header": "<https://h/n>; title=\"oops; rel=next",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: a link-value with no angle bracket is skipped and the next one is read",
+   "header": "garbage; rel=next, <https://h/n>; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: a comma inside the garbage skipped quote does not end the skip",
+   "header": "garbage=\"a, <x>\"; rel=next, <https://h/n>; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: leading, trailing and doubled whitespace and commas are tolerated",
+   "header": " , <https://h/n>;rel=next , ",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: an empty header yields no link",
+   "header": "",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: only the first rel parameter of a link-value counts",
+   "header": "<https://h/n>; rel=prev; rel=next",
+   "expected": null
+  },
+  {
+   "name": "PAGE-18: rel after other parameters is found",
+   "header": "<https://h/n>; anchor=\"x\"; type=\"text/html\"; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: a parameter without a value is skipped",
+   "header": "<https://h/n>; async; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: an unquoted rel ends at the next comma",
+   "header": "<https://h/a>; rel=next, <https://h/b>; rel=prev",
+   "expected": "https://h/a"
+  },
+  {
+   "name": "PAGE-18: whitespace inside the angle brackets is trimmed from the target",
+   "header": "< https://h/n >; rel=next",
+   "expected": "https://h/n"
+  },
+  {
+   "name": "PAGE-18: an empty target is returned as empty for the caller to reject",
+   "header": "<>; rel=next",
+   "expected": ""
+  },
+  {
+   "name": "PAGE-18: a link-value with no parameters is not next",
+   "header": "<https://h/n>",
+   "expected": null
+  },
+  {
+   "name": "PAGE-20: the joined form of split header instances finds next on the second line",
+   "header": "<https://h/a>; rel=prev, <https://h/b>; rel=next",
+   "expected": "https://h/b"
+  },
+  {
+   "name": "PAGE-18: a target carrying a query string with equals and ampersands is kept whole",
+   "header": "<https://h/n?a=1&b=2;c=3>; rel=next",
+   "expected": "https://h/n?a=1&b=2;c=3"
+  }
+ ]
+}
