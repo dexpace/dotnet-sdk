@@ -572,6 +572,14 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   binary-compatible for every implementer. The default reads the stream under `ResponseBody.DefaultMaxMaterializedBytes`
   (a seekable source that declares more is refused before any read) and calls the span decode; `SystemTextJsonSerde` overrides it
   and streams. `HttpResponseException.GetError<T>(ISerde)`, the synchronous twin of `GetErrorAsync` (`SERDE-3`, `SERDE-9`, `SERDE-12`).
+- `IResponseHandler<T>` (the SPI a generated SDK implements; it owns and disposes the response) and `ResponseHandlers.Deserialize<T>(ISerde)` /
+  `ResponseHandlers.DeserializeOnSuccess<T>(ISerde)` (`SERDE-27`, `SERDE-28`). The status-aware handler decodes a 2xx; throws
+  `HttpResponseException` over the bounded error-body buffer for a 400 to 599 (the one capture site, with the 1 MiB bound); and for anything else
+  (a 1xx, an unfollowed 3xx, a 304) disposes the response and fails with a `DeserializationException` that leads with the status code and carries the
+  raw `ETag` and the `Location` resolved against the request URL and redacted through `UrlRedactor`. A new `Security` test pins the redaction.
+- `TypedResponse<T>` (`HTTP-44`, `HTTP-45`): a response whose metadata is readable at once and whose body is parsed lazily, once, on the first
+  `GetValueAsync`. Success (a `null` included) and failure are memoized, a failure as the same exception object; exactly-once is a compare-and-swap on a
+  `TaskCompletionSource<T>`, so no caller blocks a thread behind another's parse, and a caller's token cancels only its own wait. The wrapped response is not exposed.
 
 #### Changed
 
