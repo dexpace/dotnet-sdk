@@ -130,6 +130,7 @@ dotnet-sdk/
 │   │   ├── Auth/                    # AuthScheme, AuthRequirement, AuthDescriptor, AuthResolver, AuthCredentials, TokenCredential, AccessToken, AccessTokenCache,
 │   │   │                            #   ApiKey/Basic/DigestCredential, AuthenticationChallenge, IChallengeHandler + Basic/Digest/Composite handlers
 │   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, Pageable, PaginationStrategies
+│   │   ├── ServerSentEvents/        # ServerSentEvent, ServerSentEventReader, ServerSentEventStream, SseMapResult, ServerSentEventLineTooLongException; internal EventAccumulator, RetryField
 │   │   ├── Configuration/           # DexpaceClientOptions, RetryOptions, RedirectOptions, HttpLoggingOptions (sealed records), HttpLogLevel, ProxyOptions, TimeProviderWaits, BuildInfo
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter,
 │   │   │                            #   HttpSemanticConventions, HttpClientMetrics, AttemptTelemetry, OperationTelemetry (5c, internal)
@@ -142,7 +143,7 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 ├── tests/
-│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22 and SSE-37
+│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37 and SSE-38
 │   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over a Loopback/ server
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
@@ -206,6 +207,9 @@ Layered, bottom-up:
   and `FollowSeeOther = false`; a `POST` is never rewritten to a `GET`. An https to http hop throws `RedirectSchemeDowngradeException` and a
   method-preserving hop over a single-use body throws `RedirectBodyNotReplayableException` (`ToReplayableAsync` first); a revisited URI returns the 3xx.
   `Authorization` is stripped on every hop and `Cookie` / `Proxy-Authorization` cross-origin, against the seed, with no option to turn it off.
+- **`ServerSentEventStream.FromResponse` owns the response from the call, even when it throws.** A bodyless response (204, 205, 304, a `HEAD` request, a zero `Content-Length`) is disposed and rejected with `ArgumentException`;
+  the facade releases the response once on every path, a release failure being swallowed and reported out of band on a clean end or an early dispose and attached to the primary on a failure. There is no reconnecting client
+  (`SSE-38`), the sentinel and `Accept` are the caller's, and the line cap bounds a line, not an event (`sse.md`).
 - **Headers are validated.** CR, LF and other controls in a header name or value throw
   `ArgumentException` at construction; received headers take the lenient `Headers.Builder.AddInbound` path.
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
@@ -278,6 +282,8 @@ the pure decider behind `RedirectPolicy`, `RedirectOptions` (`AllowedMethods`, `
 descriptor and resolver with their `RequestOptions` tiers, the redacting credentials, the lenient challenge parser, the `401` lifecycle in `AuthorizationPolicy`, the
 bounded token cache with its background refresh, Digest with the MD5 probe, and `MultiSchemeAuthPolicy` — see `docs/sdk-documentation/auth.md`; and phase 7a's
 serde — `Tristate<T>` and its System.Text.Json wiring, `CreateDefaultOptions`, the options-copying constructors, the streaming typed readers, the two response handlers and
-`TypedResponse<T>` — see `docs/sdk-documentation/serde.md`): SSE and the remaining pagination surface (7b, 7c), the transport
+`TypedResponse<T>` — see `docs/sdk-documentation/serde.md`; and phase 7b's server-sent events —
+the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerSentEvent`, the `ServerSentEventStream` facade that owns a response (four single-use views, one release rule per path) and the typed
+`MapAsync` / `Map` adapter — see `docs/sdk-documentation/sse.md`): the remaining pagination surface (7c), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

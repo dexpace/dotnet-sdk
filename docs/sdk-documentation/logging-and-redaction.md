@@ -117,7 +117,8 @@ At `Body`, with `BodyPreviewSize` as the one cap for both directions (`OBS-36`, 
   opened again; a larger one is served as the captured prefix followed by the live remainder, so **the caller always receives every
   byte**. `ContentLength` follows `BODY-29`.
 - An **unknown-length** body (`ContentLength < 0`) or a `text/event-stream` body is never wrapped, on either path (`OBS-37`,
-  P5b-12): no capture can wait on a slow producer. Such a response has no preview keys.
+  P5b-12): no capture can wait on a slow producer. Such a response has no preview keys, and a live event stream reaches
+  `ServerSentEventStream.FromResponse` unbuffered ([`sse.md`](./sse.md)).
 - A failed drain is reported as `http.instrumentation.body_capture_failed`, the `http.response` event still goes out with the partial
   preview, and the caller's own read sees the failure, once cached (`BODY-26`). Cancelling the call's token during the drain
   propagates, after the response is disposed.
