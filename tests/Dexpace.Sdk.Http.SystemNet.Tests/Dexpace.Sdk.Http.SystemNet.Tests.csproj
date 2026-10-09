@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- The reference transport's own suite (design §2.3, roadmap constraint 4): the only place wire-level tests of
-       Dexpace.Sdk.Http.SystemNet live. Loopback/ holds the TcpListener HTTP/1.1 fixture that records the raw bytes a
-       request put on the socket; roadmap phase 8a promotes it into Dexpace.Sdk.Conformance. -->
+       Dexpace.Sdk.Http.SystemNet live. The TcpListener HTTP/1.1 fixture that records the raw bytes a request put on
+       the socket is Dexpace.Sdk.Conformance.Wire, promoted into the conformance kit by roadmap phase 8a. -->
   <PropertyGroup>
     <RootNamespace>Dexpace.Sdk.Http.SystemNet.Tests</RootNamespace>
     <OutputType>Exe</OutputType>
@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
     <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
   </ItemGroup>
 
 </Project>

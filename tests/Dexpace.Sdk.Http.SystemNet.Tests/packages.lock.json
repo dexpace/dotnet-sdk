@@ -238,6 +238,12 @@
           "xunit.v3.runner.common": "[4.0.1]"
         }
       },
+      "dexpace.sdk.conformance": {
+        "type": "Project",
+        "dependencies": {
+          "Dexpace.Sdk.Core": "[0.0.1-alpha.1, )"
+        }
+      },
       "dexpace.sdk.core": {
         "type": "Project",
         "dependencies": {

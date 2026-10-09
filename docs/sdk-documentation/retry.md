@@ -40,6 +40,12 @@ There is **one retry layer per call path** (`TRANSPORT-2`, design §11 item 24):
 itself (for example `AddStandardResilienceHandler` on an `HttpClient`), turn its retries off or set `MaxRetryAttempts = 0`
 here. The DI package's guidance (phase 9) says the same.
 
+The reference transport's own `SocketsHttpHandler` is the one native retry the SDK cannot turn off yet: it exposes no switch, and it re-sends
+a request whose connection was reset before any response byte up to three more times, so a request that carries no content (a `GET`, a
+`DELETE`, a body-less `POST`) can reach the server more than once for a single SDK attempt. A request with a single-use body is never
+re-written. The conformance kit measures it (`transport-2.bodyless-not-resent`, waived for phase 8b; [`conformance.md`](./conformance.md)), and
+8b either turns it off or records the clause as unmet.
+
 ## What is retried
 
 A **response** is retried when its status is in `RetryOptions.RetryableStatusCodes` (default `408, 429, 500, 502, 503, 504`,

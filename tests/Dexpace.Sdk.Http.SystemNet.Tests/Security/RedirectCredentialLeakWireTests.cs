@@ -1,13 +1,13 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Conformance.Wire;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
-using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Dexpace.Sdk.TestSupport.Time;
 using Xunit;
 

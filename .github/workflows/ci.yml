@@ -15,13 +15,18 @@ name: CI
 # each suite's TestCategoryTests enforces; the default run executes them all. SEAM-2's partition (core's suite never
 # references a transport) is an architecture test in tests/Dexpace.Sdk.Core.Tests/Architecture/.
 #
+# Transport conformance kit (Dexpace.Sdk.Conformance, phase 8a): on. Two drivers run in the default test step, the reference
+# transport (tests/Dexpace.Sdk.Http.SystemNet.Tests/SystemNetConformanceTests.cs, whose Owner = "8b" waivers phase 8b deletes
+# as it closes their rows) and a test-only raw-socket client reached through DelegateHttpClient
+# (tests/Dexpace.Sdk.Conformance.Tests/Drivers/); both carry [Trait("Category", "Conformance")] and run on every OS row. The kit
+# is a measured library of the coverage gate, and a slice of it runs in the NativeAOT smoke consumer.
+#
 # Gates wired but inert until their subject exists, and the phase that turns each on:
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in
 #     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
 #     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
-#   - Transport conformance kit (Dexpace.Sdk.Conformance, TRANSPORT-*): phase 8.
-#   - NativeAOT smoke consumer: runs below over today's surface; phase 7 extends it to the Tristate, paging and SSE
-#     round trip, and phase 10 completes it.
+#   - NativeAOT smoke consumer: runs below over today's surface, with the Tristate, paging and SSE round trip of phase 7
+#     and a conformance slice from phase 8a; phase 10 completes it.
 #   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
 #   - NFR-11's public-signature type scan: phase 10. Strong naming and author signing (NFR-16): phase 12.
 

@@ -1,0 +1,185 @@
+#nullable enable
+Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.AfterDisposeBehavior.ThrowsObjectDisposedException = 1 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.AfterDisposeBehavior.Unspecified = 0 -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.BorrowedTransport
+Dexpace.Sdk.Conformance.BorrowedTransport.BorrowedTransport(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, System.Func<System.Uri!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! sendThroughNativeClient, System.IAsyncDisposable! nativeClientOwner) -> void
+Dexpace.Sdk.Conformance.BorrowedTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Conformance.BorrowedTransport.SendThroughNativeClient.get -> System.Func<System.Uri!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>!
+Dexpace.Sdk.Conformance.BorrowedTransport.Transport.get -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
+Dexpace.Sdk.Conformance.ConformanceAssertion
+Dexpace.Sdk.Conformance.ConformanceAssertion.Faces.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.TransportFace>!
+Dexpace.Sdk.Conformance.ConformanceAssertion.Level.get -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.ConformanceAssertion.Name.get -> string!
+Dexpace.Sdk.Conformance.ConformanceAssertion.RequirementIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.ConformanceException
+Dexpace.Sdk.Conformance.ConformanceException.Actual.get -> string?
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException() -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message) -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Conformance.ConformanceException.ConformanceException(string! message, string? expected, string? actual) -> void
+Dexpace.Sdk.Conformance.ConformanceException.Expected.get -> string?
+Dexpace.Sdk.Conformance.ConformanceReport
+Dexpace.Sdk.Conformance.ConformanceReport.ByAppendixBItem.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
+Dexpace.Sdk.Conformance.ConformanceReport.ByRequirement.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
+Dexpace.Sdk.Conformance.ConformanceReport.IsGreen.get -> bool
+Dexpace.Sdk.Conformance.ConformanceReport.Results.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceResult!>!
+Dexpace.Sdk.Conformance.ConformanceReport.SubjectName.get -> string!
+Dexpace.Sdk.Conformance.ConformanceResult
+Dexpace.Sdk.Conformance.ConformanceResult.<Clone>$() -> Dexpace.Sdk.Conformance.ConformanceResult!
+Dexpace.Sdk.Conformance.ConformanceResult.Assertion.get -> Dexpace.Sdk.Conformance.ConformanceAssertion!
+Dexpace.Sdk.Conformance.ConformanceResult.Assertion.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.ConformanceResult(Dexpace.Sdk.Conformance.ConformanceAssertion! Assertion, Dexpace.Sdk.Conformance.TransportFace Face, Dexpace.Sdk.Conformance.ConformanceStatus Status, string! Detail) -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Deconstruct(out Dexpace.Sdk.Conformance.ConformanceAssertion! Assertion, out Dexpace.Sdk.Conformance.TransportFace Face, out Dexpace.Sdk.Conformance.ConformanceStatus Status, out string! Detail) -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Detail.get -> string!
+Dexpace.Sdk.Conformance.ConformanceResult.Detail.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Equals(Dexpace.Sdk.Conformance.ConformanceResult? other) -> bool
+Dexpace.Sdk.Conformance.ConformanceResult.Exception.get -> System.Exception?
+Dexpace.Sdk.Conformance.ConformanceResult.Exception.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Face.get -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.ConformanceResult.Face.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Status.get -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceResult.Status.init -> void
+Dexpace.Sdk.Conformance.ConformanceResult.Waiver.get -> Dexpace.Sdk.Conformance.ConformanceWaiver?
+Dexpace.Sdk.Conformance.ConformanceResult.Waiver.init -> void
+Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Errored = 2 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Failed = 1 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.NotExercised = 5 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Passed = 0 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Vacuous = 3 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceStatus.Waived = 4 -> Dexpace.Sdk.Conformance.ConformanceStatus
+Dexpace.Sdk.Conformance.ConformanceVacuousException
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException() -> void
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException(string! message) -> void
+Dexpace.Sdk.Conformance.ConformanceVacuousException.ConformanceVacuousException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver
+Dexpace.Sdk.Conformance.ConformanceWaiver.<Clone>$() -> Dexpace.Sdk.Conformance.ConformanceWaiver!
+Dexpace.Sdk.Conformance.ConformanceWaiver.Assertion.get -> string?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Assertion.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.ConformanceWaiver(string! RequirementId, string! Reason) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Deconstruct(out string! RequirementId, out string! Reason) -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(Dexpace.Sdk.Conformance.ConformanceWaiver? other) -> bool
+Dexpace.Sdk.Conformance.ConformanceWaiver.Face.get -> Dexpace.Sdk.Conformance.TransportFace?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Face.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Owner.get -> string?
+Dexpace.Sdk.Conformance.ConformanceWaiver.Owner.init -> void
+Dexpace.Sdk.Conformance.ConformanceWaiver.Reason.get -> string!
+Dexpace.Sdk.Conformance.ConformanceWaiver.RequirementId.get -> string!
+Dexpace.Sdk.Conformance.InternalCancellation
+Dexpace.Sdk.Conformance.InternalCancellation.CancelInFlight.get -> System.Action!
+Dexpace.Sdk.Conformance.InternalCancellation.InternalCancellation(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, System.Action! cancelInFlight) -> void
+Dexpace.Sdk.Conformance.InternalCancellation.Transport.get -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
+Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.May = 2 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.Must = 0 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportSettings
+Dexpace.Sdk.Conformance.TransportSettings.<Clone>$() -> Dexpace.Sdk.Conformance.TransportSettings!
+Dexpace.Sdk.Conformance.TransportSettings.Equals(Dexpace.Sdk.Conformance.TransportSettings? other) -> bool
+Dexpace.Sdk.Conformance.TransportSettings.Logger.get -> Microsoft.Extensions.Logging.ILogger!
+Dexpace.Sdk.Conformance.TransportSettings.Logger.init -> void
+Dexpace.Sdk.Conformance.TransportSettings.TransportSettings() -> void
+Dexpace.Sdk.Conformance.TransportSubject
+Dexpace.Sdk.Conformance.TransportSubject.AfterDispose.get -> Dexpace.Sdk.Conformance.AfterDisposeBehavior
+Dexpace.Sdk.Conformance.TransportSubject.AfterDispose.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateAsync.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateAsync.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateBlocking.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Core.Client.IHttpClient!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateBlocking.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateBorrowed.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Conformance.BorrowedTransport!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateBorrowed.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithFaultingAdaptation.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithFaultingAdaptation.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithInternalCancel.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Conformance.InternalCancellation!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithInternalCancel.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithNativeResend.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithNativeResend.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithProxy.get -> System.Func<Dexpace.Sdk.Conformance.TransportSettings!, Dexpace.Sdk.Core.Configuration.ProxyOptions!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>?
+Dexpace.Sdk.Conformance.TransportSubject.CreateWithProxy.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.Name.get -> string!
+Dexpace.Sdk.Conformance.TransportSubject.Name.init -> void
+Dexpace.Sdk.Conformance.TransportSubject.TransportSubject() -> void
+Dexpace.Sdk.Conformance.TransportSuite
+Dexpace.Sdk.Conformance.TransportSuiteOptions
+Dexpace.Sdk.Conformance.TransportSuiteOptions.AssertionTimeout.get -> System.TimeSpan
+Dexpace.Sdk.Conformance.TransportSuiteOptions.AssertionTimeout.init -> void
+Dexpace.Sdk.Conformance.TransportSuiteOptions.ReleaseTimeout.get -> System.TimeSpan
+Dexpace.Sdk.Conformance.TransportSuiteOptions.ReleaseTimeout.init -> void
+Dexpace.Sdk.Conformance.TransportSuiteOptions.TransportSuiteOptions() -> void
+Dexpace.Sdk.Conformance.TransportSuiteOptions.Waivers.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceWaiver!>!
+Dexpace.Sdk.Conformance.TransportSuiteOptions.Waivers.init -> void
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Bytes.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Chunks.get -> System.Collections.Generic.IAsyncEnumerable<byte[]!>?
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.CloseConnection.get -> bool
+Dexpace.Sdk.Conformance.Wire.LoopbackServer
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.BaseUri.get -> System.Uri!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.ConnectionCount.get -> int
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Faults.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Requests.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.Wire.RecordedRequest!>!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Url(string! pathAndQuery) -> System.Uri!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.WaitForConnectionReleasedAsync(int connection, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.WaitForRequestAsync(int index, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.Wire.RecordedRequest!>!
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException() -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException(string! message) -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException(string! message, System.Exception! innerException) -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.Partial.get -> Dexpace.Sdk.Conformance.Wire.RecordedRequest?
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.Raw.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.RawText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Body.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.BodyText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Connection.get -> int
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Header(string! name) -> string?
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.HeaderLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.HeaderValues(string! name) -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Method.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Raw.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.RawText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.RequestLine.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Target.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Version.get -> string!
+override Dexpace.Sdk.Conformance.ConformanceAssertion.ToString() -> string!
+override Dexpace.Sdk.Conformance.ConformanceReport.ToString() -> string!
+override Dexpace.Sdk.Conformance.ConformanceResult.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.ConformanceResult.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.ConformanceResult.ToString() -> string!
+override Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.ConformanceWaiver.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
+override Dexpace.Sdk.Conformance.TransportSettings.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.TransportSettings.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.TransportSettings.ToString() -> string!
+static Dexpace.Sdk.Conformance.ConformanceReport.Create(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceResult!>! results) -> Dexpace.Sdk.Conformance.ConformanceReport!
+static Dexpace.Sdk.Conformance.ConformanceReport.Preamble.get -> string!
+static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
+static Dexpace.Sdk.Conformance.ConformanceResult.operator ==(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
+static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
+static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
+static Dexpace.Sdk.Conformance.TransportSettings.operator !=(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
+static Dexpace.Sdk.Conformance.TransportSettings.operator ==(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
+static Dexpace.Sdk.Conformance.TransportSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!
+static Dexpace.Sdk.Conformance.TransportSuite.RunAllAsync(Dexpace.Sdk.Conformance.TransportSubject! subject, Dexpace.Sdk.Conformance.TransportSuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceReport!>!
+static Dexpace.Sdk.Conformance.TransportSuite.RunAsync(Dexpace.Sdk.Conformance.TransportSubject! subject, Dexpace.Sdk.Conformance.ConformanceAssertion! assertion, Dexpace.Sdk.Conformance.TransportFace face, Dexpace.Sdk.Conformance.TransportSuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceResult!>!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Abort() -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.EchoId(Dexpace.Sdk.Conformance.Wire.RecordedRequest! request) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Gated(System.Threading.Tasks.Task! gate, Dexpace.Sdk.Conformance.Wire.LoopbackResponse! then) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Hang() -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.HeadersThenGate(int statusCode, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Threading.Tasks.Task! gate, System.ReadOnlyMemory<byte> rest) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Large(int bytes, int seed, bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Ok(string! body = "", string! contentType = "text/plain; charset=utf-8", bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Redirect(int statusCode, string! location) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Status(int statusCode, string! reasonPhrase, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>? headers = null, string! body = "", bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Streamed(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Collections.Generic.IAsyncEnumerable<byte[]!>! chunks, bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(System.Func<Dexpace.Sdk.Conformance.Wire.RecordedRequest!, Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! respond) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!
+static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! script) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!

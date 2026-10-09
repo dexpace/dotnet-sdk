@@ -22,6 +22,7 @@ dotnet build   Dexpace.Sdk.sln --configuration Release        # the build IS the
 dotnet format  Dexpace.Sdk.sln --verify-no-changes            # formatting gate (uses .editorconfig)
 dotnet test    --solution Dexpace.Sdk.sln --configuration Release
 dotnet test    --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-trait "Category=Security"
+dotnet test    --project tests/Dexpace.Sdk.Http.SystemNet.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the reference transport
 dotnet pack    Dexpace.Sdk.sln --configuration Release --output artifacts/packages
 ```
 
@@ -141,10 +142,12 @@ dotnet-sdk/
 │   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
 │   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, RedirectException (+ downgrade / not-replayable leaves), SerdeException, ExceptionFacts, ExceptionTrail
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
-│   └── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+│   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+│   └── Dexpace.Sdk.Conformance/                 # the transport conformance kit (core only): TransportSuite, TransportSubject, the report and waivers, Wire/ (the loopback fixture)
 ├── tests/
 │   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37 and SSE-38
-│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over a Loopback/ server
+│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over the kit's Wire/ server and SystemNetConformanceTests (the kit's driver and its Owner = "8b" waivers)
+│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, a negative control per assertion (Controls/), the raw-socket client (RawSocket/) and its driver (Drivers/)
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
@@ -212,6 +215,10 @@ Layered, bottom-up:
   (`SSE-38`), the sentinel and `Accept` are the caller's, and the line cap bounds a line, not an event (`sse.md`).
 - **Headers are validated.** CR, LF and other controls in a header name or value throw
   `ArgumentException` at construction; received headers take the lenient `Headers.Builder.AddInbound` path.
+- **A conformance assertion needs a negative control, and a waiver must stay needed.** Every assertion in `Dexpace.Sdk.Conformance` has a deliberately broken subject in
+  `tests/Dexpace.Sdk.Conformance.Tests/Controls/` that it must fail (`AssertionCatalogueTests` fails an assertion with none); a leaked-socket control must root what it leaks, because a finalizer
+  closes it otherwise. A `ConformanceWaiver` whose assertion now passes fails the run, so fixing a requirement means deleting its waiver in the same change. The kit never calls `Task.Delay`, and a release check
+  needs a keep-alive reply, never a `Connection: close` one.
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
   reference them without a `Version` attribute.
 
@@ -286,6 +293,8 @@ serde — `Tristate<T>` and its System.Text.Json wiring, `CreateDefaultOptions`,
 the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerSentEvent`, the `ServerSentEventStream` facade that owns a response (four single-use views, one release rule per path) and the typed
 `MapAsync` / `Map` adapter — see `docs/sdk-documentation/sse.md`; and phase 7c's pagination — the
 `IPageStrategy` contract and `PageInfo<T>`, the three factories (`Pageable.Create`, `CreateBlocking`, `FromFetchers`), the single-use page view, the `Link` strategy's cross-origin guard and the fetcher
-form — see `docs/sdk-documentation/pagination.md`): the transport
-conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
-path (12).
+form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport conformance kit, `Dexpace.Sdk.Conformance` — 43 named assertions for the `TRANSPORT` and `ASYNC` requirements,
+the six result statuses and the by-ID waivers that must stay needed, the loopback `Wire` fixture promoted into it, the two drivers (the reference transport and a test-only raw-socket client) and the requirement
+catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`): phase 8b's hardening of the reference transport (the real synchronous send, per-call timeouts, header
+partitioning, proxy installation — each of its 14 rows is closed by deleting an `Owner = "8b"` waiver from `SystemNetConformanceTests`, and so is `TRANSPORT-2`'s native-retry clause, which 8b either turns off or records as unmet: `SocketsHttpHandler` has no switch for it), the DI package
+`Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release path (12).
