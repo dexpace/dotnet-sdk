@@ -29,6 +29,8 @@ namespace Dexpace.Sdk.Conformance.Wire;
 /// </remarks>
 public sealed class LoopbackServer : IAsyncDisposable
 {
+    private const int WriteSliceBytes = 64 * 1024;
+
     private readonly TcpListener _listener;
     private readonly Func<RecordedRequest, LoopbackResponse> _respond;
     private readonly CancellationTokenSource _stopping = new();
@@ -265,7 +267,7 @@ public sealed class LoopbackServer : IAsyncDisposable
 
             _tracker.Record(request);
             state.RequestRead();
-            if (await WriteReplyAsync(client, state, Reply(request)).ConfigureAwait(false))
+            if (await WriteReplyAsync(client, stream, state, Reply(request)).ConfigureAwait(false))
             {
                 return;
             }
@@ -288,7 +290,7 @@ public sealed class LoopbackServer : IAsyncDisposable
             }
 
             _faults.Enqueue(ex);
-            await WriteReplyAsync(client, state, LoopbackResponse.Status(400, "Loopback Malformed Request")).ConfigureAwait(false);
+            await WriteReplyAsync(client, stream, state, LoopbackResponse.Status(400, "Loopback Malformed Request")).ConfigureAwait(false);
             await DrainAsync(stream).ConfigureAwait(false);
             return null;
         }
@@ -315,11 +317,44 @@ public sealed class LoopbackServer : IAsyncDisposable
         }
     }
 
-    /// <summary>Writes a reply; returns whether the connection was closed after it.</summary>
-    private async Task<bool> WriteReplyAsync(TcpClient client, ConnectionState state, LoopbackResponse reply)
+    /// <summary>Plays one scripted reply; returns whether the connection ended with it.</summary>
+    private async Task<bool> WriteReplyAsync(TcpClient client, NetworkStream stream, ConnectionState state, LoopbackResponse reply)
     {
-        var stream = client.GetStream();
-        await stream.WriteAsync(reply.Bytes, _stopping.Token).ConfigureAwait(false);
+        // A gated reply waits for its gate, watching the connection so that a client that gives up releases it.
+        while (reply.Gate is { } gate)
+        {
+            if (!await WaitForGateAsync(stream, gate).ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            reply = reply.Then!;
+        }
+
+        switch (reply.Mode)
+        {
+            case ReplyMode.Abort:
+                // Marked before the reset, and the reset before the release: a release check can tell this from a client leaving.
+                state.MarkServerClosedFirst();
+                client.Client.LingerState = new LingerOption(true, 0);
+                client.Dispose();
+                return true;
+            case ReplyMode.Hang:
+                await HangAsync(stream).ConfigureAwait(false);
+                return true;
+            default:
+                return await WriteBytesAsync(client, stream, state, reply).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> WriteBytesAsync(TcpClient client, NetworkStream stream, ConnectionState state, LoopbackResponse reply)
+    {
+        // In slices, so a client that disposes mid-body makes a later write fail instead of the whole body sitting in a buffer.
+        for (var offset = 0; offset < reply.Bytes.Length; offset += WriteSliceBytes)
+        {
+            await stream.WriteAsync(reply.Bytes.Slice(offset, Math.Min(WriteSliceBytes, reply.Bytes.Length - offset)), _stopping.Token).ConfigureAwait(false);
+        }
+
         await stream.FlushAsync(_stopping.Token).ConfigureAwait(false);
         if (reply.Chunks is { } chunks)
         {
@@ -336,6 +371,62 @@ public sealed class LoopbackServer : IAsyncDisposable
         state.MarkServerClosedFirst();
         client.Client.Shutdown(SocketShutdown.Send);
         return true;
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="gate"/> while reading the connection for the peer leaving. Returns <see langword="true"/>
+    /// when the gate opened and the reply may go ahead, <see langword="false"/> when the peer left first.
+    /// </summary>
+    private async Task<bool> WaitForGateAsync(NetworkStream stream, Task gate)
+    {
+        using var stopWatching = new CancellationTokenSource();
+        var watch = WatchPeerAsync(stream, stopWatching.Token);
+        try
+        {
+            var first = await Task.WhenAny(gate.WaitAsync(_stopping.Token), watch).ConfigureAwait(false);
+            if (first == watch)
+            {
+                return await watch.ConfigureAwait(false) switch
+                {
+                    PeerEvent.Left => false,
+                    _ => throw new InvalidOperationException("The client sent bytes while a gated reply was waiting; the fixture does not support pipelining."),
+                };
+            }
+
+            await first.ConfigureAwait(false);
+            return true;
+        }
+        finally
+        {
+            // The pending one-byte read must not outlive the gate: the next request is read through RawRequestReader.
+            await stopWatching.CancelAsync().ConfigureAwait(false);
+            await watch.ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<PeerEvent> WatchPeerAsync(NetworkStream stream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await stream.ReadAsync(new byte[1], cancellationToken).ConfigureAwait(false) == 0 ? PeerEvent.Left : PeerEvent.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            return PeerEvent.Stopped;
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or SocketException)
+        {
+            return PeerEvent.Left;
+        }
+    }
+
+    /// <summary>Reads and discards until the peer leaves; the server's disposal cancels it.</summary>
+    private async Task HangAsync(NetworkStream stream)
+    {
+        var sink = new byte[256];
+        while (await stream.ReadAsync(sink, _stopping.Token).ConfigureAwait(false) > 0)
+        {
+        }
     }
 
     /// <summary>
@@ -369,5 +460,12 @@ public sealed class LoopbackServer : IAsyncDisposable
             _faults.Enqueue(ex);
             return LoopbackResponse.Status(500, "Loopback Script Failure");
         }
+    }
+
+    private enum PeerEvent
+    {
+        Left,
+        Sent,
+        Stopped,
     }
 }

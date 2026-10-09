@@ -66,12 +66,14 @@ internal sealed class RawTcp : IDisposable
         return buffer;
     }
 
-    /// <summary>Whether the peer has sent nothing and not closed within <paramref name="window"/>: the fixture's "still gated" check.</summary>
+    /// <summary>
+    /// Whether, after <paramref name="window"/>, the peer has sent nothing and has not closed: the fixture's "still gated"
+    /// check. It polls the socket instead of reading it, so no byte of a later reply is consumed.
+    /// </summary>
     internal async Task<bool> StaysSilentAsync(TimeSpan window, CancellationToken cancellationToken)
     {
-        var read = Stream.ReadAsync(new byte[1], cancellationToken).AsTask();
-        var winner = await Task.WhenAny(read, TimeProvider.System.DelayAsync(window, cancellationToken));
-        return winner != read;
+        await TimeProvider.System.DelayAsync(window, cancellationToken);
+        return !_client.Client.Poll(0, SelectMode.SelectRead);
     }
 
     public void Dispose() => _client.Dispose();

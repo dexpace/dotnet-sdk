@@ -115,13 +115,19 @@ static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conform
 static Dexpace.Sdk.Conformance.ConformanceResult.operator ==(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
-static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Ok(string! body = "", string! contentType = "text/plain; charset=utf-8") -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Abort() -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.EchoId(Dexpace.Sdk.Conformance.Wire.RecordedRequest! request) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Gated(System.Threading.Tasks.Task! gate, Dexpace.Sdk.Conformance.Wire.LoopbackResponse! then) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Hang() -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.HeadersThenGate(int statusCode, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Threading.Tasks.Task! gate, System.ReadOnlyMemory<byte> rest) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Large(int bytes, int seed, bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Ok(string! body = "", string! contentType = "text/plain; charset=utf-8", bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Redirect(int statusCode, string! location) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
-static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Status(int statusCode, string! reasonPhrase, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>? headers = null, string! body = "") -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
-static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Streamed(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Collections.Generic.IAsyncEnumerable<byte[]!>! chunks) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Status(int statusCode, string! reasonPhrase, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>? headers = null, string! body = "", bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Streamed(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Collections.Generic.IAsyncEnumerable<byte[]!>! chunks, bool keepAlive = false) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(System.Func<Dexpace.Sdk.Conformance.Wire.RecordedRequest!, Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! respond) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!
 static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! script) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!
