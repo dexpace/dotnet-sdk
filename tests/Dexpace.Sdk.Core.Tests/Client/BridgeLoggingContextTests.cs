@@ -7,6 +7,7 @@ using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.TestSupport.Threading;
 using Dexpace.Sdk.TestSupport.Transports;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Clients;
@@ -31,7 +32,7 @@ public sealed class BridgeLoggingContextTests
     }
 
     // A blocking client that records the scopes visible on the thread it runs on.
-    private sealed class ScopeRecordingTransport(LoggerExternalScopeProvider provider) : IHttpClient
+    private sealed class ScopeRecordingTransport(LoggerExternalScopeProvider provider, ILogger? logger = null) : IHttpClient
     {
         private readonly object _gate = new();
 
@@ -39,6 +40,9 @@ public sealed class BridgeLoggingContextTests
 
         public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
         {
+            // With a logger the call also opens a scope and writes an entry through it, as a transport with a logging backend does.
+            using var scope = logger?.BeginScope("transport");
+            logger?.Log(LogLevel.Information, new EventId(1), "sending", null, static (state, _) => state);
             var visible = ScopesVisibleTo(provider);
             lock (_gate)
             {
@@ -53,26 +57,31 @@ public sealed class BridgeLoggingContextTests
         }
     }
 
-    // One dedicated worker thread, like a custom executor with its own ambient state: the thread sets an AsyncLocal once, runs
-    // each queued task, and records what is ambient on it after every task, outside any task's captured context.
+    // One dedicated worker thread, like a custom executor with its own ambient state: the thread sets an AsyncLocal once (and,
+    // given a provider, opens a logging scope on it, which is the same kind of ambient state), runs each queued task, and
+    // records what is ambient on it after every task, outside any task's captured context. Dispose joins the thread, so what it
+    // recorded is complete once Dispose has returned: read the records after it, never while a call's await may still be returning.
     private sealed class WorkerWithAmbientScope : TaskScheduler, IDisposable
     {
         private readonly AsyncLocal<string?> _ambient = new();
         private readonly System.Collections.Concurrent.BlockingCollection<Task> _queue = [];
         private readonly Thread _thread;
         private readonly List<string?> _afterEachTask = [];
+        private readonly List<string[]> _scopesAfterEachTask = [];
 
-        public WorkerWithAmbientScope()
+        public WorkerWithAmbientScope(LoggerExternalScopeProvider? provider = null)
         {
             _thread = new Thread(() =>
             {
                 _ambient.Value = "worker-scope";
+                _ = provider?.Push("worker-scope");
                 foreach (var task in _queue.GetConsumingEnumerable())
                 {
                     TryExecuteTask(task);
                     lock (_afterEachTask)
                     {
                         _afterEachTask.Add(_ambient.Value);
+                        _scopesAfterEachTask.Add(provider is null ? [] : ScopesVisibleTo(provider));
                     }
                 }
             })
@@ -89,6 +98,17 @@ public sealed class BridgeLoggingContextTests
                 lock (_afterEachTask)
                 {
                     return [.. _afterEachTask];
+                }
+            }
+        }
+
+        public IReadOnlyList<string[]> ScopesAfterEachTask
+        {
+            get
+            {
+                lock (_afterEachTask)
+                {
+                    return [.. _scopesAfterEachTask];
                 }
             }
         }
@@ -144,6 +164,7 @@ public sealed class BridgeLoggingContextTests
             await Assert.ThrowsAsync<InvalidOperationException>(() => bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
         }
 
+        worker.Dispose();
         Assert.Equal(["worker-scope", "worker-scope"], worker.AmbientAfterEachTask);
     }
 
@@ -174,11 +195,31 @@ public sealed class BridgeLoggingContextTests
     }
 
     [Fact]
+    public async Task A_caller_with_no_scope_clears_the_workers_own_scope_for_the_call_and_the_worker_gets_it_back()
+    {
+        // ASYNC-11: "reinstating an empty context clears the target thread's context rather than raising an error". The worker
+        // thread has a scope of its own and the caller has none: inside the call the worker's scope must not be visible (the
+        // caller's empty context replaced it), and once the call is over it must be back (cleared for the call, not for good).
+        var provider = new LoggerExternalScopeProvider();
+        using var worker = new WorkerWithAmbientScope(provider);
+        var transport = new ScopeRecordingTransport(provider);
+        await using var bridge = transport.AsAsync(worker);
+
+        using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
+        worker.Dispose();
+
+        Assert.Equal(Status.Ok, response.Status);
+        Assert.Empty(Assert.Single(transport.Seen));
+        Assert.Equal([["worker-scope"]], worker.ScopesAfterEachTask);
+    }
+
+    [Fact]
     public async Task With_no_scope_provider_a_round_trip_raises_nothing_and_sees_no_scope()
     {
-        // ASYNC-11: no logging backend, no scope: the round trip completes and the worker sees nothing ambient.
+        // ASYNC-11: no logging backend at all (a NullLogger: BeginScope has nothing to open, Log has nothing to write) and no
+        // scope on the caller: the round trip completes, nothing is raised, and the worker sees nothing ambient.
         var provider = new LoggerExternalScopeProvider();
-        var transport = new ScopeRecordingTransport(provider);
+        var transport = new ScopeRecordingTransport(provider, NullLogger.Instance);
         await using var bridge = transport.AsAsync(TaskScheduler.Default);
 
         using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
