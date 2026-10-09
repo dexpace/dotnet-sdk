@@ -18,5 +18,7 @@ internal static class TransportCatalogue
         .. InboundAssertions.Assertions(),
         .. OutboundAssertions.Assertions(),
         .. ConcurrencyAssertions.Assertions(),
+        .. FailureAssertions.Assertions(),
+        .. LifecycleAssertions.Assertions(),
     ];
 }

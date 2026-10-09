@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Conformance.Tests.RawSocket;
+using Dexpace.Sdk.Conformance.Tests.Support;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Common;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,8 @@ internal static class BrokenTransports
     /// <summary>A body stream whose disposal does nothing: a response that never releases its connection.</summary>
     internal sealed class LeakyStream(Stream inner) : Stream
     {
+        private readonly Stream _inner = Leaks.Root(inner);
+
         public override bool CanRead => true;
 
         public override bool CanSeek => false;
@@ -46,9 +49,9 @@ internal static class BrokenTransports
             set => throw new NotSupportedException();
         }
 
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => inner.ReadAsync(buffer, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => _inner.ReadAsync(buffer, cancellationToken);
 
-        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
 
         public override void Flush()
         {
@@ -341,4 +344,97 @@ internal static class BrokenTransports
                 return await inner.ExecuteAsync(again, options, ct);
             }
         });
+
+    /// <summary>A transport that reports a refused or reset connection as a failure that is not retryable.</summary>
+    internal static IAsyncHttpClient NonRetryableNoResponse() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestException ex)
+            {
+                throw new Dexpace.Sdk.Core.Errors.SdkException("send failed", ex);
+            }
+        });
+
+    /// <summary>
+    /// A transport that reports a refused or reset connection as a non-retryable failure with its cause dropped: the retry
+    /// classifier walks the cause chain, so a wrapper that keeps the I/O cause would still be retried.
+    /// </summary>
+    internal static IAsyncHttpClient NonRetryableNoCause() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestException)
+            {
+                throw new Dexpace.Sdk.Core.Errors.SdkException("send failed");
+            }
+        });
+
+    /// <summary>A transport that reports a refused or reset connection as a cancellation.</summary>
+    internal static IAsyncHttpClient NoResponseAsCancellation() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestException ex)
+            {
+                throw new OperationCanceledException("send failed", ex);
+            }
+        });
+
+    /// <summary>A transport that copies the request body without ever looking at the call's token, so an abandoned source is never unblocked.</summary>
+    internal static IAsyncHttpClient IgnoresTokenWhileReadingBody() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            if (request.Body is not null)
+            {
+                await request.Body.WriteToAsync(Stream.Null, CancellationToken.None);
+            }
+
+            return await inner.ExecuteAsync(request, options, ct);
+        });
+
+    /// <summary>A transport that opens a file body for reading and never closes it.</summary>
+    internal static IAsyncHttpClient LeaksFileHandles()
+    {
+        var leaked = new List<FileStream>();
+        return Around((request, options, ct, inner) =>
+        {
+            if (request.Body is FileRequestBody file)
+            {
+#pragma warning disable CA2000 // The leak is the point of the control.
+                lock (leaked)
+                {
+                    leaked.Add(new FileStream(file.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read));
+                }
+#pragma warning restore CA2000
+            }
+
+            return inner.ExecuteAsync(request, options, ct);
+        });
+    }
+
+    /// <summary>A pooling transport over a real <c>HttpClient</c> that is never disposed, so an idle pooled connection outlives the transport.</summary>
+    internal sealed class LeakyPooledTransport : IAsyncHttpClient
+    {
+        private readonly System.Net.Http.HttpClient _client = new(new System.Net.Http.SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false });
+
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            using var message = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, request.Url);
+            using var native = await _client.SendAsync(message, cancellationToken);
+            var bytes = await native.Content.ReadAsByteArrayAsync(cancellationToken);
+            return new Response(request, Status.FromCode((int)native.StatusCode), Protocol.Http11, null, ResponseBody.FromBytes(bytes));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
 }

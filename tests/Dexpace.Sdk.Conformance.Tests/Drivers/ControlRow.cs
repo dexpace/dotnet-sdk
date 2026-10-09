@@ -74,11 +74,11 @@ internal sealed record ControlRow(
         Assert.False(string.IsNullOrWhiteSpace(result.Detail));
     }
 
-    /// <summary>Runs the real assertion on one face against the raw-socket client and fails unless it passed.</summary>
-    internal static async Task RunPositiveAsync(string assertion, TransportFace face)
+    /// <summary>Runs the real assertion on one face against the raw-socket client (or <paramref name="subject"/>) and fails unless it passed.</summary>
+    internal static async Task RunPositiveAsync(string assertion, TransportFace face, TransportSubject? subject = null)
     {
-        var result = await AssertionControl.RunAsync(assertion, face, RawSocketSubject.Create(), RawSocketSubject.Options);
+        var result = await AssertionControl.RunAsync(assertion, face, subject ?? RawSocketSubject.Create(), RawSocketSubject.Options);
 
-        Assert.True(result.Status == ConformanceStatus.Passed, $"{assertion} on {face} against the raw-socket client: {result.Status}: {result.Detail}");
+        Assert.True(result.Status == ConformanceStatus.Passed, $"{assertion} on {face} against {(subject is null ? "the raw-socket client" : subject.Name)}: {result.Status}: {result.Detail}");
     }
 }
