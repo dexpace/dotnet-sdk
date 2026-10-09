@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Conformance.Tests.Controls;
 
-/// <summary>Negative controls for <c>transport-29</c> and <c>transport-2</c> (plan 2.8).</summary>
+/// <summary>Negative controls for <c>transport-29</c> and <c>transport-2</c> (both assertions; plan 2.8).</summary>
 [Trait("Category", "Integration")]
 public sealed class ConcurrencyControlTests
 {
@@ -16,6 +16,8 @@ public sealed class ConcurrencyControlTests
         ControlRow.Over("transport-29.concurrent-no-crosstalk", TransportFace.Blocking, "hands every caller the last response that arrived", BrokenTransports.CrossesResponses),
         ControlRow.Over("transport-2.no-silent-resend", TransportFace.Async, "buffers the body and sends it again after a failure", BrokenTransports.ResendsBufferedBody),
         ControlRow.Over("transport-2.no-silent-resend", TransportFace.Blocking, "buffers the body and sends it again after a failure", BrokenTransports.ResendsBufferedBody),
+        ControlRow.Over("transport-2.bodyless-not-resent", TransportFace.Async, "sends a body-less request again after a connection failure", BrokenTransports.RetriesBodylessRequestsOnce),
+        ControlRow.Over("transport-2.bodyless-not-resent", TransportFace.Blocking, "sends a body-less request again after a connection failure", BrokenTransports.RetriesBodylessRequestsOnce),
     ];
 
     public static IReadOnlyCollection<string> Covered => ControlRow.CoveredBy(Rows);

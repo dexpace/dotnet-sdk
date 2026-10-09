@@ -192,7 +192,7 @@ anything unexpected the server saw; a peer that closes or resets a connection mi
 
 ## The assertion catalogue
 
-Forty-two assertions, with stable names (renaming one breaks a consumer's waiver list, so the names are frozen at the first
+Forty-three assertions, with stable names (renaming one breaks a consumer's waiver list, so the names are frozen at the first
 `PublicAPI.Shipped.txt`). `Level` is the strength of the clause the assertion checks, which is not always the level of its ID:
 `TRANSPORT-11` is a MUST for its framing clause and a SHOULD for its logging clause, and each has its own assertion.
 
@@ -200,6 +200,7 @@ Forty-two assertions, with stable names (renaming one breaks a consumer's waiver
 |---|---|---|---|---|
 | `transport-1.redirect-not-followed` | TRANSPORT-1 | MUST | both |  |
 | `transport-2.no-silent-resend` | TRANSPORT-2 | MUST | both |  |
+| `transport-2.bodyless-not-resent` | TRANSPORT-2 | MUST | both |  |
 | `transport-3.cancel-is-terminal` | TRANSPORT-3, SEAM-13, XCUT-1 | MUST | both |  |
 | `transport-4.timeout-is-retryable` | TRANSPORT-4, XCUT-2 | MUST | both |  |
 | `transport-5.per-call-timeout` | TRANSPORT-5 | MUST | async |  |
@@ -244,6 +245,18 @@ Forty-two assertions, with stable names (renaming one breaks a consumer's waiver
 The rows `TRANSPORT-1`, `-4`, `-5`, `-6`, `-8`, `-9`, `-10`, `-12`, `-13`, `-14`, `-17`, `-18`, `-28` and `-30` are phase 8b's work on the
 reference transport; the kit asserts them all so that 8b is proven by it. `TRANSPORT-14` is split into its three clauses so a
 transport that cannot meet one (a native client that rejects a whole response over a malformed header *name*) waives that one alone.
+
+`TRANSPORT-2` has two assertions because the clause has two halves. `transport-2.no-silent-resend` is the specification's own
+conformance sentence: a single-use body whose exchange was reset reaches the server at most once. A native client never re-writes
+content it already wrote, with its retry on or off, so passing it does not show the retry is off. `transport-2.bodyless-not-resent`
+does: a body-less `POST`, `DELETE` and `GET` on a warmed keep-alive connection, reset after the server read them and before any
+response byte, must each arrive exactly once. `SocketsHttpHandler` has no switch for its own retry and re-sends such a request up to
+three more times, so the reference transport is waived for it (owner `8b`) while it passes the first half.
+
+Two assertions measure whether their clause applies instead of asking the subject. `transport-13.drop-log-once-per-name` governs a header
+the transport dropped, so a transport that put both headers on the wire dropped none and the result is `Vacuous` (no waiver needed). And
+`transport-20.retried-by-the-pipeline` counts the attempts that reach the transport, because a native client that re-sends a reset request
+can deliver the 200 inside one attempt: the server answers by the pipeline's attempt number, so only a second pipeline attempt can succeed.
 
 ## Versioning
 

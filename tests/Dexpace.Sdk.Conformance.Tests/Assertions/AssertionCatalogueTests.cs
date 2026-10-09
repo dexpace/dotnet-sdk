@@ -11,7 +11,8 @@ namespace Dexpace.Sdk.Conformance.Tests.Assertions;
 /// <summary>
 /// The pin over the whole catalogue (plan 2.12): the names, their order, their requirement IDs, levels and faces, the rows
 /// they cover, and a negative control for every one. The literal list is the design's table plus the two clauses of
-/// <c>TRANSPORT-14</c> that phase 8b asked 8a to split out, so a later edit to the catalogue must edit this list on purpose.
+/// <c>TRANSPORT-14</c> that phase 8b asked 8a to split out and <c>transport-2.bodyless-not-resent</c>, added by the review of the
+/// phase (the native client's own retry of a body-less request), so a later edit to the catalogue must edit this list on purpose.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed partial class AssertionCatalogueTests
@@ -29,6 +30,7 @@ public sealed partial class AssertionCatalogueTests
     [
         ("transport-1.redirect-not-followed", M, s_both),
         ("transport-2.no-silent-resend", M, s_both),
+        ("transport-2.bodyless-not-resent", M, s_both),
         ("transport-3.cancel-is-terminal", M, s_both),
         ("transport-4.timeout-is-retryable", M, s_both),
         ("transport-5.per-call-timeout", M, s_async),
@@ -77,9 +79,9 @@ public sealed partial class AssertionCatalogueTests
     private static IReadOnlyList<ConformanceAssertion> All => TransportSuite.Assertions;
 
     [Fact]
-    public void The_catalogue_is_the_42_named_assertions_in_the_design_order()
+    public void The_catalogue_is_the_43_named_assertions_in_the_design_order()
     {
-        Assert.Equal(42, All.Count);
+        Assert.Equal(43, All.Count);
         Assert.Equal(s_expected.Select(e => e.Name), All.Select(a => a.Name));
         Assert.Equal(All.Count, All.Select(a => a.Name).Distinct(StringComparer.Ordinal).Count());
     }

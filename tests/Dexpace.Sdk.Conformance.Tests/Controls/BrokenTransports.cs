@@ -383,6 +383,23 @@ internal static class BrokenTransports
             }
         });
 
+    /// <summary>
+    /// A transport whose native layer re-sends a body-less request once after a connection failure, as <c>SocketsHttpHandler</c>
+    /// does (it re-sends up to three times): the request has no content a second write could be refused for, so nothing stops it.
+    /// </summary>
+    internal static IAsyncHttpClient RetriesBodylessRequestsOnce() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestException) when (request.Body is null)
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+        });
+
     /// <summary>A transport that reports a refused or reset connection as a failure that is not retryable.</summary>
     internal static IAsyncHttpClient NonRetryableNoResponse() =>
         Around(async (request, options, ct, inner) =>
