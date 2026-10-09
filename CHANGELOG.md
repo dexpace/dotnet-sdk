@@ -69,6 +69,10 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   buffered body on the `HttpResponseException` (still capped at 1 MiB) can now be read more than once, and the original
   response is disposed, even when draining its body fails. **Breaking:** after catching the exception, read the error
   body from `HttpResponseException.Response`, not from the original response.
+
+Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a `[Trait("Category", "Security")]` regression test in
+`tests/Dexpace.Sdk.Core.Tests/Security/`:
+
 - **A server-sent-events line is capped at 1 MiB by default** (issue #10; `SSE-19`, design §10 entry 20). `ServerSentEventReader` holds at most `maxLineBytes` content bytes of a line and throws
   `ServerSentEventLineTooLongException` (a `StreamingException`) after reading at most one cap plus two read buffers, and stays failed; the message names the cap and never a byte of the line.
   Pinned permanently by `Security/ServerSentEventLineCapTests`. The cap bounds a line, not an event: bound a stream from an untrusted server with a token or `OverallTimeout` (`sse.md`).

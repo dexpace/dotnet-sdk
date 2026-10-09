@@ -9,7 +9,7 @@ using Xunit;
 namespace Dexpace.Sdk.Core.Tests.Security;
 
 /// <summary>
-/// Roadmap phase 1, issue #10 (SSE-19; design §7.2, §10 entry 20): a hostile server that streams a line with no
+/// Roadmap phase 7b, issue #10 (SSE-19; design §7.2, §10 entry 20): a hostile server that streams a line with no
 /// terminator must not grow the reader without limit. The verified defect was a line accumulator with no cap, so an
 /// unterminated 8 MiB line was buffered whole before any consumer saw a thing. The reader now holds at most
 /// <c>maxLineBytes</c> content bytes of a line (1 MiB by default), throws <see cref="ServerSentEventLineTooLongException"/>
