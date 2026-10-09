@@ -32,7 +32,7 @@ public sealed class LoopbackServer : IAsyncDisposable
     private readonly TcpListener _listener;
     private readonly Func<RecordedRequest, LoopbackResponse> _respond;
     private readonly CancellationTokenSource _stopping = new();
-    private readonly ConcurrentQueue<RecordedRequest> _requests = new();
+    private readonly ConnectionTracker _tracker = new();
     private readonly ConcurrentQueue<Exception> _faults = new();
     private readonly ConcurrentBag<Task> _connections = [];
     private readonly Task _acceptLoop;
@@ -53,7 +53,7 @@ public sealed class LoopbackServer : IAsyncDisposable
     public Uri BaseUri { get; }
 
     /// <summary>Every request received so far, in arrival order.</summary>
-    public IReadOnlyList<RecordedRequest> Requests => [.. _requests];
+    public IReadOnlyList<RecordedRequest> Requests => _tracker.Requests();
 
     /// <summary>
     /// Failures inside the server, never rethrown (not even by <see cref="DisposeAsync"/>): a request whose framing
@@ -93,6 +93,84 @@ public sealed class LoopbackServer : IAsyncDisposable
     /// <summary>An absolute URL on this server.</summary>
     /// <param name="pathAndQuery">A path, with an optional query, relative to <see cref="BaseUri"/>.</param>
     public Uri Url(string pathAndQuery) => new(BaseUri, pathAndQuery);
+
+    /// <summary>
+    /// Completes with request <paramref name="index"/> (arrival order, zero-based) once it has been read: a condition to wait
+    /// on instead of a sleep. Completes at once when it has already arrived.
+    /// </summary>
+    /// <param name="index">The zero-based arrival index.</param>
+    /// <param name="cancellationToken">Ends the wait with <see cref="OperationCanceledException"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative (thrown synchronously).</exception>
+    /// <exception cref="ObjectDisposedException">The server was disposed before the request arrived (delivered through the task).</exception>
+    public Task<RecordedRequest> WaitForRequestAsync(int index, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        return WaitForRequestCoreAsync(index, cancellationToken);
+    }
+
+    /// <summary>
+    /// Completes when the client has <em>released</em> connection <paramref name="connection"/> (accept order, zero-based):
+    /// closed it, or sent a further request on it. "Released" is either, because a pooling client returns a connection to
+    /// its pool rather than closing it; a leaked response is a connection that does neither. It also completes when the
+    /// server tears the connection down (after a <c>Connection: close</c> reply, an aborted reply, or on disposal); a test
+    /// that asserts the <em>client</em> released a connection must use a reply that leaves it open, because after a
+    /// server-side close the wait proves nothing. Waits for a connection not yet accepted.
+    /// </summary>
+    /// <param name="connection">The zero-based connection index.</param>
+    /// <param name="cancellationToken">Ends the wait with <see cref="OperationCanceledException"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="connection"/> is negative (thrown synchronously).</exception>
+    /// <exception cref="ObjectDisposedException">The server was disposed before the connection was accepted (delivered through the task).</exception>
+    public Task WaitForConnectionReleasedAsync(int connection, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(connection);
+        return WaitForConnectionReleasedCoreAsync(connection, cancellationToken);
+    }
+
+    /// <summary>Whether the server closed or reset connection <paramref name="connection"/> before the client left it.</summary>
+    /// <param name="connection">The zero-based connection index of an accepted connection.</param>
+    internal bool ServerClosedFirst(int connection) => _tracker.Existing(connection).ServerClosedFirst;
+
+    private async Task<RecordedRequest> WaitForRequestCoreAsync(int index, CancellationToken cancellationToken)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
+        try
+        {
+            while (true)
+            {
+                var (request, arrival) = _tracker.RequestOrSignal(index);
+                if (request is not null)
+                {
+                    return request;
+                }
+
+                await arrival.WaitAsync(linked.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ObjectDisposedException(nameof(LoopbackServer));
+        }
+    }
+
+    private async Task WaitForConnectionReleasedCoreAsync(int connection, CancellationToken cancellationToken)
+    {
+        ConnectionState state;
+        using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token))
+        {
+            try
+            {
+                state = await _tracker.ConnectionAsync(connection, linked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new ObjectDisposedException(nameof(LoopbackServer));
+            }
+        }
+
+        // Disposal tears every accepted connection down, which releases it, so this wait is not linked to the server's
+        // own cancellation: a connection that exists is always released eventually.
+        await state.Released.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Stops listening, closes every open connection, and waits for the server's work to finish. Idempotent, and never
@@ -140,23 +218,23 @@ public sealed class LoopbackServer : IAsyncDisposable
         while (!_stopping.IsCancellationRequested)
         {
             var client = await _listener.AcceptTcpClientAsync(_stopping.Token).ConfigureAwait(false);
-            var index = Interlocked.Increment(ref _connectionCount) - 1;
-            _connections.Add(ServeAsync(client, index));
+            Interlocked.Increment(ref _connectionCount);
+            _connections.Add(ServeAsync(client, _tracker.Accept()));
         }
     }
 
-    private async Task ServeAsync(TcpClient client, int connection)
+    private async Task ServeAsync(TcpClient client, ConnectionState state)
     {
         using (client)
         {
             try
             {
-                await ServeRequestsAsync(client, connection).ConfigureAwait(false);
+                await ServeRequestsAsync(client, state).ConfigureAwait(false);
             }
-            catch (Exception ex) when (_stopping.IsCancellationRequested
-                && ex is OperationCanceledException or ObjectDisposedException or SocketException or IOException)
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException or IOException)
             {
-                // The server is shutting down; a torn connection is expected.
+                // The server is shutting down, or the client left mid-exchange (closed or reset a connection it was still
+                // reading): both expected, and neither is a fault of the server.
             }
 #pragma warning disable CA1031 // Not swallowed: recorded in Faults, which the test asserts on.
             catch (Exception ex)
@@ -164,44 +242,55 @@ public sealed class LoopbackServer : IAsyncDisposable
             {
                 _faults.Enqueue(ex);
             }
+            finally
+            {
+                // Any exit of the connection releases it (P8a-21): the client closed it, or the server did.
+                state.Release();
+            }
         }
     }
 
-    private async Task ServeRequestsAsync(TcpClient client, int connection)
+    private async Task ServeRequestsAsync(TcpClient client, ConnectionState state)
     {
+        // Taken once: TcpClient.GetStream() throws after the server has half-closed the connection.
         var stream = client.GetStream();
         var reader = new RawRequestReader(stream);
         while (!_stopping.IsCancellationRequested)
         {
-            RecordedRequest? request;
-            try
-            {
-                request = await reader.ReadAsync(connection, _stopping.Token).ConfigureAwait(false);
-            }
-            catch (MalformedRequestException ex)
-            {
-                // Record what reached the socket, then answer, so the client sees a reply rather than a hang.
-                if (ex.Partial is { } partial)
-                {
-                    _requests.Enqueue(partial);
-                }
-
-                _faults.Enqueue(ex);
-                await WriteAsync(client, LoopbackResponse.Status(400, "Loopback Malformed Request")).ConfigureAwait(false);
-                await DrainAsync(stream).ConfigureAwait(false);
-                return;
-            }
-
+            var request = await ReadRequestAsync(client, stream, reader, state).ConfigureAwait(false);
             if (request is null)
             {
                 return;
             }
 
-            _requests.Enqueue(request);
-            if (await WriteAsync(client, Reply(request)).ConfigureAwait(false))
+            _tracker.Record(request);
+            state.RequestRead();
+            if (await WriteReplyAsync(client, state, Reply(request)).ConfigureAwait(false))
             {
                 return;
             }
+        }
+    }
+
+    /// <summary>Reads the next request; <see langword="null"/> when the peer closed between requests or the request was malformed.</summary>
+    private async Task<RecordedRequest?> ReadRequestAsync(TcpClient client, NetworkStream stream, RawRequestReader reader, ConnectionState state)
+    {
+        try
+        {
+            return await reader.ReadAsync(state.Index, _stopping.Token).ConfigureAwait(false);
+        }
+        catch (MalformedRequestException ex)
+        {
+            // Record what reached the socket, then answer, so the client sees a reply rather than a hang.
+            if (ex.Partial is { } partial)
+            {
+                _tracker.Record(partial);
+            }
+
+            _faults.Enqueue(ex);
+            await WriteReplyAsync(client, state, LoopbackResponse.Status(400, "Loopback Malformed Request")).ConfigureAwait(false);
+            await DrainAsync(stream).ConfigureAwait(false);
+            return null;
         }
     }
 
@@ -227,7 +316,7 @@ public sealed class LoopbackServer : IAsyncDisposable
     }
 
     /// <summary>Writes a reply; returns whether the connection was closed after it.</summary>
-    private async Task<bool> WriteAsync(TcpClient client, LoopbackResponse reply)
+    private async Task<bool> WriteReplyAsync(TcpClient client, ConnectionState state, LoopbackResponse reply)
     {
         var stream = client.GetStream();
         await stream.WriteAsync(reply.Bytes, _stopping.Token).ConfigureAwait(false);
@@ -242,6 +331,9 @@ public sealed class LoopbackServer : IAsyncDisposable
             return false;
         }
 
+        // Before the release is signalled (in ServeAsync's finally): a release check can then tell a server-side close
+        // from a client-side one (plan reading R13).
+        state.MarkServerClosedFirst();
         client.Client.Shutdown(SocketShutdown.Send);
         return true;
     }

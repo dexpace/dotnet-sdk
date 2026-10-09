@@ -79,6 +79,8 @@ Dexpace.Sdk.Conformance.Wire.LoopbackServer.DisposeAsync() -> System.Threading.T
 Dexpace.Sdk.Conformance.Wire.LoopbackServer.Faults.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
 Dexpace.Sdk.Conformance.Wire.LoopbackServer.Requests.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.Wire.RecordedRequest!>!
 Dexpace.Sdk.Conformance.Wire.LoopbackServer.Url(string! pathAndQuery) -> System.Uri!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.WaitForConnectionReleasedAsync(int connection, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.WaitForRequestAsync(int index, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.Wire.RecordedRequest!>!
 Dexpace.Sdk.Conformance.Wire.MalformedRequestException
 Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException() -> void
 Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException(string! message) -> void
