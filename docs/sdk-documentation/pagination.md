@@ -72,7 +72,7 @@ from a strategy are contract violations and close the response first.
 | | For | Seam |
 |---|---|---|
 | `Pageable.Create<TPage, T>` | a strategy over the async transport | `IAsyncHttpClient` |
-| `Pageable.CreateBlocking<TPage, T>` | the same, blocking; not over `SystemNetHttpClient` until phase 8b ([below](#the-blocking-pager)) | `IHttpClient` |
+| `Pageable.CreateBlocking<TPage, T>` | the same, blocking ([below](#the-blocking-pager)) | `IHttpClient` |
 | `Pageable.FromFetchers<T>` | an API already wrapped in functions | none |
 
 `CreateBlocking` has a different name from `Create` on purpose: an `HttpPipeline` converts to both seams, so two `Create` overloads
@@ -224,13 +224,12 @@ response, is your `await using`. A fetcher that throws propagates unwrapped. Fet
 the same fetch, parse and close step as the async pager with a flag that stops it awaiting, and reads each result without ever
 blocking on a task. Two things to know:
 
-- **It does not work over `SystemNetHttpClient` yet.** The pager reads each page through `ResponseBody.OpenRead`, and the body
-  `SystemNetHttpClient` returns has no synchronous read until the real synchronous transport (roadmap phase 8b, `PIPE-28`;
-  [`io.md`](./io.md#third-party-bodies)). `Pageable.CreateBlocking` over it, directly or through an `HttpPipeline`, throws
-  `NotSupportedException` ("HttpResponseMessageBody does not support synchronous reads; override OpenRead.") on the first
-  `MoveNext`, after the first request went out. Use `Pageable.Create` over that transport until 8b; `CreateBlocking` works today
-  over a transport whose bodies support `OpenRead`, such as a fake or `DelegateHttpClient.CreateBlocking`. When 8b adds
-  `HttpResponseMessageBody.OpenRead`, the pager works unchanged, and the wire test that pins the exception flips to a walk.
+- **It needs a transport whose bodies read synchronously.** The pager reads each page through `ResponseBody.OpenRead`. The body
+  `SystemNetHttpClient` returns implements it (since phase 7b; [`io.md`](./io.md#third-party-bodies)), so `Pageable.CreateBlocking`
+  over that transport, directly or through an `HttpPipeline`, walks every page; below the pager, `SystemNetHttpClient.Execute` still
+  blocks on its async send until the real synchronous transport (roadmap phase 8b, `PIPE-28`), and the pager works unchanged when it
+  lands. Over a transport whose bodies do not override `OpenRead`, the first `MoveNext` throws `NotSupportedException` naming the
+  body type, after the first request went out; use `Pageable.Create` there.
 - **Each page envelope is buffered** under the 64 MiB materialisation cap (a larger one fails with `BodyTooLargeException`);
   the async pager streams. A page envelope over 64 MiB is not a paging use case.
 

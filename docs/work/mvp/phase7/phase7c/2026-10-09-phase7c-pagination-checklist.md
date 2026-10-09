@@ -80,10 +80,13 @@ Test files (under `tests/Dexpace.Sdk.Core.Tests/` unless noted): `Pagination/{Qu
 Count: **36 rows**. By exit: 33 ✅, 3 🚫, 0 ⏳, 0 N/A. By level: 32 MUST (29 ✅, `PAGE-3`, `PAGE-29` and `PAGE-30` 🚫), 4 SHOULD (all ✅).
 
 The blocking pager's rows are ✅ against the pager; it inherits `PIPE-28`'s transport-level gap, not a 7c deferral. The pager itself never blocks on a task
-(`PageStepTests.With_async_false_the_step_never_calls_ExecuteAsync_and_returns_an_already_completed_task`, `Every_blocking_path_returns_an_already_completed_task`). The gap is wider than sync-over-async, though:
-the pager reads each page through `ResponseBody.OpenRead`, and `HttpResponseMessageBody` (the body `SystemNetHttpClient` returns) does not override it until phase 8b, so `Pageable.CreateBlocking` over
-`SystemNetHttpClient`, directly or through an `HttpPipeline`, throws `NotSupportedException` on the first `MoveNext`; use `Pageable.Create` over that transport until then.
-`PaginationWireTests.A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead` (`Integration`, both shapes) pins the failure, so 8b's `OpenRead` turns it into a reviewed flip to a passing walk.
+(`PageStepTests.With_async_false_the_step_never_calls_ExecuteAsync_and_returns_an_already_completed_task`, `Every_blocking_path_returns_an_already_completed_task`). Below it, `SystemNetHttpClient.Execute`
+stays sync-over-async until phase 8b. The pager reads each page through `ResponseBody.OpenRead`, which `HttpResponseMessageBody` (the body `SystemNetHttpClient` returns) has implemented since phase 7b, so
+`Pageable.CreateBlocking` over `SystemNetHttpClient`, directly or through an `HttpPipeline`, walks every page: `PaginationWireTests.A_blocking_walk_over_the_real_transport_reads_every_page` (`Integration`, both shapes).
+
+> **Dated note, 2026-10-09 (rebase onto 7b).** When this checklist was written, `HttpResponseMessageBody` had no `OpenRead`, so the blocking walk over `SystemNetHttpClient` threw `NotSupportedException` on the first
+> `MoveNext` and `PaginationWireTests.A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead` pinned the failure for 8b to flip. Phase 7b built the `OpenRead` first (its checklist's
+> D1), so the rebase flipped the test to the walk above; no 7c source changed, only the remarks and documents that described the failure.
 
 ## Work on other owners' rows
 
@@ -93,7 +96,7 @@ These carry no exit mark in 7c's checklist; the owner's checklist cites the evid
 |---|---|---|
 | `PIPE-26` (4c) | A pipeline backing a paginator | `PageableTests.A_pipeline_backing_a_paginator_works_as_the_client`, `BlockingPageableTests.A_pipeline_is_accepted_as_the_blocking_client`; `PipelineAsTransportTests` keeps its pointer |
 | `SERDE-13` (7a) | A `null` page envelope is a typed failure, not a `NullReferenceException` | `PageStepTests.A_null_envelope_is_a_DeserializationException_naming_the_page_type_and_the_response_is_closed`; `PaginationLifecycleTests.Every_response_is_released_on_every_path` ("null envelope") |
-| `PIPE-28` (4c, ⏳ against 8b, inherited) | The blocking pager is honest above the transport; below it `HttpResponseMessageBody.OpenRead` is the 8b prerequisite | `BlockingPageableTests` over `SyncFirstTransport`, whose `ExecuteAsync` fails the test if called; `PaginationWireTests.A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead` (the pin 8b flips); `Pageable<T>`'s and `CreateBlocking`'s remarks |
+| `PIPE-28` (4c, ⏳ against 8b, inherited) | The blocking pager is honest above the transport; below it `SystemNetHttpClient.Execute` is sync-over-async until 8b (`HttpResponseMessageBody.OpenRead`, first named here as the 8b prerequisite, came with 7b; dated note above) | `BlockingPageableTests` over `SyncFirstTransport`, whose `ExecuteAsync` fails the test if called; `PaginationWireTests.A_blocking_walk_over_the_real_transport_reads_every_page` (the former `NotSupportedException` pin, flipped at the rebase onto 7b); `Pageable<T>`'s and `CreateBlocking`'s remarks |
 
 ## The Security classes
 
@@ -132,13 +135,16 @@ No existing `Security` class is edited, and every one passes unedited.
    explicit backing field for the validated `Page`; the compiler accepted it, so the plan's non-positional fallback was not needed. `Pageable<T>` lives in `PageableOfT.cs` (the file header says why).
 10. **Gate scheduling.** Group 1's gate ran restore, build, format, the full test run and both `Security` filters; the heavier ones (AOT publish, pack, dependency audit, reproducible pack, tools, `verify-structure`, probe) ran at the end of
     group 2 and again at the end of group 3, under the task's resource limits.
-11. **§11 item 66** is the next free number on this branch's copy of the design. 7a and 7b may take the same number in parallel; renumber at merge.
+11. **§11 item 66** is the next free number on this branch's copy of the design. 7a and 7b may take the same number in parallel; renumber at merge. *Dated note, 2026-10-09 (rebase onto 7a and 7b):*
+    neither added a §11 item, so 66 stands.
 12. **Knowledge corpus.** Nothing found contradicts a harvested entry, so no note was added under `docs/knowledge/notes/`.
 13. **Review corrections (2026-10-09).** Three verified findings were fixed after the group commits. (a) The 7c documents described the blocking pager's gap as only "sync-over-async inside the transport", which
    implied it works over `SystemNetHttpClient`; it throws `NotSupportedException` there because `HttpResponseMessageBody` has no `OpenRead` until 8b. The text above, `Pageable<T>`'s and `CreateBlocking`'s remarks,
    `pagination.md`, the design's 8b row, hand-off and R5, design §7.1's dated correction and the roadmap note now say so; the wire test above pins it; **`HttpResponseMessageBody.OpenRead` is named as the blocking
    pager's 8b prerequisite** (the roadmap already lists it among 8b's work). (b) `QuerySplice` stripped every leading `?` from the raw query, rewriting an untargeted parameter whose name starts with `?`; it now strips the
    one delimiter. (c) `QuerySplice`'s rebuild dropped the zone id of a scoped IPv6 host, which `System.Uri` keeps only in `IdnHost`; it is restored from there. (b) and (c) each have `QuerySpliceTests` rows (`PAGE-21`, `PAGE-24`) that failed before the fix (7 of the 48 `QuerySplice*` tests) and pass after it.
+   *Dated note, 2026-10-09 (rebase onto 7b):* finding (a) is resolved by phase 7b, which built `HttpResponseMessageBody.OpenRead` before this branch merged. The corrected texts listed in (a) now say the
+   blocking pager works over `SystemNetHttpClient` (with the sync-over-async `Execute` as 8b's remaining share), and the wire pin is flipped to `PaginationWireTests.A_blocking_walk_over_the_real_transport_reads_every_page`.
 
 ## Open rulings taken as designed
 

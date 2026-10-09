@@ -97,10 +97,10 @@ public static class Pageable
     /// </para>
     /// <para>
     /// The blocking pager is honest above the transport and inherits <c>PIPE-28</c>'s gap below it. It reads each page
-    /// through <c>ResponseBody.OpenRead</c>, which <c>SystemNetHttpClient</c>'s response body does not implement until
-    /// phase 8b: over that transport, directly or through an <c>HttpPipeline</c>, the first <c>MoveNext</c> throws
-    /// <see cref="NotSupportedException"/>. Use <see cref="Create{TPage,T}"/> over it until then. A transport whose bodies
-    /// support <c>OpenRead</c>, such as a fake or <c>DelegateHttpClient.CreateBlocking</c>, works now. Each page
+    /// through <c>ResponseBody.OpenRead</c>, which <c>SystemNetHttpClient</c>'s response body implements (phase 7b), so it
+    /// works over that transport, directly or through an <c>HttpPipeline</c>; the transport's <c>Execute</c> still blocks on
+    /// its async send until phase 8b. Over a transport whose bodies do not override <c>OpenRead</c>, the first
+    /// <c>MoveNext</c> throws <see cref="NotSupportedException"/>; use <see cref="Create{TPage,T}"/> there. Each page
     /// envelope is buffered under the 64 MiB materialisation cap.
     /// </para>
     /// </remarks>
