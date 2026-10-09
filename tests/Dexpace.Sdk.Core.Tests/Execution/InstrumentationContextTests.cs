@@ -144,7 +144,9 @@ public sealed class InstrumentationContextTests
     [Fact]
     public void None_never_starts_an_activity_even_with_a_listener()
     {
-        using var recorder = new ActivityRecorder("Dexpace.Sdk");
+        // Scoped: the listener is process-wide, and a test in another collection that runs the default pipeline starts its
+        // own "GET" span on the same source while this one listens (P5c-15). An activity None started would join the root's trace.
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
 
         Assert.Null(InstrumentationContext.None.StartActivity("op"));
         Assert.Empty(recorder.Started);
