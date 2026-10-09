@@ -19,7 +19,8 @@ public sealed class QuerySpliceTests
 {
     private static Uri At(string href) => new(href, UriKind.Absolute);
 
-    private static string Query(Uri url) => url.Query.TrimStart('?');
+    // Strips the one delimiter, not every leading '?': a name may itself start with one (`??a=1`).
+    private static string Query(Uri url) => url.Query.Length > 0 ? url.Query[1..] : string.Empty;
 
     [Fact]
     public void Set_replaces_the_first_match_in_place_and_keeps_every_other_segment_verbatim()
@@ -155,6 +156,29 @@ public sealed class QuerySpliceTests
     }
 
     [Fact]
+    public void Only_the_delimiting_question_mark_is_stripped_so_a_name_that_starts_with_one_is_left_alone()
+    {
+        // `Uri.Query` of `p??a=1&page=1` is `??a=1&page=1`: the first '?' is the delimiter and the second is the first
+        // character of the parameter name "?a" (PAGE-21: an untargeted parameter is copied byte for byte).
+        var source = At("https://h/p??a=1&page=1");
+
+        Assert.Equal("https://h/p??a=1&page=2", QuerySplice.Set(source, "page", "2").AbsoluteUri);
+        Assert.Equal("1", QuerySplice.Get(source, "?a"));
+        Assert.Null(QuerySplice.Get(source, "a"));
+        Assert.Equal("1", QuerySplice.Get(source, "page"));
+    }
+
+    [Fact]
+    public void A_parameter_called_a_does_not_replace_one_called_question_mark_a()
+    {
+        var appended = QuerySplice.Set(At("https://h/p??a=1&page=1"), "a", "9");
+        Assert.Equal("https://h/p??a=1&page=1&a=9", appended.AbsoluteUri);
+
+        var removed = QuerySplice.Set(At("https://h/p??a=1&a=5"), "a", null);
+        Assert.Equal("https://h/p??a=1", removed.AbsoluteUri);
+    }
+
+    [Fact]
     public void Stray_empty_segments_are_skipped_matching_http_31_query_parsing()
     {
         Assert.Equal("a=1&b=2&page=2", Query(QuerySplice.Set(At("https://h/p?a=1&&b=2&page=1"), "page", "2")));
@@ -229,6 +253,37 @@ public sealed class QuerySpliceTests
         Assert.Equal(expected, result.AbsoluteUri);
         Assert.DoesNotContain(":443", result.AbsoluteUri, StringComparison.Ordinal);
         Assert.DoesNotContain(":80/", result.AbsoluteUri, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("https://[fe80::1%25eth0]/p?x=1", "https://[fe80::1%25eth0]/p?x=2")]
+    [InlineData("https://[fe80::1%25eth0]:8443/p?x=1#f", "https://[fe80::1%25eth0]:8443/p?x=2#f")]
+    [InlineData("https://u:p@[fe80::1%25eth0]:8443/p?x=1", "https://u:p@[fe80::1%25eth0]:8443/p?x=2")]
+    [InlineData("https://[fe80::1%2512]/p?x=1", "https://[fe80::1%2512]/p?x=2")]
+    public void The_zone_id_of_a_scoped_ipv6_host_survives_the_rebuild(string source, string expected)
+    {
+        // PAGE-24: the host is preserved exactly. System.Uri keeps the zone id only in IdnHost (and OriginalString): Host,
+        // AbsoluteUri and every GetComponents form drop it, so a rebuild from components alone would aim every next request
+        // at the same address on no interface.
+        var url = At(source);
+        Assert.Contains("%", url.IdnHost, StringComparison.Ordinal);
+
+        var result = QuerySplice.Set(url, "x", "2");
+
+        Assert.Equal(url.IdnHost, result.IdnHost);
+        Assert.Equal(url.Host, result.Host);
+        Assert.Equal(url.Port, result.Port);
+        Assert.Equal(expected, result.OriginalString);
+    }
+
+    [Fact]
+    public void The_zone_id_survives_a_removal_and_a_scope_free_ipv6_host_is_untouched()
+    {
+        var scoped = QuerySplice.Set(At("https://[fe80::1%25eth0]/p?x=1#f"), "x", null);
+        Assert.Equal("https://[fe80::1%25eth0]/p#f", scoped.OriginalString);
+        Assert.Equal("fe80::1%25eth0", scoped.IdnHost);
+
+        Assert.Equal("https://[::1]:8443/p?x=2", QuerySplice.Set(At("https://[::1]:8443/p?x=1"), "x", "2").AbsoluteUri);
     }
 
     [Fact]
