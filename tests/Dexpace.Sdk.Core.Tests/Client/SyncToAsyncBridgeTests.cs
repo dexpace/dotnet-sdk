@@ -309,6 +309,56 @@ public sealed class SyncToAsyncBridgeTests
     }
 
     [Fact]
+    public async Task AsAsync_aborts_a_token_honouring_client_and_a_token_ignoring_one_runs_on_but_its_call_still_completes_cancelled()
+    {
+        // ASYNC-7, SEAM-30: cancellation reaches a blocking call only as far as the blocking transport honours its token
+        // (the AsAsync remark: "A response produced after the call's token is signalled is disposed and the call completes
+        // cancelled"). A honouring client stops; an ignoring one runs to its end, observably, and its call still ends cancelled.
+        using var scheduler = new RecordingTaskScheduler();
+        using var honouringStarted = new ManualResetEventSlim();
+        using var ignoringStarted = new ManualResetEventSlim();
+        using var ignoringMayFinish = new ManualResetEventSlim();
+        var honouringRanToTheEnd = false;
+        var ignoringRanToTheEnd = false;
+        using var honouring = new FuncSyncTransport((request, _, token) =>
+        {
+            honouringStarted.Set();
+            token.WaitHandle.WaitOne(TimeSpan.FromSeconds(10));
+            token.ThrowIfCancellationRequested();
+            honouringRanToTheEnd = true;
+            return TestResponses.Create(Status.Ok, request);
+        });
+        using var body = new DisposalCountingBody();
+        using var ignoring = new FuncSyncTransport((request, _, _) =>
+        {
+            ignoringStarted.Set();
+            ignoringMayFinish.Wait(TimeSpan.FromSeconds(10), CancellationToken.None);
+            ignoringRanToTheEnd = true;
+            return TestResponses.Create(Status.Ok, request, body: body);
+        });
+        await using var honouringBridge = honouring.AsAsync(scheduler);
+        await using var ignoringBridge = ignoring.AsAsync(scheduler);
+        using var honouringCts = new CancellationTokenSource();
+        using var ignoringCts = new CancellationTokenSource();
+
+        var honouringTask = honouringBridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, honouringCts.Token);
+        var ignoringTask = ignoringBridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, ignoringCts.Token);
+        Assert.True(honouringStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.True(ignoringStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        await honouringCts.CancelAsync();
+        await ignoringCts.CancelAsync();
+        ignoringMayFinish.Set();
+        await CompletesOrTimesOut(honouringTask);
+        await CompletesOrTimesOut(ignoringTask);
+
+        Assert.True(honouringTask.IsCanceled);
+        Assert.False(honouringRanToTheEnd);
+        Assert.True(ignoringTask.IsCanceled);
+        Assert.True(ignoringRanToTheEnd);
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
     public async Task Disposing_the_bridge_disposes_neither_the_scheduler_nor_the_client()
     {
         // SEAM-25, SEAM-14.
