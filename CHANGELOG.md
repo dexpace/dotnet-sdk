@@ -580,13 +580,16 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 - `TypedResponse<T>` (`HTTP-44`, `HTTP-45`): a response whose metadata is readable at once and whose body is parsed lazily, once, on the first
   `GetValueAsync`. Success (a `null` included) and failure are memoized, a failure as the same exception object; exactly-once is a compare-and-swap on a
   `TaskCompletionSource<T>`, so no caller blocks a thread behind another's parse, and a caller's token cancels only its own wait. The wrapped response is not exposed.
+- `docs/sdk-documentation/serde.md`; the AOT smoke performs the Tristate PATCH round trip (the wire bytes `{"name":null,"size":3}`, a lazy `TypedResponse<WidgetPatch>`
+  through the status-aware handler, the root-null rule and the synchronous stream decode), which exercises the converter factory's `IL2067` suppression with the value-type `Tristate<int>`.
 
 #### Changed
 
 - **Breaking (phase 7a):** `SystemTextJsonSerde(JsonSerializerOptions)` and `SystemTextJsonSerde(JsonSerializerContext)` work on a private
   copy of the options, wire `Tristate<T>` on the copy and freeze the copy. The caller's `JsonSerializerOptions` is no longer made
   read-only, gains no converter and keeps its resolver; a later change to it does not affect the serde (was: the caller's instance was
-  frozen) (`SERDE-19`, `SERDE-26`).
+  frozen) (`SERDE-19`, `SERDE-26`). A context generated with `GenerationMode = Serialization` (the fast-path-only mode) carries no property
+  metadata and serves only its own options object, so it can no longer be passed to the serde; use the default or `Metadata` mode.
 - **Breaking (phase 7a):** `ResponseBodySerdeExtensions.ReadValueAsync<T>` returns `ValueTask<T>` (was: `ValueTask<T?>`) and throws a
   `DeserializationException` naming `T` for a wire `null` into a reference-type target (was: returned `null`). Use
   `ReadValueOrDefaultAsync<T>` to accept `null`; a `Nullable<>` target still decodes `null` (`SERDE-13`).
