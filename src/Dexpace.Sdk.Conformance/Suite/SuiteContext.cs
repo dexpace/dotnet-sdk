@@ -48,6 +48,20 @@ internal sealed class SuiteContext(TransportSubject subject, TransportFace face,
     /// <summary>Starts a loopback server that builds each reply from the request; disposed with the context.</summary>
     internal LoopbackServer StartServer(Func<RecordedRequest, LoopbackResponse> respond) => Track(_servers, LoopbackServer.Start(respond));
 
+    /// <summary>
+    /// Starts a loopback server that answers <paramref name="script"/> in order, except that the probe path
+    /// (<see cref="Check.ProbePath"/>) always gets a keep-alive reply and does not consume a script entry: the server a
+    /// release check needs, so it can show that a pooled connection was reused. Disposed with the context.
+    /// </summary>
+    /// <param name="script">The replies to the non-probe requests, in order.</param>
+    internal LoopbackServer StartProbeableServer(params LoopbackResponse[] script)
+    {
+        var queue = new System.Collections.Concurrent.ConcurrentQueue<LoopbackResponse>(script);
+        return StartServer(request => request.Target == Check.ProbePath
+            ? LoopbackResponse.Ok("probe", keepAlive: true)
+            : queue.TryDequeue(out var next) ? next : throw new InvalidOperationException("The probeable script ran out."));
+    }
+
     /// <summary>Builds the subject's transport for this run's face, wrapped as the face's send primitive; disposed with the context.</summary>
     internal IFaceTransport CreateTransport() => Track(_transports, Face == TransportFace.Async
         ? new AsyncFaceTransport(Subject.CreateAsync!(Settings))
