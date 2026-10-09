@@ -127,7 +127,7 @@ public static class Pageable
                 }
 
                 fetched++;
-                yield return new Page<T>(selectItems(page), status, headers);
+                yield return new Page<T>(selectItems(page), status, headers, current);
 
                 if (next is null)
                 {

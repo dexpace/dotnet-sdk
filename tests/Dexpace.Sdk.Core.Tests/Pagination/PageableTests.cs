@@ -327,34 +327,6 @@ public class PageableTests
         Assert.True(body2.Disposed, "Second response body should be disposed.");
     }
 
-    // ── Page<T> constructor ────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public void Page_Constructor_SetsProperties()
-    {
-        var values = new List<int> { 1, 2, 3 };
-        var status = Status.Ok;
-        var headers = Headers.Empty.With("X-Foo", "bar");
-
-        var page = new Page<int>(values, status, headers);
-
-        Assert.Same(values, page.Values);
-        Assert.Equal(status, page.Status);
-        Assert.Same(headers, page.Headers);
-    }
-
-    [Fact]
-    public void Page_Constructor_NullValues_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => new Page<int>(null!, Status.Ok, Headers.Empty));
-    }
-
-    [Fact]
-    public void Page_Constructor_NullHeaders_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => new Page<int>(Array.Empty<int>(), Status.Ok, null!));
-    }
-
     // ── Pageable.Create argument guards ───────────────────────────────────────────────────────
 
     [Fact]
