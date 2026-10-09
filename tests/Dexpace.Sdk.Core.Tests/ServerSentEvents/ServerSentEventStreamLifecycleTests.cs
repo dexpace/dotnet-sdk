@@ -43,45 +43,22 @@ public sealed class ServerSentEventStreamLifecycleTests : IDisposable
 
     private static (Response Response, SseBody? Body) BodylessResponse(string kind)
     {
-        SseBody Body(long length = -1) => new(SseResponses.Bytes("data: x\n\n")) { Length = length };
-
-        switch (kind)
+        if (kind == "no-body")
         {
-            case "status-204":
-            {
-                var body = Body();
-                return (SseResponses.Respond(body, Status.FromCode(204)), body);
-            }
-
-            case "status-205":
-            {
-                var body = Body();
-                return (SseResponses.Respond(body, Status.FromCode(205)), body);
-            }
-
-            case "status-304":
-            {
-                var body = Body();
-                return (SseResponses.Respond(body, Status.NotModified), body);
-            }
-
-            case "head-request":
-            {
-                var body = Body();
-                return (SseResponses.Respond(body, Status.Ok, Method.Head), body);
-            }
-
-            case "content-length-zero":
-            {
-                var body = Body(length: 0);
-                return (SseResponses.Respond(body), body);
-            }
-
-            case "no-body":
-                return (new Response(Dexpace.Sdk.Core.Http.Request.Request.Get("https://sse.example.test/events"), Status.Ok, Protocol.Http11), null);
-            default:
-                throw new ArgumentOutOfRangeException(nameof(kind));
+            return (new Response(Dexpace.Sdk.Core.Http.Request.Request.Get("https://sse.example.test/events"), Status.Ok, Protocol.Http11), null);
         }
+
+        var body = new SseBody(SseResponses.Bytes("data: x\n\n")) { Length = kind == "content-length-zero" ? 0 : -1 };
+        var response = kind switch
+        {
+            "status-204" => SseResponses.Respond(body, Status.FromCode(204)),
+            "status-205" => SseResponses.Respond(body, Status.FromCode(205)),
+            "status-304" => SseResponses.Respond(body, Status.NotModified),
+            "head-request" => SseResponses.Respond(body, Status.Ok, Method.Head),
+            "content-length-zero" => SseResponses.Respond(body),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown bodyless case."),
+        };
+        return (response, body);
     }
 
     [Theory]
