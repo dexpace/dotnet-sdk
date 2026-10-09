@@ -21,6 +21,7 @@ public sealed class HeaderControlTests
             TransportFace.Async,
             "logs every drop loudly every time",
             () => new TransportSubject { Name = "logs every drop", CreateAsync = settings => BrokenTransports.LogsEveryDrop(settings.Logger) }),
+        ControlRow.Over("transport-13.drop-log-once-per-name", TransportFace.Async, "drops the headers and logs nothing", BrokenTransports.DropsRejectedHeadersSilently),
         ControlRow.Over("transport-14.value-control-dropped", TransportFace.Async, "fails the whole response on a control byte in a value", BrokenTransports.StrictInbound),
         ControlRow.Over("transport-14.value-control-dropped", TransportFace.Blocking, "fails the whole response on a control byte in a value", BrokenTransports.StrictInbound),
         ControlRow.Over("transport-14.obs-text-preserved", TransportFace.Async, "strips obs-text from values", BrokenTransports.StripsObsText),
@@ -33,7 +34,9 @@ public sealed class HeaderControlTests
 
     public static TheoryData<string, TransportFace, string> Cases => ControlRow.Cases(Rows);
 
-    // The raw-socket client writes every header it is given and logs no drops, so it passes transport-12 and is waived for transport-13.
+    // The raw-socket client writes every header it is given, so it passes transport-12 and has nothing to log for transport-13: that
+    // assertion is Vacuous against it (A_transport_that_drops_nothing_is_vacuous_for_transport_13), and its positive case is the
+    // conforming dropper (The_conforming_dropper_passes_transport_13).
     public static TheoryData<string, TransportFace> PositiveCases => ControlRow.PositiveCases(Rows, "transport-13.drop-log-once-per-name");
 
     [Theory]
@@ -43,4 +46,20 @@ public sealed class HeaderControlTests
     [Theory]
     [MemberData(nameof(PositiveCases))]
     public Task The_raw_socket_client_passes(string assertion, TransportFace face) => ControlRow.RunPositiveAsync(assertion, face);
+
+    [Fact]
+    public Task The_conforming_dropper_passes_transport_13() =>
+        ControlRow.RunPositiveAsync("transport-13.drop-log-once-per-name", TransportFace.Async, ConformingHooks.OncePerNameDropper());
+
+    [Fact]
+    public async Task A_transport_that_drops_nothing_is_vacuous_for_transport_13_and_needs_no_waiver()
+    {
+        // The raw-socket client puts every header on the wire, so there is no drop whose logging could be judged. The result is
+        // Vacuous (not Failed, not Passed) from the assertion's own measurement, and the driver carries no waiver for it.
+        var result = await AssertionControl.RunAsync("transport-13.drop-log-once-per-name", TransportFace.Async, RawSocketSubject.Create(), RawSocketSubject.Options);
+
+        Assert.Equal(ConformanceStatus.Vacuous, result.Status);
+        Assert.Contains("dropped none", result.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(RawSocketSubject.Options.Waivers, waiver => waiver.RequirementId == "TRANSPORT-13");
+    }
 }

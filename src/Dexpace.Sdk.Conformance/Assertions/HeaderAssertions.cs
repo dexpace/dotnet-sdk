@@ -98,7 +98,9 @@ internal static class HeaderAssertions
     }
 
     // TRANSPORT-13 (SHOULD): under the default policy the first drop of each name is logged loudly and the rest are quiet, with
-    // names compared case-insensitively. "Loudly" is Warning or above.
+    // names compared case-insensitively. "Loudly" is Warning or above. The clause governs a header the transport dropped: a name
+    // that reached the wire on every send was not dropped, so there is nothing to log, and a transport that dropped nothing is
+    // Vacuous (the antecedent is measured here, from the server's side, never declared by the subject).
     private static async Task DropLogOncePerNameAsync(SuiteContext context, CancellationToken cancellationToken)
     {
         var server = context.StartServer(_ => LoopbackResponse.Ok("ok", keepAlive: true));
@@ -108,10 +110,19 @@ internal static class HeaderAssertions
         foreach (var (first, second) in sends)
         {
             var request = Request.Get(server.Url("/drop").AbsoluteUri).WithHeader(first, "en").WithHeader(second, "GET");
-            using var response = await transport.ExpectResponseAsync(request, "a body-less request dropping two content-class header names", cancellationToken).ConfigureAwait(false);
+            using var response = await transport.ExpectResponseAsync(request, "a body-less request carrying two content-class header names", cancellationToken).ConfigureAwait(false);
         }
 
-        foreach (var name in new[] { "Content-Language", "Allow" })
+        var recorded = server.Requests;
+        Check.Equal(recorded.Count, sends.Length, "the requests the server received");
+        string[] names = ["Content-Language", "Allow"];
+        var dropped = names.Where(name => recorded.Any(request => request.HeaderValues(name).Count == 0)).ToArray();
+        if (dropped.Length == 0)
+        {
+            throw new ConformanceVacuousException("the transport put every content-class header on the wire, so it dropped none and TRANSPORT-13's drop-logging policy has nothing to govern");
+        }
+
+        foreach (var name in dropped)
         {
             var loud = context.Logger.Dropped(name).Count(entry => entry.Level >= LogLevel.Warning);
             Check.True(loud == 1, $"under the default policy the first drop of '{name}' is logged loudly and every later drop quietly, across three sends and two casings (TRANSPORT-13)", "exactly 1 entry at Warning or above", loud.ToString(CultureInfo.InvariantCulture));

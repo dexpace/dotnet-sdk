@@ -7,6 +7,7 @@ using Dexpace.Sdk.Conformance.Tests.Support;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Conformance.Tests.Drivers;
 
@@ -32,6 +33,46 @@ internal static class ConformingHooks
             CreateWithNativeResend = _ => new ResendsBufferedCopy(),
             CreateWithProxy = (_, proxy) => BrokenTransports.ProxyAware(proxy, leakToOrigin: false),
         };
+    }
+
+    private static readonly string[] s_contentClass = ["Content-Language", "Content-Encoding", "Allow"];
+
+    private static readonly Action<ILogger, string, Exception?> s_droppedLoudly = LoggerMessage.Define<string>(
+        LogLevel.Warning,
+        new EventId(2, "Dropped"),
+        "Dropped the '{HeaderName}' header.");
+
+    private static readonly Action<ILogger, string, Exception?> s_droppedQuietly = LoggerMessage.Define<string>(
+        LogLevel.Debug,
+        new EventId(3, "DroppedAgain"),
+        "Dropped the '{HeaderName}' header again.");
+
+    /// <summary>
+    /// The positive counterpart of <c>transport-13</c>: a raw-socket client that drops the content-class headers (as a native
+    /// client that refuses them on a body-less request does) and logs the first drop of each name, case-insensitively, at
+    /// Warning and every later one at Debug. It supplies the async face only, the face the assertion declares.
+    /// </summary>
+    internal static TransportSubject OncePerNameDropper() => new()
+    {
+        Name = "RawSocketHttpClient that drops content-class headers and logs each name once (test-only)",
+        CreateAsync = settings => DropsAndLogsOncePerName(settings.Logger),
+    };
+
+    /// <summary>A transport that drops the content-class headers and logs the first drop of each name loudly and the rest quietly.</summary>
+    internal static IAsyncHttpClient DropsAndLogsOncePerName(ILogger logger)
+    {
+        var seen = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        return BrokenTransports.Around((request, options, ct, inner) =>
+        {
+            var forwarded = request;
+            foreach (var name in s_contentClass.Where(request.Headers.Contains))
+            {
+                (seen.TryAdd(name, true) ? s_droppedLoudly : s_droppedQuietly)(logger, name, null);
+                forwarded = forwarded.WithHeaders(forwarded.Headers.Without(name));
+            }
+
+            return inner.ExecuteAsync(forwarded, options, ct);
+        });
     }
 
     /// <summary>A transport over a "native client" it does not own: disposing the transport leaves the native client working.</summary>

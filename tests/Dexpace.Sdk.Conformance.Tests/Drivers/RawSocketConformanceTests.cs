@@ -10,7 +10,8 @@ namespace Dexpace.Sdk.Conformance.Tests.Drivers;
 /// through <c>DelegateHttpClient</c>. It shares no code with <c>HttpClient</c>, so an assertion that passes here and against
 /// <c>SystemNetHttpClient</c> is about the contract and not about <c>SocketsHttpHandler</c>. The client is honest about what it
 /// does not do: it supplies none of the capability hooks (no native client to borrow, no proxy), declares no post-dispose
-/// behaviour, and waives the two SHOULDs it does not implement.
+/// behaviour, and waives the one SHOULD it does not implement (the framing drops' log entries); <c>transport-13</c> is
+/// <c>Vacuous</c> against it, because it drops no header.
 /// </summary>
 [Trait("Category", "Conformance")]
 public sealed class RawSocketConformanceTests
@@ -95,6 +96,6 @@ public sealed class RawSocketConformanceTests
         var vacuous = report.Results.Where(r => r.Status == ConformanceStatus.Vacuous).Select(r => r.Assertion.Name).Distinct().Order(StringComparer.Ordinal);
 
         Assert.Equal(s_needsAHook.Order(StringComparer.Ordinal), notExercised);
-        Assert.Equal(["seam-15.after-dispose"], vacuous);
+        Assert.Equal(["seam-15.after-dispose", "transport-13.drop-log-once-per-name"], vacuous);
     }
 }
