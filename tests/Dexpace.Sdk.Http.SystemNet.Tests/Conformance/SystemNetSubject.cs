@@ -70,8 +70,8 @@ internal static class SystemNetSubject
     /// <summary>
     /// The bounds of the driver and the waivers of phase 8a's first run against the reference transport: exactly the failing set,
     /// each a requirement owned by phase 8b, each named for the fact that explains it. <c>TRANSPORT-2</c>'s is narrowed to the
-    /// body-less assertion (the single-use clause passes), as is <c>TRANSPORT-14</c>'s to its name clause. Phase 8b closes a row
-    /// by deleting its waiver; a waiver left behind after its row is fixed fails the run.
+    /// body-less assertion (the single-use clause passes) and applies only where the native re-send is observed, as is
+    /// <c>TRANSPORT-14</c>'s to its name clause. Phase 8b closes a row by deleting its waiver; a waiver left behind after its row is fixed fails the run.
     /// </summary>
     internal static TransportSuiteOptions Options { get; } = new()
     {
@@ -79,11 +79,7 @@ internal static class SystemNetSubject
         ReleaseTimeout = TimeSpan.FromSeconds(5),
         Waivers =
         [
-            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a body-less request reset before any response byte is re-sent up to three more times, on a pooled connection and on a new one, so the pipeline's retry is not the only one; 8b finds a handler-level way to turn it off or records the clause as unmet on a stated domain (a design section 10 entry)")
-            {
-                Owner = "8b",
-                Assertion = "transport-2.bodyless-not-resent",
-            },
+            .. NativeResendWaivers(),
             new("TRANSPORT-4", "RequestOptions.Timeout is accepted and read by nothing until 8b wires the per-call deadline (SystemNetHttpClientTests.Options_are_accepted_and_ignored_until_8b)") { Owner = "8b" },
             new("TRANSPORT-5", "RequestOptions.Timeout is ignored until 8b: a call to a server that never answers is not cut") { Owner = "8b" },
             new("TRANSPORT-6", "RequestOptions.Timeout is ignored until 8b, so a sub-resolution timeout cannot be clamped either") { Owner = "8b" },
@@ -104,6 +100,22 @@ internal static class SystemNetSubject
             },
         ],
     };
+
+    /// <summary>
+    /// The <c>TRANSPORT-2</c> body-less waiver, on the platforms where <c>SocketsHttpHandler</c>'s connection-failure re-send
+    /// is observed. On macOS the reset surfaces without a native re-send (measured on the macOS CI runner: one arrival), so the
+    /// assertion passes there and a waiver would fail the run as no longer needed.
+    /// </summary>
+    private static ConformanceWaiver[] NativeResendWaivers() => OperatingSystem.IsMacOS()
+        ? []
+        :
+        [
+            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a body-less request reset before any response byte is re-sent up to three more times, on a pooled connection and on a new one, so the pipeline's retry is not the only one; 8b finds a handler-level way to turn it off or records the clause as unmet on a stated domain (a design section 10 entry)")
+            {
+                Owner = "8b",
+                Assertion = "transport-2.bodyless-not-resent",
+            },
+        ];
 
     /// <summary>A transport that disposes the native client it was built over together with itself, so a hook's client does not outlive its run.</summary>
     internal sealed class NativeBackedTransport(HttpClient native, SystemNetHttpClient inner) : IAsyncHttpClient

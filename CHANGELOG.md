@@ -607,7 +607,7 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `-10`, `-11`, `-12`, `-13`, `-14`). `ASYNC-2`'s worker-pool-rejection clause is not met: a scheduler whose `QueueTask` throws makes `AsAsync(...).ExecuteAsync` throw `TaskSchedulerException`
   synchronously instead of faulting the task; the fix is a core change left for a later phase.
 - **`TRANSPORT-2` is not met by the reference transport.** `SocketsHttpHandler` has no switch for its own connection-failure retry and re-sends a request reset before any response byte up to three more times, so a
-  body-less `POST`, `DELETE` or `GET` reached the server four times for one SDK attempt (`transport-2.bodyless-not-resent`, waived for phase 8b: it either turns the retry off or records the MUST as unmet on a stated
+  body-less `POST`, `DELETE` or `GET` reached the server four times for one SDK attempt on Linux (macOS shows no native re-send, and the waiver is not applied there; `transport-2.bodyless-not-resent`, waived for phase 8b: it either turns the retry off or records the MUST as unmet on a stated
   domain). A single-use body is never re-written, and `transport-2.no-silent-resend` (the specification's own sentence) passes. `transport-20.retried-by-the-pipeline` now counts pipeline attempts, because the native
   retry had been delivering its 200 without the pipeline retrying; `transport-13` is `Vacuous` for a transport that drops no header; `transport-3` requires the caller's token on the cancellation and `transport-7.attempt-timeout-aborts`
   a timeout on the failure.
