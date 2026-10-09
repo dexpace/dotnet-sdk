@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Conformance.Tests.RawSocket;
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 
@@ -177,4 +178,92 @@ internal static class BrokenTransports
             ct.Register(response.Dispose);
             return response;
         });
+
+    /// <summary>A transport that reads the whole response body before returning, so nothing streams.</summary>
+    internal static IAsyncHttpClient BufferingBody() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var response = await inner.ExecuteAsync(request, options, ct);
+            var bytes = await response.Body.ReadAsBytesAsync(ct);
+            return new Response(response.Request, response.Status, response.Protocol, response.Headers, ResponseBody.FromBytes(bytes, response.Body.ContentType));
+        });
+
+    /// <summary>A transport that cuts every response body off after <paramref name="limit"/> bytes.</summary>
+    internal static IAsyncHttpClient TruncatingBody(int limit) =>
+        Rewriting(response => new Response(
+            response.Request,
+            response.Status,
+            response.Protocol,
+            response.Headers,
+            ResponseBody.FromStream(new TruncatedStream(response.Body.OpenRead(), limit), null, limit)));
+
+    /// <summary>A transport that gives a body-less POST, PUT or PATCH a one-byte body.</summary>
+    internal static IAsyncHttpClient SendsBodyForBodyless() =>
+        Around((request, options, ct, inner) =>
+            inner.ExecuteAsync(request.Body is null && request.Method.Name is "POST" or "PUT" or "PATCH" ? request.WithBody(RequestBody.FromString("x")) : request, options, ct));
+
+    /// <summary>A transport that fails on a malformed Content-Type instead of downgrading it.</summary>
+    internal static IAsyncHttpClient ThrowsOnMalformedContentType() =>
+        Rewriting(response => response.Headers.Get("Content-Type") is { } type && !MediaType.TryParse(type, out _)
+            ? throw new ArgumentException("malformed media type")
+            : response);
+
+    /// <summary>A transport that pads a request body declared as 10 bytes out to 10 bytes, so a short source goes unnoticed.</summary>
+    internal static IAsyncHttpClient PadsShortBodies() =>
+        Around((request, options, ct, inner) =>
+            inner.ExecuteAsync(request.Body is { ContentLength: 10 } ? request.WithBody(RequestBody.FromBytes(new byte[10])) : request, options, ct));
+
+    /// <summary>A read-only stream that reports end-of-stream after <paramref name="limit"/> bytes.</summary>
+    internal sealed class TruncatedStream(Stream inner, int limit) : Stream
+    {
+        private int _remaining = limit;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = _remaining == 0 ? 0 : await inner.ReadAsync(buffer[..Math.Min(buffer.Length, _remaining)], cancellationToken);
+            _remaining -= read;
+            return read;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var read = _remaining == 0 ? 0 : inner.Read(buffer, offset, Math.Min(count, _remaining));
+            _remaining -= read;
+            return read;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
 }

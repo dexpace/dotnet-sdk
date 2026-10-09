@@ -14,5 +14,7 @@ internal static class TransportCatalogue
         .. ResponseShapeAssertions.Assertions(),
         .. CancellationAssertions.Assertions(),
         .. CloseAssertions.Assertions(),
+        .. BodyAssertions.Assertions(),
+        .. InboundAssertions.Assertions(),
     ];
 }

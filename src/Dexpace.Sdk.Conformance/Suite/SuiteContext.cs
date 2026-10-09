@@ -37,6 +37,9 @@ internal sealed class SuiteContext(TransportSubject subject, TransportFace face,
     /// <summary>The bound on observing a release (and the window of the one timed negative).</summary>
     internal TimeSpan ReleaseTimeout => Options.ReleaseTimeout;
 
+    /// <summary>The bound on a long-running step inside an assertion, such as streaming a large body: the assertion's own bound.</summary>
+    internal TimeSpan AssertionBound => Options.AssertionTimeout;
+
     /// <summary>Whether <paramref name="subject"/> supplies a factory for <paramref name="face"/>.</summary>
     internal static bool Supplies(TransportSubject subject, TransportFace face) =>
         face == TransportFace.Async ? subject.CreateAsync is not null : subject.CreateBlocking is not null;
