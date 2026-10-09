@@ -9,10 +9,13 @@
 // cursor surfaces as ArgumentException, not Node's UrlConstructionError.
 
 using System.Globalization;
+using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pagination;
+using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.Core.Pipeline.Policies;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
@@ -422,6 +425,40 @@ public sealed class PaginationStrategiesTests
         Assert.Throws<ArgumentException>(() => PaginationStrategies.LinkHeader<Envelope, int>(Items, string.Empty));
         var ex = Assert.Throws<ArgumentException>(() => PaginationStrategies.LinkHeader<Envelope, int>(Items, "X\uD800"));
         Assert.Equal("headerName", ex.ParamName);
+    }
+
+    // ── the opt-in (P7c-12): documents the warning on LinkHeader's allowCrossOrigin ───────────────────
+
+    private sealed class FixedTokenCredential(string token) : TokenCredential
+    {
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext context, CancellationToken ct = default) =>
+            new(new AccessToken(token, DateTimeOffset.UtcNow.AddHours(1)));
+    }
+
+    [Fact]
+    public async Task With_allowCrossOrigin_the_walk_follows_and_per_call_auth_stamps_the_credential_for_the_new_origin()
+    {
+        // This is a Unit fact, not a Security one: it pins the behaviour the XML doc warns about. The refusal is the Security
+        // class PaginationLinkOriginTests.
+        using var transport = new ScriptedTransport(
+            (Func<Request, Response>)(r => PageFixtures.Respond([1], null, LinkHeaders("<https://cdn.example/p2>; rel=next"))(r)),
+            (Func<Request, Response>)(r => PageFixtures.Respond([2])(r)));
+        using var pipeline = new PipelineBuilder().Add(new BearerTokenAuthPolicy(new FixedTokenCredential("tok"), "scope")).Build(transport);
+        var pageable = Pageable.Create<Envelope, int>(
+            pipeline,
+            s_first,
+            new EnvelopeSerde(),
+            PaginationStrategies.LinkHeader<Envelope, int>(Items, allowCrossOrigin: true));
+        var items = new List<int>();
+
+        await foreach (var item in pageable.WithCancellation(TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+        }
+
+        Assert.Equal([1, 2], items);
+        Assert.Equal("cdn.example", transport.Requests[1].Url.Host);
+        Assert.Equal(["Bearer tok"], transport.Requests[1].Headers.GetAll("Authorization"));
     }
 
     // ── contract (PAGE-4, PAGE-5; Node strategy.test.ts) ───────────────────────────────────────────────
