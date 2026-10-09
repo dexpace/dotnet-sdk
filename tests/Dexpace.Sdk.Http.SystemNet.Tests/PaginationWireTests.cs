@@ -7,6 +7,7 @@ using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pagination;
+using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Serialization;
 using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Xunit;
@@ -21,11 +22,19 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests;
 /// server, and that the same <see cref="RequestOptions"/> instance reaches the real transport on every page.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The plan's timeout row (a cursor walk whose <c>RequestOptions.Timeout</c> governs every page and throws
 /// <c>ServiceRequestTimeoutException</c>) is not built: <c>SystemNetHttpClient</c> accepts <see cref="RequestOptions"/> and
 /// reads none of it until phase 8b wires <c>RequestOptions.Timeout</c> (TRANSPORT-5; pinned by
 /// <c>SystemNetHttpClientTests.Options_are_accepted_and_ignored_until_8b</c>), so there is no timeout to fire. The row is
 /// replaced by the options-instance row below, which is PAGE-36's real claim at the seam.
+/// </para>
+/// <para>
+/// The blocking pager does not work over this transport yet: <c>HttpResponseMessageBody</c> does not override
+/// <c>ResponseBody.OpenRead</c> until phase 8b, so <c>Pageable.CreateBlocking</c> over <see cref="SystemNetHttpClient"/>, directly or
+/// through a pipeline, throws <see cref="NotSupportedException"/> on the first page. The last test pins that, so 8b's change is a
+/// reviewed flip of one assertion and not a silent behaviour change.
+/// </para>
 /// </remarks>
 [Trait("Category", "Integration")]
 public sealed class PaginationWireTests
@@ -177,5 +186,50 @@ public sealed class PaginationWireTests
         Assert.Equal([1], items);
         Assert.Single(first.Requests);
         Assert.Empty(second.Requests);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead(bool throughPipeline)
+    {
+        // PIPE-28's gap below the pager, pinned as it is today: the transport's Execute works (it blocks on the async send), but
+        // the body it returns has no synchronous OpenRead, and the blocking pager reads each page through OpenRead. The exchange
+        // happens, the first page is requested, and the read fails with the base ResponseBody's NotSupportedException.
+        //
+        // When phase 8b gives HttpResponseMessageBody an OpenRead, this test fails at the Assert.Throws below. That is the
+        // intended signal: replace the throw assertion with the walk (Assert.Equal([1, 2, 3], items) over the three-page cursor
+        // server) and delete this comment; no 7c source changes (design "Hand-offs to later phases", 8b).
+        await using var server = LoopbackServer.Start(request => request.Target switch
+        {
+            "/items" => Page("1|a"),
+            "/items?cursor=a" => Page("2|b"),
+            "/items?cursor=b" => Page("3|"),
+            _ => LoopbackResponse.Status(404, "Not Found"),
+        });
+        using var client = DirectClient();
+        await using var transport = new SystemNetHttpClient(client);
+        var pipeline = new PipelineBuilder().Build(transport);
+        IHttpClient blocking = throughPipeline ? pipeline : transport;
+        var pageable = Pageable.CreateBlocking<WirePage, int>(
+            blocking,
+            Request.Get(server.Url("/items").ToString()),
+            new WireSerde(),
+            PaginationStrategies.Cursor<WirePage, int>(p => p.Items, p => p.Next),
+            maxPages: 10,
+            cancellationToken: Ct);
+
+        var thrown = Assert.Throws<NotSupportedException>(() =>
+        {
+            foreach (var item in pageable)
+            {
+                Assert.Fail($"No item can be read before 8b adds HttpResponseMessageBody.OpenRead, got {item}.");
+            }
+        });
+
+        Assert.Contains("HttpResponseMessageBody", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("OpenRead", thrown.Message, StringComparison.Ordinal);
+        Assert.Equal(["/items"], server.Requests.Select(r => r.Target));
+        Assert.Empty(server.Faults);
     }
 }
