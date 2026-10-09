@@ -846,6 +846,7 @@ request bytes. A handler stub cannot see what reached the socket.
   - source-generated `JsonTypeInfo<T>` as the only trim-safe path;
   - the lazy typed-response wrapper (`HTTP-44`, `HTTP-45`);
   - the NativeAOT smoke consumer extended to a Tristate PATCH.
+  - *Status, 2026-10-09: 7a is built (issue #79, branch `79-phase-7a-serde`); see the Phase Status Notes.*
 - **SSE** (36 MUSTs, none built). **7b** is SSE's own parser:
   - a byte-level line reader, with an immediate CR, a 3-byte BOM check and a 1 MiB line cap (design topic
     `sse-line-length-cap`). It is **not** `StreamReader`, and not `System.Net.ServerSentEvents` (§7.2). This
@@ -1667,3 +1668,28 @@ retry) and #2 (RFC 7616 Digest) are closed by it, with their checklist rows name
 - **Hand-offs.** 6b: the end-to-end credential-leak test builds from the shipped policies (their public construction is unchanged); a cross-origin hop is forwarded credential-free and its `401` is not challenge-handled.
   8b: the transport answers a proxy's `407`; the handlers' `proxy` flag lets a caller adapt them to `ICredentials`. 9: DI registration of an auth policy (an `AuthCredentials` bound from configuration).
   10: `XCUT-12`, `XCUT-14`, `XCUT-16`, `XCUT-18`, `XCUT-19`(d), `XCUT-21` cite 6c's tests. 12: claims challenges and `apiKey` in a query string or cookie are recorded in `docs/first-release.md`.
+
+**2026-10-09 — Phase 7a exit (serde).** Sub-phase 7a closes on branch `79-phase-7a-serde` (issue #79), the plan's five PRs as commit groups: all 30 `SERDE` rows ✅ (22 MUST, 7 SHOULD, 1 MAY) plus the two rows
+3b handed over, `HTTP-44` and `HTTP-45` (32 rows; the 3b checklist's ⏳ cells now point at 7a), [checklist](phase7/phase7a/2026-10-09-phase7a-serde-checklist.md), user page
+[`serde.md`](../../sdk-documentation/serde.md). Issue #1 (`Tristate<T>`) is closed by it; the drafted closing comment, naming `SERDE-14` to `SERDE-20` and `SERDE-30`, is in the checklist.
+
+- **Built.** `Tristate<T>`, `Tristate`, `TristateSentinel`, `TristateState` and the `ITristate` / `ITristateVisitor<TResult>` hook (core, no STJ attribute); in the adapter, the converter factory
+  (interface dispatch, no `MakeGenericType`, one justified `IL2067` suppression), the omit-Absent modifier, `AddTristateSupport` and `CreateDefaultOptions`; both `SystemTextJsonSerde` constructors now copy
+  the caller's options; `ResponseBody.ReadValueAsync` reshaped plus `ReadValueOrDefaultAsync`, `ReadValue` and `ReadValueOrDefault`; the `ISerde.Deserialize<T>(Stream)` default interface member and
+  `HttpResponseException.GetError<T>`; `IResponseHandler<T>`, `ResponseHandlers.Deserialize<T>` / `DeserializeOnSuccess<T>`; `TypedResponse<T>`.
+- **Breaking changes** (in `CHANGELOG.md` `[Unreleased]`, "Phase 7a"): the serde constructors copy the options instead of freezing the caller's (and a fast-path-only context can no longer be used with them);
+  `ReadValueAsync<T>` returns `ValueTask<T>` and rejects a wire `null` for a reference type, disposes the body, and names a missing body; `ISerde` gains a member (binary-compatible, a default).
+- **Open rulings were taken as designed** (the lead had not ruled): P7a-9 (`SERDE-13` binds the non-null overloads, not `ISerde`'s `T?` members) and P7a-21 (the per-read materialisation cap is declined); P7a-5, P7a-6
+  and P7a-15 are settled. If the lead reverses P7a-9, the cost is a `RequireNonNull` call in the adapter; for P7a-21, the design's twelve overloads.
+- **Verified in task 0.1** (SDK 10.0.401): the omit-Absent modifier works over a default-mode source-generated context and **not** over a fast-path-only one; a value-type converter sees the `null` token; `??` on an
+  unconstrained `T` compiles, so `Pageable.cs` needed no edit; `Lazy<Task<T>>` blocks eight threads about 500 ms where the compare-and-swap blocks none; the `IL2067` shape runs under NativeAOT. Recorded in
+  `docs/knowledge/notes/serde.md`.
+- **Security.** One `Security` class added (`StatusAwareHandlerLocationRedactionTests`, `XCUT-19`); none edited.
+- **Dated corrections** filed: design §3.1 (the per-read limit), §3.4 (the sixth member, the copy), §7.3 (the compare-and-swap, `ReadValueOrDefault`, `net10.0` only, the missing body), §12; the 3b checklist
+  (`HTTP-44`, `HTTP-45`), the 3a checklist (`P3a-12`) and the 5a design ledger (`P5a-20`, `P5a-23`).
+- **Plan misses** (the checklist's deviations 4 and 5): the pagination tests scripted empty page bodies, which are now a missing body (14 tests, fixed in the tests only), and
+  `ModelConstructionArchitectureTests`' constructor allow-list needed `TypedResponse<T>` (P7a-14).
+- **Hand-offs.** 7b: `SerdeValues.RequireNonNull<T>` is the one wording of the root-null rejection (offered, not yet consumed). 7c: `ReadValueAsync<T>` returns a non-null `T` or throws a
+  `DeserializationException` naming `T`, so `Pageable`'s `?? throw new InvalidOperationException(...)` is dead and may go; the readers now dispose the body (the pager's own response dispose is a latched
+  no-op). 8a: the conformance kit lifts `SERDE-3`, `-4`, `-9`, `-10`, `-12`, `-13`, `-15` to `-20` from these tests. 8b: `HttpResponseMessageBody.OpenRead` makes `ReadValue<T>` work over the
+  real transport. 9: DI registers `ISerde` from `CreateDefaultOptions(context)`. 10: the AOT smoke keeps `CheckPhase7aSerdeAsync`. 12: `PublicAPI.Shipped.txt` moves.
