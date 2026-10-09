@@ -42,6 +42,10 @@ public sealed class ServerSentEventStreamReleaseTableTests : IDisposable
         { "explicit-dispose", true, false, false },
         { "explicit-dispose-async", true, false, false },
         { "call-after-first-release", false, false, false },
+        { "typed-done", false, true, false },
+        { "typed-mapper-throw", false, false, true },
+        { "blocking-typed-done", false, true, false },
+        { "blocking-typed-mapper-throw", false, false, true },
     };
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
@@ -86,57 +90,89 @@ public sealed class ServerSentEventStreamReleaseTableTests : IDisposable
         Assert.Equal(attached, isAttached);
     }
 
+    // Each path is one way a caller ends the stream; the driver does exactly that and nothing else.
+    private static readonly Dictionary<string, Func<ServerSentEventStream, Task>> s_drivers = new(StringComparer.Ordinal)
+    {
+        ["natural-end"] = DrainAsync,
+        ["mid-stream-failure"] = DrainAsync,
+        ["early-enumerator-dispose"] = async stream =>
+        {
+            await foreach (var unused in stream.WithCancellation(Token))
+            {
+                break;
+            }
+        },
+        ["blocking-early-enumerator-dispose"] = stream =>
+        {
+            foreach (var unused in stream.AsEnumerable())
+            {
+                break;
+            }
+
+            return Task.CompletedTask;
+        },
+        ["blocking-mid-stream-failure"] = stream =>
+        {
+            foreach (var unused in stream.AsEnumerable())
+            {
+            }
+
+            return Task.CompletedTask;
+        },
+        ["explicit-dispose"] = stream =>
+        {
+            stream.Dispose();
+            return Task.CompletedTask;
+        },
+        ["explicit-dispose-async"] = async stream => await stream.DisposeAsync(),
+        ["typed-done"] = async stream =>
+        {
+            await foreach (var unused in stream.MapAsync<int>((_, _) => SseMapResult.Done).WithCancellation(Token))
+            {
+            }
+        },
+        ["typed-mapper-throw"] = async stream =>
+        {
+            await foreach (var unused in stream.MapAsync<int>((_, _) => throw new FormatException("mapper boom")).WithCancellation(Token))
+            {
+            }
+        },
+        ["blocking-typed-done"] = stream =>
+        {
+            foreach (var unused in stream.Map<int>((_, _) => SseMapResult.Done))
+            {
+            }
+
+            return Task.CompletedTask;
+        },
+        ["blocking-typed-mapper-throw"] = stream =>
+        {
+            foreach (var unused in stream.Map<int>((_, _) => throw new FormatException("mapper boom")))
+            {
+            }
+
+            return Task.CompletedTask;
+        },
+    };
+
+    private static async Task DrainAsync(ServerSentEventStream stream)
+    {
+        await foreach (var unused in stream.WithCancellation(Token))
+        {
+        }
+    }
+
     // Runs one path and returns the exception that reached the caller, or null when none did.
     private static async Task<Exception?> Drive(string path, ServerSentEventStream stream)
     {
+        if (path == "call-after-first-release")
+        {
+            return await DriveCallAfterFirstRelease(stream);
+        }
+
         try
         {
-            switch (path)
-            {
-                case "natural-end":
-                    await foreach (var unused in stream.WithCancellation(Token))
-                    {
-                    }
-
-                    break;
-                case "early-enumerator-dispose":
-                    await foreach (var unused in stream.WithCancellation(Token))
-                    {
-                        break;
-                    }
-
-                    break;
-                case "blocking-early-enumerator-dispose":
-                    foreach (var unused in stream.AsEnumerable())
-                    {
-                        break;
-                    }
-
-                    break;
-                case "mid-stream-failure":
-                    await foreach (var unused in stream.WithCancellation(Token))
-                    {
-                    }
-
-                    break;
-                case "blocking-mid-stream-failure":
-                    foreach (var unused in stream.AsEnumerable())
-                    {
-                    }
-
-                    break;
-                case "explicit-dispose":
-                    stream.Dispose();
-                    break;
-                case "explicit-dispose-async":
-                    await stream.DisposeAsync();
-                    break;
-                case "call-after-first-release":
-                    return await DriveCallAfterFirstRelease(stream);
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(path), path, "Unknown release path.");
-            }
-
+            await s_drivers[path](stream);
             return null;
         }
         catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)

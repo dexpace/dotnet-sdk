@@ -21,7 +21,7 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// </para>
 /// <para>
 /// <b>Ownership (SSE-17).</b> The reader never owns, closes or disposes <c>source</c>: it has nothing to dispose, which is
-/// why it is not <see cref="IDisposable"/>. The caller, or the <c>ServerSentEventStream</c> that owns a response,
+/// why it is not <see cref="IDisposable"/>. The caller, or the <see cref="ServerSentEventStream"/> that owns a response,
 /// releases the stream.
 /// </para>
 /// <para>

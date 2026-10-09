@@ -1260,6 +1260,8 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.AsEnumerable() -> System
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Map<T>(System.Func<string?, string!, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>>! mapper) -> System.Collections.Generic.IEnumerable<T>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.MapAsync<T>(System.Func<string?, string!, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>>! mapper) -> System.Collections.Generic.IAsyncEnumerable<T>!
 Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
 Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Equals(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult other) -> bool
 Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Kind.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind

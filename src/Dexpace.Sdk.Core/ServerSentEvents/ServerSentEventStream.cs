@@ -18,8 +18,8 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// <remarks>
 /// <para>
 /// <b>Shape.</b> Create it with <see cref="FromResponse"/> and enumerate it once, with <c>await foreach</c>
-/// (<see cref="GetAsyncEnumerator"/>), with a blocking <c>foreach</c> (<c>AsEnumerable()</c>), or through the typed
-/// adapter (<c>MapAsync</c>, <c>Map</c>). The four views share one single-use latch: asking for a
+/// (<see cref="GetAsyncEnumerator"/>), with a blocking <c>foreach</c> (<see cref="AsEnumerable"/>), or through the typed
+/// adapter (<see cref="MapAsync{T}"/>, <see cref="Map{T}"/>). The four views share one single-use latch: asking for a
 /// second one throws <see cref="InvalidOperationException"/> at the call, and asking for one after the stream is closed
 /// throws <see cref="ObjectDisposedException"/> (SSE-26, SSE-27). The facade deliberately implements
 /// <see cref="IAsyncEnumerable{T}"/> and not <see cref="IEnumerable{T}"/> (P7b-15): a type with both makes every LINQ call
