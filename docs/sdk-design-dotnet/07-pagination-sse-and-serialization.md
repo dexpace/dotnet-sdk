@@ -269,7 +269,16 @@ engine and the SSE namespace, not the convenience entry point. **ASYNC-21**'s re
 `IObservable<T>` bridge over System.Reactive would be an adapter package, not a seam, and would inherit the
 one-poll-per-demand property from the pull-based reader (§11 item 21).
 
-**As built (d45e64b):** not built.
+**As built (2026-10-09, phase 7b):** built. The text above stands as written, with seven *dated corrections* (`docs/work/mvp/phase7/phase7b/2026-10-09-phase7b-sse-design.md`):
+
+- **The line reader is phase 3a's `Utf8LineReader` in `LineTerminators.Whatwg` mode (P7b-2), not a second byte reader over an `ArrayPool<byte>` buffer.** 3a built the reader with a 4 KiB `byte[]` per reader (a per-stream array on a long-lived stream
+  is not a pooling win), a mandatory cap, a CR that ends the line at once and `leaveOpen`. The reader gained one internal accessor, `IsFailed`, so a source's own `InvalidDataException` is not mistaken for the cap.
+- **The BOM is consumed at the string level by the parser's one persistent flag (P7b-3),** byte-equivalent to the three-byte check: a decoded string starts with U+FEFF only when the bytes began `EF BB BF` (verified: `EF BB` and `EF BB 41` decode to U+FFFD).
+- **The raw view is `ServerSentEventReader.ReadAllAsync(Stream)` / `ReadAll(Stream)` (P7b-8),** after `ChannelReader.ReadAllAsync`; `ReadAsync(Stream)` would sit beside the instance `ReadNextAsync` and read as a single read. The reader is not disposable (`CA1001` waived, `SSE-17`).
+- **`Data` is an empty list when no `data` line arrived (P7b-7),** not `null`; `IsEmpty` reads it so. The other four fields stay `null` when absent. The blocking view of the facade is `AsEnumerable()` (P7b-15), not an `IEnumerable` on the facade (it would make LINQ ambiguous: `CS0121`, verified).
+- **The facade's logger is a `FromResponse` parameter (P7b-19),** because a `Response` carries none; the "swallow and log" of the clean terminal path is `Disposal`'s single out-of-band channel (an activity event and event 130). `FromResponse` owns the response from the call, success or failure (P7b-9).
+- **`SseMapResult<T>` is a `readonly record struct` with a non-generic `SseMapResult` carrying `Skip`, `Done` and `Value<T>` (P7b-16),** not a struct with three factories on the generic type (`CA1000`); `default` is a mapper failure.
+- **The "net8.0 floor" remarks predate roadmap decision D1** (`net10.0` only); `SseParser` is in the shared framework and the strict-mode argument is unchanged. The reconnect loop is documented as a caller recipe in `docs/sdk-documentation/sse.md`.
 
 ### 7.3 Serialization: the reified type as witness
 

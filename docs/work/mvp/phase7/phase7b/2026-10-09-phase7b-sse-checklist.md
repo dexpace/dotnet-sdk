@@ -170,3 +170,11 @@ The lead had not ruled, so each landed as the design argued it: **P7b-5** (no ag
 - **First release / an adapter package** — `Dexpace.Sdk.Reactive` (`IObservable<T>`) would carry `SSE-41` and `ASYNC-21`; an optional `SseItem<T>` bridge for strict-WHATWG callers (§11 item 17). Neither is scheduled.
 - **The lead** — P7b-5 (an aggregate per-event cap) and P7b-21 (FsCheck).
 - **7a, 7c** — the shared files (`PublicAPI.Unshipped.txt`, `CHANGELOG.md`, `CLAUDE.md`, the roadmap's status notes, `SmokeChecks.cs` and `SmokeModels.cs`, `Sse37ArchitectureTests.cs`) take append-only hunks from 7b; 7c owns the paging half of `Sse37ArchitectureTests`.
+
+## Closing comment for issue #10 (drafted, for the lead to post; this branch posts nothing)
+
+> Closed by the phase 7b pull request. The SSE reader's line buffer is bounded: `ServerSentEventReader` holds at most `maxLineBytes` content bytes of a line (1 MiB by default, configurable per reader and per `ServerSentEventStream.FromResponse`) and throws
+> `ServerSentEventLineTooLongException`, a `StreamingException`, after reading at most one cap plus two 4 KiB buffers; it stays failed because the source is mid-line, and the message names the cap and never a byte of the line (checklist row `SSE-19`, design §10 entry 20).
+> The regression is `Security/ServerSentEventLineCapTests` (an unterminated 8 MiB line, a line of exactly the cap, a custom cap), permanent. The line layer under it is the byte-level reader the issue's `StreamReader.ReadLineAsync` sketch lacked: a CR ends a line at once
+> and a CRLF split across reads is one terminator (row `SSE-2`, proven on a real socket), and a leading BOM is consumed once (row `SSE-12`). One residual is documented and left open: the cap bounds a line, not an event (`sse.md`, P7b-5).
+

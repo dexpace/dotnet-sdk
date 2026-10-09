@@ -883,7 +883,8 @@ request bytes. A handler stub cannot see what reached the socket.
 
 - SSE: `ruby-sdk/gems/dexpace-core/test/dexpace/sse/`, `sse_test.rb` and `test/support/sse_fixtures.rb`.
   `nodejs-sdk/packages/core/src/sse/{parser,line-reader}.test.ts`, with the property tests moved to FsCheck. This
-  is the best candidate for shared JSON vectors.
+  is the best candidate for shared JSON vectors. *Dated correction, 2026-10-09 (phase 7b, P7b-21, P7b-22):* the Ruby SSE test paths do not exist at
+  `ruby-sdk@fa402cd`, so the vectors port Node `c0ff3fd` and chapter 13 only; and the property tests are exhaustive split enumeration plus seeded round trips in plain xUnit, not FsCheck (an adoption left open for the lead).
 - Pagination: `ruby-sdk/.../page/` and `page_fixtures.rb`, plus `nodejs-sdk/packages/core/src/pagination/`,
   including the query-splice property test.
 - Serde: `nodejs-sdk/packages/codec-json/` tests (the Tristate cases) and `ruby-sdk/.../serde/`.
@@ -1693,3 +1694,21 @@ retry) and #2 (RFC 7616 Digest) are closed by it, with their checklist rows name
   `DeserializationException` naming `T`, so `Pageable`'s `?? throw new InvalidOperationException(...)` is dead and may go; the readers now dispose the body (the pager's own response dispose is a latched
   no-op). 8a: the conformance kit lifts `SERDE-3`, `-4`, `-9`, `-10`, `-12`, `-13`, `-15` to `-20` from these tests. 8b: `HttpResponseMessageBody.OpenRead` makes `ReadValue<T>` work over the
   real transport. 9: DI registers `ISerde` from `CreateDefaultOptions(context)`. 10: the AOT smoke keeps `CheckPhase7aSerdeAsync`. 12: `PublicAPI.Shipped.txt` moves.
+
+**2026-10-09 — Phase 7b exit (SSE).** Sub-phase 7b (server-sent events) closes on branch `80-phase-7b-sse` (issue #80), the plan's six stages as commits: 40 of the 41 `SSE` rows ✅ (36 MUST, 3 SHOULD, `SSE-19` MAY) and `SSE-41` N/A (adapter-scoped),
+[checklist](phase7/phase7b/2026-10-09-phase7b-sse-checklist.md), user page [`sse.md`](../../sdk-documentation/sse.md). Issue #10 is closed by it; the drafted closing comment (in the checklist) names the rows `SSE-19`, `SSE-2` and `SSE-12` and the
+`Security/ServerSentEventLineCapTests` regression.
+
+- **Built.** The `Dexpace.Sdk.Core.ServerSentEvents` namespace: `ServerSentEvent` (immutable, `Data` an always-present copied list, validating `Id` and `Retry`, hand-written equality and a lossless string form); `ServerSentEventReader` over 3a's `Utf8LineReader` in WHATWG mode (the
+  internal `EventAccumulator` grammar and `RetryField`, a BOM consumed once, `ReadNext{,Async}` and the lazy single-use `ReadAll{,Async}`, a 1 MiB default line cap failing as `ServerSentEventLineTooLongException`); `ServerSentEventStream` (`FromResponse` owns the response from the call, four
+  single-use views over one latch, one release per path with the swallow, attach and propagate rules of P7b-12, a close from another thread as an `IOException`); `SseMapResult<T>` and the typed `MapAsync` / `Map`. The `SSE-37` gate is on, `Sse38ArchitectureTests` is new, and the AOT smoke
+  performs the SSE round trip (async, blocking, the bare reader and the 204 rejection).
+- **No breaking changes.** Every `PublicAPI.Unshipped.txt` line is an addition under `Dexpace.Sdk.Core.ServerSentEvents`; the SystemNet and STJ `PublicAPI` files, `Directory.Packages.props` and every lock file are untouched.
+- **Open rulings were taken as designed** (the lead had not ruled): P7b-5 (no aggregate per-event cap; residual R1 documented and pinned by a Unit test only) and P7b-21 (no FsCheck). The checklist's deviation ledger lists the port-level departures.
+- **Security.** One `Security` class added (`ServerSentEventLineCapTests`, issue #10 / `SSE-19`); no existing class is touched.
+- **Verified facts** (plan task 0.1): a type implementing both `IEnumerable<T>` and `IAsyncEnumerable<T>` makes LINQ ambiguous (`CS0121`) on 10.0.401, and a decoded string starts with U+FEFF only for the bytes `EF BB BF`, so the string-level BOM strip equals the byte-level check.
+- **Deviations from the plan** (checklist, "Deviations from the plan"): `HttpResponseMessageBody` gained a synchronous `OpenRead` because P3a-5 had left it to 8b and the blocking views (and the plan's blocking wire test) need it; `Utf8LineReader` gained the internal accessor `IsFailed` so a source's own
+  `InvalidDataException` is not mislabelled as the cap; two cap constructors instead of one optional-parameter overload (`RS0027`); `CA2225` met by `SseMapResult.ToSseMapResult<T>()`.
+- **Dated corrections** filed: design §7.2 (the reader is 3a's, the BOM at string level, `ReadAllAsync`, an empty `Data` list, the logger on `FromResponse`, the `SseMapResult` shape, the D1 remarks), §10 entry 20, §12's SSE row (`SSE-41` N/A, not deferred), this roadmap's Phase 7 card (FsCheck and the Ruby paths), `docs/sdk-documentation/io.md` and `docs/first-release.md`.
+- **Hand-offs.** 8a: the conformance kit inherits `LoopbackResponse.Streamed` and may lift `ServerSentEventWireTests` into a per-transport script. 8b: `HttpResponseMessageBody.OpenRead` exists already; the `RequestBodyContent` side stays 8b's. A later adapter package (`Dexpace.Sdk.Reactive`, an `SseItem<T>` bridge) would carry
+  `SSE-41` and `ASYNC-21`. The lead: P7b-5 and P7b-21.

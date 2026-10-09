@@ -213,6 +213,9 @@ line and in the roadmap.
     MAY add a configurable cap and reject/truncate oversized lines, documenting the divergence." An unbounded line
     from a hostile server is an unbounded allocation; the byte-level line reader rejects lines over the cap, whose
     default matches **BODY-30**'s error-body cap. This entry is the documentation the clause requires. §7.2.
+    *Dated correction, 2026-10-09, phase 7b (P7b-4, P7b-5, P7b-20):* the failure is `ServerSentEventLineTooLongException`, a `StreamingException` in `Dexpace.Sdk.Core.ServerSentEvents` (not `Errors`: the `SSE-37` stray guard watches that
+    namespace), carrying `MaxLineBytes`; the reader stays failed afterwards because the source is mid-line. The cap bounds a *line*, not a block: lines that each fit accumulate until a blank line (residual R1, left open for the lead, documented
+    in `docs/sdk-documentation/sse.md`). Closes issue #10.
 21. **`Tristate<T>` is an invariant struct, so the covariance SHOULD cannot be met.** *Touches* **SERDE-14** (its
     "SHOULD be covariant" clause). *Judged* (P8). .NET variance exists only on interfaces and delegates, never on
     structs, and a struct is chosen because `default(Tristate<T>)` being Absent makes **SERDE-17** free. Absent and
