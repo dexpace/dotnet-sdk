@@ -22,7 +22,7 @@ public sealed class ConformanceReport
         _waivers = waivers;
         IsGreen = results.All(result => result.Status is not (ConformanceStatus.Failed or ConformanceStatus.Errored));
         ByRequirement = WorstBy(results, result => result.Assertion.RequirementIds);
-        ByAppendixBItem = FrozenDictionary<string, ConformanceStatus>.Empty;
+        ByAppendixBItem = ByAppendixB(ByRequirement);
     }
 
     /// <summary>
@@ -144,6 +144,12 @@ public sealed class ConformanceReport
             text.AppendLine(CultureInfo.InvariantCulture, $"  {key.PadRight(width)} {table[key]}");
         }
     }
+
+    private static FrozenDictionary<string, ConformanceStatus> ByAppendixB(IReadOnlyDictionary<string, ConformanceStatus> byRequirement) =>
+        AppendixBMap.Items
+            .Select(item => (item.Key, Cited: item.Value.Where(byRequirement.ContainsKey).Select(id => byRequirement[id]).ToArray()))
+            .Where(item => item.Cited.Length > 0)
+            .ToFrozenDictionary(item => item.Key, item => StatusSeverity.Worst(item.Cited), StringComparer.Ordinal);
 
     internal static FrozenDictionary<string, ConformanceStatus> WorstBy(
         IEnumerable<ConformanceResult> results,
