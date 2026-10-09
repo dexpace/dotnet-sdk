@@ -170,7 +170,7 @@ The lead had not ruled, so each landed as the design argued it: **P7b-5** (no ag
 ## Hand-offs
 
 - **8a** — the conformance kit inherits `LoopbackResponse.Streamed` (a chunk framed and flushed as the test's async sequence yields it) and may lift `ServerSentEventWireTests` into a per-transport script (streamed body delivery is `TRANSPORT` territory, not `SSE`).
-- **8b** — `HttpResponseMessageBody.OpenRead` already exists (D1); the remaining 8b work on the body is the `RequestBodyContent` side. The transport's own streamed-body conformance (delivery before the next byte) has its first wire evidence here.
+- **8b** — `HttpResponseMessageBody.OpenRead` already exists (D1), which also makes 7a's synchronous `ReadValue<T>` work over the reference transport (dated note, 2026-10-09, after the rebase onto 7a); the remaining 8b work on the body is the `RequestBodyContent` side. The transport's own streamed-body conformance (delivery before the next byte) has its first wire evidence here.
 - **First release / an adapter package** — `Dexpace.Sdk.Reactive` (`IObservable<T>`) would carry `SSE-41` and `ASYNC-21`; an optional `SseItem<T>` bridge for strict-WHATWG callers (§11 item 17). Neither is scheduled.
 - **The lead** — P7b-5 (an aggregate per-event cap) and P7b-21 (FsCheck).
 - **7a, 7c** — the shared files (`PublicAPI.Unshipped.txt`, `CHANGELOG.md`, `CLAUDE.md`, the roadmap's status notes, `SmokeChecks.cs` and `SmokeModels.cs`, `Sse37ArchitectureTests.cs`) take append-only hunks from 7b; 7c owns the paging half of `Sse37ArchitectureTests`.

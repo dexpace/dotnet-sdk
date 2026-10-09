@@ -154,8 +154,9 @@ Widget? syncMaybe = response.Body.ReadValueOrDefault<Widget>(serde, ct);
   read is attached to that failure's suppressed trail, never substituted for it. A codec failure is the codec's own exception (never
   re-wrapped, `SERDE-9`); an `IOException` from the stream propagates unwrapped (`SERDE-12`); a second read throws
   `StreamConsumedException`.
-- **The sync readers** call `body.OpenRead` and the seam's `Deserialize<T>(Stream)`. Over a transport's own response body they throw
-  `NotSupportedException` until the transport implements the synchronous open (phase 8b), as every synchronous body reader does.
+- **The sync readers** call `body.OpenRead` and the seam's `Deserialize<T>(Stream)`. `SystemNetHttpClient`'s response body implements
+  the synchronous open (phase 7b), so they work over the reference transport; over a transport whose body does not override `OpenRead`
+  they throw `NotSupportedException`, as every synchronous body reader does.
 
 `HttpResponseException` has the matching pair: `GetErrorAsync<T>(serde, ct)` and `GetError<T>(serde)`, both over the buffered error
 body, both mapping a consumed body to `ResponseNotReadException`.

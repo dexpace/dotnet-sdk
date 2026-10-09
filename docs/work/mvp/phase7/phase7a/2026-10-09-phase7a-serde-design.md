@@ -679,7 +679,10 @@ in 2b); the gem test files are not in the checkout. Docs: Ruby `serde.md` and No
 - **8a** — the conformance kit's serde assertions lift `SERDE-3`, `-4`, `-9`, `-10`, `-12`, `-13`, `-15`–`-20` from these
   tests into framework-free form, run against `SystemTextJsonSerde` as the first driver.
 - **8b** — `HttpResponseMessageBody.OpenRead` (the sync twin) makes `ReadValue<T>` work over the real transport; until then
-  it throws `NotSupportedException` on transport bodies, as every sync reader does.
+  it throws `NotSupportedException` on transport bodies, as every sync reader does. *Dated correction, 2026-10-09 (phase 7b
+  rebase):* phase 7b built `HttpResponseMessageBody.OpenRead` (its checklist's D1), so `ReadValue<T>` already works over
+  `SystemNetHttpClient` (`HttpResponseMessageBodyTests.ReadValue_decodes_the_transport_body_synchronously`); this hand-off is
+  discharged and 8b keeps only the `RequestBodyContent` side.
 - **9** — DI registers `ISerde` from `CreateDefaultOptions(context)`; `ValidateOnStart` keeps one `ISerde` per client.
 - **10** — the AOT smoke consumer's completion keeps `CheckPhase7aSerdeAsync`.
 - **12** — `PublicAPI.Shipped.txt` moves.
