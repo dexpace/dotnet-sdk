@@ -5,6 +5,7 @@ abstract Dexpace.Sdk.Core.Http.Request.RequestBody.WriteToAsync(System.IO.Stream
 abstract Dexpace.Sdk.Core.Http.Response.ResponseBody.ContentType.get -> Dexpace.Sdk.Core.Http.Common.MediaType?
 abstract Dexpace.Sdk.Core.Http.Response.ResponseBody.OpenReadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
 abstract Dexpace.Sdk.Core.Pagination.AsyncPageable<T>.WalkPagesAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.Pagination.Page<T>!>!
+abstract Dexpace.Sdk.Core.Pagination.Pageable<T>.WalkPages() -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Pagination.Page<T>!>!
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 abstract Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 const Dexpace.Sdk.Core.Auth.AuthenticationChallenge.Token68Key = "token68" -> string!
@@ -549,6 +550,10 @@ Dexpace.Sdk.Core.Pagination.Page<T>.Request.get -> Dexpace.Sdk.Core.Http.Request
 Dexpace.Sdk.Core.Pagination.Page<T>.Status.get -> Dexpace.Sdk.Core.Http.Response.Status
 Dexpace.Sdk.Core.Pagination.Page<T>.Values.get -> System.Collections.Generic.IReadOnlyList<T>!
 Dexpace.Sdk.Core.Pagination.Pageable
+Dexpace.Sdk.Core.Pagination.Pageable<T>
+Dexpace.Sdk.Core.Pagination.Pageable<T>.AsPages() -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.Pagination.Page<T>!>!
+Dexpace.Sdk.Core.Pagination.Pageable<T>.GetEnumerator() -> System.Collections.Generic.IEnumerator<T>!
+Dexpace.Sdk.Core.Pagination.Pageable<T>.Pageable() -> void
 Dexpace.Sdk.Core.Pagination.PageInfo<T>
 Dexpace.Sdk.Core.Pagination.PageInfo<T>.Items.get -> System.Collections.Generic.IReadOnlyList<T>!
 Dexpace.Sdk.Core.Pagination.PageInfo<T>.NextRequest.get -> Dexpace.Sdk.Core.Http.Request.Request?
@@ -937,6 +942,7 @@ static Dexpace.Sdk.Core.Http.Response.Status.Unauthorized.get -> Dexpace.Sdk.Cor
 static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator !=(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
 static Dexpace.Sdk.Core.Operations.OperationDescriptor.operator ==(Dexpace.Sdk.Core.Operations.OperationDescriptor? left, Dexpace.Sdk.Core.Operations.OperationDescriptor? right) -> bool
 static Dexpace.Sdk.Core.Pagination.Pageable.Create<TPage, T>(Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! first, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Pagination.IPageStrategy<TPage, T>! strategy, Dexpace.Sdk.Core.Http.Request.RequestOptions? options = null, int? maxPages = null) -> Dexpace.Sdk.Core.Pagination.AsyncPageable<T>!
+static Dexpace.Sdk.Core.Pagination.Pageable.CreateBlocking<TPage, T>(Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! first, Dexpace.Sdk.Core.Serialization.ISerde! serde, Dexpace.Sdk.Core.Pagination.IPageStrategy<TPage, T>! strategy, Dexpace.Sdk.Core.Http.Request.RequestOptions? options = null, int? maxPages = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Pagination.Pageable<T>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.Create<TPage, T>(System.Func<TPage, System.Collections.Generic.IReadOnlyList<T>!>! items, System.Func<TPage, Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Http.Request.Request!, Dexpace.Sdk.Core.Http.Request.Request?>! nextRequest) -> Dexpace.Sdk.Core.Pagination.IPageStrategy<TPage, T>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.Cursor<TPage, T>(System.Func<TPage, System.Collections.Generic.IReadOnlyList<T>!>! items, System.Func<TPage, string?>! nextCursor, string! queryParameter = "cursor") -> Dexpace.Sdk.Core.Pagination.IPageStrategy<TPage, T>!
 static Dexpace.Sdk.Core.Pagination.PaginationStrategies.LinkHeader<TPage, T>(System.Func<TPage, System.Collections.Generic.IReadOnlyList<T>!>! items, string! headerName = "Link", bool allowCrossOrigin = false) -> Dexpace.Sdk.Core.Pagination.IPageStrategy<TPage, T>!

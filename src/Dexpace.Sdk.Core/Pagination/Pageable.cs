@@ -64,4 +64,52 @@ public static class Pageable
         RequestOptions? options = null,
         int? maxPages = null) =>
         new StrategyPageable<TPage, T>(PageWalk<TPage, T>.ForAsync(client, first, serde, strategy, options, maxPages));
+
+    /// <summary>
+    /// Creates a <see cref="Pageable{T}"/>, the blocking twin of <see cref="Create{TPage,T}"/>, that fetches pages through
+    /// the synchronous <paramref name="client"/> (PAGE-1, PAGE-6, PAGE-9, PAGE-14, PAGE-31, PAGE-36).
+    /// </summary>
+    /// <typeparam name="TPage">The deserialized page-envelope type.</typeparam>
+    /// <typeparam name="T">The item type extracted from each page.</typeparam>
+    /// <param name="client">
+    /// The synchronous transport seam. An <c>HttpPipeline</c> converts to it and drives its real synchronous path. The
+    /// pageable never disposes it.
+    /// </param>
+    /// <param name="first">The initial request and the template for every next request; its body must be replayable.</param>
+    /// <param name="serde">The serde that deserializes each page into <typeparamref name="TPage"/>.</param>
+    /// <param name="strategy">Turns each page into its items and the next request; see <see cref="PaginationStrategies"/>.</param>
+    /// <param name="options">Per-call overrides, passed as the same instance to every page; omitted means <see cref="RequestOptions.Empty"/>.</param>
+    /// <param name="maxPages">The maximum number of exchanges, or <see langword="null"/> for no limit; set a finite cap in production.</param>
+    /// <param name="cancellationToken">
+    /// A token captured for the whole pageable (an iterator over <see cref="IEnumerable{T}"/> has no per-enumeration token): it
+    /// is observed before each page and passed to every exchange.
+    /// </param>
+    /// <returns>A lazy pageable: nothing is sent until the first <c>MoveNext</c>.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is zero or negative.</exception>
+    /// <exception cref="ArgumentException"><paramref name="first"/> has a body that cannot be written twice.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>Why a different name from <see cref="Create{TPage,T}"/>.</b> An <c>HttpPipeline</c> converts to both
+    /// <see cref="IAsyncHttpClient"/> and <see cref="IHttpClient"/>, so two <c>Create</c> overloads that differ only in that
+    /// parameter would be ambiguous (<c>CS0121</c>) for the most common caller. The name matches the SDK's
+    /// <c>AsBlocking</c> vocabulary.
+    /// </para>
+    /// <para>
+    /// The blocking pager is honest above the transport and inherits <c>PIPE-28</c>'s gap below it: until the real
+    /// synchronous transport (phase 8b), <c>SystemNetHttpClient.Execute</c> is sync-over-async inside the transport. Each
+    /// page envelope is buffered under the 64 MiB materialisation cap.
+    /// </para>
+    /// </remarks>
+    public static Pageable<T> CreateBlocking<TPage, T>(
+        IHttpClient client,
+        Request first,
+        ISerde serde,
+        IPageStrategy<TPage, T> strategy,
+        RequestOptions? options = null,
+        int? maxPages = null,
+        CancellationToken cancellationToken = default) =>
+        new StrategyBlockingPageable<TPage, T>(
+            PageWalk<TPage, T>.ForBlocking(client, first, serde, strategy, options, maxPages),
+            cancellationToken);
 }
