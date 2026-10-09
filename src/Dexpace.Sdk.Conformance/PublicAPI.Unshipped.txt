@@ -103,6 +103,7 @@ Dexpace.Sdk.Conformance.TransportSubject.CreateWithProxy.init -> void
 Dexpace.Sdk.Conformance.TransportSubject.Name.get -> string!
 Dexpace.Sdk.Conformance.TransportSubject.Name.init -> void
 Dexpace.Sdk.Conformance.TransportSubject.TransportSubject() -> void
+Dexpace.Sdk.Conformance.TransportSuite
 Dexpace.Sdk.Conformance.TransportSuiteOptions
 Dexpace.Sdk.Conformance.TransportSuiteOptions.AssertionTimeout.get -> System.TimeSpan
 Dexpace.Sdk.Conformance.TransportSuiteOptions.AssertionTimeout.init -> void
@@ -163,6 +164,9 @@ static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conform
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.TransportSettings.operator !=(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
 static Dexpace.Sdk.Conformance.TransportSettings.operator ==(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
+static Dexpace.Sdk.Conformance.TransportSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!
+static Dexpace.Sdk.Conformance.TransportSuite.RunAllAsync(Dexpace.Sdk.Conformance.TransportSubject! subject, Dexpace.Sdk.Conformance.TransportSuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceReport!>!
+static Dexpace.Sdk.Conformance.TransportSuite.RunAsync(Dexpace.Sdk.Conformance.TransportSubject! subject, Dexpace.Sdk.Conformance.ConformanceAssertion! assertion, Dexpace.Sdk.Conformance.TransportFace face, Dexpace.Sdk.Conformance.TransportSuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceResult!>!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Abort() -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.EchoId(Dexpace.Sdk.Conformance.Wire.RecordedRequest! request) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
 static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Gated(System.Threading.Tasks.Task! gate, Dexpace.Sdk.Conformance.Wire.LoopbackResponse! then) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!

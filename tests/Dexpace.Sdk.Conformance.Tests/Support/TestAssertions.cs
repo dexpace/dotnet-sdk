@@ -6,13 +6,14 @@ namespace Dexpace.Sdk.Conformance.Tests.Support;
 /// <summary>Builds hand-made assertions and results for the reporting and runner tests, which must not depend on the real catalogue.</summary>
 internal static class TestAssertions
 {
-    /// <summary>An assertion with no body: enough for the report, which never runs one.</summary>
+    /// <summary>An assertion whose body is <paramref name="body"/>, or one that passes at once: enough for the report, which never runs one.</summary>
     internal static ConformanceAssertion Make(
         string name,
         string[] ids,
         RequirementLevel level = RequirementLevel.Must,
-        TransportFace[]? faces = null) =>
-        new(name, ids, level, faces ?? [TransportFace.Async]);
+        TransportFace[]? faces = null,
+        Func<SuiteContext, CancellationToken, Task>? body = null) =>
+        new(name, ids, level, faces ?? [TransportFace.Async], body ?? ((_, _) => Task.CompletedTask));
 
     /// <summary>A result of <paramref name="assertion"/> on the async face.</summary>
     internal static ConformanceResult Result(

@@ -10,11 +10,17 @@ namespace Dexpace.Sdk.Conformance;
 /// </summary>
 public sealed class ConformanceAssertion
 {
-    internal ConformanceAssertion(string name, IReadOnlyList<string> requirementIds, RequirementLevel level, IReadOnlyList<TransportFace> faces)
+    internal ConformanceAssertion(
+        string name,
+        IReadOnlyList<string> requirementIds,
+        RequirementLevel level,
+        IReadOnlyList<TransportFace> faces,
+        Func<SuiteContext, CancellationToken, Task> body)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(requirementIds);
         ArgumentNullException.ThrowIfNull(faces);
+        ArgumentNullException.ThrowIfNull(body);
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("An assertion needs a name.", nameof(name));
@@ -34,7 +40,11 @@ public sealed class ConformanceAssertion
         RequirementIds = [.. requirementIds.Select(RequirementIndex.Require)];
         Level = level;
         Faces = [.. faces];
+        Body = body;
     }
+
+    /// <summary>The assertion's check: throws <see cref="ConformanceException"/> when the transport breaks the clause.</summary>
+    internal Func<SuiteContext, CancellationToken, Task> Body { get; }
 
     /// <summary>The stable name, for example <c>transport-24.vendor-status-readable</c>.</summary>
     public string Name { get; }
