@@ -4,6 +4,7 @@
 using System.Net.Http;
 using System.Net.Sockets;
 using Dexpace.Sdk.Conformance.Wire;
+using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
@@ -51,13 +52,25 @@ internal static class FailureAssertions
         }
     }
 
-    // TRANSPORT-20, phase 6a hand-off: a failure the classifier calls retryable is retried by the pipeline until a response arrives.
+    // TRANSPORT-20, phase 6a hand-off: a failure the classifier calls retryable is retried by the PIPELINE until a response arrives.
+    // The server answers by the pipeline's attempt number, not by its own request count: every arrival during the first attempt is
+    // reset, however many times the transport's native layer re-sends it, and the first arrival of the second attempt is answered.
+    // A count of requests ("reset the first two") would let a native client that re-sends a reset request deliver the 200 inside
+    // one attempt, and the pipeline's retry would never run (SocketsHttpHandler re-sends up to three times, so on it that script
+    // is a 200 on the first attempt).
     private static async Task RetriedByThePipelineAsync(SuiteContext context, CancellationToken cancellationToken)
     {
-        var requests = 0;
-        var server = context.StartServer(_ => Interlocked.Increment(ref requests) <= 2 ? LoopbackResponse.Abort() : LoopbackResponse.Ok("done"));
+        var attempts = 0;
+        var server = context.StartServer(_ => Volatile.Read(ref attempts) <= 1 ? LoopbackResponse.Abort() : LoopbackResponse.Ok("done"));
         var transport = context.CreateAsyncTransport();
-        using var pipeline = DexpacePipeline.CreateDefault(transport.Client);
+#pragma warning disable CA2000 // Ownership passes to the context, which disposes it with the run; it owns nothing but the call it counts.
+        var counted = context.Own(DelegateHttpClient.Create((request, options, token) =>
+        {
+            Interlocked.Increment(ref attempts);
+            return transport.Client.ExecuteAsync(request, options, token);
+        }));
+#pragma warning restore CA2000
+        using var pipeline = DexpacePipeline.CreateDefault(counted);
         var options = new DexpaceClientOptions
         {
             Retry = new RetryOptions { MaxRetryAttempts = 3, BaseDelay = TimeSpan.FromMilliseconds(10), MaxDelay = TimeSpan.FromMilliseconds(50), Jitter = 0 },
@@ -65,12 +78,17 @@ internal static class FailureAssertions
 
         using var response = await Check.GuardAsync(
             () => pipeline.SendAsync(Request.Get(server.Url("/flaky").AbsoluteUri), options, cancellationToken).AsTask(),
-            "a GET through the default pipeline over a server that resets its first connections",
+            "a GET through the default pipeline over a server that resets every arrival of its first attempt",
             cancellationToken).ConfigureAwait(false);
-        var body = System.Text.Encoding.UTF8.GetString(await response.ReadBodyAsync("the body after the retries", cancellationToken).ConfigureAwait(false));
+        var body = System.Text.Encoding.UTF8.GetString(await response.ReadBodyAsync("the body after the retry", cancellationToken).ConfigureAwait(false));
 
         Check.Equal(response.Status.Code, 200, "the status after the pipeline retried");
         Check.Equal(body, "done", "the body after the pipeline retried");
+        Check.True(
+            Volatile.Read(ref attempts) >= 2,
+            "the 200 must be delivered by the pipeline's retry: the transport must have been called a second time, after its first attempt failed with a retryable error",
+            "at least 2 attempts reaching the transport",
+            Volatile.Read(ref attempts).ToString(System.Globalization.CultureInfo.InvariantCulture));
         Check.True(server.ConnectionCount >= 2, "the pipeline must have retried on a new connection", "at least 2 connections", server.ConnectionCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Check.NoFaults(server);
     }
