@@ -99,7 +99,7 @@ Status-note hand-offs asked 8a for per-transport proofs of IDs whose rows live i
 | `XCUT-1`, `XCUT-2`, `XCUT-4`, `XCUT-22`, `OBS-19` | 10 and 5b | `transport-3`, `transport-4`, `transport-20.no-response-is-retryable`, `transport-15.borrowed-survives`, `transport-13` |
 | retry linkage (6a hand-off) | 6a | `transport-20.retried-by-the-pipeline` and `transport-7.attempt-timeout-aborts` |
 
-## The 14 rows handed to phase 8b, and the clause carried with them
+## The 14 rows handed to phase 8b
 
 8a wrote every assertion; an 8b row closes when its assertion is green against `SystemNetHttpClient` and its `Owner = "8b"` waiver is deleted from
 `SystemNetConformanceTests` (`SystemNetSubject.Options`). The kit fails the run if a waiver outlives its row. `TRANSPORT-2` is the one row of the 38 that 8a owns
