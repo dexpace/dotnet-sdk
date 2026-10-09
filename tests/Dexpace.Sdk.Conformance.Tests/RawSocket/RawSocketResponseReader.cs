@@ -18,14 +18,14 @@ namespace Dexpace.Sdk.Conformance.Tests.RawSocket;
 internal static class RawSocketResponseReader
 {
     /// <summary>Reads the head from <paramref name="reader"/> and builds the response; the body owns <paramref name="exchange"/> unless there is none to read.</summary>
-    internal static async Task<Response> ReadAsync(Request request, RawSocketReader reader, RawSocketExchange exchange, CancellationToken cancellationToken)
+    internal static async Task<Response> ReadAsync(Request request, RawSocketReader reader, RawSocketExchange exchange, bool strictInbound, CancellationToken cancellationToken)
     {
         var statusLine = await reader.ReadLineAsync(cancellationToken) ?? throw new IOException("The server closed the connection before sending a status line.");
         var (protocol, code, reason) = ParseStatusLine(statusLine);
         var headers = new Headers.Builder();
         while (await reader.ReadLineAsync(cancellationToken) is { Length: > 0 } line)
         {
-            Add(headers, line);
+            Add(headers, line, strictInbound);
         }
 
         var built = headers.Build();
@@ -66,7 +66,7 @@ internal static class RawSocketResponseReader
         return (parts[0] == "HTTP/1.0" ? Protocol.Http10 : Protocol.Http11, code, parts.Length > 2 ? parts[2] : string.Empty);
     }
 
-    private static void Add(Headers.Builder headers, string line)
+    private static void Add(Headers.Builder headers, string line, bool strictInbound)
     {
         var colon = line.IndexOf(':', StringComparison.Ordinal);
         if (colon <= 0)
@@ -78,9 +78,13 @@ internal static class RawSocketResponseReader
         {
             headers.AddInbound(line[..colon], line[(colon + 1)..].Trim(' ', '\t'));
         }
-        catch (ArgumentException)
+        catch (ArgumentException) when (!strictInbound)
         {
             // TRANSPORT-14: the one header goes, the response stays.
+        }
+        catch (ArgumentException ex)
+        {
+            throw new InvalidStatusLineException(ex);
         }
     }
 
@@ -89,6 +93,11 @@ internal static class RawSocketResponseReader
     {
         internal InvalidStatusLineException()
             : base("The server sent an invalid status line.")
+        {
+        }
+
+        internal InvalidStatusLineException(Exception cause)
+            : base("The server sent a malformed header.", cause)
         {
         }
     }

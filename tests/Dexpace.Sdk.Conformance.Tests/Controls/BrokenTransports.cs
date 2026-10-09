@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Conformance.Tests.RawSocket;
 using Dexpace.Sdk.Conformance.Tests.Support;
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Microsoft.Extensions.Logging;
 using Dexpace.Sdk.Core.Http.Request;
@@ -541,5 +542,152 @@ internal static class BrokenTransports
             _internal.Dispose();
             return ValueTask.CompletedTask;
         }
+    }
+
+    private static readonly string[] s_contentClass = ["Content-Language", "Content-Encoding", "Allow"];
+
+    private static readonly Action<ILogger, string, Exception?> s_dropped = LoggerMessage.Define<string>(
+        LogLevel.Warning,
+        new EventId(2, "Dropped"),
+        "Dropped the '{HeaderName}' header.");
+
+    /// <summary>A transport that overwrites the caller's Content-Type with the body's, by dropping the caller's.</summary>
+    internal static IAsyncHttpClient OverwritesContentType() =>
+        Around((request, options, ct, inner) => inner.ExecuteAsync(request.WithHeaders(request.Headers.Without("Content-Type")), options, ct));
+
+    /// <summary>A transport that throws on a header its native layer would refuse instead of dropping it.</summary>
+    internal static IAsyncHttpClient ThrowsOnRejectedHeader() =>
+        Around((request, options, ct, inner) =>
+            s_contentClass.Any(request.Headers.Contains)
+                ? throw new ArgumentException("the native layer rejected a header")
+                : inner.ExecuteAsync(request, options, ct));
+
+    /// <summary>A transport that drops the headers its native layer refuses without a word.</summary>
+    internal static IAsyncHttpClient DropsRejectedHeadersSilently() =>
+        Around((request, options, ct, inner) =>
+            inner.ExecuteAsync(s_contentClass.Aggregate(request, (current, name) => current.WithHeaders(current.Headers.Without(name))), options, ct));
+
+    /// <summary>A transport that drops the headers its native layer refuses and logs every drop, every time, loudly.</summary>
+    internal static IAsyncHttpClient LogsEveryDrop(ILogger logger) =>
+        Around((request, options, ct, inner) =>
+        {
+            foreach (var name in s_contentClass.Where(request.Headers.Contains))
+            {
+                s_dropped(logger, name, null);
+            }
+
+            return inner.ExecuteAsync(s_contentClass.Aggregate(request, (current, name) => current.WithHeaders(current.Headers.Without(name))), options, ct);
+        });
+
+    /// <summary>The raw-socket client that fails a whole response on one malformed header.</summary>
+    internal static IAsyncHttpClient StrictInbound()
+    {
+#pragma warning disable CA2000 // Holds no resources: a connection belongs to its response.
+        var inner = new RawSocketHttpClient(strictInbound: true);
+#pragma warning restore CA2000
+        return DelegateHttpClient.Create(inner.ExecuteAsync);
+    }
+
+    /// <summary>A transport that strips every non-ASCII byte from response header values.</summary>
+    internal static IAsyncHttpClient StripsObsText() =>
+        Rewriting(response =>
+        {
+            var headers = response.Headers.ToBuilder();
+            foreach (var name in response.Headers.Names)
+            {
+                headers.Set(name, new string(response.Headers.Get(name)!.Where(c => c < 0x80).ToArray()));
+            }
+
+            return new Response(response.Request, response.Status, response.Protocol, headers.Build(), response.Body);
+        });
+
+    /// <summary>A transport that writes a single-use body once to nowhere and then sends it, so the body is written twice.</summary>
+    internal static IAsyncHttpClient WritesBodyTwice() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            if (request.Body is not null)
+            {
+                await request.Body.WriteToAsync(Stream.Null, ct);
+            }
+
+            return await inner.ExecuteAsync(request, options, ct);
+        });
+
+    /// <summary>A transport that sends a file range as the whole file.</summary>
+    internal static IAsyncHttpClient IgnoresFileRange() =>
+        Around((request, options, ct, inner) =>
+            inner.ExecuteAsync(request.Body is FileRequestBody file ? request.WithBody(RequestBody.FromFile(file.FilePath)) : request, options, ct));
+
+    /// <summary>A transport that re-sends the request natively with an empty body instead of the same bytes.</summary>
+    internal static IAsyncHttpClient ResendsAnEmptyBody() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            (await inner.ExecuteAsync(request, options, ct)).Dispose();
+            return await inner.ExecuteAsync(request.Body is null ? request : request.WithBody(RequestBody.FromBytes(Array.Empty<byte>())), options, ct);
+        });
+
+    /// <summary>A transport that answers the 407 with the proxy credential and then offers the same credential to the origin's 401.</summary>
+    internal static IAsyncHttpClient LeaksProxyCredentialToOrigin(ProxyOptions proxy) => ProxyAware(proxy, leakToOrigin: true);
+
+    /// <summary>
+    /// A raw-socket transport that talks to a proxy: it answers a 407 with the proxy credential, and only a 407, unless
+    /// <paramref name="leakToOrigin"/> makes it offer the same credential to an origin 401 as well.
+    /// </summary>
+    internal static IAsyncHttpClient ProxyAware(ProxyOptions proxy, bool leakToOrigin)
+    {
+        var credential = "Basic " + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(proxy.UserName + ":" + proxy.Password));
+        return Around(async (request, options, ct, inner) =>
+        {
+            var viaProxy = request.WithUrl(new Uri($"http://{proxy.Host}:{proxy.Port}{request.Url.PathAndQuery}"));
+            var response = await inner.ExecuteAsync(viaProxy, options, ct);
+            if (response.Status.Code == 407)
+            {
+                response.Dispose();
+                response = await inner.ExecuteAsync(viaProxy.WithHeader("Proxy-Authorization", credential), options, ct);
+            }
+
+            if (leakToOrigin && response.Status.Code == 401)
+            {
+                response.Dispose();
+                response = await inner.ExecuteAsync(viaProxy.WithHeader("Proxy-Authorization", credential).WithHeader("Authorization", credential), options, ct);
+            }
+
+            return response;
+        });
+    }
+
+    /// <summary>A transport that still serves after it was disposed: dispose does nothing.</summary>
+    internal static IAsyncHttpClient KeepsServingAfterDispose() => Plain();
+
+    /// <summary>A transport that throws <see cref="ObjectDisposedException"/> from every call once it was disposed.</summary>
+    internal sealed class ThrowsAfterDispose(IAsyncHttpClient inner) : IAsyncHttpClient
+    {
+        private int _disposed;
+
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+            return inner.ExecuteAsync(request, options, cancellationToken);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Interlocked.Exchange(ref _disposed, 1);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>The blocking form of <see cref="ThrowsAfterDispose"/>.</summary>
+    internal sealed class ThrowsAfterDisposeBlocking(IHttpClient inner) : IHttpClient
+    {
+        private int _disposed;
+
+        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+            return inner.Execute(request, options, cancellationToken);
+        }
+
+        public void Dispose() => Interlocked.Exchange(ref _disposed, 1);
     }
 }

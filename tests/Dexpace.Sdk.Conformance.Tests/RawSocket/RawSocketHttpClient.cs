@@ -18,13 +18,17 @@ namespace Dexpace.Sdk.Conformance.Tests.RawSocket;
 /// Writes the caller's Host, Content-Length and Transfer-Encoding verbatim instead of computing them: the deliberately
 /// broken variant that is the negative control of <c>transport-11</c>.
 /// </param>
+/// <param name="strictInbound">
+/// Fails the whole response on a header whose name or value is malformed instead of dropping that header: the broken variant
+/// that is the negative control of <c>transport-14</c>.
+/// </param>
 /// <remarks>
 /// Failures follow the SDK taxonomy: no response is a retryable <see cref="ServiceRequestException"/> with the I/O cause, a
 /// per-call <see cref="RequestOptions.Timeout"/> is a <see cref="ServiceRequestTimeoutException"/>, a cancelled caller token
 /// is an <see cref="OperationCanceledException"/> carrying that token (decided by the caller's token, never by exception
 /// type, the lesson of F3), and an unparseable status line is a <see cref="ServiceResponseException"/>.
 /// </remarks>
-internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false) : IAsyncHttpClient
+internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false, bool strictInbound = false) : IAsyncHttpClient
 {
     /// <inheritdoc/>
     public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
@@ -39,7 +43,7 @@ internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false) : I
             // Cancellation reaches blocked I/O by closing the socket; the registration ends with the call, so a cancel
             // after delivery leaves the response readable (ASYNC-20).
             using var abort = linked.Token.Register(static state => ((RawSocketExchange)state!).Abort(), exchange);
-            return await SendAsync(request, exchange, forwardCallerFraming, linked.Token).ConfigureAwait(false);
+            return await SendAsync(request, exchange, forwardCallerFraming, strictInbound, linked.Token).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not SdkException)
         {
@@ -51,11 +55,11 @@ internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false) : I
     /// <inheritdoc/>
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-    private static async Task<Response> SendAsync(Request request, RawSocketExchange exchange, bool forwardCallerFraming, CancellationToken cancellationToken)
+    private static async Task<Response> SendAsync(Request request, RawSocketExchange exchange, bool forwardCallerFraming, bool strictInbound, CancellationToken cancellationToken)
     {
         await exchange.ConnectAsync(request.Url.Host, request.Url.Port, cancellationToken).ConfigureAwait(false);
         await RawSocketRequestWriter.WriteAsync(request, exchange.Stream, forwardCallerFraming, cancellationToken).ConfigureAwait(false);
-        return await RawSocketResponseReader.ReadAsync(request, new RawSocketReader(exchange.Stream), exchange, cancellationToken).ConfigureAwait(false);
+        return await RawSocketResponseReader.ReadAsync(request, new RawSocketReader(exchange.Stream), exchange, strictInbound, cancellationToken).ConfigureAwait(false);
     }
 
     private static Exception Map(Exception failure, CancellationTokenSource? timeout, CancellationToken callerToken)

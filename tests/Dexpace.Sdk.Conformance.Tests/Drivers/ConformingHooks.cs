@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Conformance.Tests.Controls;
 using Dexpace.Sdk.Conformance.Tests.RawSocket;
 using Dexpace.Sdk.Conformance.Tests.Support;
 using Dexpace.Sdk.Core.Client;
@@ -16,7 +17,7 @@ namespace Dexpace.Sdk.Conformance.Tests.Drivers;
 /// </summary>
 internal static class ConformingHooks
 {
-    /// <summary>The raw-socket subject plus a conforming borrowed-client hook and a conforming faulting-adaptation hook.</summary>
+    /// <summary>The raw-socket subject plus a conforming hook for every capability the raw-socket client cannot supply itself.</summary>
     internal static TransportSubject Create()
     {
         var plain = RawSocketSubject.Create();
@@ -28,6 +29,8 @@ internal static class ConformingHooks
             CreateBorrowed = _ => Borrowed(),
             CreateWithFaultingAdaptation = _ => new FaultsAfterReleasing(),
             CreateWithInternalCancel = _ => InternalCancel(mapsToTimeout: false),
+            CreateWithNativeResend = _ => new ResendsBufferedCopy(),
+            CreateWithProxy = (_, proxy) => BrokenTransports.ProxyAware(proxy, leakToOrigin: false),
         };
     }
 
@@ -38,10 +41,17 @@ internal static class ConformingHooks
         return new BorrowedTransport(new OverNative(native, disposesNative: false), native.SendAsync, native);
     }
 
+    /// <summary>A borrowed-client transport that, like the conforming owned one, throws <see cref="ObjectDisposedException"/> once disposed.</summary>
+    internal static BorrowedTransport BorrowedThatThrowsAfterDispose()
+    {
+        var native = new NativeClient();
+        return new BorrowedTransport(new BrokenTransports.ThrowsAfterDispose(new OverNative(native, disposesNative: false)), native.SendAsync, native);
+    }
+
     /// <summary>A transport and a handle that cancels its in-flight calls from the native side.</summary>
     internal static InternalCancellation InternalCancel(bool mapsToTimeout)
     {
-        var transport = new Controls.BrokenTransports.InternalCancelTransport(mapsToTimeout);
+        var transport = new BrokenTransports.InternalCancelTransport(mapsToTimeout);
         return new InternalCancellation(transport, transport.CancelInFlight);
     }
 
@@ -106,6 +116,34 @@ internal static class ConformingHooks
         {
             Leaks.Root(await _raw.ExecuteAsync(request, options, cancellationToken));
             throw new InvalidOperationException("adaptation failed");
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// A transport whose native layer re-sends the request: it buffers a single-use body once into a replayable copy, sends it
+    /// twice, and when buffering fails fails the send with the transport-failure type, never shipping a truncated copy.
+    /// </summary>
+    internal sealed class ResendsBufferedCopy : IAsyncHttpClient
+    {
+        private readonly RawSocketHttpClient _raw = new();
+
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            RequestBody? replayable;
+            try
+            {
+                replayable = request.Body is null ? null : await request.Body.ToReplayableAsync(cancellationToken);
+            }
+            catch (IOException ex)
+            {
+                throw new Dexpace.Sdk.Core.Errors.ServiceRequestException("The request body could not be buffered for a re-send.", ex);
+            }
+
+            var buffered = replayable is null ? request : request.WithBody(replayable);
+            (await _raw.ExecuteAsync(buffered, options, cancellationToken)).Dispose();
+            return await _raw.ExecuteAsync(buffered, options, cancellationToken);
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

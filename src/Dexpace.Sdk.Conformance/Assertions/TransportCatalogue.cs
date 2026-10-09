@@ -21,5 +21,9 @@ internal static class TransportCatalogue
         .. FailureAssertions.Assertions(),
         .. LifecycleAssertions.Assertions(),
         .. RedirectAndTimeoutAssertions.Assertions(),
+        .. HeaderAssertions.Assertions(),
+        .. ResendAssertions.Assertions(),
+        .. ProxyAssertions.Assertions(),
+        .. DisposeAssertions.Assertions(),
     ];
 }
