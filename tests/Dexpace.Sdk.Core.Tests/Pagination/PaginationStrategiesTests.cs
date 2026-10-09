@@ -394,9 +394,11 @@ public class PaginationStrategiesTests
         var page2 = new TestPage([3, 4], Cursor: null, HasMore: false);
 
         var serde = new ScriptedSerde<TestPage>(page1, page2);
+
+        // A page needs a payload: the typed reader treats an empty body as missing (SERDE-27, phase 7a); ScriptedSerde ignores the bytes.
         var (pipeline, transport) = MakePipeline(
-            TestResponses.Create(Status.Ok),
-            TestResponses.Create(Status.Ok));
+            TestResponses.Create(Status.Ok, body: ResponseBody.FromBytes("{}"u8.ToArray())),
+            TestResponses.Create(Status.Ok, body: ResponseBody.FromBytes("{}"u8.ToArray())));
 
         var strategy = PaginationStrategies.Cursor<TestPage>(p => p.Cursor, "cursor");
 

@@ -284,6 +284,7 @@ Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException() -> v
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message) -> void
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.HttpResponseException
+Dexpace.Sdk.Core.Errors.HttpResponseException.GetError<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> T?
 Dexpace.Sdk.Core.Errors.HttpResponseException.GetErrorAsync<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Errors.HttpResponseException.HttpResponseException(Dexpace.Sdk.Core.Http.Response.Response! response, string? message = null) -> void
 Dexpace.Sdk.Core.Errors.HttpResponseException.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
@@ -621,6 +622,7 @@ Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy
 Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.SetDatePolicy(System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Serialization.ISerde
 Dexpace.Sdk.Core.Serialization.ISerde.DefaultMediaType.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
+Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.IO.Stream! source) -> T?
 Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.ReadOnlySpan<byte> utf8) -> T?
 Dexpace.Sdk.Core.Serialization.ISerde.DeserializeAsync<T>(System.IO.Stream! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
@@ -921,7 +923,10 @@ static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.
 static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateEmpty(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
 static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Flatten(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Nest(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
-static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValue<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> T
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T>
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefault<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> T?
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefaultAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
