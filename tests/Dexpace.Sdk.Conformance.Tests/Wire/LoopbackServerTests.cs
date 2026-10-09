@@ -2,28 +2,28 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
-using Dexpace.Sdk.Core.Http.Common;
-using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Conformance.Wire;
 using Xunit;
-using SystemHttpClient = System.Net.Http.HttpClient;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Tests.Wire;
 
 /// <summary>
-/// Proves the fixture itself: that what it records is what the transport put on the socket, and that what it is
-/// scripted to send is what arrives. Phase 1's wire-level Security tests (S1, S2, S3, S9) stand on these.
+/// Proves the fixture itself: that what it records is what a client put on the socket, and that what it is scripted to
+/// send is what arrives. Phase 1's wire-level Security tests (S1, S2, S3, S9) stand on these. The client here is a plain
+/// <c>HttpClient</c>: the fixture's claims are about the wire, so no SDK transport is needed (moved from the SystemNet
+/// suite when phase 8a promoted the fixture into the conformance kit).
 /// </summary>
 [Trait("Category", "Integration")]
 public sealed class LoopbackServerTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    // A caller-supplied client: no proxy (the socket must be the loopback server's), and no redirect following, so
-    // the fixture's scripted 3xx reaches the adapter as is. The adapter never disposes a borrowed client.
-    private static SystemHttpClient DirectClient() =>
+    // No proxy (the socket must be the loopback server's), and no redirect following, so the fixture's scripted 3xx
+    // reaches the test as is.
+    private static HttpClient DirectClient() =>
         new(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false });
 
     [Fact]
@@ -31,18 +31,17 @@ public sealed class LoopbackServerTests
     {
         await using var server = LoopbackServer.Start(LoopbackResponse.Ok("pong"));
         using var client = DirectClient();
-        await using var transport = new SystemNetHttpClient(client);
 
         // Two spaces, a tab and a trailing-space-free tail: whitespace an HTTP stack could collapse.
-        var request = Request.Get(server.Url("/probe?q=a%20b&x=1").ToString())
-            .WithHeader("X-Odd-Spacing", "a  b\t c");
-        await using var response = await transport.ExecuteAsync(request, Ct);
+        using var request = new HttpRequestMessage(HttpMethod.Get, server.Url("/probe?q=a%20b&x=1"));
+        request.Headers.TryAddWithoutValidation("X-Odd-Spacing", "a  b\t c");
+        using var response = await client.SendAsync(request, Ct);
 
-        Assert.Equal(Status.Ok, response.Status);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var recorded = Assert.Single(server.Requests);
         Assert.Equal("GET /probe?q=a%20b&x=1 HTTP/1.1", recorded.RequestLine);
-        // The value is byte-for-byte what the caller set, and the name arrives in the casing the caller used (HTTP-21:
-        // the Headers model keeps the original casing; the fixture reports, it does not judge).
+        // The value is byte-for-byte what the caller set, and the name arrives in the casing the caller used (the fixture
+        // reports, it does not judge).
         Assert.Contains("X-Odd-Spacing: a  b\t c", recorded.HeaderLines);
         Assert.Equal($"127.0.0.1:{server.BaseUri.Port}", recorded.Header("Host"));
 
@@ -59,14 +58,11 @@ public sealed class LoopbackServerTests
     {
         await using var server = LoopbackServer.Start(LoopbackResponse.Status(201, "Created"));
         using var client = DirectClient();
-        await using var transport = new SystemNetHttpClient(client);
 
-        var request = Request.Post(
-            server.Url("/items").ToString(),
-            RequestBody.FromString("{\"name\":\"widget\"}", CommonMediaTypes.ApplicationJson));
-        await using var response = await transport.ExecuteAsync(request, Ct);
+        using var content = new StringContent("{\"name\":\"widget\"}", Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync(server.Url("/items"), content, Ct);
 
-        Assert.Equal(Status.Created, response.Status);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var recorded = Assert.Single(server.Requests);
         Assert.Equal("POST", recorded.Method);
         Assert.Equal("17", recorded.Header("Content-Length"));
@@ -79,12 +75,12 @@ public sealed class LoopbackServerTests
     {
         await using var server = LoopbackServer.Start(LoopbackResponse.Ok());
         using var client = DirectClient();
-        await using var transport = new SystemNetHttpClient(client);
 
-        // A stream body of unknown length goes out chunked.
+        // Declaring the transfer coding makes the client chunk the body instead of computing a Content-Length.
         using var source = new MemoryStream(Encoding.UTF8.GetBytes("streamed payload"));
-        var request = Request.Post(server.Url("/upload").ToString(), RequestBody.FromStream(source));
-        await using var response = await transport.ExecuteAsync(request, Ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, server.Url("/upload")) { Content = new StreamContent(source) };
+        request.Headers.TransferEncodingChunked = true;
+        using var response = await client.SendAsync(request, Ct);
 
         var recorded = Assert.Single(server.Requests);
         Assert.Equal("chunked", recorded.Header("Transfer-Encoding"));
@@ -100,14 +96,13 @@ public sealed class LoopbackServerTests
             LoopbackResponse.Redirect(302, "/next"),
             LoopbackResponse.Ok("arrived"));
         using var client = DirectClient();
-        await using var transport = new SystemNetHttpClient(client);
 
-        await using var first = await transport.ExecuteAsync(Request.Get(server.Url("/start").ToString()), Ct);
-        await using var second = await transport.ExecuteAsync(Request.Get(server.Url("/next").ToString()), Ct);
+        using var first = await client.GetAsync(server.Url("/start"), Ct);
+        using var second = await client.GetAsync(server.Url("/next"), Ct);
 
-        Assert.Equal(302, first.Status.Code);
-        Assert.Equal("/next", first.Headers.Get("Location"));
-        Assert.Equal("arrived", await second.Body.ReadAsStringAsync(Ct));
+        Assert.Equal(HttpStatusCode.Found, first.StatusCode);
+        Assert.Equal("/next", first.Headers.Location?.OriginalString);
+        Assert.Equal("arrived", await second.Content.ReadAsStringAsync(Ct));
         Assert.Collection(
             server.Requests,
             request => Assert.Equal("GET /start HTTP/1.1", request.RequestLine),
@@ -184,11 +179,10 @@ public sealed class LoopbackServerTests
     {
         await using var server = LoopbackServer.Start();
         using var client = DirectClient();
-        await using var transport = new SystemNetHttpClient(client);
 
-        await using var response = await transport.ExecuteAsync(Request.Get(server.Url("/extra").ToString()), Ct);
+        using var response = await client.GetAsync(server.Url("/extra"), Ct);
 
-        Assert.Equal(500, response.Status.Code);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         var fault = Assert.Single(server.Faults);
         Assert.Contains("GET /extra HTTP/1.1", fault.Message, StringComparison.Ordinal);
     }

@@ -68,6 +68,37 @@ Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.R
 Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Bytes.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Chunks.get -> System.Collections.Generic.IAsyncEnumerable<byte[]!>?
+Dexpace.Sdk.Conformance.Wire.LoopbackResponse.CloseConnection.get -> bool
+Dexpace.Sdk.Conformance.Wire.LoopbackServer
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.BaseUri.get -> System.Uri!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.ConnectionCount.get -> int
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Faults.get -> System.Collections.Generic.IReadOnlyList<System.Exception!>!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Requests.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.Wire.RecordedRequest!>!
+Dexpace.Sdk.Conformance.Wire.LoopbackServer.Url(string! pathAndQuery) -> System.Uri!
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException() -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException(string! message) -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.MalformedRequestException(string! message, System.Exception! innerException) -> void
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.Partial.get -> Dexpace.Sdk.Conformance.Wire.RecordedRequest?
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.Raw.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.MalformedRequestException.RawText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Body.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.BodyText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Connection.get -> int
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Header(string! name) -> string?
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.HeaderLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.HeaderValues(string! name) -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Method.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Raw.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.RawText.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.RequestLine.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Target.get -> string!
+Dexpace.Sdk.Conformance.Wire.RecordedRequest.Version.get -> string!
 override Dexpace.Sdk.Conformance.ConformanceAssertion.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceReport.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceResult.Equals(object? obj) -> bool
@@ -82,3 +113,13 @@ static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conform
 static Dexpace.Sdk.Conformance.ConformanceResult.operator ==(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Ok(string! body = "", string! contentType = "text/plain; charset=utf-8") -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(System.ReadOnlySpan<byte> bytes, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Raw(string! text, bool closeConnection) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Redirect(int statusCode, string! location) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Status(int statusCode, string! reasonPhrase, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>? headers = null, string! body = "") -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Streamed(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! headers, System.Collections.Generic.IAsyncEnumerable<byte[]!>! chunks) -> Dexpace.Sdk.Conformance.Wire.LoopbackResponse!
+static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(System.Func<Dexpace.Sdk.Conformance.Wire.RecordedRequest!, Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! respond) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!
+static Dexpace.Sdk.Conformance.Wire.LoopbackServer.Start(params System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.Wire.LoopbackResponse!>! script) -> Dexpace.Sdk.Conformance.Wire.LoopbackServer!

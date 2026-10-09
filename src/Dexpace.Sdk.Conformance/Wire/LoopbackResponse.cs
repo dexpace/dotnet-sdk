@@ -4,7 +4,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Wire;
 
 /// <summary>
 /// One scripted reply of the <see cref="LoopbackServer"/>: the exact bytes it writes to the socket, and whether it
@@ -32,17 +32,28 @@ public sealed class LoopbackResponse
     /// <summary>Whether the server half-closes and then closes the connection after writing <see cref="Bytes"/>.</summary>
     public bool CloseConnection { get; }
 
+    /// <summary>A reply of exactly <paramref name="bytes"/>, then the connection closes.</summary>
+    /// <param name="bytes">The bytes to write.</param>
+    public static LoopbackResponse Raw(ReadOnlySpan<byte> bytes) => Raw(bytes, closeConnection: true);
+
     /// <summary>A reply of exactly <paramref name="bytes"/>.</summary>
     /// <param name="bytes">The bytes to write.</param>
     /// <param name="closeConnection">Whether to close the connection afterwards (a close-delimited body needs it).</param>
-    public static LoopbackResponse Raw(ReadOnlySpan<byte> bytes, bool closeConnection = true) =>
+    public static LoopbackResponse Raw(ReadOnlySpan<byte> bytes, bool closeConnection) =>
         new(bytes.ToArray(), closeConnection);
+
+    /// <summary>A reply of exactly <paramref name="text"/>, encoded as Latin-1 so every char is one byte, then the connection closes.</summary>
+    /// <param name="text">The response text, including its own CRLFs.</param>
+    public static LoopbackResponse Raw(string text) => Raw(text, closeConnection: true);
 
     /// <summary>A reply of exactly <paramref name="text"/>, encoded as Latin-1 so every char is one byte.</summary>
     /// <param name="text">The response text, including its own CRLFs.</param>
     /// <param name="closeConnection">Whether to close the connection afterwards (a close-delimited body needs it).</param>
-    public static LoopbackResponse Raw(string text, bool closeConnection = true) =>
-        new(Encoding.Latin1.GetBytes(text), closeConnection);
+    public static LoopbackResponse Raw(string text, bool closeConnection)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return new(Encoding.Latin1.GetBytes(text), closeConnection);
+    }
 
     /// <summary>
     /// An HTTP/1.1 reply with the given status line, header lines written verbatim in order, then

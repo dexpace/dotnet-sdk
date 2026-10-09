@@ -6,7 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Wire;
 
 /// <summary>
 /// A minimal HTTP/1.1 server over a <see cref="TcpListener"/> on the loopback interface, for wire-level transport
@@ -105,12 +105,12 @@ public sealed class LoopbackServer : IAsyncDisposable
             return;
         }
 
-        await _stopping.CancelAsync();
+        await _stopping.CancelAsync().ConfigureAwait(false);
         _listener.Stop();
-        await IgnoreShutdownAsync(_acceptLoop);
+        await IgnoreShutdownAsync(_acceptLoop).ConfigureAwait(false);
         foreach (var connection in _connections)
         {
-            await IgnoreShutdownAsync(connection);
+            await IgnoreShutdownAsync(connection).ConfigureAwait(false);
         }
 
         _listener.Dispose();
@@ -121,7 +121,7 @@ public sealed class LoopbackServer : IAsyncDisposable
     {
         try
         {
-            await task;
+            await task.ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException or IOException)
         {
@@ -139,7 +139,7 @@ public sealed class LoopbackServer : IAsyncDisposable
     {
         while (!_stopping.IsCancellationRequested)
         {
-            var client = await _listener.AcceptTcpClientAsync(_stopping.Token);
+            var client = await _listener.AcceptTcpClientAsync(_stopping.Token).ConfigureAwait(false);
             var index = Interlocked.Increment(ref _connectionCount) - 1;
             _connections.Add(ServeAsync(client, index));
         }
@@ -151,7 +151,7 @@ public sealed class LoopbackServer : IAsyncDisposable
         {
             try
             {
-                await ServeRequestsAsync(client, connection);
+                await ServeRequestsAsync(client, connection).ConfigureAwait(false);
             }
             catch (Exception ex) when (_stopping.IsCancellationRequested
                 && ex is OperationCanceledException or ObjectDisposedException or SocketException or IOException)
@@ -176,7 +176,7 @@ public sealed class LoopbackServer : IAsyncDisposable
             RecordedRequest? request;
             try
             {
-                request = await reader.ReadAsync(connection, _stopping.Token);
+                request = await reader.ReadAsync(connection, _stopping.Token).ConfigureAwait(false);
             }
             catch (MalformedRequestException ex)
             {
@@ -187,8 +187,8 @@ public sealed class LoopbackServer : IAsyncDisposable
                 }
 
                 _faults.Enqueue(ex);
-                await WriteAsync(client, LoopbackResponse.Status(400, "Loopback Malformed Request"));
-                await DrainAsync(stream);
+                await WriteAsync(client, LoopbackResponse.Status(400, "Loopback Malformed Request")).ConfigureAwait(false);
+                await DrainAsync(stream).ConfigureAwait(false);
                 return;
             }
 
@@ -198,7 +198,7 @@ public sealed class LoopbackServer : IAsyncDisposable
             }
 
             _requests.Enqueue(request);
-            if (await WriteAsync(client, Reply(request)))
+            if (await WriteAsync(client, Reply(request)).ConfigureAwait(false))
             {
                 return;
             }
@@ -216,7 +216,7 @@ public sealed class LoopbackServer : IAsyncDisposable
         var sink = new byte[4096];
         try
         {
-            while (await stream.ReadAsync(sink, grace.Token) > 0)
+            while (await stream.ReadAsync(sink, grace.Token).ConfigureAwait(false) > 0)
             {
             }
         }
@@ -230,11 +230,11 @@ public sealed class LoopbackServer : IAsyncDisposable
     private async Task<bool> WriteAsync(TcpClient client, LoopbackResponse reply)
     {
         var stream = client.GetStream();
-        await stream.WriteAsync(reply.Bytes, _stopping.Token);
-        await stream.FlushAsync(_stopping.Token);
+        await stream.WriteAsync(reply.Bytes, _stopping.Token).ConfigureAwait(false);
+        await stream.FlushAsync(_stopping.Token).ConfigureAwait(false);
         if (reply.Chunks is { } chunks)
         {
-            await WriteChunksAsync(stream, chunks);
+            await WriteChunksAsync(stream, chunks).ConfigureAwait(false);
         }
 
         if (!reply.CloseConnection)
@@ -252,16 +252,16 @@ public sealed class LoopbackServer : IAsyncDisposable
     /// </summary>
     private async Task WriteChunksAsync(NetworkStream stream, IAsyncEnumerable<byte[]> chunks)
     {
-        await foreach (var chunk in chunks.WithCancellation(_stopping.Token))
+        await foreach (var chunk in chunks.WithCancellation(_stopping.Token).ConfigureAwait(false))
         {
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"{chunk.Length:X}\r\n"), _stopping.Token);
-            await stream.WriteAsync(chunk, _stopping.Token);
-            await stream.WriteAsync("\r\n"u8.ToArray(), _stopping.Token);
-            await stream.FlushAsync(_stopping.Token);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"{chunk.Length:X}\r\n"), _stopping.Token).ConfigureAwait(false);
+            await stream.WriteAsync(chunk, _stopping.Token).ConfigureAwait(false);
+            await stream.WriteAsync("\r\n"u8.ToArray(), _stopping.Token).ConfigureAwait(false);
+            await stream.FlushAsync(_stopping.Token).ConfigureAwait(false);
         }
 
-        await stream.WriteAsync("0\r\n\r\n"u8.ToArray(), _stopping.Token);
-        await stream.FlushAsync(_stopping.Token);
+        await stream.WriteAsync("0\r\n\r\n"u8.ToArray(), _stopping.Token).ConfigureAwait(false);
+        await stream.FlushAsync(_stopping.Token).ConfigureAwait(false);
     }
 
     private LoopbackResponse Reply(RecordedRequest request)

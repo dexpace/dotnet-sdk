@@ -3,7 +3,7 @@
 
 using System.Text;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Wire;
 
 /// <summary>
 /// One request exactly as it arrived on the <see cref="LoopbackServer"/>'s socket. <see cref="Raw"/> is the

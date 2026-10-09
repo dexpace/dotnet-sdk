@@ -3,7 +3,7 @@
 
 using System.Text;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Wire;
 
 /// <summary>
 /// A request the <see cref="LoopbackServer"/> could not frame: an unparseable, overflowing or conflicting

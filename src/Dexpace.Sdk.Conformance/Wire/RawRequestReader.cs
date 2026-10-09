@@ -4,7 +4,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
+namespace Dexpace.Sdk.Conformance.Wire;
 
 /// <summary>
 /// Frames HTTP/1.1 requests off one connection while keeping every byte: the head is read line by line up to the
@@ -27,7 +27,7 @@ internal sealed class RawRequestReader(Stream stream)
         var headLines = new List<string>();
         try
         {
-            return await ReadAsync(connection, raw, headLines, cancellationToken);
+            return await ReadAsync(connection, raw, headLines, cancellationToken).ConfigureAwait(false);
         }
         catch (InvalidDataException ex)
         {
@@ -45,7 +45,7 @@ internal sealed class RawRequestReader(Stream stream)
     {
         while (true)
         {
-            var line = await ReadLineAsync(raw, cancellationToken);
+            var line = await ReadLineAsync(raw, cancellationToken).ConfigureAwait(false);
             if (line is null)
             {
                 return raw.Length == 0
@@ -73,8 +73,8 @@ internal sealed class RawRequestReader(Stream stream)
         }
 
         var body = IsChunked(headLines)
-            ? await ReadChunkedAsync(raw, cancellationToken)
-            : await ReadExactAsync(raw, ContentLength(headLines), cancellationToken);
+            ? await ReadChunkedAsync(raw, cancellationToken).ConfigureAwait(false)
+            : await ReadExactAsync(raw, ContentLength(headLines), cancellationToken).ConfigureAwait(false);
         return new RecordedRequest(connection, raw.ToArray(), headLines, body);
     }
 
@@ -115,7 +115,7 @@ internal sealed class RawRequestReader(Stream stream)
         var body = new MemoryStream();
         while (true)
         {
-            var sizeLine = await ReadLineAsync(raw, cancellationToken)
+            var sizeLine = await ReadLineAsync(raw, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidDataException("The peer closed the connection inside a chunked body.");
             var sizeText = Encoding.Latin1.GetString(sizeLine).Split(';')[0].Trim();
             if (!int.TryParse(sizeText, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var size)
@@ -130,7 +130,7 @@ internal sealed class RawRequestReader(Stream stream)
                 // Trailer section, up to and including the empty line.
                 while (true)
                 {
-                    var trailer = await ReadLineAsync(raw, cancellationToken)
+                    var trailer = await ReadLineAsync(raw, cancellationToken).ConfigureAwait(false)
                         ?? throw new InvalidDataException("The peer closed the connection inside a chunked trailer.");
                     if (Encoding.Latin1.GetString(trailer).Trim().Length == 0)
                     {
@@ -139,8 +139,8 @@ internal sealed class RawRequestReader(Stream stream)
                 }
             }
 
-            body.Write(await ReadExactAsync(raw, size, cancellationToken));
-            _ = await ReadLineAsync(raw, cancellationToken)
+            body.Write(await ReadExactAsync(raw, size, cancellationToken).ConfigureAwait(false));
+            _ = await ReadLineAsync(raw, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidDataException("The peer closed the connection after a chunk.");
         }
     }
@@ -151,7 +151,7 @@ internal sealed class RawRequestReader(Stream stream)
         var filled = 0;
         while (filled < count)
         {
-            if (_start == _end && !await FillAsync(cancellationToken))
+            if (_start == _end && !await FillAsync(cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidDataException($"The peer closed the connection {count - filled} byte(s) short of the body.");
             }
@@ -175,7 +175,7 @@ internal sealed class RawRequestReader(Stream stream)
         var line = new MemoryStream();
         while (true)
         {
-            if (_start == _end && !await FillAsync(cancellationToken))
+            if (_start == _end && !await FillAsync(cancellationToken).ConfigureAwait(false))
             {
                 return line.Length == 0
                     ? null
@@ -202,7 +202,7 @@ internal sealed class RawRequestReader(Stream stream)
     private async Task<bool> FillAsync(CancellationToken cancellationToken)
     {
         _start = 0;
-        _end = await stream.ReadAsync(_buffer, cancellationToken);
+        _end = await stream.ReadAsync(_buffer, cancellationToken).ConfigureAwait(false);
         return _end > 0;
     }
 }
