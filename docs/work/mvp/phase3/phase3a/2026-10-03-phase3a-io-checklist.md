@@ -127,7 +127,7 @@ None. Every pre-existing test compiles and passes unedited; the new test classes
 | P3a-8 | No capture is pooled; `ArrayPool<T>.Rent` and `MemoryPool<T>.Rent` are banned in `src/`, the sole rent being the internal `PooledChunk` behind a scoped pragma. | design §3.1, dated correction |
 | P3a-9 | `IO-7` and `IO-10` are N/A; `CapturedBytes.Slice` follows `IO-21`'s lazy rule. | design §11 item 44 |
 | P3a-11 | `Utf8LineReader` decodes malformed UTF-8 to U+FFFD and keeps a BOM as content. | design §11 item 45 |
-| P3a-12 | The 64 MiB cap applies to the response readers only; `ToReplayable(Async)` is bounded by `Array.MaxLength`; the cap is a constant until 5a. *Dated correction, 2026-10-07 (phase 5a, P5a-23):* 5a does not make it an options member; the configurable form is 7a's per-read limit (the SSE line cap is 7b's). | design §3.1, dated correction |
+| P3a-12 | The 64 MiB cap applies to the response readers only; `ToReplayable(Async)` is bounded by `Array.MaxLength`; the cap is a constant until 5a. *Dated correction, 2026-10-07 (phase 5a, P5a-23):* 5a does not make it an options member; the configurable form is 7a's per-read limit (the SSE line cap is 7b's). *Dated correction, 2026-10-09 (phase 7a, P7a-21, open for the lead):* the per-read limit is not built, by decision; the cap stays the documented constant and a larger read uses `OpenRead(Async)` (see design §3.1). | design §3.1, dated correction |
 
 ## Findings while building
 

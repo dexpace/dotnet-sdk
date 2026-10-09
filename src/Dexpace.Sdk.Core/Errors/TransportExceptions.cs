@@ -148,4 +148,31 @@ public class HttpResponseException : SdkException
                 "The error response body has already been consumed and cannot be deserialized.", ex);
         }
     }
+
+    /// <summary>
+    /// Deserializes the error response body as <typeparamref name="T"/> using <paramref name="serde"/>, synchronously.
+    /// </summary>
+    /// <typeparam name="T">The error model type.</typeparam>
+    /// <param name="serde">The serializer.</param>
+    /// <returns>The deserialized error model (possibly <see langword="null"/>: an error body is read opportunistically).</returns>
+    /// <remarks>
+    /// It has no <see cref="CancellationToken"/> parameter, because the seam's synchronous stream decode takes none. The
+    /// exception's response is not disposed.
+    /// </remarks>
+    /// <exception cref="ResponseNotReadException">The error body has already been consumed.</exception>
+    /// <exception cref="DeserializationException">Deserialization failed.</exception>
+    public T? GetError<T>(ISerde serde)
+    {
+        ArgumentNullException.ThrowIfNull(serde);
+        try
+        {
+            using var stream = Response.Body.OpenRead();
+            return serde.Deserialize<T>(stream);
+        }
+        catch (StreamConsumedException ex)
+        {
+            throw new ResponseNotReadException(
+                "The error response body has already been consumed and cannot be deserialized.", ex);
+        }
+    }
 }

@@ -277,7 +277,10 @@ P3), enforced by an architecture test.
   endpoint, a test) would otherwise serialize `Tristate`'s public properties as an object — exactly the silent PATCH
   corruption `SERDE-19` warns of — and (b) would make two implementation types public for one use. Node exports its replacer
   for the same reason (`tristate-replacer.test.ts`, "the replacer is exported so a caller can compose their own
-  JSON.stringify call").
+  JSON.stringify call"). *Dated correction,
+  2026-10-09 (phase 7a review):* "silent" was too strong. Unwired, an Absent or Null field makes `JsonSerializer` throw
+  `InvalidOperationException` (the struct's `Value` getter throws for both states); only a Present field is written as an object of the
+  struct's properties. The rationale for (c) stands; `TristateJsonTests.Without_AddTristateSupport_an_Absent_or_Null_field_throws_and_a_Present_field_is_written_as_an_object` pins the measured behaviour.
 - **P7a-5 — `SERDE-19`: always on, no opt-out.** Both constructors call the wiring on the private copy. The spec's MAY
   ("opting out only for a caller that already installed equivalent wiring") is not needed: a caller's own `Tristate<>`
   converter, registered in its options before construction, precedes ours in `Converters` and wins; our modifier on top only

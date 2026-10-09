@@ -541,4 +541,70 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
 - `docs/sdk-documentation/auth.md`; the AOT smoke covers the challenge parser, the resolver, Digest (SHA-256 and the CSPRNG cnonce), the redacting credentials and the bearer policy with its background refresh.
 
+### Phase 7a — serde
+
+Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP-45` carried from 3b); design and plan under
+`docs/work/mvp/phase7/phase7a/`.
+
+#### Added
+
+- `Tristate<T>`, the three-state PATCH field (Absent, Null, Present; `default` is Absent), with the static `Tristate` helper
+  (`Absent`, `Null`, `Present`, `FromNullable`, `GetValueOrNull`), `TristateSentinel`, `TristateState`, and the codec-adapter hook
+  `ITristate` / `ITristateVisitor<TResult>`. `Present(null)` throws, an implicit conversion from `T` maps `null` to Null,
+  `ToString` is `Absent`, `Null` or `Present(<value>)` (`SERDE-14`, `SERDE-17`, `SERDE-18`, `SERDE-30`). The type carries no
+  System.Text.Json attribute (an architecture test pins it).
+- `SystemTextJsonSerde` Tristate wiring (`SERDE-15`, `SERDE-16`, `SERDE-19`, `SERDE-20`): an Absent `Tristate<T>` property is omitted
+  through a `JsonTypeInfo` modifier (composed with any `ShouldSerialize` the caller set), Null is written as `null`, a JSON `null`
+  reads as Null and a missing key as Absent, for reference and value-type `T` alike and with no reflection (a public
+  `ITristate` visitor hook and one justified `IL2067` suppression, exercised by the AOT smoke's `Tristate<int>`). Where the wire has no
+  key (the document root, an array element, a dictionary value) an Absent degrades to `null`. New public
+  `TristateJsonSerializerOptionsExtensions.AddTristateSupport(JsonSerializerOptions)` for callers who use `JsonSerializer` directly on SDK models
+  (without it `JsonSerializer` throws `InvalidOperationException` for an Absent or Null field and writes a Present one as an object of the struct's properties).
+- `SystemTextJsonSerde.CreateDefaultOptions(IJsonTypeInfoResolver)`: a fresh, mutable instance per call with `Web` naming, strict numbers
+  (`NumberHandling.Strict`, forced back from `Web`'s `AllowReadingFromString`) and `RespectNullableAnnotations`, Tristate-wired
+  (`SERDE-21`, `SERDE-25`). Tests pin the nine strict-coercion rows individually, the two permitted widenings, unmapped-member skipping,
+  ISO-8601 dates and 32 concurrent workers on one serde (`SERDE-22`, `SERDE-23`, `SERDE-24`, `SERDE-29`).
+- The typed readers on `ResponseBody` (`SERDE-7`, `SERDE-13`, `SERDE-27`): `ReadValueOrDefaultAsync<T>` (admits a wire `null`),
+  `ReadValue<T>` and `ReadValueOrDefault<T>` (the synchronous twins), beside `ReadValueAsync<T>`. Each streams (one byte is peeked
+  to tell a missing payload from a present one, then replayed to the codec; nothing is materialised) and disposes the body on every
+  path, attaching a dispose failure to the failure in flight. A body with no payload (a 204, a zero-length body) fails with a
+  `DeserializationException` naming `T`.
+- `ISerde.Deserialize<T>(Stream)`, the synchronous stream decode, as a **default interface member**: source- and
+  binary-compatible for every implementer. The default reads the stream under `ResponseBody.DefaultMaxMaterializedBytes`
+  (a seekable source that declares more is refused before any read) and calls the span decode; `SystemTextJsonSerde` overrides it
+  and streams. `HttpResponseException.GetError<T>(ISerde)`, the synchronous twin of `GetErrorAsync` (`SERDE-3`, `SERDE-9`, `SERDE-12`).
+- `IResponseHandler<T>` (the SPI a generated SDK implements; it owns and disposes the response) and `ResponseHandlers.Deserialize<T>(ISerde)` /
+  `ResponseHandlers.DeserializeOnSuccess<T>(ISerde)` (`SERDE-27`, `SERDE-28`). The status-aware handler decodes a 2xx; throws
+  `HttpResponseException` over the bounded error-body buffer for a 400 to 599 (the one capture site, with the 1 MiB bound); and for anything else
+  (a 1xx, an unfollowed 3xx, a 304) disposes the response and fails with a `DeserializationException` that leads with the status code and carries the
+  raw `ETag` and the `Location` resolved against the request URL and redacted through `UrlRedactor` (the one-line rewrite of control characters runs after the
+  redaction, so a tab inside the userinfo cannot move the credential into the query). A new `Security` class pins the redaction.
+- `TypedResponse<T>` (`HTTP-44`, `HTTP-45`): a response whose metadata is readable at once and whose body is parsed lazily, once, on the first
+  `GetValueAsync`. Success (a `null` included) and failure are memoized, a failure as the same exception object; exactly-once is a compare-and-swap on a
+  `TaskCompletionSource<T>`, so no caller blocks a thread behind another's parse, and a caller's token cancels only its own wait. The wrapped response is not exposed.
+- `docs/sdk-documentation/serde.md`; the AOT smoke performs the Tristate PATCH round trip (the wire bytes `{"name":null,"size":3}`, a lazy `TypedResponse<WidgetPatch>`
+  through the status-aware handler, the root-null rule and the synchronous stream decode), which exercises the converter factory's `IL2067` suppression with the value-type `Tristate<int>`.
+
+#### Changed
+
+- **Breaking (phase 7a):** `SystemTextJsonSerde(JsonSerializerOptions)` and `SystemTextJsonSerde(JsonSerializerContext)` work on a private
+  copy of the options, wire `Tristate<T>` on the copy and freeze the copy. The caller's `JsonSerializerOptions` is no longer made
+  read-only, gains no converter and keeps its resolver; a later change to it does not affect the serde (was: the caller's instance was
+  frozen) (`SERDE-19`, `SERDE-26`). A context generated with `GenerationMode = Serialization` (the fast-path-only mode) carries no property
+  metadata and serves only its own options object, so it can no longer be passed to the serde; use the default or `Metadata` mode.
+- **Breaking (phase 7a):** `ResponseBodySerdeExtensions.ReadValueAsync<T>` returns `ValueTask<T>` (was: `ValueTask<T?>`) and throws a
+  `DeserializationException` naming `T` for a wire `null` into a reference-type target (was: returned `null`). Use
+  `ReadValueOrDefaultAsync<T>` to accept `null`; a `Nullable<>` target still decodes `null` (`SERDE-13`).
+- **Breaking (phase 7a):** `ReadValueAsync<T>` disposes the **body** on every path (was: only the stream it opened), so a body is
+  spent after a typed read whether or not it succeeded.
+- **Breaking (phase 7a):** `ReadValueAsync<T>` on an empty body (a 204, a zero-length body) throws a `DeserializationException`
+  `The response has no body to deserialize as '{T}'.` with no inner exception (was: a `DeserializationException` wrapping the
+  codec's "no JSON tokens" failure) (`SERDE-27`).
+- **Breaking (phase 7a), binary-compatible:** `ISerde` gains `Deserialize<T>(Stream)` with a default implementation, so every
+  existing implementer keeps compiling and loading; it is listed because the public API snapshot diffs it.
+
+#### Fixed
+
+- `SERDE-26`: constructing a serde no longer freezes the caller's `JsonSerializerOptions` (see the Breaking entry above).
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

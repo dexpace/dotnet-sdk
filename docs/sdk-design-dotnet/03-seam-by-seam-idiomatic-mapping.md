@@ -85,6 +85,10 @@ Four notes on the .NET specifics, each the result of verification rather than do
   figure and its argument: an order of magnitude above a sane payload, an order below a typical worker's heap)
   applies first and is part of the options surface (§8.2). *Dated correction, 2026-10-07, phase 5a (P5a-23):* the cap is not an
   options member; the configurable form is a per-read limit that phase 7a adds when it reshapes the reader family.
+  *Dated correction, 2026-10-09, phase 7a (P7a-21, open for the lead):* the per-read limit is **not built**. The typed readers stream and are not
+  bounded by the cap; `ReadAsBytes*` / `ReadAsString*` keep the documented 64 MiB constant; a larger read already has a route in `OpenRead(Async)`. A
+  per-read parameter would take three overloads per reader (`RS0026`/`RS0027`), a binary break of four virtual members, and a change to types SSE and paging also call,
+  for no requirement (**IO-9** requires a bound, which the constant is).
 
 **Non-consuming views and why parent-close invalidation reduces to a pooling rule.** **IO-19**–**IO-24** require
 peeks and slices that do not advance the parent, compose additively, and are invalidated when the parent closes;
@@ -703,6 +707,12 @@ three profiles once, over any `ISerde`: `SerializeToUtf8Bytes`, `SerializeToStri
 optional interface `IStringSerde` to supply its own string. `SEAM-22` is met by construction: no `Type`-taking decode
 overload exists, and an architecture test keeps it so (P2b-2). The adapter's private copy of `JsonSerializerOptions` is
 phase 7a's. *Dated correction*.
+
+**As built (2026-10-09, phase 7a):** built. `ISerde` has a **sixth member**, the synchronous stream decode `Deserialize<T>(Stream)`, a default interface member
+(source- and binary-compatible for every implementer) whose default reads the stream under `ResponseBody.DefaultMaxMaterializedBytes`, refusing a seekable
+source that declares more before any read, and calls the span decode; `SystemTextJsonSerde` overrides it with `JsonSerializer.Deserialize(Stream, JsonTypeInfo<T>)`,
+which streams (P7a-13). There is no synchronous stream *encode*. The adapter's private copy of `JsonSerializerOptions` is built (**SERDE-26**): both constructors copy,
+wire `Tristate<T>` on the copy and freeze the copy, and the caller's instance is never frozen. *Dated correction*.
 
 ### 3.5 The operation-input projection seam
 

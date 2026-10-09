@@ -62,6 +62,7 @@ internal static class SmokeChecks
             await CheckPhase6aRetryAsync();
             await CheckPhase6bRedirectAsync();
             await CheckPhase6cAuthAsync();
+            await CheckPhase7aSerdeAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -816,6 +817,52 @@ internal static class SmokeChecks
         Expect(
             seen is ["Bearer smoke-1", "Bearer smoke-1"] && credential.Calls >= 2,
             "BearerTokenAuthPolicy stamps the valid token and refreshes in the background");
+    }
+
+    // Phase 7a (SERDE-14..SERDE-20, SERDE-27, SERDE-28, HTTP-44, HTTP-45; NFR-9): the Tristate PATCH round trip. The value-type
+    // Tristate<int> is what exercises the converter factory's one justified IL2067 suppression (GetUninitializedObject over a
+    // closed generic struct, reached by interface dispatch with no MakeGenericType) under the published NativeAOT binary.
+    private static async Task CheckPhase7aSerdeAsync()
+    {
+        var serde = new SystemTextJsonSerde(SystemTextJsonSerde.CreateDefaultOptions(SmokeJsonContext.Default));
+        var patch = new WidgetPatch(Tristate.Null, Tristate.Present(3), default);
+
+        // 1. The wire bytes: Null written as null, Present written, Absent omitted, camelCase from CreateDefaultOptions.
+        Expect(serde.SerializeToString(patch) == "{\"name\":null,\"size\":3}", "phase 7a: the Tristate wire bytes are {\"name\":null,\"size\":3}");
+
+        // 2. Sent as a PATCH body through RequestBody.FromValue over the in-process transport, which echoes it back.
+        await using var transport = new EchoTransport();
+        using var pipeline = DexpacePipeline.CreateDefault(transport);
+        var request = Request.Post(s_endpoint.OriginalString, RequestBody.FromValue(patch, serde)).WithMethod(Method.Patch);
+        var response = await pipeline.SendAsync(request, new DexpaceClientOptions(), CancellationToken.None);
+
+        // 3. Decoded lazily through TypedResponse + the status-aware handler: Null, Present and Absent hold.
+        using var typed = new TypedResponse<WidgetPatch>(response, ResponseHandlers.DeserializeOnSuccess<WidgetPatch>(serde));
+        Expect(typed.Status == Status.Ok, "phase 7a: the typed response exposes its status without a parse");
+        var first = await typed.GetValueAsync();
+        Expect(first.Name.IsNull && first.Size == Tristate.Present(3) && first.Note.IsAbsent, "phase 7a: Null, Present and Absent survive the round trip");
+
+        // 4. Memoized: a second GetValueAsync is the same instance, and the handler did not run again.
+        Expect(ReferenceEquals(first, await typed.GetValueAsync()), "phase 7a: TypedResponse parses once");
+
+        // 5. A wire null into a reference type is rejected, naming the type; the nullable route admits it.
+        var rejected = false;
+        try
+        {
+            _ = await ResponseBody.FromBytes("null"u8.ToArray()).ReadValueAsync<WidgetPatch>(serde);
+        }
+        catch (DeserializationException)
+        {
+            rejected = true;
+        }
+
+        Expect(rejected, "phase 7a: ReadValueAsync rejects a wire null for a reference type");
+        Expect(await ResponseBody.FromBytes("null"u8.ToArray()).ReadValueOrDefaultAsync<WidgetPatch>(serde) is null, "phase 7a: ReadValueOrDefaultAsync admits a wire null");
+
+        // 6. The synchronous stream decode streams through the adapter's override.
+        Expect(
+            serde.Deserialize<WidgetPatch>(new MemoryStream("{\"size\":null}"u8.ToArray()))!.Size.IsNull,
+            "phase 7a: the synchronous stream decode reads a Tristate");
     }
 
     /// <summary>A token that is always inside the 30 s refresh margin, so every request after the first starts a refresh.</summary>

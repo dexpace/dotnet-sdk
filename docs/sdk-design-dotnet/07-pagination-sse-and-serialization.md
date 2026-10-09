@@ -399,6 +399,31 @@ is **HTTP-45**'s non-pinning clause satisfied by the primitive.
 built; diverges: caller options made read-only (**SERDE-26**), no common serde root (**SERDE-10**), root `null`
 accepted (**SERDE-13**); missing: `Tristate<T>` and its wiring, default-options factory, typed-response wrapper.
 
+**As built (2026-10-09, phase 7a):** built. `Tristate<T>`, the static `Tristate`, `TristateSentinel` and the `ITristate` /
+`ITristateVisitor<TResult>` hook are in core and carry no System.Text.Json attribute; the adapter wires the converter factory
+and the `ShouldSerialize` modifier on a private copy of the caller's options, both constructors always (**SERDE-19**), and offers
+`AddTristateSupport` for a caller who uses `JsonSerializer` directly. `SystemTextJsonSerde.CreateDefaultOptions(IJsonTypeInfoResolver)` is
+`Web` naming with `NumberHandling.Strict` forced back and `RespectNullableAnnotations` on, a fresh instance per call (**SERDE-21**,
+**SERDE-25**). The readers `ReadValue(Async)<T>` / `ReadValueOrDefault(Async)<T>` stream, name a missing payload, reject a root `null`
+and dispose the body; `ResponseHandlers.Deserialize<T>` and `DeserializeOnSuccess<T>` are **SERDE-27** and **SERDE-28**;
+`TypedResponse<T>` is **HTTP-44** and **HTTP-45**. The one `IL2067` suppression is exercised by the AOT smoke's `Tristate<int>`.
+Checklist: `docs/work/mvp/phase7/phase7a/2026-10-09-phase7a-serde-checklist.md`; user page `docs/sdk-documentation/serde.md`. Four *dated
+corrections* to the text above:
+
+- *Dated correction, 2026-10-09 (P7a-15):* the lazy typed-response wrapper is **not** `Lazy<Task<T>>`. Its `ExecutionAndPublication` monitor is held
+  across the factory's synchronous prefix, which for a buffered body is the whole parse, so concurrent first callers block a thread, the
+  .NET form of what **HTTP-45** forbids (measured in phase 7a's pre-flight: eight threads over a 500 ms synchronous prefix each waited about
+  500 ms). `TypedResponse<T>` is exactly-once by a compare-and-swap on a `TaskCompletionSource<T>`: no lock is held, a concurrent first
+  caller gets an incomplete task at once, success (a `null` included) and failure are memoized, a failure as the same exception object, the parse runs
+  under the construction token, and a caller's token cancels only that caller's wait.
+- *Dated correction, 2026-10-09 (P7a-9, open for the lead):* "an explicit nullable-returning overload" is `ReadValueOrDefault(Async)<T>`, and the root-`null`
+  rejection is in the readers and the two handlers (all of whose results are non-null); `ISerde` and `GetError(Async)` keep their honest `T?`.
+- *Dated correction, 2026-10-09:* "(STJ 9+, so only on the `net10.0` target; the .NET 8 shared framework carries STJ 8)" is moot: the floor is `net10.0` only
+  (roadmap decision D1).
+- *Dated correction, 2026-10-09:* "a bodyless response currently surfaces as a generic `DeserializationException` from an empty stream" is fixed: a missing payload
+  is a `DeserializationException` naming `T`, found by a one-byte peek (P7a-10). A fast-path-only (`GenerationMode = Serialization`) source-generated context carries
+  no property metadata and cannot be used with the serde's private copy of the options; use the default or `Metadata` mode (phase 7a, task 0.1).
+
 ### 7.4 Webhooks, outside the reference contract
 
 The webhooks design that came with PR #3 (Standard Webhooks HMAC-SHA256 verification behind an `IWebhookVerifier`

@@ -886,10 +886,10 @@ existing design section and it lands as built unless reversed.
 | P5a-15 | Upper then lower case, CGI guard, one proxy for all targets, no fallthrough, closed scheme set, raw-authority port | `CFG-24`–`CFG-27` | reading (superset in the names; divergence from the platform §8.2 already records) | **open** | §10 entry 25 dated correction (PR 6) |
 | P5a-17 | `CFG-28` by absence plus the ban; transport-construction call is 8b's reading | `CFG-28` | reading | taken (8b decides its half) | 8b's design |
 | P5a-19 | `CFG-32` by the OS CSPRNG, stronger than required | `CFG-32` | §8.2 already argues it | taken | checklist cites §8.2 |
-| P5a-20 | `DeepValue` internal | `CFG-33`, `CFG-34` | surface judgement | **open** | §8.2 dated correction (PR 6) |
+| P5a-20 | `DeepValue` internal | `CFG-33`, `CFG-34` | surface judgement | **open** | §8.2 dated correction (PR 6). *Dated correction, 2026-10-09 (phase 7a, P7a-22):* 7a left the public promotion undone; `DeepValue` stays internal (STJ's round trip is value-level, not equality-level) |
 | P5a-21 | Both classifier halves in 5a, internal; wiring 6a | `CFG-35`, `XCUT-5`, `XCUT-6` | ownership judgement | **open** | 6a's design |
 | P5a-22 | `unknown` per field; header-safe tokens; two-token default `User-Agent` | `CFG-36`, `RECOV-33` | behaviour judgement | **open** | §8.2 dated correction (PR 6) |
-| P5a-23 | No options member for the materialisation cap; per-read limit to 7a, SSE cap to 7b | 3a hand-off, design §3.1 | ownership judgement | **open** | §3.1 dated correction; 3a checklist (PR 6) |
+| P5a-23 | No options member for the materialisation cap; per-read limit to 7a, SSE cap to 7b | 3a hand-off, design §3.1 | ownership judgement | **open** | §3.1 dated correction; 3a checklist (PR 6). *Dated correction, 2026-10-09 (phase 7a, P7a-21, open for the lead):* 7a did not build the per-read limit; the cap stays the documented constant (design §3.1) |
 | P5a-24 | Context-store capacity stays constant | 4a hand-off | ownership | taken | 4a checklist (PR 6) |
 | P5a-25 | `CFG-12` N/A without a builder; `CFG-13` 🚫 | `CFG-12`, `CFG-13` | reading + existing §10 entry 25 | taken | new §11 item for `CFG-12` (PR 6) |
 | P5a-28 | The interfaces assumed of 5b and 5c | — | cross-sub-phase contract | **open** until 5b's and 5c's designs confirm | each sibling's Prerequisite section |

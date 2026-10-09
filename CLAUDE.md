@@ -65,7 +65,8 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   helpers. No builder-as-object types — object initializers and `with` make them redundant. `Headers`
   is the one mutable-builder exception (`Headers.Builder`) for batched edits.
 - **Interfaces for SPIs.** `IHttpClient`, `IAsyncHttpClient` are the transport seams; `ISerde` is the codec
-  seam. `Dexpace.Sdk.Core` ships **no** transport and no concrete codec; each adapts one library in its own
+  seam; `IResponseHandler<T>` is what a generated SDK implements to turn a response into a value.
+  `Dexpace.Sdk.Core` ships **no** transport and no concrete codec; each adapts one library in its own
   project (`Dexpace.Sdk.Http.*`, `Dexpace.Sdk.Serialization.*`).
 - **Deterministic cleanup.** `Response`, `ResponseBody`, and transports implement `IDisposable` /
   `IAsyncDisposable`. Single-use bodies (stream-backed) throw `StreamConsumedException` on a second
@@ -115,7 +116,7 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.Core/                        # toolkit; no transport, no concrete codec
 │   │   ├── Http/Common/             # Method, Protocol, MediaType, CommonMediaTypes, HttpHeaderName, Headers, HttpDate
 │   │   ├── Http/Request/            # Request, RequestBody
-│   │   ├── Http/Response/           # Response, ResponseBody, Status
+│   │   ├── Http/Response/           # Response, ResponseBody, Status, IResponseHandler, TypedResponse (the lazy typed response)
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, HttpClientExtensions, DelegateHttpClient
 │   │   ├── Operations/              # OperationDescriptor, the operation-input projection
 │   │   ├── Resilience/              # internal: RetryFacts (classifier, re-send gate), RetryBackoff, RetryPacing, RetryBudget, RetryEngine (the one retry loop)
@@ -133,7 +134,8 @@ dotnet-sdk/
 │   │   ├── Diagnostics/             # DexpaceDiagnostics (ActivitySource + Meter), UrlRedactor, DexpaceLogEvents/Keys, HttpLogEmitter,
 │   │   │                            #   HttpSemanticConventions, HttpClientMetrics, AttemptTelemetry, OperationTelemetry (5c, internal)
 │   │   ├── Execution/               # CallKey, InstrumentationContext, the three context records, DexpaceCallContexts
-│   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions
+│   │   ├── Serialization/           # ISerde, IStringSerde, SerdeExtensions, ResponseBodySerdeExtensions (the typed readers), ResponseHandlers,
+│   │   │                            #   Tristate (+ TristateSentinel, ITristate hook)
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
 │   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
 │   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, RedirectException (+ downgrade / not-replayable leaves), SerdeException, ExceptionFacts, ExceptionTrail
@@ -193,6 +195,10 @@ Layered, bottom-up:
   (`ToReplayableAsync`) when retries are in play. The exception: a `RequestBody.FromStream` over a readable, seekable
   stream with a declared length is replayable (it seeks the caller's stream before each write). Disposal is latched: a
   `Response` or `ResponseBody` releases at most once, and a `ResponseBody` subclass overrides `Dispose(bool)`, not `Dispose()`.
+- **Typed reads close the body and reject a wire `null`.** `ResponseBody.ReadValueAsync<T>` / `ReadValue<T>` stream, dispose the body on every path, throw a
+  `DeserializationException` naming `T` for a missing payload and for a `null` into a reference type (`ReadValueOrDefault*` admits the `null`); the response handlers
+  own and dispose the response they are given. `SystemTextJsonSerde` copies the options it is handed (yours is never frozen), wires `Tristate<T>` on the copy, and
+  needs a source-generated context in the default or `Metadata` mode: a fast-path-only (`GenerationMode = Serialization`) context cannot be used with it.
 - **Transports are ownership-aware, and the SDK is the only redirect authority.** A caller-supplied
   `System.Net.Http.HttpClient` is never disposed by `SystemNetHttpClient`; only an internally created one
   is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails.
@@ -270,7 +276,8 @@ headers, the suppressed trail, `OperationTimeoutException` and the enforced `Att
 the pure decider behind `RedirectPolicy`, `RedirectOptions` (`AllowedMethods`, `FollowSeeOther`, `Predicate`), the `RedirectException` family, loop detection, the five
 `http.redirect.*` events and the end-to-end credential-leak tests — see `docs/sdk-documentation/redirect.md`; and phase 6c's authentication — the
 descriptor and resolver with their `RequestOptions` tiers, the redacting credentials, the lenient challenge parser, the `401` lifecycle in `AuthorizationPolicy`, the
-bounded token cache with its background refresh, Digest with the MD5 probe, and `MultiSchemeAuthPolicy` — see `docs/sdk-documentation/auth.md`):
-tri-state PATCH, SSE and the remaining pagination surface (7), the transport
+bounded token cache with its background refresh, Digest with the MD5 probe, and `MultiSchemeAuthPolicy` — see `docs/sdk-documentation/auth.md`; and phase 7a's
+serde — `Tristate<T>` and its System.Text.Json wiring, `CreateDefaultOptions`, the options-copying constructors, the streaming typed readers, the two response handlers and
+`TypedResponse<T>` — see `docs/sdk-documentation/serde.md`): SSE and the remaining pagination surface (7b, 7c), the transport
 conformance kit (8), the DI package `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release
 path (12).

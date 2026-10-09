@@ -3,6 +3,8 @@
 
 using System.Buffers;
 using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.IO;
 
 namespace Dexpace.Sdk.Core.Serialization;
 
@@ -22,10 +24,10 @@ namespace Dexpace.Sdk.Core.Serialization;
 /// </para>
 /// <para>
 /// <b>Primitives and profiles (SEAM-20).</b> The seam has two encode primitives (a stream and an
-/// <see cref="IBufferWriter{T}"/>) and two decode primitives (a stream and a UTF-8 span). The fresh-bytes, string and
-/// fixed-buffer profiles are written once, over any codec, in <see cref="SerdeExtensions"/>. The buffer primitives are
-/// UTF-8; a codec whose wire format is not UTF-8 text implements <see cref="IStringSerde"/> as the optional string
-/// override.
+/// <see cref="IBufferWriter{T}"/>) and three decode primitives (an asynchronous stream, a UTF-8 span, and a synchronous
+/// stream with a bounded default, P7a-13). The fresh-bytes, string and fixed-buffer profiles are written once, over any
+/// codec, in <see cref="SerdeExtensions"/>. The buffer primitives are UTF-8; a codec whose wire format is not UTF-8 text
+/// implements <see cref="IStringSerde"/> as the optional string override.
 /// </para>
 /// <para>
 /// <b>Failures (SEAM-20, SEAM-21, SEAM-23).</b> A codec throws <see cref="Errors.SerializationException"/> for encode
@@ -72,4 +74,34 @@ public interface ISerde
     /// <returns>The deserialized value, or <see langword="null"/>.</returns>
     /// <exception cref="Errors.DeserializationException">Deserialization failed.</exception>
     T? Deserialize<T>(ReadOnlySpan<byte> utf8);
+
+    /// <summary>Deserializes a value of type <typeparamref name="T"/> from <paramref name="source"/>, synchronously.</summary>
+    /// <typeparam name="T">The target type.</typeparam>
+    /// <param name="source">The stream to read; the codec leaves it open (SERDE-3).</param>
+    /// <returns>The deserialized value, or <see langword="null"/>.</returns>
+    /// <remarks>
+    /// <para>
+    /// This is a default interface member (P7a-13), so every existing implementer keeps compiling and keeps its binary
+    /// compatibility. <b>The default materialises:</b> it reads <paramref name="source"/> to the end, bounded by
+    /// <see cref="ResponseBody.DefaultMaxMaterializedBytes"/>, and calls <see cref="Deserialize{T}(ReadOnlySpan{byte})"/>.
+    /// A seekable source that declares more than the bound is refused before any read. A codec with a streaming synchronous
+    /// decoder overrides it, and <c>SystemTextJsonSerde</c> does.
+    /// </para>
+    /// <para>
+    /// It takes no <see cref="CancellationToken"/>, because a synchronous stream decode has no cancellation point of its own
+    /// and a token parameter would have to be the longest overload (RS0027). Encoding has no synchronous stream member:
+    /// <see cref="Serialize{T}(IBufferWriter{byte}, T)"/> is the synchronous encode primitive.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="Errors.DeserializationException">Deserialization failed.</exception>
+    /// <exception cref="Errors.BodyTooLargeException">The default implementation found more bytes than the bound.</exception>
+    /// <exception cref="IOException">The stream failed; it propagates unwrapped (SERDE-12).</exception>
+    T? Deserialize<T>(Stream source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var declared = source.CanSeek ? source.Length - source.Position : -1;
+        var bytes = BodyMaterializer.ReadAll(source, declared, ResponseBody.DefaultMaxMaterializedBytes, CancellationToken.None);
+        return Deserialize<T>(bytes);
+    }
 }

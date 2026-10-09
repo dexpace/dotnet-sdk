@@ -284,6 +284,7 @@ Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException() -> v
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message) -> void
 Dexpace.Sdk.Core.Errors.DeserializationException.DeserializationException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.HttpResponseException
+Dexpace.Sdk.Core.Errors.HttpResponseException.GetError<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> T?
 Dexpace.Sdk.Core.Errors.HttpResponseException.GetErrorAsync<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Errors.HttpResponseException.HttpResponseException(Dexpace.Sdk.Core.Http.Response.Response! response, string? message = null) -> void
 Dexpace.Sdk.Core.Errors.HttpResponseException.Response.get -> Dexpace.Sdk.Core.Http.Response.Response!
@@ -471,6 +472,8 @@ Dexpace.Sdk.Core.Http.Request.RequestOptions.Tags.init -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.get -> System.TimeSpan?
 Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.init -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions.WithTag(string! key, string! value) -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
+Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>
+Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>.HandleAsync(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<T>
 Dexpace.Sdk.Core.Http.Response.Response
 Dexpace.Sdk.Core.Http.Response.Response.Body.get -> Dexpace.Sdk.Core.Http.Response.ResponseBody!
 Dexpace.Sdk.Core.Http.Response.Response.Dispose() -> void
@@ -503,6 +506,16 @@ Dexpace.Sdk.Core.Http.Response.Status.IsServerError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsSuccess.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.Name.get -> string?
 Dexpace.Sdk.Core.Http.Response.Status.Status() -> void
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Dispose() -> void
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.GetValueAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T>
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Protocol.get -> Dexpace.Sdk.Core.Http.Common.Protocol
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.ReasonPhrase.get -> string?
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Status.get -> Dexpace.Sdk.Core.Http.Response.Status
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.TypedResponse(Dexpace.Sdk.Core.Http.Response.Response! response, Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 Dexpace.Sdk.Core.Operations.OperationDescriptor
 Dexpace.Sdk.Core.Operations.OperationDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
 Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
@@ -621,14 +634,41 @@ Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy
 Dexpace.Sdk.Core.Pipeline.Policies.SetDatePolicy.SetDatePolicy(System.TimeProvider? timeProvider = null) -> void
 Dexpace.Sdk.Core.Serialization.ISerde
 Dexpace.Sdk.Core.Serialization.ISerde.DefaultMediaType.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
+Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.IO.Stream! source) -> T?
 Dexpace.Sdk.Core.Serialization.ISerde.Deserialize<T>(System.ReadOnlySpan<byte> utf8) -> T?
 Dexpace.Sdk.Core.Serialization.ISerde.DeserializeAsync<T>(System.IO.Stream! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
 Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<byte>! destination, T value) -> void
 Dexpace.Sdk.Core.Serialization.ISerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Serialization.IStringSerde
 Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
+Dexpace.Sdk.Core.Serialization.ITristate
+Dexpace.Sdk.Core.Serialization.ITristate.Accept<TResult>(Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>! visitor) -> TResult
+Dexpace.Sdk.Core.Serialization.ITristate.State.get -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>
+Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>.Visit<T>(Dexpace.Sdk.Core.Serialization.Tristate<T> value) -> TResult
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
+Dexpace.Sdk.Core.Serialization.ResponseHandlers
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
+Dexpace.Sdk.Core.Serialization.Tristate
+Dexpace.Sdk.Core.Serialization.Tristate<T>
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Equals(Dexpace.Sdk.Core.Serialization.Tristate<T> other) -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.GetValueOrDefault() -> T?
+Dexpace.Sdk.Core.Serialization.Tristate<T>.GetValueOrDefault(T defaultValue) -> T
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsAbsent.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsNull.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsPresent.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Match<TResult>(System.Func<TResult>! onAbsent, System.Func<TResult>! onNull, System.Func<T, TResult>! onPresent) -> TResult
+Dexpace.Sdk.Core.Serialization.Tristate<T>.State.get -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Tristate() -> void
+Dexpace.Sdk.Core.Serialization.Tristate<T>.TryGetValue(out T value) -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Value.get -> T
+Dexpace.Sdk.Core.Serialization.TristateSentinel
+Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(Dexpace.Sdk.Core.Serialization.TristateSentinel other) -> bool
+Dexpace.Sdk.Core.Serialization.TristateSentinel.TristateSentinel() -> void
+Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Absent = 0 -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Null = 1 -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Present = 2 -> Dexpace.Sdk.Core.Serialization.TristateState
 override Dexpace.Sdk.Core.Auth.AccessToken.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Auth.AccessToken.GetHashCode() -> int
 override Dexpace.Sdk.Core.Auth.AccessToken.ToString() -> string!
@@ -715,6 +755,12 @@ override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Process(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.ToString() -> string!
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.GetHashCode() -> int
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.ToString() -> string!
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.GetHashCode() -> int
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
@@ -890,10 +936,31 @@ static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateDefault(Dexpace.Sdk.Core.
 static Dexpace.Sdk.Core.Pipeline.DexpacePipeline.CreateEmpty(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport) -> Dexpace.Sdk.Core.Pipeline.HttpPipeline!
 static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Flatten(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
 static Dexpace.Sdk.Core.Pipeline.PipelineBuilder.Nest(Dexpace.Sdk.Core.Pipeline.HttpPipeline! pipeline) -> Dexpace.Sdk.Core.Pipeline.PipelineBuilder!
-static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValue<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> T
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T>
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefault<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> T?
+static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefaultAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.ResponseHandlers.Deserialize<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>!
+static Dexpace.Sdk.Core.Serialization.ResponseHandlers.DeserializeOnSuccess<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
+static Dexpace.Sdk.Core.Serialization.Tristate.Absent.get -> Dexpace.Sdk.Core.Serialization.TristateSentinel
+static Dexpace.Sdk.Core.Serialization.Tristate.FromNullable<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T!>
+static Dexpace.Sdk.Core.Serialization.Tristate.FromNullable<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate.GetValueOrNull<T>(this Dexpace.Sdk.Core.Serialization.Tristate<T> value) -> T?
+static Dexpace.Sdk.Core.Serialization.Tristate.Null.get -> Dexpace.Sdk.Core.Serialization.TristateSentinel
+static Dexpace.Sdk.Core.Serialization.Tristate.Present<T>(T value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Absent.get -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.FromNullable(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.implicit operator Dexpace.Sdk.Core.Serialization.Tristate<T>(Dexpace.Sdk.Core.Serialization.TristateSentinel sentinel) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.implicit operator Dexpace.Sdk.Core.Serialization.Tristate<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Null.get -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.operator !=(Dexpace.Sdk.Core.Serialization.Tristate<T> left, Dexpace.Sdk.Core.Serialization.Tristate<T> right) -> bool
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.operator ==(Dexpace.Sdk.Core.Serialization.Tristate<T> left, Dexpace.Sdk.Core.Serialization.Tristate<T> right) -> bool
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Present(T value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.TristateSentinel.operator !=(Dexpace.Sdk.Core.Serialization.TristateSentinel left, Dexpace.Sdk.Core.Serialization.TristateSentinel right) -> bool
+static Dexpace.Sdk.Core.Serialization.TristateSentinel.operator ==(Dexpace.Sdk.Core.Serialization.TristateSentinel left, Dexpace.Sdk.Core.Serialization.TristateSentinel right) -> bool
 static readonly Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.DefaultAllowedHeaderNames -> System.Collections.Generic.IReadOnlyCollection<string!>!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
