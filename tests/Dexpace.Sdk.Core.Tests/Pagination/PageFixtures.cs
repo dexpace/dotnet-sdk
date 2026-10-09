@@ -49,7 +49,8 @@ internal static class PageFixtures
 /// </summary>
 /// <param name="bytes">The envelope bytes (<see cref="PageFixtures.Body"/>).</param>
 /// <param name="disposeFailure">An exception to throw from the release, or <see langword="null"/>.</param>
-internal sealed class EnvelopeBody(byte[] bytes, Exception? disposeFailure = null) : ResponseBody
+/// <param name="onDispose">Called when the release runs, before it fails; lets a test order closes against yields.</param>
+internal sealed class EnvelopeBody(byte[] bytes, Exception? disposeFailure = null, Action? onDispose = null) : ResponseBody
 {
     private int _disposes;
 
@@ -57,9 +58,10 @@ internal sealed class EnvelopeBody(byte[] bytes, Exception? disposeFailure = nul
     /// <param name="items">The items.</param>
     /// <param name="next">The continuation token, or <see langword="null"/>.</param>
     /// <param name="disposeFailure">An exception to throw from the release, or <see langword="null"/>.</param>
+    /// <param name="onDispose">Called when the release runs, before it fails.</param>
     /// <returns>The body.</returns>
-    internal static EnvelopeBody Of(IReadOnlyList<int> items, string? next = null, Exception? disposeFailure = null) =>
-        new(PageFixtures.Body(items, next), disposeFailure);
+    internal static EnvelopeBody Of(IReadOnlyList<int> items, string? next = null, Exception? disposeFailure = null, Action? onDispose = null) =>
+        new(PageFixtures.Body(items, next), disposeFailure, onDispose);
 
     /// <summary>How many times the release ran (the base latch makes it at most one).</summary>
     internal int DisposeCount => Volatile.Read(ref _disposes);
@@ -81,6 +83,7 @@ internal sealed class EnvelopeBody(byte[] bytes, Exception? disposeFailure = nul
     protected override void Dispose(bool disposing)
     {
         Interlocked.Increment(ref _disposes);
+        onDispose?.Invoke();
         if (disposeFailure is not null)
         {
             throw disposeFailure;
