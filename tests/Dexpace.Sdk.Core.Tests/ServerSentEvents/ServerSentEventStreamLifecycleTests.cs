@@ -400,4 +400,145 @@ public sealed class ServerSentEventStreamLifecycleTests : IDisposable
         Assert.Equal(0, body.OpenCount);
         Assert.Equal(1, body.DisposeCount);
     }
+
+    // ── The blocking view (task 3.3) ─────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AsEnumerable_yields_the_events_and_releases_once_at_the_end()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\nid: 2\ndata: b\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+
+        var events = stream.AsEnumerable().ToList();
+
+        Assert.Equal(["a", "b"], events.Select(e => e.Data[0]));
+        Assert.Equal("2", events[1].Id);
+        Assert.Equal(1, body.DisposeCount);
+        stream.Dispose();
+        Assert.Equal(1, body.DisposeCount);
+    }
+
+    [Fact]
+    public void The_body_is_opened_through_OpenRead_never_OpenReadAsync()
+    {
+        var body = new SseBody(SseResponses.Bytes("data: a\n\n")) { AsyncOpen = _ => throw new NotSupportedException("async open") };
+        using var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body));
+
+        var events = stream.AsEnumerable().ToList();
+
+        Assert.Single(events);
+        Assert.Equal(1, body.SyncOpenCount);
+        Assert.Equal(0, body.AsyncOpenCount);
+    }
+
+    [Fact]
+    public void Breaking_out_early_swallows_a_release_failure_and_does_not_mask_the_consumer()
+    {
+        var logger = new RecordingLogger();
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n", disposeFailure: new InvalidOperationException("close boom"));
+        using var activity = _source.StartActivity("sse-blocking-break");
+        Assert.NotNull(activity);
+        var stream = ServerSentEventStream.FromResponse(response, logger: logger);
+
+        foreach (var ev in stream.AsEnumerable())
+        {
+            Assert.Equal(["a"], ev.Data);
+            break;
+        }
+
+        Assert.Equal(1, body.DisposeCount);
+        Assert.True(Reported(activity));
+        Assert.Equal(DexpaceLogEvents.DisposeSuppressedId, Assert.Single(logger.Entries).EventId.Id);
+
+        var (second, secondBody) = SseResponses.Respond("data: a\n\n", disposeFailure: new InvalidOperationException("close boom"));
+        var secondStream = ServerSentEventStream.FromResponse(second);
+        var thrown = Assert.Throws<ArgumentException>(() =>
+        {
+            foreach (var unused in secondStream.AsEnumerable())
+            {
+                throw new ArgumentException("consumer");
+            }
+        });
+        Assert.Equal("consumer", thrown.Message);
+        Assert.Equal(1, secondBody.DisposeCount);
+    }
+
+    [Fact]
+    public void AsEnumerable_is_lazy_and_takes_the_latch_at_GetEnumerator()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\n");
+        using var stream = ServerSentEventStream.FromResponse(response);
+
+        var first = stream.AsEnumerable();
+        var second = stream.AsEnumerable();
+
+        Assert.Equal(0, body.OpenCount);
+        using var taken = first.GetEnumerator();
+        Assert.Throws<InvalidOperationException>(() => second.GetEnumerator());
+        Assert.Equal(0, body.OpenCount);
+        Assert.True(taken.MoveNext());
+        Assert.Equal(1, body.OpenCount);
+    }
+
+    [Fact]
+    public void Taking_the_blocking_view_after_close_throws_ObjectDisposedException()
+    {
+        var (response, _) = SseResponses.Respond("data: a\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        var view = stream.AsEnumerable();
+        stream.Dispose();
+
+        var ex = Assert.Throws<ObjectDisposedException>(() => view.GetEnumerator());
+
+        Assert.IsAssignableFrom<InvalidOperationException>(ex);
+    }
+
+    [Fact]
+    public async Task A_second_view_throws_InvalidOperationException_at_the_call_in_either_order()
+    {
+        var (first, _) = SseResponses.Respond("data: a\n\n");
+        await using var blockingFirst = ServerSentEventStream.FromResponse(first);
+        using var taken = blockingFirst.AsEnumerable().GetEnumerator();
+        Assert.IsType<InvalidOperationException>(Assert.Throws<InvalidOperationException>(() => blockingFirst.GetAsyncEnumerator(Token)));
+        Assert.Throws<InvalidOperationException>(() => blockingFirst.AsEnumerable().GetEnumerator());
+
+        var (second, _) = SseResponses.Respond("data: a\n\n");
+        await using var asyncFirst = ServerSentEventStream.FromResponse(second);
+        _ = asyncFirst.GetAsyncEnumerator(Token);
+        Assert.Throws<InvalidOperationException>(() => asyncFirst.AsEnumerable().GetEnumerator());
+    }
+
+    [Fact]
+    public void The_same_view_object_enumerated_twice_throws()
+    {
+        var (response, _) = SseResponses.Respond("data: a\n\n");
+        using var stream = ServerSentEventStream.FromResponse(response);
+        var view = stream.AsEnumerable();
+        using var taken = view.GetEnumerator();
+
+        Assert.Throws<InvalidOperationException>(() => view.GetEnumerator());
+    }
+
+    [Fact]
+    public void The_facade_is_not_an_IEnumerable()
+    {
+        // P7b-15: implementing both interfaces makes LINQ ambiguous (CS0121, verified in the pre-flight) and lets foreach
+        // versus await foreach silently choose the path.
+        Assert.False(typeof(IEnumerable<ServerSentEvent>).IsAssignableFrom(typeof(ServerSentEventStream)));
+        Assert.True(typeof(IAsyncEnumerable<ServerSentEvent>).IsAssignableFrom(typeof(ServerSentEventStream)));
+    }
+
+    [Fact]
+    public void A_close_between_pulls_ends_a_blocking_iteration_cleanly()
+    {
+        var (response, body) = SseResponses.Respond("data: a\n\ndata: b\n\n");
+        var stream = ServerSentEventStream.FromResponse(response);
+        using var enumerator = stream.AsEnumerable().GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+
+        stream.Dispose();
+
+        Assert.False(enumerator.MoveNext());
+        Assert.Equal(1, body.DisposeCount);
+    }
 }

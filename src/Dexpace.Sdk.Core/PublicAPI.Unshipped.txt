@@ -1256,6 +1256,7 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNext() -> Dexpace.Sd
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?>
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes = 1048576) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.AsEnumerable() -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
