@@ -192,4 +192,54 @@ public sealed class LoopbackServerTests
         var fault = Assert.Single(server.Faults);
         Assert.Contains("GET /extra HTTP/1.1", fault.Message, StringComparison.Ordinal);
     }
+
+    // Yields the first chunk at once, the second only after the gate opens: a server that is still writing.
+    private static async IAsyncEnumerable<byte[]> GatedChunks(Task gate, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        yield return "one"u8.ToArray();
+        await gate.WaitAsync(cancellationToken);
+        yield return "two"u8.ToArray();
+    }
+
+    private static async Task<string> ReadSomeAsync(Stream stream)
+    {
+        var buffer = new byte[64];
+        var read = await stream.ReadAsync(buffer, Ct);
+        return Encoding.UTF8.GetString(buffer, 0, read);
+    }
+
+    [Fact]
+    public async Task A_streamed_reply_delivers_each_chunk_as_the_test_releases_it()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var server = LoopbackServer.Start(
+            LoopbackResponse.Streamed([new("Content-Type", "text/event-stream")], GatedChunks(gate.Task, Ct)));
+        using var client = DirectClient();
+
+        using var response = await client.GetAsync(server.Url("/stream"), HttpCompletionOption.ResponseHeadersRead, Ct);
+        await using var body = await response.Content.ReadAsStreamAsync(Ct);
+
+        // The first chunk arrives while the server is still gated on the second: the reply is genuinely incremental.
+        Assert.Equal("one", await ReadSomeAsync(body).WaitAsync(TimeSpan.FromSeconds(10), Ct));
+        Assert.False(gate.Task.IsCompleted);
+        gate.SetResult();
+        Assert.Equal("two", await ReadSomeAsync(body).WaitAsync(TimeSpan.FromSeconds(10), Ct));
+        Assert.Equal(string.Empty, await ReadSomeAsync(body));
+        Assert.Empty(server.Faults);
+    }
+
+    [Fact]
+    public async Task A_streamed_reply_ends_with_the_chunked_terminator()
+    {
+        await using var server = LoopbackServer.Start(
+            LoopbackResponse.Streamed([new("Content-Type", "text/event-stream")], GatedChunks(Task.CompletedTask, Ct)));
+        using var client = DirectClient();
+
+        using var response = await client.GetAsync(server.Url("/stream"), HttpCompletionOption.ResponseHeadersRead, Ct);
+        var text = await response.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal("onetwo", text);
+        Assert.True(response.Headers.TransferEncodingChunked);
+        Assert.Empty(server.Faults);
+    }
 }

@@ -7,6 +7,7 @@ using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Operations;
+using Dexpace.Sdk.Core.ServerSentEvents;
 using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Architecture;
@@ -40,6 +41,7 @@ public sealed class ModelImmutabilityArchitectureTests
         typeof(ETag),
         typeof(HttpRange),
         typeof(OperationDescriptor),
+        typeof(ServerSentEvent),
     ];
 
     public static TheoryData<Type> Models()

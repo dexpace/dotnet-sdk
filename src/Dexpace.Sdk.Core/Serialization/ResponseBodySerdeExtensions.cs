@@ -72,8 +72,9 @@ public static class ResponseBodySerdeExtensions
     /// <param name="cancellationToken">A token passed to <see cref="ResponseBody.OpenRead"/>; the synchronous stream decode takes none.</param>
     /// <returns>The deserialized value; never <see langword="null"/> for a reference type.</returns>
     /// <remarks>
-    /// Over a transport's response body this throws <see cref="NotSupportedException"/> until the transport implements the
-    /// synchronous stream open (phase 8b), as every synchronous body reader does.
+    /// Over a transport's response body that does not override <see cref="ResponseBody.OpenRead"/> this throws
+    /// <see cref="NotSupportedException"/>, as every synchronous body reader does; <c>SystemNetHttpClient</c>'s body implements
+    /// the synchronous open (phase 7b).
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or <paramref name="serde"/> is <see langword="null"/>; the body is then not disposed.</exception>
     /// <exception cref="Errors.StreamConsumedException">The body has already been read.</exception>

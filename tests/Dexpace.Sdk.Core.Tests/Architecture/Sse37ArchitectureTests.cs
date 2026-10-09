@@ -77,6 +77,34 @@ public sealed partial class Sse37ArchitectureTests
     }
 
     [Fact]
+    public void Sse_types_hold_no_sentinel_literal_and_name_no_default_event_type()
+    {
+        // SSE-37 / SSE-10: the end-of-stream sentinel and the "message" default belong to the caller, never to core. The
+        // scan covers every type in the namespace, including the compiler-generated iterators nested in them.
+        var sseTypes = CoreTypes().Where(type => IsIn(type, SseNamespace)).ToArray();
+        Assert.NotEmpty(sseTypes);
+
+        var violations = sseTypes
+            .Select(type => (Type: type, Literal: SentinelLiterals(type).FirstOrDefault()))
+            .Where(found => found.Literal is not null)
+            .Select(found => $"{found.Type.FullName} holds \"{found.Literal}\"")
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Theory]
+    [InlineData(typeof(SentinelHolder))]
+    [InlineData(typeof(MessageDefaultHolder))]
+    public void Sentinel_scan_sees_a_sentinel_and_a_message_default(Type fixture) =>
+        Assert.NotEmpty(SentinelLiterals(fixture));
+
+    [Theory]
+    [InlineData(typeof(CleanReference))]
+    [InlineData(typeof(MessageSubstringHolder))]
+    public void Sentinel_scan_ignores_a_type_without_one(Type fixture) => Assert.Empty(SentinelLiterals(fixture));
+
+    [Fact]
     public void Sse_code_lives_only_in_the_namespace_the_gate_watches()
     {
         var strays = CoreTypes()
@@ -125,6 +153,12 @@ public sealed partial class Sse37ArchitectureTests
         Assert.Equal(flagged, NamespaceLooksLikeSse(ns));
 
     private static Type[] CoreTypes() => typeof(Request).Assembly.GetTypes();
+
+    // A string literal that is the "[DONE]" sentinel (anywhere inside it, in any case) or exactly "message".
+    private static IEnumerable<string> SentinelLiterals(Type type) =>
+        TypeReferences.StringLiterals(type).Where(literal =>
+            literal.Contains("[DONE]", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(literal, "message", StringComparison.Ordinal));
 
     private static IEnumerable<Type> SerializationReferences(Type type) =>
         TypeReferences.Of(type).Where(target => IsIn(target, SerializationNamespace));
@@ -241,6 +275,23 @@ public sealed partial class Sse37ArchitectureTests
     private static class CleanReference
     {
         public static int Twice(int value) => value * 2;
+    }
+
+    // ── Sentinel-scan fixtures ───────────────────────────────────────────────────────────────────────────────
+
+    private static class SentinelHolder
+    {
+        public static bool IsEnd(string data) => data == "[DONE]";
+    }
+
+    private static class MessageDefaultHolder
+    {
+        public static string NameOf(string? eventName) => eventName ?? "message";
+    }
+
+    private static class MessageSubstringHolder
+    {
+        public static string Describe() => "the message was long";
     }
 
     // ── Stray-guard fixtures ─────────────────────────────────────────────────────────────────────────────────

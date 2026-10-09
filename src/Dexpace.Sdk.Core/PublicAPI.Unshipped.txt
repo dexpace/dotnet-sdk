@@ -1228,3 +1228,73 @@ Dexpace.Sdk.Core.Recovery.RetryRecovery.RetryRecovery(Dexpace.Sdk.Core.Configura
 Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string
+const Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.DefaultMaxLineBytes = 1048576 -> int
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.<Clone>$() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Data.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Data.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Event.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Event.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Id.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Id.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.IsEmpty.get -> bool
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.get -> System.TimeSpan?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ServerSentEvent() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.MaxLineBytes.get -> int
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNext() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?>
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes = 1048576) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.AsEnumerable() -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.GetAsyncEnumerator(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerator<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Map<T>(System.Func<string?, string!, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>>! mapper) -> System.Collections.Generic.IEnumerable<T>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.MapAsync<T>(System.Func<string?, string!, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>>! mapper) -> System.Collections.Generic.IAsyncEnumerable<T>!
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Equals(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Kind.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.SseMapResult() -> void
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.ToSseMapResult<T>() -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Equals(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Kind.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.SseMapResult() -> void
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Value.get -> T
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Done = 3 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Skip = 2 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind.Value = 1 -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResultKind
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
+override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.GetHashCode() -> int
+override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.GetHashCode() -> int
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes = 1048576, Microsoft.Extensions.Logging.ILogger? logger = null) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Done.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator !=(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator ==(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Skip.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Value<T>(T value) -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.implicit operator Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult signal) -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.operator !=(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.operator ==(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T> right) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Equals(object obj) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.ToString() -> string
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.Equals(object obj) -> bool
+~override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.ToString() -> string

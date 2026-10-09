@@ -36,7 +36,7 @@ namespace Dexpace.Sdk.AotSmoke;
 /// transport's request/response mapping over an in-process handler (no socket; the loopback round trip is phase
 /// 7's extension).
 /// </summary>
-internal static class SmokeChecks
+internal static partial class SmokeChecks
 {
     private static readonly Uri s_endpoint = new("https://smoke.example.test/widgets");
 
@@ -63,6 +63,7 @@ internal static class SmokeChecks
             await CheckPhase6bRedirectAsync();
             await CheckPhase6cAuthAsync();
             await CheckPhase7aSerdeAsync();
+            await CheckServerSentEventsAsync();
         }
         catch (SmokeFailureException failure)
         {

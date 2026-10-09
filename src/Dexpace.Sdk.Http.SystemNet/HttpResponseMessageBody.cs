@@ -41,6 +41,23 @@ internal sealed class HttpResponseMessageBody : ResponseBody
 
     public override async Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
     {
+        Claim();
+        return await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // The synchronous twin (P3a-5): it shares the one open latch with OpenReadAsync, so a second open in either form is a
+    // StreamConsumedException, and it reads the live content stream without a thread-pool hop. Phase 7b needed it for the
+    // blocking server-sent-events views over this transport.
+    public override Stream OpenRead(CancellationToken cancellationToken = default)
+    {
+        Claim();
+        return _message.Content.ReadAsStream(cancellationToken);
+    }
+
+    // One latch for both forms. The consumed check runs first, so a body that was read and then disposed still reports
+    // "consumed" (P3b-11); a body disposed before any open reports "closed".
+    private void Claim()
+    {
         if (Volatile.Read(ref _consumed) != 0)
         {
             throw new StreamConsumedException(ConsumedMessage);
@@ -55,8 +72,6 @@ internal sealed class HttpResponseMessageBody : ResponseBody
         {
             throw new StreamConsumedException(ConsumedMessage);
         }
-
-        return await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
     }
 
     protected override void Dispose(bool disposing)

@@ -29,7 +29,8 @@ The twins are `virtual`, not `abstract`, so a body written for the async path al
 the member to override; `ToReplayable`, `ReadAsBytes` and `ReadAsString` are built over those two, so a subclass overrides
 one member per direction. Every body the SDK creates (`FromBytes`, `FromString`, `FromValue`, `FromStream`, the buffered
 copies) supports both forms. A transport's own response body supports the sync path only once that transport implements it;
-`SystemNetHttpClient`'s does not yet (phase 8b), so `OpenRead` on a body it produced throws `NotSupportedException`.
+`SystemNetHttpClient`'s does, since phase 7b (*dated correction, 2026-10-09: P3a-5 left it to 8b, but the blocking server-sent-events
+views need it*): `OpenRead` shares the open latch with `OpenReadAsync` and reads `HttpContent.ReadAsStream`.
 
 ```csharp
 public sealed class GeneratedBody : RequestBody
@@ -89,7 +90,7 @@ The helpers behind these members are `internal` and carry no public vocabulary o
 unbounded copies), `TeeStream` (mirroring writes into a bounded tap), `CapturedBytes` (non-consuming read-only views and
 slices over a never-pooled array), `Utf8LineReader` (UTF-8 lines in a default and a WHATWG mode, with a mandatory line cap),
 `BodyMaterializer` and `BoundedBufferStream`. You reach their behaviour through the members above; the logging wrappers
-(phase 3b) and the SSE parser (phase 7b) are their consumers. `BannedSymbols.txt` keeps three rules in force for `src/`:
+(phase 3b) and the SSE parser (phase 7b, [`sse.md`](./sse.md)) are their consumers. `BannedSymbols.txt` keeps three rules in force for `src/`:
 captured bytes are never rented from a pool, core never sets a stream timeout, and `StreamReader.ReadLine` is not used (it
 splits on a lone CR that `IO-14` keeps as content).
 

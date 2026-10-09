@@ -82,6 +82,13 @@ internal sealed class Utf8LineReader : IDisposable, IAsyncDisposable
     /// <summary>The number of bytes the scan has examined; each byte of a line is examined once (test hook).</summary>
     internal long ScannedBytes { get; private set; }
 
+    /// <summary>
+    /// <see langword="true"/> once a line has exceeded the cap, which is the only way this reader fails. A caller that maps
+    /// the cap's <see cref="InvalidDataException"/> to its own type reads this so that an <see cref="InvalidDataException"/>
+    /// raised by the <i>source</i> (a corrupt gzip stream, say) is never mistaken for it (phase 7b, P7b-4).
+    /// </summary>
+    internal bool IsFailed => _failed;
+
     /// <summary>Reads the next line, or <see langword="null"/> when the stream is exhausted.</summary>
     /// <returns>The line without its terminator, or <see langword="null"/>.</returns>
     /// <exception cref="InvalidDataException">A line exceeded the cap; the reader stays failed.</exception>

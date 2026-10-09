@@ -126,6 +126,8 @@ Design §2.2 is the authority. Each package is a release-notes entry, not a phas
 
 - **`Dexpace.Sdk.Reactive`** would bridge `IAsyncEnumerable<T>` to `IObservable<T>` for pagination and SSE.
   Trigger: a consumer that composes with Rx operators.
+  An optional `SseItem<T>` bridge for callers who want `System.Net.ServerSentEvents`' strict-WHATWG semantics (design §11 item 17) would sit beside it
+  rather than in core (recorded by phase 7b, 2026-10-09; `SSE-41` is N/A until an adapter ships).
 - **`Dexpace.Sdk.Serialization.NewtonsoftJson`.** Trigger: a consumer whose DTOs are modelled with Newtonsoft
   attributes.
 - **`Dexpace.Sdk.Serialization.Xml`.** Trigger: a real consumer of a second wire format.

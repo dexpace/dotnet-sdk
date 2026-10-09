@@ -70,6 +70,13 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   response is disposed, even when draining its body fails. **Breaking:** after catching the exception, read the error
   body from `HttpResponseException.Response`, not from the original response.
 
+Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a `[Trait("Category", "Security")]` regression test in
+`tests/Dexpace.Sdk.Core.Tests/Security/`:
+
+- **A server-sent-events line is capped at 1 MiB by default** (issue #10; `SSE-19`, design §10 entry 20). `ServerSentEventReader` holds at most `maxLineBytes` content bytes of a line and throws
+  `ServerSentEventLineTooLongException` (a `StreamingException`) after reading at most one cap plus two read buffers, and stays failed; the message names the cap and never a byte of the line.
+  Pinned permanently by `Security/ServerSentEventLineCapTests`. The cap bounds a line, not an event: bound a stream from an untrusted server with a token or `OverallTimeout` (`sse.md`).
+
 ### Changed
 
 - **Breaking:** `IHttpClient.Execute(Request)` is now `Execute(Request, RequestOptions, CancellationToken)` and
@@ -540,6 +547,15 @@ Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security
   Digest) for APIs that declare several security schemes, sharing its stamping logic with the single-scheme policies;
   the OpenAPI mapping table is in `docs/sdk-documentation/auth.md` (`AUTH-4`, `AUTH-5`).
 - `docs/sdk-documentation/auth.md`; the AOT smoke covers the challenge parser, the resolver, Digest (SHA-256 and the CSPRNG cnonce), the redacting credentials and the bearer policy with its background refresh.
+- Phase 7b server-sent events (additive; **no Breaking change**), all in the new `Dexpace.Sdk.Core.ServerSentEvents` namespace: `ServerSentEvent` (immutable, `Data` an always-present list copied at `init`, validating `Id` and `Retry`, hand-written
+  equality and a lossless string form; `SSE-4`, `SSE-9`, `SSE-11`, `SSE-20` to `SSE-22`); `ServerSentEventReader` over the WHATWG line reader (`ReadNext{,Async}`, the lazy single-use `ReadAll{,Async}`, a 1 MiB default line cap, a BOM consumed once, no
+  last-event-id carried; `SSE-1` to `SSE-19`, `SSE-39`, `SSE-40`); `ServerSentEventLineTooLongException`.
+- `ServerSentEventStream` (`SSE-23` to `SSE-32`): `FromResponse` owns the response from the call, even when it throws, and rejects a bodyless one (204, 205, 304, `HEAD`, zero length); four single-use views (`await foreach`, `AsEnumerable`, `MapAsync`, `Map`) share one
+  latch; the response is released once on every path, a release failure being swallowed and reported out of band on a clean end or an early dispose, attached to the primary on a failure and propagated on an explicit dispose; a close from another thread
+  surfaces as an `IOException` from a read in flight. The typed adapter's `SseMapResult<T>` (`Value`, `Skip`, `Done`; `default` is a mapper failure) joins the data with LF and runs lazily (`SSE-33` to `SSE-36`).
+- `Dexpace.Sdk.Http.SystemNet`: the response body gained a synchronous `OpenRead` (internal class, no API change), sharing the open latch with `OpenReadAsync`, so the blocking `ServerSentEventStream` views work over the reference transport.
+- Tests and docs: `Sse37ArchitectureTests` now enforces (and scans for a sentinel or `"message"` literal), `Sse38ArchitectureTests` (no `Last-Event-ID`, no transport or `Send` in an SSE type), `tests/vectors/sse/grammar.json` (105 cases from Node `c0ff3fd` and chapter 13), an exhaustive
+  chunk-split property and a seeded round trip, a streamed `LoopbackResponse` and wire tests, the NativeAOT smoke check `CheckServerSentEventsAsync`, and `docs/sdk-documentation/sse.md` (including the reconnect recipe: core ships no reconnecting client, `SSE-38`).
 
 ### Phase 7a — serde
 

@@ -16,6 +16,7 @@ that SDK-domain concerns run in. It ships no transport; pair it with one, such a
 | `Dexpace.Sdk.Core.Pipeline` | `HttpPipeline` (itself an `IAsyncHttpClient` / `IHttpClient`), `PipelineBuilder` (`Flatten` / `Nest`, `AddStandardResilience`), `HttpPipelinePolicy` (request in, response out; `ProcessAsync` / `Process`), `PipelineContext`, `DexpacePipeline.CreateDefault` / `CreateEmpty`, and the policies: operation timeout, redirect, idempotency key, client identity, retry, `Date`, auth, instrumentation, error mapping |
 | `Dexpace.Sdk.Core.Auth` | `AuthScheme`, `AuthRequirement`, `AuthDescriptor`, `AuthResolver` (per-call, operation and client tiers), `TokenCredential`, `AccessToken`, `AccessTokenCache` (30 s margin, background refresh, bounded), `ApiKeyCredential`, `BasicCredential`, `DigestCredential`, `AuthCredentials`, `AuthenticationChallenge` (lenient RFC 7235 parser), `IChallengeHandler` with `BasicChallengeHandler`, `DigestChallengeHandler` (RFC 7616) and `CompositeChallengeHandler` |
 | `Dexpace.Sdk.Core.Pagination` | `AsyncPageable<T>`, `Page<T>`, `Pageable.Create`, `PaginationStrategies` |
+| `Dexpace.Sdk.Core.ServerSentEvents` | `ServerSentEvent`, `ServerSentEventReader` (`ReadNext{,Async}`, `ReadAll{,Async}`), `ServerSentEventStream` (`FromResponse` owns the response; `await foreach`, `AsEnumerable`, `MapAsync` / `Map`), `SseMapResult`, and `ServerSentEventLineTooLongException` for the 1 MiB line cap; no reconnecting client (see `docs/sdk-documentation/sse.md`) |
 | `Dexpace.Sdk.Core.Serialization` | The `ISerde` seam; concrete codecs live in their own packages |
 | `Dexpace.Sdk.Core.Configuration` | The options as sealed records (`DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `HttpLoggingOptions`), `HttpLogLevel` (logging is off by default), `ProxyOptions` with `FromEnvironment`, `TimeProviderWaits` and `BuildInfo` |
 | `Dexpace.Sdk.Core.Diagnostics` | The `Dexpace.Sdk` `ActivitySource` and `Meter`, the default-deny `UrlRedactor` (including `RedactHeaderValue`), and the stable log vocabulary `DexpaceLogEvents` / `DexpaceLogKeys`; the operation span, attempt spans, span events and the two HTTP client instruments are emitted through them (see `docs/sdk-documentation/tracing-and-metrics.md`) |
@@ -60,6 +61,22 @@ the SDK creates overrides them. `RequestBody.FromStream` with a known length wri
 `RequestBody` also has `FromForm` (WHATWG form encoding), `FromFile` (a byte range of a file, a fresh handle per write) and
 `Multipart`; `FromStream` over a seekable stream with a known length is replayable. `Response` and `ResponseBody` dispose at
 most once, the readers dispose the body, and a leading byte-order mark matching the charset is stripped from text.
+
+## Server-sent events
+
+`ServerSentEventStream.FromResponse` takes ownership of a streaming response (from the call, even when it throws) and releases it exactly
+once however you stop. Set `Accept: text/event-stream` on the request yourself; core adds no header and ships no reconnecting client.
+
+```csharp
+await using var events = ServerSentEventStream.FromResponse(await pipeline.SendAsync(request, ct));
+await foreach (var chunk in events.MapAsync<Chunk>((name, data) =>
+    data == "[DONE]" ? SseMapResult.Done : SseMapResult.Value(Parse(data))))   // the sentinel is yours
+{
+    Handle(chunk);
+}
+```
+
+A line over `maxLineBytes` (1 MiB by default) throws `ServerSentEventLineTooLongException`. See `docs/sdk-documentation/sse.md` in the repository.
 
 ## Execution context
 

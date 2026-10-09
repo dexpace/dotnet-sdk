@@ -7,6 +7,8 @@ using System.Net;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.Core.Serialization;
+using Dexpace.Sdk.TestSupport.Serialization;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;
 
@@ -31,6 +33,10 @@ public sealed class HttpResponseMessageBodyTests
         protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
             stream.WriteAsync(new byte[] { 1, 2, 3 }, Token).AsTask();
 
+        // The synchronous serialisation a content type must provide for HttpContent.ReadAsStream (phase 7b).
+        protected override void SerializeToStream(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+            stream.Write([1, 2, 3]);
+
         protected override bool TryComputeLength(out long length)
         {
             length = 3;
@@ -52,6 +58,12 @@ public sealed class HttpResponseMessageBodyTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+
+    private sealed class TextHandler(string text) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(text) });
     }
 
     private static async Task<(Response Response, TrackingContent Content)> SendAsync()
@@ -119,5 +131,65 @@ public sealed class HttpResponseMessageBodyTests
         await response.DisposeAsync();
 
         Assert.Equal(1, content.Disposals);
+    }
+
+    // ── The synchronous open (phase 7b; P3a-5 left it to the transport) ──────────────────────────────────────────
+
+    [Fact]
+    public async Task OpenRead_returns_the_content_stream_synchronously()
+    {
+        var (response, _) = await SendAsync();
+
+        using var stream = response.Body.OpenRead(Token);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, copy.ToArray());
+        response.Dispose();
+    }
+
+    [Fact]
+    public async Task OpenRead_and_OpenReadAsync_share_one_latch_in_either_order()
+    {
+        var (first, _) = await SendAsync();
+        using var opened = first.Body.OpenRead(Token);
+        var asyncAfterSync = await Assert.ThrowsAsync<StreamConsumedException>(() => first.Body.OpenReadAsync(Token));
+        first.Dispose();
+
+        var (second, _) = await SendAsync();
+        _ = await second.Body.OpenReadAsync(Token);
+        var syncAfterAsync = Assert.Throws<StreamConsumedException>(() => second.Body.OpenRead(Token));
+        second.Dispose();
+
+        Assert.Contains("buffer", asyncAfterSync.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(asyncAfterSync.Message, syncAfterAsync.Message);
+    }
+
+    [Fact]
+    public async Task OpenRead_after_dispose_throws_StreamClosedException_and_after_a_read_reports_consumed()
+    {
+        var (disposed, _) = await SendAsync();
+        await disposed.Body.DisposeAsync();
+        Assert.Throws<StreamClosedException>(() => disposed.Body.OpenRead(Token));
+
+        var (read, _) = await SendAsync();
+        _ = read.Body.ReadAsBytes(Token);
+        read.Dispose();
+        Assert.Throws<StreamConsumedException>(() => read.Body.OpenRead(Token));
+    }
+
+    [Fact]
+    public async Task ReadValue_decodes_the_transport_body_synchronously()
+    {
+        // Phase 7a's synchronous typed reader over the reference transport: it needs the OpenRead above (7a handed it to 8b).
+        using var transport = new SystemNetHttpClient(new SystemHttpClient(new TextHandler("ok:widget")));
+        using var response = await transport.ExecuteAsync(Request.Get("https://example.test/"), Token);
+        var serde = new Utf8LiteralSerde();
+
+        var value = response.Body.ReadValue<string>(serde, Token);
+
+        Assert.Equal("widget", value);
+        Assert.Equal(1, serde.StreamReads);
+        Assert.Throws<StreamConsumedException>(() => response.Body.OpenRead(Token));
     }
 }

@@ -113,6 +113,9 @@ var pipeline = new PipelineBuilder()
   `ExceptionTrail` (`PIPE-31`).
 - **The bridges.** `AsAsync(scheduler)` and `AsBlocking()` (2b) wrap a pipeline like any transport (`PIPE-33`, `PIPE-34`).
 
+A response is the caller's to dispose, and a long-lived one (a `text/event-stream` body) is best handed straight to
+`ServerSentEventStream.FromResponse`, which owns it from that call and releases it once on every path ([`sse.md`](./sse.md)).
+
 ## `ErrorMappingPolicy` versus `EnsureSuccess`
 
 `ErrorMappingPolicy` (`PerCall`) turns a 400..599 response into an `HttpResponseException` carrying a replayable copy of

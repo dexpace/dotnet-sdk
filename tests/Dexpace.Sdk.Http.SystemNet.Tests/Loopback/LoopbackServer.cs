@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 
@@ -231,6 +232,11 @@ public sealed class LoopbackServer : IAsyncDisposable
         var stream = client.GetStream();
         await stream.WriteAsync(reply.Bytes, _stopping.Token);
         await stream.FlushAsync(_stopping.Token);
+        if (reply.Chunks is { } chunks)
+        {
+            await WriteChunksAsync(stream, chunks);
+        }
+
         if (!reply.CloseConnection)
         {
             return false;
@@ -238,6 +244,24 @@ public sealed class LoopbackServer : IAsyncDisposable
 
         client.Client.Shutdown(SocketShutdown.Send);
         return true;
+    }
+
+    /// <summary>
+    /// Writes a streamed body as chunked transfer-encoding: each chunk is size, CRLF, data, CRLF, flushed before the
+    /// next one is requested from the script, then the terminating zero chunk.
+    /// </summary>
+    private async Task WriteChunksAsync(NetworkStream stream, IAsyncEnumerable<byte[]> chunks)
+    {
+        await foreach (var chunk in chunks.WithCancellation(_stopping.Token))
+        {
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"{chunk.Length:X}\r\n"), _stopping.Token);
+            await stream.WriteAsync(chunk, _stopping.Token);
+            await stream.WriteAsync("\r\n"u8.ToArray(), _stopping.Token);
+            await stream.FlushAsync(_stopping.Token);
+        }
+
+        await stream.WriteAsync("0\r\n\r\n"u8.ToArray(), _stopping.Token);
+        await stream.FlushAsync(_stopping.Token);
     }
 
     private LoopbackResponse Reply(RecordedRequest request)

@@ -13,14 +13,21 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 /// </summary>
 public sealed class LoopbackResponse
 {
-    private LoopbackResponse(byte[] bytes, bool closeConnection)
+    private LoopbackResponse(byte[] bytes, bool closeConnection, IAsyncEnumerable<byte[]>? chunks = null)
     {
         Bytes = bytes;
         CloseConnection = closeConnection;
+        Chunks = chunks;
     }
 
     /// <summary>The bytes written to the socket, verbatim.</summary>
     public ReadOnlyMemory<byte> Bytes { get; }
+
+    /// <summary>
+    /// For a <see cref="Streamed"/> reply, the body chunks the server writes after <see cref="Bytes"/>, one chunked
+    /// transfer-encoding chunk each, flushing after every one; <see langword="null"/> for every other reply.
+    /// </summary>
+    public IAsyncEnumerable<byte[]>? Chunks { get; }
 
     /// <summary>Whether the server half-closes and then closes the connection after writing <see cref="Bytes"/>.</summary>
     public bool CloseConnection { get; }
@@ -61,6 +68,28 @@ public sealed class LoopbackResponse
 
         head.Append(CultureInfo.InvariantCulture, $"Content-Length: {payload.Length}\r\nConnection: close\r\n\r\n");
         return new([.. Encoding.Latin1.GetBytes(head.ToString()), .. payload], closeConnection: true);
+    }
+
+    /// <summary>
+    /// A <c>200 OK</c> whose body is <c>Transfer-Encoding: chunked</c> and is written as <paramref name="chunks"/> yields it:
+    /// each chunk is framed, written and flushed before the next is requested, and the terminating chunk follows the last.
+    /// A test that gates its enumerable gates the wire, so a server-sent-events consumer can be shown to receive an event
+    /// before the server has written the next byte (phase 7b, P7b-23). The connection is closed afterwards.
+    /// </summary>
+    /// <param name="headers">Header lines as name and value, written as <c>name: value</c> with no validation.</param>
+    /// <param name="chunks">The body chunks, in order; each is non-empty.</param>
+    public static LoopbackResponse Streamed(IEnumerable<KeyValuePair<string, string>> headers, IAsyncEnumerable<byte[]> chunks)
+    {
+        ArgumentNullException.ThrowIfNull(headers);
+        ArgumentNullException.ThrowIfNull(chunks);
+        var head = new StringBuilder("HTTP/1.1 200 OK\r\n");
+        foreach (var (name, value) in headers)
+        {
+            head.Append(CultureInfo.InvariantCulture, $"{name}: {value}\r\n");
+        }
+
+        head.Append("Transfer-Encoding: chunked\r\n\r\n");
+        return new(Encoding.Latin1.GetBytes(head.ToString()), closeConnection: true, chunks);
     }
 
     /// <summary>A <c>200 OK</c> with the given body and <c>Content-Type</c>.</summary>
