@@ -1228,3 +1228,23 @@ Dexpace.Sdk.Core.Recovery.RetryRecovery.RetryRecovery(Dexpace.Sdk.Core.Configura
 Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.<Clone>$() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Data.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Data.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? other) -> bool
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Event.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Event.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Id.get -> string?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Id.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.IsEmpty.get -> bool
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.get -> System.TimeSpan?
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.init -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ServerSentEvent() -> void
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
+override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
