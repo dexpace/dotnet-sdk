@@ -38,7 +38,7 @@ internal static class QuerySplice
     {
         ArgumentNullException.ThrowIfNull(url);
         ArgumentException.ThrowIfNullOrEmpty(name);
-        RejectLoneSurrogate(name, nameof(name), parameter: null);
+        RejectLoneSurrogate(name, nameof(name), "The query parameter name");
 
         foreach (var segment in Segments(url))
         {
@@ -70,10 +70,10 @@ internal static class QuerySplice
     {
         ArgumentNullException.ThrowIfNull(url);
         ArgumentException.ThrowIfNullOrEmpty(name);
-        RejectLoneSurrogate(name, nameof(name), parameter: null);
+        RejectLoneSurrogate(name, nameof(name), "The query parameter name");
         if (value is not null)
         {
-            RejectLoneSurrogate(value, nameof(value), parameter: name);
+            RejectLoneSurrogate(value, nameof(value), $"The value of query parameter \"{name}\"");
         }
 
         var kept = new List<string>();
@@ -139,9 +139,16 @@ internal static class QuerySplice
         return new Uri(text, UriKind.Absolute);
     }
 
-    // Rfc3986.EncodeComponent turns a lone surrogate into U+FFFD's bytes (fact 11), which would silently corrupt a
-    // server-supplied cursor; Query.Builder rejects one with ArgumentException for the same reason (P7c-10).
-    private static void RejectLoneSurrogate(string text, string paramName, string? parameter)
+    /// <summary>
+    /// Throws when <paramref name="text"/> holds an unpaired surrogate, which <c>Rfc3986.EncodeComponent</c> would turn
+    /// into U+FFFD's bytes (design fact 11), silently corrupting a server-supplied cursor; <c>Query.Builder</c> rejects
+    /// one with <see cref="ArgumentException"/> for the same reason (P7c-10). The text itself is never echoed.
+    /// </summary>
+    /// <param name="text">The name or value to check.</param>
+    /// <param name="paramName">The parameter the exception names.</param>
+    /// <param name="subject">What the text is, as the start of the message (for example <c>The header name</c>).</param>
+    /// <exception cref="ArgumentException"><paramref name="text"/> holds a lone surrogate.</exception>
+    internal static void RejectLoneSurrogate(string text, string paramName, string subject)
     {
         for (var i = 0; i < text.Length; i++)
         {
@@ -151,9 +158,6 @@ internal static class QuerySplice
             }
             else if (char.IsSurrogate(text[i]))
             {
-                var subject = parameter is null
-                    ? "The query parameter name"
-                    : $"The value of query parameter \"{parameter}\"";
                 throw new ArgumentException(
                     $"{subject} contains an unpaired surrogate and cannot be percent-encoded.",
                     paramName);
