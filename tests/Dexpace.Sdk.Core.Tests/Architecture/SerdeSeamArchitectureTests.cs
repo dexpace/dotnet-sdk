@@ -24,6 +24,7 @@ public sealed class SerdeSeamArchitectureTests
         typeof(IAsyncHttpClient),
         typeof(SerdeExtensions),
         typeof(ResponseBodySerdeExtensions),
+        typeof(ResponseHandlers),
     ];
 
     [Fact]

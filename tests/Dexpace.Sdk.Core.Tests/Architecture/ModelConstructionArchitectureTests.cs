@@ -20,8 +20,9 @@ public sealed class ModelConstructionArchitectureTests
 {
     // The validating constructors (Request, Response), the parameterless records whose every init validates, and the
     // two multimap builders, and MultipartPart (phase 3b, P3b-8: a sealed class with a validating constructor, not a record,
-    // so `with` cannot bypass validation; the Request precedent). Anything else under Http.* is a new construction route and
-    // needs a design decision.
+    // so `with` cannot bypass validation; the Request precedent), and TypedResponse<T> (phase 7a, P7a-14: the lazy typed-response
+    // wrapper, a sealed class whose constructor takes a Response and its handler and copies the metadata). Anything else under
+    // Http.* is a new construction route and needs a design decision.
     private static readonly string[] s_allowedConstructors =
     [
         "Dexpace.Sdk.Core.Http.Request.Request(Dexpace.Sdk.Core.Http.Common.Method, System.Uri, Dexpace.Sdk.Core.Http.Common.Headers, Dexpace.Sdk.Core.Http.Request.RequestBody)",
@@ -31,6 +32,7 @@ public sealed class ModelConstructionArchitectureTests
         "Dexpace.Sdk.Core.Http.Common.Headers+Builder()",
         "Dexpace.Sdk.Core.Http.Request.Query+Builder()",
         "Dexpace.Sdk.Core.Http.Request.MultipartPart(System.String, Dexpace.Sdk.Core.Http.Request.RequestBody, System.String)",
+        "Dexpace.Sdk.Core.Http.Response.TypedResponse`1(Dexpace.Sdk.Core.Http.Response.Response, Dexpace.Sdk.Core.Http.Response.IResponseHandler`1[T], System.Threading.CancellationToken)",
     ];
 
     public static TheoryData<Type> FactoryCreatedTypes() =>
@@ -102,5 +104,5 @@ public sealed class ModelConstructionArchitectureTests
     }
 
     private static string Describe(ConstructorInfo constructor) =>
-        $"{constructor.DeclaringType!.FullName}({string.Join(", ", constructor.GetParameters().Select(p => p.ParameterType.FullName))})";
+        $"{constructor.DeclaringType!.FullName}({string.Join(", ", constructor.GetParameters().Select(p => p.ParameterType.FullName ?? p.ParameterType.ToString()))})";
 }

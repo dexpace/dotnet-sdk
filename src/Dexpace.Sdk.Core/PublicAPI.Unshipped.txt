@@ -472,6 +472,8 @@ Dexpace.Sdk.Core.Http.Request.RequestOptions.Tags.init -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.get -> System.TimeSpan?
 Dexpace.Sdk.Core.Http.Request.RequestOptions.Timeout.init -> void
 Dexpace.Sdk.Core.Http.Request.RequestOptions.WithTag(string! key, string! value) -> Dexpace.Sdk.Core.Http.Request.RequestOptions!
+Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>
+Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>.HandleAsync(Dexpace.Sdk.Core.Http.Response.Response! response, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<T>
 Dexpace.Sdk.Core.Http.Response.Response
 Dexpace.Sdk.Core.Http.Response.Response.Body.get -> Dexpace.Sdk.Core.Http.Response.ResponseBody!
 Dexpace.Sdk.Core.Http.Response.Response.Dispose() -> void
@@ -504,6 +506,16 @@ Dexpace.Sdk.Core.Http.Response.Status.IsServerError.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.IsSuccess.get -> bool
 Dexpace.Sdk.Core.Http.Response.Status.Name.get -> string?
 Dexpace.Sdk.Core.Http.Response.Status.Status() -> void
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Dispose() -> void
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.GetValueAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T>
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Headers.get -> Dexpace.Sdk.Core.Http.Common.Headers!
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Protocol.get -> Dexpace.Sdk.Core.Http.Common.Protocol
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.ReasonPhrase.get -> string?
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Request.get -> Dexpace.Sdk.Core.Http.Request.Request!
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.Status.get -> Dexpace.Sdk.Core.Http.Response.Status
+Dexpace.Sdk.Core.Http.Response.TypedResponse<T>.TypedResponse(Dexpace.Sdk.Core.Http.Response.Response! response, Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 Dexpace.Sdk.Core.Operations.OperationDescriptor
 Dexpace.Sdk.Core.Operations.OperationDescriptor.<Clone>$() -> Dexpace.Sdk.Core.Operations.OperationDescriptor!
 Dexpace.Sdk.Core.Operations.OperationDescriptor.Body.get -> Dexpace.Sdk.Core.Http.Request.RequestBody?
@@ -635,6 +647,7 @@ Dexpace.Sdk.Core.Serialization.ITristate.State.get -> Dexpace.Sdk.Core.Serializa
 Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>
 Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>.Visit<T>(Dexpace.Sdk.Core.Serialization.Tristate<T> value) -> TResult
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
+Dexpace.Sdk.Core.Serialization.ResponseHandlers
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
 Dexpace.Sdk.Core.Serialization.Tristate
 Dexpace.Sdk.Core.Serialization.Tristate<T>
@@ -927,6 +940,8 @@ static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValue<T>(t
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T>
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefault<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> T?
 static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueOrDefaultAsync<T>(this Dexpace.Sdk.Core.Http.Response.ResponseBody! body, Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<T?>
+static Dexpace.Sdk.Core.Serialization.ResponseHandlers.Deserialize<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>!
+static Dexpace.Sdk.Core.Serialization.ResponseHandlers.DeserializeOnSuccess<T>(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> Dexpace.Sdk.Core.Http.Response.IResponseHandler<T>!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
