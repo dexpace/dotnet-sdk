@@ -553,5 +553,26 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `ITristate` / `ITristateVisitor<TResult>`. `Present(null)` throws, an implicit conversion from `T` maps `null` to Null,
   `ToString` is `Absent`, `Null` or `Present(<value>)` (`SERDE-14`, `SERDE-17`, `SERDE-18`, `SERDE-30`). The type carries no
   System.Text.Json attribute (an architecture test pins it).
+- `SystemTextJsonSerde` Tristate wiring (`SERDE-15`, `SERDE-16`, `SERDE-19`, `SERDE-20`): an Absent `Tristate<T>` property is omitted
+  through a `JsonTypeInfo` modifier (composed with any `ShouldSerialize` the caller set), Null is written as `null`, a JSON `null`
+  reads as Null and a missing key as Absent, for reference and value-type `T` alike and with no reflection (a public
+  `ITristate` visitor hook and one justified `IL2067` suppression, exercised by the AOT smoke's `Tristate<int>`). Where the wire has no
+  key (the document root, an array element, a dictionary value) an Absent degrades to `null`. New public
+  `TristateJsonSerializerOptionsExtensions.AddTristateSupport(JsonSerializerOptions)` for callers who use `JsonSerializer` directly on SDK models.
+- `SystemTextJsonSerde.CreateDefaultOptions(IJsonTypeInfoResolver)`: a fresh, mutable instance per call with `Web` naming, strict numbers
+  (`NumberHandling.Strict`, forced back from `Web`'s `AllowReadingFromString`) and `RespectNullableAnnotations`, Tristate-wired
+  (`SERDE-21`, `SERDE-25`). Tests pin the nine strict-coercion rows individually, the two permitted widenings, unmapped-member skipping,
+  ISO-8601 dates and 32 concurrent workers on one serde (`SERDE-22`, `SERDE-23`, `SERDE-24`, `SERDE-29`).
+
+#### Changed
+
+- **Breaking (phase 7a):** `SystemTextJsonSerde(JsonSerializerOptions)` and `SystemTextJsonSerde(JsonSerializerContext)` work on a private
+  copy of the options, wire `Tristate<T>` on the copy and freeze the copy. The caller's `JsonSerializerOptions` is no longer made
+  read-only, gains no converter and keeps its resolver; a later change to it does not affect the serde (was: the caller's instance was
+  frozen) (`SERDE-19`, `SERDE-26`).
+
+#### Fixed
+
+- `SERDE-26`: constructing a serde no longer freezes the caller's `JsonSerializerOptions` (see the Breaking entry above).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
