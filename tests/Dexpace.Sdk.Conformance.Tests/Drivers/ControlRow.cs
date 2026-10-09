@@ -44,11 +44,14 @@ internal sealed record ControlRow(
         return data;
     }
 
-    /// <summary>The theory data of the positive counterparts: every assertion a table covers, on each face it declares.</summary>
-    internal static TheoryData<string, TransportFace> PositiveCases(IEnumerable<ControlRow> rows)
+    /// <summary>
+    /// The theory data of the positive counterparts: every assertion a table covers, on each face it declares, except the ones
+    /// the raw-socket client is documented not to satisfy (it is waived for them in its driver).
+    /// </summary>
+    internal static TheoryData<string, TransportFace> PositiveCases(IEnumerable<ControlRow> rows, params string[] except)
     {
         var data = new TheoryData<string, TransportFace>();
-        foreach (var name in CoveredBy(rows))
+        foreach (var name in CoveredBy(rows).Except(except, StringComparer.Ordinal))
         {
             foreach (var face in AssertionControl.Find(name).Faces)
             {

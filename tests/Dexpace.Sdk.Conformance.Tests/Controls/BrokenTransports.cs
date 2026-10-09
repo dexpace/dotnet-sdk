@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Conformance.Tests.RawSocket;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Common;
+using Microsoft.Extensions.Logging;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 
@@ -266,4 +267,78 @@ internal static class BrokenTransports
             base.Dispose(disposing);
         }
     }
+
+    /// <summary>The conforming raw-socket client behind <c>DelegateHttpClient</c>, which logs nothing.</summary>
+    internal static IAsyncHttpClient Plain() => Around((request, options, ct, inner) => inner.ExecuteAsync(request, options, ct));
+
+    /// <summary>A transport that writes the caller's Host, Content-Length and Transfer-Encoding verbatim.</summary>
+    internal static IAsyncHttpClient ForwardsCallerFraming()
+    {
+#pragma warning disable CA2000 // Holds no resources: a connection belongs to its response.
+        var inner = new RawSocketHttpClient(forwardCallerFraming: true);
+#pragma warning restore CA2000
+        return DelegateHttpClient.Create(inner.ExecuteAsync);
+    }
+
+    private static readonly string[] s_framingNames = ["Host", "Content-Length", "Transfer-Encoding"];
+
+    private static readonly Action<ILogger, string, string, Exception?> s_droppedWithValue = LoggerMessage.Define<string, string>(
+        LogLevel.Debug,
+        new EventId(1, "Dropped"),
+        "Dropped the '{HeaderName}' header, whose value was '{Value}'.");
+
+    /// <summary>A transport that logs the framing headers it drops together with their values, which it must never do.</summary>
+    internal static IAsyncHttpClient LogsDroppedValues(ILogger logger) =>
+        Around((request, options, ct, inner) =>
+        {
+            foreach (var name in s_framingNames)
+            {
+                if (request.Headers.Get(name) is { } value)
+                {
+                    s_droppedWithValue(logger, name, value, null);
+                }
+            }
+
+            return inner.ExecuteAsync(request, options, ct);
+        });
+
+    /// <summary>
+    /// A transport whose responses cross: it remembers the response that arrived last and, after a pause, hands every caller
+    /// that one, the way shared mutable state in a transport does.
+    /// </summary>
+    internal static IAsyncHttpClient CrossesResponses()
+    {
+        var gate = new object();
+        Response? latest = null;
+        return Around(async (request, options, ct, inner) =>
+        {
+            var response = await inner.ExecuteAsync(request, options, ct);
+            lock (gate)
+            {
+                latest = response;
+            }
+
+            await Task.Delay(100, CancellationToken.None);
+            lock (gate)
+            {
+                return latest!;
+            }
+        });
+    }
+
+    /// <summary>A transport that makes a failed send safe to repeat by buffering the body, then sends it again, so the body reaches the server twice.</summary>
+    internal static IAsyncHttpClient ResendsBufferedBody() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var replayable = request.Body is null ? null : await request.Body.ToReplayableAsync(ct);
+            var again = replayable is null ? request : request.WithBody(replayable);
+            try
+            {
+                return await inner.ExecuteAsync(again, options, ct);
+            }
+            catch (Dexpace.Sdk.Core.Errors.ServiceRequestException)
+            {
+                return await inner.ExecuteAsync(again, options, ct);
+            }
+        });
 }

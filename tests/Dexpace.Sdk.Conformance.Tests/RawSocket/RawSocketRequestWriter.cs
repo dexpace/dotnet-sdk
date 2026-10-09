@@ -21,9 +21,9 @@ internal static class RawSocketRequestWriter
     };
 
     /// <summary>Writes the head, then the body.</summary>
-    internal static async Task WriteAsync(Request request, Stream stream, CancellationToken cancellationToken)
+    internal static async Task WriteAsync(Request request, Stream stream, bool forwardCallerFraming, CancellationToken cancellationToken)
     {
-        await stream.WriteAsync(Head(request), cancellationToken);
+        await stream.WriteAsync(Head(request, forwardCallerFraming), cancellationToken);
         if (request.Body is { } body)
         {
             if (body.ContentLength >= 0)
@@ -41,14 +41,18 @@ internal static class RawSocketRequestWriter
         await stream.FlushAsync(cancellationToken);
     }
 
-    private static byte[] Head(Request request)
+    private static byte[] Head(Request request, bool forwardCallerFraming)
     {
         var url = request.Url;
         var host = url.HostNameType == UriHostNameType.IPv6 ? $"[{url.Host.Trim('[', ']')}]" : url.Host;
         var head = new StringBuilder()
-            .Append(CultureInfo.InvariantCulture, $"{request.Method} {(string.IsNullOrEmpty(url.PathAndQuery) ? "/" : url.PathAndQuery)} HTTP/1.1\r\n")
-            .Append(CultureInfo.InvariantCulture, $"Host: {host}{(url.IsDefaultPort ? string.Empty : ":" + url.Port.ToString(CultureInfo.InvariantCulture))}\r\n");
-        foreach (var (name, values) in request.Headers.Where(header => !s_framing.Contains(header.Key)))
+            .Append(CultureInfo.InvariantCulture, $"{request.Method} {(string.IsNullOrEmpty(url.PathAndQuery) ? "/" : url.PathAndQuery)} HTTP/1.1\r\n");
+        if (!forwardCallerFraming || !request.Headers.Contains("Host"))
+        {
+            head.Append(CultureInfo.InvariantCulture, $"Host: {host}{(url.IsDefaultPort ? string.Empty : ":" + url.Port.ToString(CultureInfo.InvariantCulture))}\r\n");
+        }
+
+        foreach (var (name, values) in request.Headers.Where(header => forwardCallerFraming || !s_framing.Contains(header.Key)))
         {
             foreach (var value in values)
             {
@@ -61,7 +65,11 @@ internal static class RawSocketRequestWriter
             head.Append("Content-Type: ").Append(bodyType).Append("\r\n");
         }
 
-        head.Append(Framing(request));
+        if (!forwardCallerFraming || !(request.Headers.Contains("Content-Length") || request.Headers.Contains("Transfer-Encoding")))
+        {
+            head.Append(Framing(request));
+        }
+
         head.Append("Connection: close\r\n\r\n");
         return Encoding.Latin1.GetBytes(head.ToString());
     }

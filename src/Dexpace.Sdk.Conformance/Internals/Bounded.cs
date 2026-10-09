@@ -57,6 +57,24 @@ internal static class Bounded
         }
     }
 
+    /// <summary>Awaits every task in <paramref name="tasks"/> for at most <paramref name="bound"/>, returning their results in order.</summary>
+    /// <param name="tasks">The tasks; a failure of any of them is rethrown.</param>
+    /// <param name="bound">The ceiling for all of them together.</param>
+    /// <param name="what">What was being waited for, named in the failure.</param>
+    /// <param name="cancellationToken">The caller's token.</param>
+    /// <exception cref="ConformanceException">The bound passed first.</exception>
+    internal static async Task<T[]> WaitForAllAsync<T>(IReadOnlyList<Task<T>> tasks, TimeSpan bound, string what, CancellationToken cancellationToken)
+    {
+        await WaitAsync(Task.WhenAll(tasks), bound, what, cancellationToken).ConfigureAwait(false);
+        var results = new T[tasks.Count];
+        for (var i = 0; i < results.Length; i++)
+        {
+            results[i] = await tasks[i].ConfigureAwait(false);
+        }
+
+        return results;
+    }
+
     /// <summary>
     /// Disposes <paramref name="item"/> on a pool thread, bounded: a disposal that blocks its caller (a blocking transport's
     /// <c>Dispose</c> that waits for an in-flight call) is a failure naming the bound instead of a hung run
