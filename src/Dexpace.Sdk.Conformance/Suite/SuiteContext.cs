@@ -124,7 +124,7 @@ internal sealed class SuiteContext(TransportSubject subject, TransportFace face,
             {
                 try
                 {
-                    await item.DisposeAsync().ConfigureAwait(false);
+                    await Bounded.DisposeAsync(item, ReleaseTimeout, "disposing what the run owns", CancellationToken.None).ConfigureAwait(false);
                 }
 #pragma warning disable CA1031 // Not swallowed: the first failure per kind is rethrown below, after everything was disposed.
                 catch (Exception ex)

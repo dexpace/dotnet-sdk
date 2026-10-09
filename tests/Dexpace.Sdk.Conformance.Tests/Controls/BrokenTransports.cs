@@ -85,4 +85,96 @@ internal static class BrokenTransports
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
+
+    /// <summary>
+    /// A transport that gives the raw-socket client no token, so a call can only end when the server does, and reports the
+    /// caller's cancellation without closing anything: a transport that "accepts the token but leaves the socket open".
+    /// </summary>
+    internal static IAsyncHttpClient IgnoringCancellation(bool reportCancellation) =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var call = inner.ExecuteAsync(request, options, CancellationToken.None);
+            if (!reportCancellation)
+            {
+                return await call;
+            }
+
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = ct.Register(() => cancelled.TrySetResult());
+            await Task.WhenAny(call, cancelled.Task);
+            ct.ThrowIfCancellationRequested();
+            return await call;
+        });
+
+    /// <summary>A transport that reports a cancelled call as a retryable timeout.</summary>
+    internal static IAsyncHttpClient CancellationAsTimeout() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+            {
+                throw new Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException("cancelled", ex);
+            }
+        });
+
+    /// <summary>A transport whose second disposal throws.</summary>
+    internal sealed class ThrowsOnSecondDispose : IAsyncHttpClient
+    {
+        private int _disposals;
+
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public ValueTask DisposeAsync() =>
+            Interlocked.Increment(ref _disposals) > 1 ? throw new InvalidOperationException("already disposed") : ValueTask.CompletedTask;
+    }
+
+    /// <summary>A transport whose disposal waits for every call still in flight: the opposite of non-blocking close.</summary>
+    internal sealed class DisposeWaitsForInFlight : IAsyncHttpClient
+    {
+        private readonly RawSocketHttpClient _inner = new();
+        private readonly List<Task> _inFlight = [];
+
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            var call = _inner.ExecuteAsync(request, options, CancellationToken.None);
+            lock (_inFlight)
+            {
+                _inFlight.Add(call);
+            }
+
+            return call;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            Task[] pending;
+            lock (_inFlight)
+            {
+                pending = [.. _inFlight];
+            }
+
+            try
+            {
+                await Task.WhenAll(pending);
+            }
+#pragma warning disable CA1031 // The wait is the point, not the outcome.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+            }
+        }
+    }
+
+    /// <summary>A transport that disposes its response as soon as the call's token is cancelled, even after delivery.</summary>
+    internal static IAsyncHttpClient DisposesResponseOnLateCancel() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            var response = await inner.ExecuteAsync(request, options, ct);
+            ct.Register(response.Dispose);
+            return response;
+        });
 }

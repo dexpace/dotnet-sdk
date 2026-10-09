@@ -57,6 +57,19 @@ internal static class Bounded
         }
     }
 
+    /// <summary>
+    /// Disposes <paramref name="item"/> on a pool thread, bounded: a disposal that blocks its caller (a blocking transport's
+    /// <c>Dispose</c> that waits for an in-flight call) is a failure naming the bound instead of a hung run
+    /// (<c>TRANSPORT-16</c>: close is non-blocking). The abandoned disposal completes when whatever it waits on does.
+    /// </summary>
+    /// <param name="item">What to dispose.</param>
+    /// <param name="bound">The ceiling.</param>
+    /// <param name="what">What is being disposed, named in the failure.</param>
+    /// <param name="cancellationToken">The caller's token.</param>
+    /// <exception cref="ConformanceException">The disposal outlived <paramref name="bound"/>.</exception>
+    internal static Task DisposeAsync(IAsyncDisposable item, TimeSpan bound, string what, CancellationToken cancellationToken) =>
+        WaitAsync(Task.Run(async () => await item.DisposeAsync().ConfigureAwait(false), CancellationToken.None), bound, what, cancellationToken);
+
     /// <summary>The bound rendered for a message: whole seconds from one second up, otherwise milliseconds.</summary>
     /// <param name="bound">The bound.</param>
     internal static string Format(TimeSpan bound) =>

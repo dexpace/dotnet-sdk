@@ -12,5 +12,7 @@ internal static class TransportCatalogue
     internal static IReadOnlyList<ConformanceAssertion> All { get; } =
     [
         .. ResponseShapeAssertions.Assertions(),
+        .. CancellationAssertions.Assertions(),
+        .. CloseAssertions.Assertions(),
     ];
 }
