@@ -193,9 +193,10 @@ await foreach (var chunk in events.MapAsync<Chunk>((name, data) =>
 | `SseMapResult.Skip` | the adapter advances silently to the next raw event |
 | `SseMapResult.Done` | the stream is released (the quiet path) and the sequence completes **without** a model; nothing after the sentinel is read, parsed or mapped |
 
-`Skip` and `Done` are non-generic and convert implicitly to any `SseMapResult<T>`. **`default` is not a verdict**: its `Kind` is `0`, and a mapper that returns it
-(or whose result is a `default(SseMapResult)` converted to a model type, which throws `ArgumentException`) fails the call with `InvalidOperationException`, after the
-usual release, instead of silently skipping every event or silently ending the stream. The adapter is lazy (`SSE-35`): nothing is read, opened or mapped until the
+`Skip` and `Done` are non-generic and convert implicitly to any `SseMapResult<T>`. **`default` is not a verdict**: its `Kind` is `0`, and a mapper that returns
+`default(SseMapResult<T>)` fails the call with `InvalidOperationException`, after the usual release, instead of silently skipping every event or silently ending the
+stream. Converting a `default(SseMapResult)` to a model type is caught earlier, inside the mapper: the implicit conversion throws `ArgumentException`, which the adapter
+treats like any other mapper throw (release, then the same exception unchanged, `SSE-36`). The adapter is lazy (`SSE-35`): nothing is read, opened or mapped until the
 first pull, and the mapper runs once per raw event pulled, only inside a pull. A mapper that throws releases the stream first and then propagates unchanged, with any
 release failure attached (`SSE-36`). The mapper is synchronous because the data is already in memory; an asynchronous mapper would invite I/O inside the pull.
 

@@ -231,6 +231,29 @@ public class ServerSentEventStreamTypedTests
     }
 
     [Fact]
+    public async Task A_default_signal_converted_inside_the_mapper_is_an_ArgumentException_released_first()
+    {
+        // default(SseMapResult) converts to SseMapResult<int> in the mapper's own return, so it throws there; the adapter
+        // treats it like any other mapper throw (release, then the same exception) and not as the InvalidOperationException
+        // reserved for a mapper that returns default(SseMapResult<int>) (SSE-36, P7b-16).
+        var releaseFailure = new IOException("close boom");
+        var (response, body) = SseResponses.Respond("data: a\n\n", disposeFailure: releaseFailure);
+        var stream = ServerSentEventStream.FromResponse(response);
+
+        var thrown = await Assert.ThrowsAsync<ArgumentException>(
+            () => Collect(stream.MapAsync<int>((_, _) => default(SseMapResult))));
+
+        Assert.Equal(1, body.DisposeCount);
+        Assert.Same(releaseFailure, Assert.Single(ExceptionTrail.GetSuppressed(thrown)));
+
+        var (blockingResponse, blockingBody) = SseResponses.Respond("data: a\n\n", disposeFailure: releaseFailure);
+        var blockingStream = ServerSentEventStream.FromResponse(blockingResponse);
+        var blockingThrown = Assert.Throws<ArgumentException>(() => blockingStream.Map<int>((_, _) => default(SseMapResult)).ToList());
+        Assert.Equal(1, blockingBody.DisposeCount);
+        Assert.Contains(releaseFailure, ExceptionTrail.GetSuppressed(blockingThrown));
+    }
+
+    [Fact]
     public async Task A_fatal_mapper_exception_propagates_without_an_attach_and_the_enumerator_still_releases()
     {
         // ExceptionFacts.IsFatal: no release is attached to it, but the enumerator's own finally releases on the way out.
