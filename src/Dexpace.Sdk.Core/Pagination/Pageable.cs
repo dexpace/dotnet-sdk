@@ -1,13 +1,8 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Runtime.CompilerServices;
-using Dexpace.Sdk.Core.Configuration;
-using Dexpace.Sdk.Core.Errors;
-using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.Http.Response;
-using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Serialization;
 
 namespace Dexpace.Sdk.Core.Pagination;
@@ -18,139 +13,55 @@ namespace Dexpace.Sdk.Core.Pagination;
 public static class Pageable
 {
     /// <summary>
-    /// Creates an <see cref="AsyncPageable{T}"/> that fetches pages through
-    /// <paramref name="pipeline"/>, starting with <paramref name="first"/>.
+    /// Creates an <see cref="AsyncPageable{T}"/> that fetches pages through <paramref name="client"/>, starting with
+    /// <paramref name="first"/> and following <paramref name="strategy"/> (PAGE-1, PAGE-4, PAGE-36).
     /// </summary>
     /// <typeparam name="TPage">The deserialized page-envelope type.</typeparam>
     /// <typeparam name="T">The item type extracted from each page.</typeparam>
-    /// <param name="pipeline">The pipeline used for each page request.</param>
-    /// <param name="first">The initial request to send.</param>
-    /// <param name="serde">The serde used to deserialize each <typeparamref name="TPage"/>.</param>
-    /// <param name="options">Client options forwarded to each pipeline call.</param>
-    /// <param name="selectItems">
-    /// Extracts the ordered item list from a deserialized page envelope.
+    /// <param name="client">
+    /// The transport seam used for every page. An <c>HttpPipeline</c> converts to it, so retry, redirect and
+    /// authorization govern every page; a bare transport or <c>DelegateHttpClient</c> works too. The pageable never
+    /// disposes it.
     /// </param>
-    /// <param name="nextRequest">
-    /// Given the deserialized page, the raw response (before disposal), and the current request,
-    /// returns the next request to send, or <see langword="null"/> to end iteration.
+    /// <param name="first">
+    /// The initial request, which is also the template every next request is built from. Every page re-sends its body, so
+    /// the body must be replayable.
+    /// </param>
+    /// <param name="serde">The serde that deserializes each page into <typeparamref name="TPage"/>.</param>
+    /// <param name="strategy">Turns each page into its items and the next request; see <see cref="PaginationStrategies"/>.</param>
+    /// <param name="options">
+    /// Per-call overrides (timeout, retry budget, tags), passed as the same instance to every page's exchange; omitted
+    /// means <see cref="RequestOptions.Empty"/> (PAGE-36).
     /// </param>
     /// <param name="maxPages">
-    /// Maximum number of pages to fetch. <see langword="null"/> means no limit.
+    /// The maximum number of exchanges, or <see langword="null"/> for no limit. Set a finite cap in production (PAGE-9,
+    /// PAGE-10).
     /// </param>
-    /// <returns>
-    /// A lazy <see cref="AsyncPageable{T}"/> that fetches exactly one page per consumer advance.
-    /// </returns>
+    /// <returns>A lazy pageable: nothing is sent until the first <c>MoveNextAsync</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="client"/>, <paramref name="first"/>, <paramref name="serde"/> or <paramref name="strategy"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is zero or negative.</exception>
+    /// <exception cref="ArgumentException"><paramref name="first"/> has a body that cannot be written twice (call <c>ToReplayableAsync</c> first).</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>Breaking:</b> this took an <c>HttpPipeline</c>, a <c>DexpaceClientOptions</c> and the two delegates
+    /// <c>selectItems</c> and <c>nextRequest</c>. It now takes the transport seam (an <c>HttpPipeline</c> still converts),
+    /// an <see cref="IPageStrategy{TPage,T}"/> (<see cref="PaginationStrategies.Create{TPage,T}"/> wraps the old delegates)
+    /// and <see cref="RequestOptions"/> (a caller who passed different client options builds a pipeline with them)
+    /// (P7c-2, P7c-5, P7c-6).
+    /// </para>
+    /// <para>
+    /// <b>Breaking:</b> <paramref name="maxPages"/> of zero or less, and a template body that cannot be replayed, throw here
+    /// instead of misbehaving later. A <see langword="null"/> envelope throws
+    /// <see cref="Errors.DeserializationException"/> naming <typeparamref name="TPage"/>, where it used to throw
+    /// <see cref="InvalidOperationException"/>.
+    /// </para>
+    /// </remarks>
     public static AsyncPageable<T> Create<TPage, T>(
-        HttpPipeline pipeline,
+        IAsyncHttpClient client,
         Request first,
         ISerde serde,
-        DexpaceClientOptions options,
-        Func<TPage, IReadOnlyList<T>> selectItems,
-        Func<TPage, Response, Request, Request?> nextRequest,
-        int? maxPages = null)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        ArgumentNullException.ThrowIfNull(first);
-        ArgumentNullException.ThrowIfNull(serde);
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(selectItems);
-        ArgumentNullException.ThrowIfNull(nextRequest);
-
-        return new PipelinePageable<TPage, T>(pipeline, first, serde, options, selectItems, nextRequest, maxPages);
-    }
-
-    // ── internal implementation ────────────────────────────────────────────────────────────────
-
-    private sealed class PipelinePageable<TPage, T>(
-        HttpPipeline pipeline,
-        Request first,
-        ISerde serde,
-        DexpaceClientOptions options,
-        Func<TPage, IReadOnlyList<T>> selectItems,
-        Func<TPage, Response, Request, Request?> nextRequest,
-        int? maxPages) : AsyncPageable<T>
-    {
-        /// <inheritdoc/>
-        /// <remarks>
-        /// <paramref name="pageSizeHint"/> is not plumbed into the outgoing request in v1; cancel
-        /// the pages path via <c>.WithCancellation(token)</c> on the returned sequence.
-        /// </remarks>
-        public override IAsyncEnumerable<Page<T>> AsPages(int? pageSizeHint = null) =>
-            PagesCore(CancellationToken.None);
-
-        /// <inheritdoc/>
-        public override IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
-            ItemsCore(cancellationToken).GetAsyncEnumerator(cancellationToken);
-
-        // Page iterator — fetches one HTTP page per yield.
-        private async IAsyncEnumerable<Page<T>> PagesCore(
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            var current = first;
-            var fetched = 0;
-
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (maxPages.HasValue && fetched >= maxPages.Value)
-                {
-                    yield break;
-                }
-
-                var response = await pipeline.SendAsync(current, options, cancellationToken)
-                    .ConfigureAwait(false);
-
-                TPage page;
-                Status status;
-                Headers headers;
-                Request? next;
-
-                try
-                {
-                    page = await response.Body
-                        .ReadValueAsync<TPage>(serde, cancellationToken)
-                        .ConfigureAwait(false)
-                        ?? throw new InvalidOperationException(
-                            $"Serde returned null when deserializing page type '{typeof(TPage).FullName}'. " +
-                            "The page deserialization must produce a non-null value.");
-
-                    status = response.Status;
-                    headers = response.Headers;
-
-                    // Capture next while the response (and its headers) are still alive.
-                    next = nextRequest(page, response, current);
-                }
-                finally
-                {
-                    await response.DisposeAsync().ConfigureAwait(false);
-                }
-
-                fetched++;
-                yield return new Page<T>(selectItems(page), status, headers, current);
-
-                if (next is null)
-                {
-                    yield break;
-                }
-
-                current = next;
-            }
-        }
-
-        // Item iterator — flattens PagesCore.
-        private async IAsyncEnumerable<T> ItemsCore(
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            await foreach (var page in PagesCore(cancellationToken)
-                               .WithCancellation(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                foreach (var item in page.Values)
-                {
-                    yield return item;
-                }
-            }
-        }
-    }
+        IPageStrategy<TPage, T> strategy,
+        RequestOptions? options = null,
+        int? maxPages = null) =>
+        new StrategyPageable<TPage, T>(PageWalk<TPage, T>.ForAsync(client, first, serde, strategy, options, maxPages));
 }

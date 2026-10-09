@@ -2,7 +2,8 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 // Case list from the phase 4c plan, which cites nodejs-sdk@c0ff3fd (the sibling source was not re-read while writing these): packages/core/src/pipeline/runtime.test.ts (runtime as transport, close is a no-op toward
-// the transport). A pipeline backing a paginator is exercised by PageableTests, whose Pageable.Create takes the pipeline.
+// the transport). A pipeline backing a paginator is exercised by PageableTests.A_pipeline_backing_a_paginator_works_as_the_client: Pageable.Create takes the
+// IAsyncHttpClient seam, and an HttpPipeline converts to it (PIPE-26, PAGE-36).
 
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
