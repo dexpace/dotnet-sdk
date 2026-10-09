@@ -182,7 +182,7 @@ them only when body-level logging is on. They are described here because their c
 
 ## What is not built yet
 
-Rebuilding a typed response lazily (`HTTP-44`, `HTTP-45`) is phase 7a's. Whether `ReadValueAsync` closes the body is also
-7a's (`SERDE`). The three replay gates of `BODY-4` and the retry-only gate of `BODY-5` are 6a, 6b and 6c's. Engaging the
+The lazy typed response (`HTTP-44`, `HTTP-45`) and the typed readers' disposal of the body are phase 7a's, now built:
+`TypedResponse<T>` and `ReadValueAsync` (which closes the body on every path) are in [serde.md](./serde.md). The three replay gates of `BODY-4` and the retry-only gate of `BODY-5` are 6a, 6b and 6c's. Engaging the
 logging wrappers with one shared preview size is 5b's (`BODY-34`). The memory-mapped body view (`BODY-36`) is declined for
 v1 (`docs/first-release.md`).

@@ -75,8 +75,9 @@ a task, a `null` task, a `null` result — arrives through the returned task. Th
 
 ## The codec seam
 
-`ISerde` has two encode primitives (a `Stream` and an `IBufferWriter<byte>`) and two decode primitives (a `Stream` and a
-UTF-8 `ReadOnlySpan<byte>`). The codec declares its `DefaultMediaType`, which `RequestBody.FromValue` stamps when you pass
+`ISerde` has two encode primitives (a `Stream` and an `IBufferWriter<byte>`) and three decode primitives (an asynchronous
+`Stream`, a UTF-8 `ReadOnlySpan<byte>`, and, since phase 7a, a synchronous `Stream` with a bounded default implementation; see
+[serde.md](./serde.md)). The codec declares its `DefaultMediaType`, which `RequestBody.FromValue` stamps when you pass
 none (`SEAM-19`). The target type is the generic argument, which the runtime binds to a closed type, so no open generic
 reaches a codec and the seam takes no `System.Type` (`SEAM-22`).
 
