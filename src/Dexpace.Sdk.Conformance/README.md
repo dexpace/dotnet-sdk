@@ -13,7 +13,7 @@ of the product specification, a loopback HTTP/1.1 wire fixture, and per-requirem
 using Dexpace.Sdk.Conformance;
 
 var subject = new TransportSubject { Name = "MyTransport", CreateAsync = settings => new MyTransport(settings.Logger) };
-var report = await TransportSuite.RunAllAsync(subject);   // 42 named assertions, each on every face the subject supplies
+var report = await TransportSuite.RunAllAsync(subject);   // 43 named assertions, each on every face the subject supplies
 
 Assert.True(report.IsGreen, report.ToString());           // the report lists every waiver and every gap
 ```

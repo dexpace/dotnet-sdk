@@ -293,8 +293,8 @@ serde — `Tristate<T>` and its System.Text.Json wiring, `CreateDefaultOptions`,
 the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerSentEvent`, the `ServerSentEventStream` facade that owns a response (four single-use views, one release rule per path) and the typed
 `MapAsync` / `Map` adapter — see `docs/sdk-documentation/sse.md`; and phase 7c's pagination — the
 `IPageStrategy` contract and `PageInfo<T>`, the three factories (`Pageable.Create`, `CreateBlocking`, `FromFetchers`), the single-use page view, the `Link` strategy's cross-origin guard and the fetcher
-form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport conformance kit, `Dexpace.Sdk.Conformance` — 42 named assertions for the `TRANSPORT` and `ASYNC` requirements,
+form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport conformance kit, `Dexpace.Sdk.Conformance` — 43 named assertions for the `TRANSPORT` and `ASYNC` requirements,
 the six result statuses and the by-ID waivers that must stay needed, the loopback `Wire` fixture promoted into it, the two drivers (the reference transport and a test-only raw-socket client) and the requirement
 catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`): phase 8b's hardening of the reference transport (the real synchronous send, per-call timeouts, header
-partitioning, proxy installation — each of its 14 rows is closed by deleting an `Owner = "8b"` waiver from `SystemNetConformanceTests`), the DI package
+partitioning, proxy installation — each of its 14 rows is closed by deleting an `Owner = "8b"` waiver from `SystemNetConformanceTests`, and so is `TRANSPORT-2`'s native-retry clause, which 8b either turns off or records as unmet: `SocketsHttpHandler` has no switch for it), the DI package
 `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release path (12).
