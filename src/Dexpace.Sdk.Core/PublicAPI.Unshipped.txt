@@ -627,8 +627,33 @@ Dexpace.Sdk.Core.Serialization.ISerde.Serialize<T>(System.Buffers.IBufferWriter<
 Dexpace.Sdk.Core.Serialization.ISerde.SerializeAsync<T>(System.IO.Stream! destination, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Dexpace.Sdk.Core.Serialization.IStringSerde
 Dexpace.Sdk.Core.Serialization.IStringSerde.SerializeToString<T>(T value) -> string!
+Dexpace.Sdk.Core.Serialization.ITristate
+Dexpace.Sdk.Core.Serialization.ITristate.Accept<TResult>(Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>! visitor) -> TResult
+Dexpace.Sdk.Core.Serialization.ITristate.State.get -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>
+Dexpace.Sdk.Core.Serialization.ITristateVisitor<TResult>.Visit<T>(Dexpace.Sdk.Core.Serialization.Tristate<T> value) -> TResult
 Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions
 Dexpace.Sdk.Core.Serialization.SerdeExtensions
+Dexpace.Sdk.Core.Serialization.Tristate
+Dexpace.Sdk.Core.Serialization.Tristate<T>
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Equals(Dexpace.Sdk.Core.Serialization.Tristate<T> other) -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.GetValueOrDefault() -> T?
+Dexpace.Sdk.Core.Serialization.Tristate<T>.GetValueOrDefault(T defaultValue) -> T
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsAbsent.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsNull.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.IsPresent.get -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Match<TResult>(System.Func<TResult>! onAbsent, System.Func<TResult>! onNull, System.Func<T, TResult>! onPresent) -> TResult
+Dexpace.Sdk.Core.Serialization.Tristate<T>.State.get -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Tristate() -> void
+Dexpace.Sdk.Core.Serialization.Tristate<T>.TryGetValue(out T value) -> bool
+Dexpace.Sdk.Core.Serialization.Tristate<T>.Value.get -> T
+Dexpace.Sdk.Core.Serialization.TristateSentinel
+Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(Dexpace.Sdk.Core.Serialization.TristateSentinel other) -> bool
+Dexpace.Sdk.Core.Serialization.TristateSentinel.TristateSentinel() -> void
+Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Absent = 0 -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Null = 1 -> Dexpace.Sdk.Core.Serialization.TristateState
+Dexpace.Sdk.Core.Serialization.TristateState.Present = 2 -> Dexpace.Sdk.Core.Serialization.TristateState
 override Dexpace.Sdk.Core.Auth.AccessToken.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.Auth.AccessToken.GetHashCode() -> int
 override Dexpace.Sdk.Core.Auth.AccessToken.ToString() -> string!
@@ -715,6 +740,12 @@ override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Process(Dexpace.S
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
 override Dexpace.Sdk.Core.Pipeline.Policies.ErrorMappingPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override Dexpace.Sdk.Core.Pipeline.PipelinePropertyKey<T>.ToString() -> string!
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.GetHashCode() -> int
+override Dexpace.Sdk.Core.Serialization.Tristate<T>.ToString() -> string!
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(object? obj) -> bool
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.GetHashCode() -> int
+override Dexpace.Sdk.Core.Serialization.TristateSentinel.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
@@ -894,6 +925,22 @@ static Dexpace.Sdk.Core.Serialization.ResponseBodySerdeExtensions.ReadValueAsync
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.Serialize<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, System.Span<byte> destination, T value) -> int
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToString<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> string!
 static Dexpace.Sdk.Core.Serialization.SerdeExtensions.SerializeToUtf8Bytes<T>(this Dexpace.Sdk.Core.Serialization.ISerde! serde, T value) -> byte[]!
+static Dexpace.Sdk.Core.Serialization.Tristate.Absent.get -> Dexpace.Sdk.Core.Serialization.TristateSentinel
+static Dexpace.Sdk.Core.Serialization.Tristate.FromNullable<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T!>
+static Dexpace.Sdk.Core.Serialization.Tristate.FromNullable<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate.GetValueOrNull<T>(this Dexpace.Sdk.Core.Serialization.Tristate<T> value) -> T?
+static Dexpace.Sdk.Core.Serialization.Tristate.Null.get -> Dexpace.Sdk.Core.Serialization.TristateSentinel
+static Dexpace.Sdk.Core.Serialization.Tristate.Present<T>(T value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Absent.get -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.FromNullable(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.implicit operator Dexpace.Sdk.Core.Serialization.Tristate<T>(Dexpace.Sdk.Core.Serialization.TristateSentinel sentinel) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.implicit operator Dexpace.Sdk.Core.Serialization.Tristate<T>(T? value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Null.get -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.operator !=(Dexpace.Sdk.Core.Serialization.Tristate<T> left, Dexpace.Sdk.Core.Serialization.Tristate<T> right) -> bool
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.operator ==(Dexpace.Sdk.Core.Serialization.Tristate<T> left, Dexpace.Sdk.Core.Serialization.Tristate<T> right) -> bool
+static Dexpace.Sdk.Core.Serialization.Tristate<T>.Present(T value) -> Dexpace.Sdk.Core.Serialization.Tristate<T>
+static Dexpace.Sdk.Core.Serialization.TristateSentinel.operator !=(Dexpace.Sdk.Core.Serialization.TristateSentinel left, Dexpace.Sdk.Core.Serialization.TristateSentinel right) -> bool
+static Dexpace.Sdk.Core.Serialization.TristateSentinel.operator ==(Dexpace.Sdk.Core.Serialization.TristateSentinel left, Dexpace.Sdk.Core.Serialization.TristateSentinel right) -> bool
 static readonly Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.DefaultAllowedHeaderNames -> System.Collections.Generic.IReadOnlyCollection<string!>!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.ActivitySource -> System.Diagnostics.ActivitySource!
 static readonly Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics.Meter -> System.Diagnostics.Metrics.Meter!
