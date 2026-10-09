@@ -1243,6 +1243,13 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.IsEmpty.get -> bool
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.get -> System.TimeSpan?
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Retry.init -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ServerSentEvent() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.MaxLineBytes.get -> int
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message, System.Exception? innerException) -> void
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Equals(object? obj) -> bool
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.ToString() -> string!
