@@ -102,7 +102,8 @@ var pipeline = new PipelineBuilder()
 ## `HttpPipeline`
 
 - **As a transport.** `HttpPipeline` implements `IAsyncHttpClient` and `IHttpClient` (`PIPE-26`), so one pipeline can wrap
-  another and back a paginator. Disposal is a no-op toward the transport, which the pipeline never owns, and there is no
+  another and back a paginator (`Pageable.Create` takes the `IAsyncHttpClient` seam and `Pageable.CreateBlocking` the `IHttpClient` one; see
+  [`pagination.md`](./pagination.md)). Disposal is a no-op toward the transport, which the pipeline never owns, and there is no
   latch: a disposed pipeline stays usable (`PIPE-27`; `SEAM-15` is a MAY).
 - **Two kinds of options.** The seam carries `RequestOptions` (per call), which reach every policy and the transport by
   reference; the policies read `DexpaceClientOptions`, which the pipeline captures at `Build`. The overloads taking a

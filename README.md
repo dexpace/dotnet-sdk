@@ -48,7 +48,7 @@ dotnet-sdk/
 │   │   ├── Client/                  # IHttpClient, IAsyncHttpClient, bridges
 │   │   ├── Pipeline/                # HttpPipeline, PipelineBuilder, DexpacePipeline, Policies/
 │   │   ├── Auth/                    # credentials and the access-token cache
-│   │   ├── Pagination/              # AsyncPageable<T>, Page<T>, strategies
+│   │   ├── Pagination/              # AsyncPageable<T>, Pageable<T>, Page<T>, strategies, fetchers
 │   │   ├── Configuration/           # DexpaceClientOptions and sub-options
 │   │   ├── Diagnostics/             # ActivitySource, Meter, UrlRedactor
 │   │   ├── Serialization/           # the ISerde seam
