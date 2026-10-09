@@ -23,8 +23,14 @@ namespace Dexpace.Sdk.Conformance.Wire;
 /// <see cref="LoopbackResponse.CloseConnection"/> is set ends its connection.
 /// </para>
 /// <para>
-/// Self-contained and framework-free (BCL only, no test-framework types) because roadmap phase 8a promotes it into
-/// <c>Dexpace.Sdk.Conformance</c>.
+/// <b>Library contract.</b> The type uses the base class library only and no test-framework type, so it runs under any
+/// runner; every <c>await</c> in it is configured (<c>ConfigureAwait(false)</c>), so it never needs the caller's context.
+/// The observation members (<see cref="Requests"/>, <see cref="Faults"/>, <see cref="ConnectionCount"/>,
+/// <see cref="WaitForRequestAsync"/> and <see cref="WaitForConnectionReleasedAsync"/>) are safe to call from any thread,
+/// at any time, concurrently with the exchange they observe: each returns a snapshot or a condition to wait on, never a
+/// live collection. The responder passed to <see cref="Start(Func{RecordedRequest, LoopbackResponse})"/> runs on the
+/// connection's own task, so requests on different connections may be answered concurrently and a stateful responder must
+/// synchronise itself.
 /// </para>
 /// </remarks>
 public sealed class LoopbackServer : IAsyncDisposable
