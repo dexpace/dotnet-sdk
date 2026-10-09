@@ -374,6 +374,15 @@ raises — is surfaced as `IOException("The event stream was closed while a read
 no-op, so the count stays one. The blocking views have no token; they rely on the disposal tearing the stream down, and the
 same normalisation applies. `SSE-18`'s single-threaded contract is otherwise unchanged: two threads pulling one stream is
 undefined.
+*Dated correction, 2026-10-09 (review finding on SSE-30, P7b-12):* "the release on that path is the latched no-op" has to be
+made true by the closer, not assumed. Cancelling the internal token unblocks the parked read, and for a read that completes
+synchronously the iterator's own quiet release ran inline inside `Cancel()`, took the latch first and swallowed a release
+failure the explicit close was owed (and, with an asynchronous release, let `Dispose`/`DisposeAsync` return before the
+response was released). So the first closer takes `_released` in `BeginClose`, **before** it cancels; the order is set
+`_closed`, take the latch, cancel, then release through the propagating path, and `ReleaseKind.Propagate` is gone because an
+explicit close no longer goes through the iterator's latch-taking `Release`. `RegisterOpened` already covered a stream that
+opens after the latch is taken. Pinned by `A_close_owns_the_release_so_its_failure_propagates_...` (async) and
+`A_blocking_close_owns_the_release_so_its_failure_propagates_...`.
 
 **P7b-14. One latch for all four views; misuse is `InvalidOperationException`, use after close is
 `ObjectDisposedException`.** `GetAsyncEnumerator`, `AsEnumerable`, `MapAsync` and `Map` return lazily, and the latch is taken

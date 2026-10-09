@@ -167,7 +167,9 @@ releases the response even when you enumerated by hand and walked away.
 `Dispose` and `DisposeAsync` are safe to call from a thread other than the one iterating, to cancel a long-lived stream. A close observed **between pulls** ends
 the iteration cleanly. A close that tears the stream down **while a read is in flight** surfaces from that read as an `IOException` ("The event stream was closed
 while a read was in flight.") whose inner exception is the failure the teardown caused (an `ObjectDisposedException` or an `OperationCanceledException`), and the
-response is still released once. The facade cancels an internal token every read observes, so a cooperative stream unblocks at once and a transport's stream
+response is still released once. The closing call owns that release: it takes it before it cancels anything, so the read it tears down can never release the response
+ahead of it. A release failure therefore propagates from `Dispose` / `DisposeAsync` as the table says, and the response is already released when that call returns (unless
+an earlier release, the stream ending or an earlier close, had already taken it, `SSE-28`). The facade cancels an internal token every read observes, so a cooperative stream unblocks at once and a transport's stream
 unblocks when disposal tears it down. **Residual R2:** a stream that honours neither stays blocked until data or the end of the stream arrives. Cancelling the
 enumeration token yourself is different: that surfaces as `OperationCanceledException` and is never rewritten to `IOException` (`XCUT-1`). Beyond this one call
 the types are single-threaded (`SSE-18`): two threads pulling one reader or one stream is undefined.

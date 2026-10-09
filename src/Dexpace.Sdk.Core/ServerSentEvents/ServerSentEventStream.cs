@@ -53,11 +53,11 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// <see cref="IOException"/> whose inner exception is the failure the teardown caused, and the response is still released
 /// once. The closing call owns that release: it takes it before it cancels, so the read it tears down can never release
 /// the response ahead of it, a release failure propagates from the closing call (SSE-30) and the response is released by
-/// the time that call returns (unless the stream had already ended and released itself, SSE-28). The facade cancels an
-/// internal token the reads observe, so a cooperative stream unblocks at once and a transport's stream unblocks when its
-/// disposal tears it down (residual R2: a stream that honours neither stays blocked until data or end of stream
-/// arrives). A cancellation by the caller's own token is never rewritten (XCUT-1). Beyond that one call the type is
-/// single-threaded, like the reader (SSE-18): two threads pulling one stream is undefined.
+/// the time that call returns (unless an earlier release, the stream ending or an earlier close, had already taken it,
+/// SSE-28). The facade cancels an internal token the reads observe, so a cooperative stream unblocks at once and a
+/// transport's stream unblocks when its disposal tears it down (residual R2: a stream that honours neither stays blocked
+/// until data or end of stream arrives). A cancellation by the caller's own token is never rewritten (XCUT-1). Beyond that
+/// one call the type is single-threaded, like the reader (SSE-18): two threads pulling one stream is undefined.
 /// </para>
 /// <para>
 /// <b>Bounding an untrusted stream.</b> The line cap bounds a line, not an event (residual R1, P7b-5): bound a stream from
