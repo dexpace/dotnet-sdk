@@ -30,10 +30,10 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests;
 /// replaced by the options-instance row below, which is PAGE-36's real claim at the seam.
 /// </para>
 /// <para>
-/// The blocking pager does not work over this transport yet: <c>HttpResponseMessageBody</c> does not override
-/// <c>ResponseBody.OpenRead</c> until phase 8b, so <c>Pageable.CreateBlocking</c> over <see cref="SystemNetHttpClient"/>, directly or
-/// through a pipeline, throws <see cref="NotSupportedException"/> on the first page. The last test pins that, so 8b's change is a
-/// reviewed flip of one assertion and not a silent behaviour change.
+/// The blocking pager reads each page through <c>ResponseBody.OpenRead</c>, which <c>HttpResponseMessageBody</c> has implemented
+/// since phase 7b, so <c>Pageable.CreateBlocking</c> over <see cref="SystemNetHttpClient"/>, directly or through a pipeline, walks
+/// every page over the real socket; the last test pins that. The transport's <c>Execute</c> still blocks on its async send until
+/// phase 8b (PIPE-28), which changes nothing the pager can observe.
 /// </para>
 /// </remarks>
 [Trait("Category", "Integration")]
@@ -191,15 +191,11 @@ public sealed class PaginationWireTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task A_blocking_walk_over_the_real_transport_throws_NotSupportedException_until_8b_adds_OpenRead(bool throughPipeline)
+    public async Task A_blocking_walk_over_the_real_transport_reads_every_page(bool throughPipeline)
     {
-        // PIPE-28's gap below the pager, pinned as it is today: the transport's Execute works (it blocks on the async send), but
-        // the body it returns has no synchronous OpenRead, and the blocking pager reads each page through OpenRead. The exchange
-        // happens, the first page is requested, and the read fails with the base ResponseBody's NotSupportedException.
-        //
-        // When phase 8b gives HttpResponseMessageBody an OpenRead, this test fails at the Assert.Throws below. That is the
-        // intended signal: replace the throw assertion with the walk (Assert.Equal([1, 2, 3], items) over the three-page cursor
-        // server) and delete this comment; no 7c source changes (design "Hand-offs to later phases", 8b).
+        // PIPE-28 below the pager: the transport's Execute still blocks on the async send until 8b, but the body it returns has had a
+        // synchronous OpenRead since phase 7b, so the blocking pager reads each page over the real socket, directly and through a
+        // pipeline. (Until the rebase onto 7b this test pinned the NotSupportedException the missing OpenRead raised.)
         await using var server = LoopbackServer.Start(request => request.Target switch
         {
             "/items" => Page("1|a"),
@@ -218,18 +214,15 @@ public sealed class PaginationWireTests
             PaginationStrategies.Cursor<WirePage, int>(p => p.Items, p => p.Next),
             maxPages: 10,
             cancellationToken: Ct);
+        var items = new List<int>();
 
-        var thrown = Assert.Throws<NotSupportedException>(() =>
+        foreach (var item in pageable)
         {
-            foreach (var item in pageable)
-            {
-                Assert.Fail($"No item can be read before 8b adds HttpResponseMessageBody.OpenRead, got {item}.");
-            }
-        });
+            items.Add(item);
+        }
 
-        Assert.Contains("HttpResponseMessageBody", thrown.Message, StringComparison.Ordinal);
-        Assert.Contains("OpenRead", thrown.Message, StringComparison.Ordinal);
-        Assert.Equal(["/items"], server.Requests.Select(r => r.Target));
+        Assert.Equal([1, 2, 3], items);
+        Assert.Equal(["/items", "/items?cursor=a", "/items?cursor=b"], server.Requests.Select(r => r.Target));
         Assert.Empty(server.Faults);
     }
 }
