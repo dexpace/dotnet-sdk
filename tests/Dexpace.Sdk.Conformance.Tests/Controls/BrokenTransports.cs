@@ -6,9 +6,9 @@ using Dexpace.Sdk.Conformance.Tests.Support;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
-using Microsoft.Extensions.Logging;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Conformance.Tests.Controls;
 
