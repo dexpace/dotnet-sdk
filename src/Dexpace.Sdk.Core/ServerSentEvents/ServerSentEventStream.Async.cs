@@ -60,7 +60,7 @@ public sealed partial class ServerSentEventStream
         finally
         {
             linked.Dispose();
-            await ReleaseAsync(ReleaseKind.Quiet, null).ConfigureAwait(false);
+            await ReleaseAsync(primary: null).ConfigureAwait(false);
         }
     }
 
@@ -84,7 +84,7 @@ public sealed partial class ServerSentEventStream
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             linked?.Dispose();
-            await ReleaseAsync(ReleaseKind.Attach, ex).ConfigureAwait(false);
+            await ReleaseAsync(ex).ConfigureAwait(false);
             throw;
         }
     }
@@ -106,7 +106,7 @@ public sealed partial class ServerSentEventStream
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            await ReleaseAsync(ReleaseKind.Attach, ex).ConfigureAwait(false);
+            await ReleaseAsync(ex).ConfigureAwait(false);
             throw;
         }
     }

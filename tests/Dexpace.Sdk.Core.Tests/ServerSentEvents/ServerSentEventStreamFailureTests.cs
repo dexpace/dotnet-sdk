@@ -213,6 +213,76 @@ public sealed class ServerSentEventStreamFailureTests : IDisposable
         Assert.Equal(1, body.DisposeCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_close_owns_the_release_so_its_failure_propagates_though_the_torn_down_read_unwinds_first(bool slowStreamDispose)
+    {
+        // The cancelled read completes inline inside Cancel(), so the iterator's own cleanup runs on the closer's stack
+        // before the closer reaches its release. It must find the release already taken (SSE-30, P7b-12, P7b-13).
+        var releaseFailure = new InvalidOperationException("release boom");
+        using var cooperative = new CancelWakesReadStream("data: a\n\n"u8.ToArray(), slowDispose: slowStreamDispose);
+        var body = new SseBody(SseResponses.Bytes(string.Empty))
+        {
+            AsyncOpen = _ => Task.FromResult<Stream>(cooperative),
+            DisposeFailure = releaseFailure,
+        };
+        var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body));
+        var consumer = Task.Run(() => DrainAsync(stream), Token);
+        await cooperative.Parked.WaitAsync(s_hangGuard, Token);
+
+        // A pool thread has no synchronization context, so the cancelled read's continuation really does run inline.
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Task.Run(async () => await stream.DisposeAsync(), Token));
+
+        Assert.Same(releaseFailure, thrown);
+        Assert.Equal(1, body.DisposeCount);
+        Assert.Equal(1, cooperative.DisposeCount);
+        var consumerFailure = await Assert.ThrowsAsync<IOException>(() => consumer.WaitAsync(s_hangGuard, Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(consumerFailure.InnerException);
+    }
+
+    [Fact]
+    public async Task A_blocking_close_owns_the_release_so_its_failure_propagates_though_the_torn_down_read_unwinds_first()
+    {
+        // The cancel callback holds the closer until the consumer has unwound, which is the ordering in which the
+        // iterator's cleanup used to take the release (SSE-30, P7b-12, P7b-13).
+        var releaseFailure = new InvalidOperationException("release boom");
+        using var consumerUnwound = new ManualResetEventSlim();
+        using var cooperative = new CancelWakesReadStream("data: a\n\n"u8.ToArray(), consumerUnwound);
+        var body = new SseBody(SseResponses.Bytes(string.Empty))
+        {
+            SyncOpen = token =>
+            {
+                cooperative.Bind(token);
+                return cooperative;
+            },
+            DisposeFailure = releaseFailure,
+        };
+        var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body));
+        var consumer = Task.Run(
+            () =>
+            {
+                try
+                {
+                    return stream.AsEnumerable().ToList();
+                }
+                finally
+                {
+                    consumerUnwound.Set();
+                }
+            },
+            Token);
+        await cooperative.Parked.WaitAsync(s_hangGuard, Token);
+
+        var thrown = Assert.Throws<InvalidOperationException>(stream.Dispose);
+
+        Assert.Same(releaseFailure, thrown);
+        Assert.Equal(1, body.DisposeCount);
+        Assert.Equal(1, cooperative.DisposeCount);
+        var consumerFailure = await Assert.ThrowsAsync<IOException>(() => consumer.WaitAsync(s_hangGuard, Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(consumerFailure.InnerException);
+    }
+
     [Fact]
     public async Task A_fatal_exception_is_never_wrapped_or_swallowed()
     {

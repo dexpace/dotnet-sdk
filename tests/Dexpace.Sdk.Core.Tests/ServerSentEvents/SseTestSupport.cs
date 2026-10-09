@@ -26,6 +26,8 @@ internal sealed class SseBody(Func<Stream> open) : ResponseBody
 
     public Func<CancellationToken, Task<Stream>>? AsyncOpen { get; init; }
 
+    public Func<CancellationToken, Stream>? SyncOpen { get; init; }
+
     public long Length { get; init; } = -1;
 
     public List<string>? Log { get; init; }
@@ -60,7 +62,12 @@ internal sealed class SseBody(Func<Stream> open) : ResponseBody
         Interlocked.Increment(ref _opens);
         Interlocked.Increment(ref _syncOpens);
         Record("body:open-sync");
-        return OpenFailure is not null ? throw OpenFailure : open();
+        if (OpenFailure is not null)
+        {
+            throw OpenFailure;
+        }
+
+        return SyncOpen is null ? open() : SyncOpen(cancellationToken);
     }
 
     protected override void Dispose(bool disposing)
@@ -241,6 +248,114 @@ internal sealed class GatedStream(byte[] initial, bool completeOnDispose = true,
         }
 
         base.Dispose(disposing);
+    }
+
+    private bool TryServe(Span<byte> buffer, out int n)
+    {
+        n = 0;
+        if (_served >= initial.Length)
+        {
+            return false;
+        }
+
+        n = Math.Min(buffer.Length, initial.Length - _served);
+        initial.AsSpan(_served, n).CopyTo(buffer);
+        _served += n;
+        return true;
+    }
+}
+
+/// <summary>
+/// A cooperative stream that serves <c>initial</c> and then parks every read until the token that read observes is
+/// cancelled, which fails the read with <see cref="OperationCanceledException"/> (SSE-31). The wake-up is deliberately
+/// <i>synchronous</i> with the cancellation: the gate's continuations run inline, so an asynchronous consumer resumes,
+/// fails and runs its own cleanup on the cancelling thread's stack before <c>Cancel()</c> returns. A blocking consumer
+/// cannot resume on that stack, so the cancel callback instead holds the canceller until <c>holdCancel</c> is set
+/// (the test sets it once the consumer has finished unwinding). Either way the torn-down read's cleanup runs before the
+/// closer's own release, which is the ordering that used to hand the release to the wrong party.
+/// </summary>
+/// <remarks>
+/// The token registration is never disposed: disposing one waits for a callback that is running on another thread, and
+/// the callback here can be waiting for the very thread that would dispose it.
+/// </remarks>
+internal sealed class CancelWakesReadStream(byte[] initial, ManualResetEventSlim? holdCancel = null, bool slowDispose = false) : Stream
+{
+    private static readonly TimeSpan s_holdGuard = TimeSpan.FromSeconds(10);
+
+    // No RunContinuationsAsynchronously: inline continuations are the point of this double.
+    private readonly TaskCompletionSource<int> _gate = new();
+    private readonly TaskCompletionSource _parked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private CancellationToken _blockingToken;
+    private int _served;
+    private int _disposes;
+
+    public Task Parked => _parked.Task;
+
+    public int DisposeCount => Volatile.Read(ref _disposes);
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    /// <summary>Hands a blocking read the token the body's synchronous open received (a blocking read has no token of its own).</summary>
+    /// <param name="token">The token the facade passed to <c>OpenRead</c>.</param>
+    public void Bind(CancellationToken token) => _blockingToken = token;
+
+    public override int Read(byte[] buffer, int offset, int count) =>
+        TryServe(buffer.AsSpan(offset, count), out var n) ? n : Park(_blockingToken).GetAwaiter().GetResult();
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+        TryServe(buffer.Span, out var n) ? n : await Park(cancellationToken);
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (slowDispose)
+        {
+            await Task.Yield();
+        }
+
+        await base.DisposeAsync();
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            Interlocked.Increment(ref _disposes);
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private Task<int> Park(CancellationToken token)
+    {
+        _ = token.Register(() =>
+        {
+            _gate.TrySetCanceled(token);
+            holdCancel?.Wait(s_holdGuard);
+        });
+        _parked.TrySetResult();
+        return _gate.Task;
     }
 
     private bool TryServe(Span<byte> buffer, out int n)

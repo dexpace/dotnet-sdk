@@ -51,10 +51,13 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// a thread other than the one iterating, to cancel a long-lived stream. A close observed between pulls ends the iteration
 /// cleanly; a close that tears the stream down while a read is in flight surfaces from that read as an
 /// <see cref="IOException"/> whose inner exception is the failure the teardown caused, and the response is still released
-/// once. The facade cancels an internal token the reads observe, so a cooperative stream unblocks at once and a
-/// transport's stream unblocks when its disposal tears it down (residual R2: a stream that honours neither stays blocked
-/// until data or end of stream arrives). A cancellation by the caller's own token is never rewritten (XCUT-1). Beyond that
-/// one call the type is single-threaded, like the reader (SSE-18): two threads pulling one stream is undefined.
+/// once. The closing call owns that release: it takes it before it cancels, so the read it tears down can never release
+/// the response ahead of it, a release failure propagates from the closing call (SSE-30) and the response is released by
+/// the time that call returns (unless the stream had already ended and released itself, SSE-28). The facade cancels an
+/// internal token the reads observe, so a cooperative stream unblocks at once and a transport's stream unblocks when its
+/// disposal tears it down (residual R2: a stream that honours neither stays blocked until data or end of stream
+/// arrives). A cancellation by the caller's own token is never rewritten (XCUT-1). Beyond that one call the type is
+/// single-threaded, like the reader (SSE-18): two threads pulling one stream is undefined.
 /// </para>
 /// <para>
 /// <b>Bounding an untrusted stream.</b> The line cap bounds a line, not an event (residual R1, P7b-5): bound a stream from
@@ -81,17 +84,17 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
         _logger = logger;
     }
 
-    /// <summary>The kinds of release (P7b-12).</summary>
-    private enum ReleaseKind
+    /// <summary>What a call to <see cref="Dispose"/> or <see cref="DisposeAsync"/> found, decided once by <see cref="BeginClose"/>.</summary>
+    private enum CloseRole
     {
-        /// <summary>A clean terminal path: a failure is reported out of band and swallowed.</summary>
-        Quiet = 1,
+        /// <summary>Another close began first: nothing to do (SSE-28).</summary>
+        Later = 0,
 
-        /// <summary>A failure path: a release failure is attached to the exception in flight.</summary>
-        Attach = 2,
+        /// <summary>The first close, but an automatic release already took the response: nothing to release.</summary>
+        Closer = 1,
 
-        /// <summary>An explicit close: a release failure propagates.</summary>
-        Propagate = 3,
+        /// <summary>The first close, and it took the response's release before cancelling: it releases and propagates (SSE-30).</summary>
+        Releaser = 2,
     }
 
     /// <summary>
@@ -155,14 +158,17 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
     /// </remarks>
     public void Dispose()
     {
-        var first = BeginClose();
+        var role = BeginClose();
         try
         {
-            Release(ReleaseKind.Propagate, null);
+            if (role == CloseRole.Releaser)
+            {
+                ReleasePropagating(Volatile.Read(ref _opened));
+            }
         }
         finally
         {
-            EndClose(first);
+            EndClose(role);
         }
     }
 
@@ -170,14 +176,17 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
     /// <returns>A task that completes when the release has finished.</returns>
     public async ValueTask DisposeAsync()
     {
-        var first = BeginClose();
+        var role = BeginClose();
         try
         {
-            await ReleaseAsync(ReleaseKind.Propagate, null).ConfigureAwait(false);
+            if (role == CloseRole.Releaser)
+            {
+                await ReleasePropagatingAsync(Volatile.Read(ref _opened)).ConfigureAwait(false);
+            }
         }
         finally
         {
-            EndClose(first);
+            EndClose(role);
         }
     }
 
@@ -216,13 +225,22 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
 
     // Marks the stream closed before anything else (P7b-13), so a read torn down by the release below is recognised as a
     // close and not as a stream failure. Only the first closer cancels the internal token and, later, disposes it.
-    private bool BeginClose()
+    //
+    // The first closer also takes the release latch HERE, before it cancels. Cancelling unblocks a parked read, which fails
+    // and unwinds into the iterator's own finally, and for a stream whose cancelled read completes synchronously that
+    // finally runs inline inside Cancel(), ahead of the closer's release. If the latch were still free it would go to that
+    // quiet release, which swallows a failure, so an explicit close would neither propagate it (SSE-30, P7b-12) nor, when
+    // the iterator's release is asynchronous, have released the response by the time it returned. Holding the latch first
+    // makes the iterator's release the latched no-op P7b-13 describes. RegisterOpened closes the other side: a stream
+    // that opens after this point sees the latch taken and disposes itself.
+    private CloseRole BeginClose()
     {
         if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
-            return false;
+            return CloseRole.Later;
         }
 
+        var role = Interlocked.Exchange(ref _released, 1) == 0 ? CloseRole.Releaser : CloseRole.Closer;
         try
         {
             _closing.Cancel();
@@ -233,12 +251,12 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
             // cancellation was for, and a throw here would skip it.
         }
 
-        return true;
+        return role;
     }
 
-    private void EndClose(bool first)
+    private void EndClose(CloseRole role)
     {
-        if (first)
+        if (role != CloseRole.Later)
         {
             _closing.Dispose();
         }
@@ -258,7 +276,11 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
         }
     }
 
-    private void Release(ReleaseKind kind, Exception? primary)
+    // The iterator's automatic release (P7b-12). With no primary it is a clean terminal path (SSE-24, SSE-25, SSE-34): a
+    // failure is reported out of band and swallowed. With a primary it is a failure path (SSE-29, SSE-36): a failure is
+    // attached to that exception. An explicit close is neither: it takes the latch in BeginClose and releases through
+    // ReleasePropagating.
+    private void Release(Exception? primary)
     {
         if (Interlocked.Exchange(ref _released, 1) != 0)
         {
@@ -266,17 +288,11 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
         }
 
         var opened = Volatile.Read(ref _opened);
-        if (kind == ReleaseKind.Propagate)
-        {
-            ReleasePropagating(opened);
-            return;
-        }
-
         Disposal.DisposeQuietly(opened, primary, _logger);
         Disposal.DisposeQuietly(_response, primary, _logger);
     }
 
-    private async ValueTask ReleaseAsync(ReleaseKind kind, Exception? primary)
+    private async ValueTask ReleaseAsync(Exception? primary)
     {
         if (Interlocked.Exchange(ref _released, 1) != 0)
         {
@@ -284,12 +300,6 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
         }
 
         var opened = Volatile.Read(ref _opened);
-        if (kind == ReleaseKind.Propagate)
-        {
-            await ReleasePropagatingAsync(opened).ConfigureAwait(false);
-            return;
-        }
-
         await Disposal.DisposeQuietlyAsync(opened, primary, _logger).ConfigureAwait(false);
         await Disposal.DisposeQuietlyAsync(_response, primary, _logger).ConfigureAwait(false);
     }

@@ -87,13 +87,13 @@ public sealed partial class ServerSentEventStream
             }
             catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
             {
-                await ReleaseAsync(ReleaseKind.Attach, ex).ConfigureAwait(false);
+                await ReleaseAsync(ex).ConfigureAwait(false);
                 throw;
             }
 
             if (result.Kind == SseMapResultKind.Done)
             {
-                await ReleaseAsync(ReleaseKind.Quiet, null).ConfigureAwait(false);
+                await ReleaseAsync(primary: null).ConfigureAwait(false);
                 yield break;
             }
 
@@ -115,13 +115,13 @@ public sealed partial class ServerSentEventStream
             }
             catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
             {
-                Release(ReleaseKind.Attach, ex);
+                Release(ex);
                 throw;
             }
 
             if (result.Kind == SseMapResultKind.Done)
             {
-                Release(ReleaseKind.Quiet, null);
+                Release(primary: null);
                 yield break;
             }
 

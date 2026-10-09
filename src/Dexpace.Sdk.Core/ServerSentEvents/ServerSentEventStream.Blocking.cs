@@ -57,7 +57,7 @@ public sealed partial class ServerSentEventStream
         }
         finally
         {
-            Release(ReleaseKind.Quiet, null);
+            Release(primary: null);
         }
     }
 
@@ -77,7 +77,7 @@ public sealed partial class ServerSentEventStream
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            Release(ReleaseKind.Attach, ex);
+            Release(ex);
             throw;
         }
     }
@@ -94,7 +94,7 @@ public sealed partial class ServerSentEventStream
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
-            Release(ReleaseKind.Attach, ex);
+            Release(ex);
             throw;
         }
     }
