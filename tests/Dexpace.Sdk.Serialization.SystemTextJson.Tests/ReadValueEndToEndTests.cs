@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Serialization;
+using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
 namespace Dexpace.Sdk.Serialization.SystemTextJson.Tests;
@@ -106,5 +107,50 @@ public sealed class ReadValueEndToEndTests
         await body.ReadValueAsync<Widget>(Serde(), Token);
 
         await Assert.ThrowsAsync<StreamConsumedException>(async () => await body.ReadValueAsync<Widget>(Serde(), Token));
+    }
+
+    // ---- the handlers and the lazy typed response, over the real adapter (SERDE-13, SERDE-27, SERDE-28, HTTP-44) ----
+
+    private static Response Ok(string json) => TestResponses.Create(Status.Ok, body: Body(json));
+
+    [Fact]
+    public async Task A_root_null_names_T_through_both_handlers()
+    {
+        var plain = await Assert.ThrowsAsync<DeserializationException>(
+            async () => await ResponseHandlers.Deserialize<Widget>(Serde()).HandleAsync(Ok("null"), Token));
+        var onSuccess = await Assert.ThrowsAsync<DeserializationException>(
+            async () => await ResponseHandlers.DeserializeOnSuccess<Widget>(Serde()).HandleAsync(Ok("null"), Token));
+
+        Assert.Contains(nameof(Widget), plain.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(Widget), onSuccess.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_status_aware_handler_maps_an_error_response_to_an_HttpResponseException_with_a_readable_typed_body()
+    {
+        var response = TestResponses.Create(Status.BadRequest, body: Body("""{"Code":"bad","Message":"nope"}"""));
+        var typedErrorSerde = new SystemTextJsonSerde(TestJsonContext.Default);
+
+        var ex = await Assert.ThrowsAsync<HttpResponseException>(
+            async () => await ResponseHandlers.DeserializeOnSuccess<Widget>(Serde()).HandleAsync(response, Token));
+
+        Assert.Equal(new ApiError("bad", "nope"), await ex.GetErrorAsync<ApiError>(typedErrorSerde, Token));
+        Assert.Equal(new ApiError("bad", "nope"), ex.GetError<ApiError>(typedErrorSerde));
+    }
+
+    [Fact]
+    public async Task A_lazy_typed_PATCH_response_decodes_once()
+    {
+        using var typed = new TypedResponse<WidgetPatch>(
+            Ok("""{"name":null,"size":3}"""), ResponseHandlers.DeserializeOnSuccess<WidgetPatch>(Serde()));
+
+        var first = await typed.GetValueAsync(Token);
+        var second = await typed.GetValueAsync(Token);
+
+        Assert.Equal(Status.Ok, typed.Status);
+        Assert.True(first.Name.IsNull);
+        Assert.Equal(Tristate.Present(3), first.Size);
+        Assert.True(first.Note.IsAbsent);
+        Assert.Equal(first, second);
     }
 }
