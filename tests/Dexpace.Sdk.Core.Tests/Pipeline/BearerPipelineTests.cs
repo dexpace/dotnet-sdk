@@ -33,7 +33,9 @@ public sealed class BearerPipelineTests
     [Fact]
     public async Task A_challenged_bearer_call_through_the_default_pipeline_succeeds_with_one_resend()
     {
-        using var recorder = new ActivityRecorder("Dexpace.Sdk");
+        // Scoped: this class is not in the "Instrumentation" collection, so an unscoped recorder also counted the attempt
+        // spans of default-pipeline tests running in parallel (P5c-15).
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var credential = new CountingCredential();
         using var transport = new ScriptedTransport(TestResponses.Unauthorized("Bearer realm=\"r\""), TestResponses.Create(Status.Ok));
         using var pipeline = DexpacePipeline.CreateDefault(
