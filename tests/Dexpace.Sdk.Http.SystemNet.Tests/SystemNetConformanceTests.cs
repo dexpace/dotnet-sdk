@@ -69,8 +69,22 @@ public sealed class SystemNetConformanceTests
     }
 
     // </driver>
+    // A waiver is either a row phase 8b is still closing (Owner "8b") or a recorded permanent decision (no owner, narrowed to one assertion).
     [Fact]
-    public void Only_8b_waivers_remain() => Assert.All(SystemNetSubject.Options.Waivers, waiver => Assert.Equal("8b", waiver.Owner));
+    public void Only_8b_waivers_and_the_recorded_permanent_decisions_remain() => Assert.All(
+        SystemNetSubject.Options.Waivers,
+        waiver =>
+        {
+            if (waiver.Owner is null)
+            {
+                Assert.NotNull(waiver.Assertion);
+                Assert.Contains("design section 10 entry", waiver.Reason, StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Equal("8b", waiver.Owner);
+            }
+        });
 
     [Fact]
     public void Only_known_waiver_targets_remain() => Assert.All(

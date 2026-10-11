@@ -132,9 +132,8 @@ internal static class SystemNetSubject
         ReleaseTimeout = TimeSpan.FromSeconds(5),
         Waivers =
         [
-            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a body-less request whose connection ends before any response byte is re-sent up to three more times, on a pooled connection and on a new one, so the pipeline's retry is not the only one; 8b finds a handler-level way to turn it off or records the clause as unmet on a stated domain (a design section 10 entry)")
+            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a request with no content whose connection ends before any response byte is re-sent up to three more times. The transport closes the clause where it can: a body-less POST, PUT, PATCH or extension method is given a zero-length content (Content-Length: 0, byte for byte what the native client writes anyway), so the retry cannot fire. A body-less GET, HEAD, OPTIONS, DELETE and TRACE is still re-sent: all are idempotent (RFC 9110 section 9.2.2), which permits the retry, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6. Unmet on that stated domain: design section 10 entry 33")
             {
-                Owner = "8b",
                 Assertion = "transport-2.bodyless-not-resent",
             },
             new("TRANSPORT-10", "F7: RequestBodyContent stamps the body's media type and the caller's Content-Type header is skipped, so the body's type wins on the wire") { Owner = "8b" },

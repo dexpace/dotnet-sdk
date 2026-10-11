@@ -441,6 +441,17 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
+    // The methods the native client frames with Content-Length: 0 when they carry no content (GET, HEAD, OPTIONS and DELETE get no
+    // framing header, so a substitute would change the wire; TRACE gets one but stays without content, TRANSPORT-26 and RFC 9110
+    // section 9.3.8; CONNECT is never sent by the SDK).
+    private static bool CarriesZeroLengthContent(Method method) =>
+        !(method.Name.Equals("GET", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Equals("HEAD", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Equals("DELETE", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Equals("TRACE", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Equals("CONNECT", StringComparison.OrdinalIgnoreCase));
+
     // TRANSPORT-18 (P8b-10): a single-use body is teed into a bounded capture, but only where the native layer can send the request
     // again behind the transport's back, and never for a body that can be written twice anyway.
     private ResendCapture? CreateCapture(RequestBody body)
@@ -559,6 +570,13 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         if (request.Body is { } body)
         {
             message.Content = new RequestBodyContent(body, CreateCapture(body));
+        }
+        else if (CarriesZeroLengthContent(request.Method))
+        {
+            // TRANSPORT-2 (P8b-T2, design section 10 entry 33): SocketsHttpHandler re-sends a request with no content whose connection
+            // ended before any response byte, and has no switch for it. A zero-length content is what it writes for these methods
+            // anyway (Content-Length: 0, byte for byte), and with content present the retry cannot fire.
+            message.Content = new ByteArrayContent([]);
         }
 
         var (stripTraceparent, stripTracestate) = StripTraceContext(request);
