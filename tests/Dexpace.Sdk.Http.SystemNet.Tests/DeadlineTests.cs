@@ -4,6 +4,7 @@
 using System.Net;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
@@ -176,6 +177,9 @@ public sealed class DeadlineTests
 
     private static readonly Request s_request = Request.Get("https://example.test/ping");
 
+    // How long a row that expects the fake clock to have cut a call waits before it counts as not cut; a pass never waits on it.
+    private static readonly TimeSpan s_regressionBound = TimeSpan.FromSeconds(10);
+
     // Waits until its gate opens or the token it was given is signalled, and reports when it started.
     private sealed class WaitingHandler : HttpMessageHandler
     {
@@ -305,6 +309,82 @@ public sealed class DeadlineTests
 
         var failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
         Assert.Equal(caller.Token, failure.CancellationToken);
+    }
+
+    // ------------------------------------------------------------------------------------------------------------------------
+    // A borrowed client (review finding, phase 8b): the transport's default deadline applies to every construction, so it also caps
+    // a borrowed HttpClient whose own Timeout is longer. That is a documented breaking change for the borrowed construction (before
+    // 8b only the client's own Timeout bounded the call), not a silent one, and the migration is a null transport timeout.
+
+    [Fact]
+    public async Task A_borrowed_client_with_an_infinite_own_timeout_is_still_cut_at_the_transports_hundred_second_default()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        using var borrowed = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        await using var transport = new SystemNetHttpClient(borrowed, new SystemNetHttpClientOptions { TimeProvider = clock });
+
+        var call = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        clock.Advance(TimeSpan.FromSeconds(99));
+        Assert.False(call.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        // Bounded, so a transport that stops cutting the call fails this row instead of hanging the run.
+        var failure = await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => call.WaitAsync(s_regressionBound, TestContext.Current.CancellationToken));
+        Assert.True(failure.IsRetryable);
+        Assert.Equal(Timeout.InfiniteTimeSpan, borrowed.Timeout);
+    }
+
+    [Fact]
+    public async Task A_null_transport_timeout_leaves_a_borrowed_clients_own_timeout_the_only_bound()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        using var borrowed = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        await using var transport = new SystemNetHttpClient(borrowed, new SystemNetHttpClientOptions { TimeProvider = clock, Timeout = null });
+
+        var call = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromDays(30));
+        Assert.False(call.IsCompleted);
+        handler.Gate.SetResult();
+
+        await using var response = await call;
+        Assert.Equal(200, response.Status.Code);
+    }
+
+    [Fact]
+    public async Task A_per_call_timeout_lifts_the_default_over_a_borrowed_client_whose_own_timeout_allows_it()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        using var borrowed = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        await using var transport = new SystemNetHttpClient(borrowed, new SystemNetHttpClientOptions { TimeProvider = clock });
+
+        var call = transport.ExecuteAsync(s_request, new RequestOptions { Timeout = TimeSpan.FromMinutes(5) }, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromSeconds(299));
+        Assert.False(call.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => call.WaitAsync(s_regressionBound, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task The_borrowed_constructors_without_options_carry_the_hundred_second_default_like_every_other_construction()
+    {
+        using var borrowed = new HttpClient(new WaitingHandler()) { Timeout = Timeout.InfiniteTimeSpan };
+        await using var bare = new SystemNetHttpClient(borrowed);
+        await using var withLogger = new SystemNetHttpClient(borrowed, NullLogger.Instance);
+        await using var withOptions = new SystemNetHttpClient(borrowed, new SystemNetHttpClientOptions());
+        await using var withHandler = new SystemNetHttpClient(new WaitingHandler());
+        await using var owned = new SystemNetHttpClient();
+
+        Assert.All(
+            new[] { bare, withLogger, withOptions, withHandler, owned },
+            transport => Assert.Equal(TimeSpan.FromSeconds(100), transport.Settings.Timeout));
     }
 
     [Fact]
