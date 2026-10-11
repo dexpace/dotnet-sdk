@@ -68,8 +68,24 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// now <c>ExecuteAsync(Request, RequestOptions, CancellationToken)</c> and
 /// <c>Execute(Request, RequestOptions, CancellationToken)</c>, with no parameter defaults. Callers that import
 /// <c>Dexpace.Sdk.Core.Client</c> keep calling <c>ExecuteAsync(request, token)</c> through its option-less extension.
-/// <see cref="RequestOptions"/> are ignored until phase 8b (SEAM-11), and the synchronous call is sync-over-async until
-/// then.
+/// The synchronous call is sync-over-async until the real synchronous path lands (SEAM-11).
+/// </para>
+/// <para>
+/// <b>Deadlines and failures (TRANSPORT-4, -5, -6, -8, -20; XCUT-1, XCUT-2).</b> A call's deadline is
+/// <see cref="RequestOptions.Timeout"/> when it sets one, else <see cref="SystemNetHttpClientOptions.Timeout"/> (100 seconds unless
+/// configured). It is armed per call on <see cref="SystemNetHttpClientOptions.TimeProvider"/>, linked with the caller's token, and it
+/// never changes the shared <c>HttpClient</c>. It bounds the exchange until the response headers arrive: reading the body is bounded
+/// by the token the caller passes to the read. A deadline below one millisecond is raised to one, and one above 49 days lowered to
+/// 49 days. The outcome is classified by what the transport knows first and the shape of the runtime's exception second:
+/// the caller's cancellation is an <see cref="OperationCanceledException"/>; a fired deadline, or a borrowed client's own
+/// <c>Timeout</c>, is a retryable <see cref="ServiceRequestTimeoutException"/>; a failure to reach the server is a retryable
+/// <see cref="ServiceRequestException"/>; and a cancellation the native client raised from inside (<c>CancelPendingRequests</c>, the
+/// native client or this transport disposed mid-call) is a new, terminal <see cref="OperationCanceledException"/> that the SDK's
+/// retry does not repeat, the native exception kept on its <see cref="ExceptionTrail"/>. A borrowed client's own <c>Timeout</c> still
+/// bounds a longer per-call value, since a client shared with others cannot be lengthened without changing it.
+/// <b>Breaking</b> (phase 8b): <see cref="RequestOptions.Timeout"/> was ignored; the transport's own <c>HttpClient</c> now has an
+/// infinite <c>Timeout</c> and the 100 second default above replaces it; and an internal cancellation used to surface as a retryable
+/// <see cref="ServiceRequestTimeoutException"/>.
 /// </para>
 /// <para>
 /// <b>After dispose (SEAM-15).</b> Every call made after <c>Dispose</c> or <c>DisposeAsync</c> throws
@@ -292,11 +308,16 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     // The settings the transport resolved from its options when it was constructed.
     internal SendSettings Settings => _settings;
 
+    // The native client's own Timeout: infinite for a client the transport builds (its deadline replaces it), the caller's for a borrowed one.
+    internal TimeSpan NativeClientTimeout => _client.Timeout;
+
     /// <inheritdoc/>
     /// <remarks>
-    /// <see cref="RequestOptions"/> are accepted and read by nothing until phase 8b wires
-    /// <see cref="RequestOptions.Timeout"/> (TRANSPORT-5), which SEAM-11 permits.
+    /// The call's deadline is <see cref="RequestOptions.Timeout"/>, else <see cref="SystemNetHttpClientOptions.Timeout"/>, and it
+    /// bounds the exchange until the response headers arrive (TRANSPORT-5, TRANSPORT-6; see the class remarks for the failure
+    /// classification).
     /// </remarks>
+    /// <exception cref="ObjectDisposedException">The transport was disposed (SEAM-15); delivered through the returned task.</exception>
     /// <exception cref="SdkException">
     /// A caller-supplied client followed a redirect itself (TRANSPORT-1): the final request URI differs from the one
     /// sent in scheme, host, port or path. The response has been disposed.
@@ -310,38 +331,28 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 
         // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
         var sentUri = message.RequestUri!;
-        HttpResponseMessage response;
-        try
+        HttpResponseMessage native;
+        using (var deadline = CallDeadline.Start(CallDeadline.Effective(options, _settings.Timeout), _settings.TimeProvider, cancellationToken))
         {
-            response = await _client
-                .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException ex)
-        {
-            // Cancellation not requested by the caller ⇒ the client's internal timeout fired.
-            throw new ServiceRequestTimeoutException("The request timed out before a response was received.", ex);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new ServiceRequestException("The request could not be sent to the server.", ex);
+            try
+            {
+                native = await _client
+                    .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (SendFailures.IsTransportFailure(ex))
+            {
+                var mapped = SendFailures.Map(ex, deadline.Fired, cancellationToken);
+                if (ReferenceEquals(mapped, ex))
+                {
+                    throw;
+                }
+
+                throw mapped;
+            }
         }
 
-        // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first.
-        try
-        {
-            ThrowIfRedirected(sentUri, response);
-            return ToResponse(response, request);
-        }
-        catch (Exception ex)
-        {
-            NativeDisposal.DisposeQuietly(response, ex);
-            throw;
-        }
+        return AdaptGuarded(native, sentUri, request);
     }
 
     /// <inheritdoc/>
@@ -378,6 +389,22 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
+    // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first, and a throwing dispose never
+    // replaces the failure in flight (NativeDisposal).
+    private Response AdaptGuarded(HttpResponseMessage native, Uri sentUri, Request request)
+    {
+        try
+        {
+            ThrowIfRedirected(sentUri, native);
+            return ToResponse(native, request);
+        }
+        catch (Exception ex)
+        {
+            NativeDisposal.DisposeQuietly(native, ex);
+            throw;
+        }
+    }
+
     // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does. With no proxy in the
     // options the handler goes direct (UseProxy = false, Proxy = null), so the runtime's process-wide default proxy, which reads
     // HTTP(S)_PROXY and NO_PROXY, is never consulted (CFG-28, P8b-4); with one, an adapter over ProxyOptions is installed.
@@ -389,7 +416,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         var proxy = options.Proxy is { } configured ? new ProxyOptionsWebProxy(configured) : null;
         var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = proxy is not null, Proxy = proxy };
         configure?.Invoke(handler);
-        return new(handler);
+        return new(handler) { Timeout = Timeout.InfiniteTimeSpan };
     }
 
     // The same factory over a caller's handler: the client is the transport's, the handler is not (disposeHandler: false).
@@ -398,7 +425,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(handler);
         RequireNoProxy(options);
         HandlerChain.ThrowIfFollowsRedirects(handler);
-        return new(handler, disposeHandler: false);
+        return new(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
     }
 #pragma warning restore RS0030
 

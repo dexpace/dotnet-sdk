@@ -16,7 +16,7 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// Checked in order; the first match decides:
 /// </para>
 /// <list type="number">
-/// <item><description>The caller's token is signalled: the cancellation, never a failure the pipeline would retry.</description></item>
+/// <item><description>The caller's token is signalled: a cancellation that carries the caller's token, never a failure the pipeline would retry.</description></item>
 /// <item><description>The transport's own deadline fired: <see cref="ServiceRequestTimeoutException"/> (retryable).</description></item>
 /// <item><description>A cancellation whose cause is a <see cref="TimeoutException"/> (a borrowed client's <c>HttpClient.Timeout</c>): <see cref="ServiceRequestTimeoutException"/>.</description></item>
 /// <item><description>Any other cancellation (<c>CancelPendingRequests</c>, the native client disposed mid-call): a new, terminal <see cref="OperationCanceledException"/>.</description></item>
@@ -27,6 +27,13 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// chain and calls any <see cref="IOException"/> in it retryable, and the runtime's cancellation carries one
 /// (<c>TaskCanceledException</c> over <c>IOException</c>), so a terminal cancellation with that cause would be retried. The native
 /// exception is attached to the <see cref="ExceptionTrail"/> instead, where diagnostics find it and the classifier does not look.
+/// </para>
+/// <para>
+/// <b>Row 1 and the linked token.</b> When a deadline is armed the native client is given a token linked to the caller's, so the
+/// <see cref="OperationCanceledException"/> it throws carries the linked token, not the caller's. A caller that filters on
+/// <c>ex.CancellationToken == token</c> (<c>TRANSPORT-3</c>, <c>XCUT-1</c>) must still recognise its own cancellation, so such an
+/// exception is replaced by one carrying the caller's token, the native one on its trail. An exception that already carries the
+/// caller's token (no deadline armed) is returned as it is.
 /// </para>
 /// <para>No message carries a URL, a header value or a credential (<c>XCUT-18</c>).</para>
 /// </remarks>
@@ -49,7 +56,7 @@ internal static class SendFailures
         ArgumentNullException.ThrowIfNull(native);
         if (caller.IsCancellationRequested)
         {
-            return native is OperationCanceledException ? native : CallerCancelled(native, caller);
+            return native is OperationCanceledException cancelled && cancelled.CancellationToken == caller ? native : CallerCancelled(native, caller);
         }
 
         if (deadlineFired || (native is OperationCanceledException { InnerException: TimeoutException }))
@@ -68,8 +75,9 @@ internal static class SendFailures
         return new ServiceRequestException("The request could not be sent to the server.", native);
     }
 
-    // The caller cancelled while the native client was failing for its own reasons (a connection torn down by the same cancel):
-    // the call ends cancelled, carrying the caller's token, with the native failure on the trail.
+    // The caller cancelled, but the native exception does not carry the caller's token: it carries the linked deadline token, or it is a
+    // request failure from a connection torn down by the same cancel. The call ends cancelled, carrying the caller's token, with
+    // the native failure on the trail.
     private static OperationCanceledException CallerCancelled(Exception native, CancellationToken caller)
     {
         var cancelled = new OperationCanceledException("The request was cancelled by the caller.", caller);

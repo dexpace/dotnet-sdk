@@ -24,10 +24,10 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests;
 /// <remarks>
 /// <para>
 /// The plan's timeout row (a cursor walk whose <c>RequestOptions.Timeout</c> governs every page and throws
-/// <c>ServiceRequestTimeoutException</c>) is not built: <c>SystemNetHttpClient</c> accepts <see cref="RequestOptions"/> and
-/// reads none of it until phase 8b wires <c>RequestOptions.Timeout</c> (TRANSPORT-5; pinned by
-/// <c>SystemNetHttpClientTests.Options_are_accepted_and_ignored_until_8b</c>), so there is no timeout to fire. The row is
-/// replaced by the options-instance row below, which is PAGE-36's real claim at the seam.
+/// <c>ServiceRequestTimeoutException</c>) was not built here while <c>SystemNetHttpClient</c> read none of its
+/// <see cref="RequestOptions"/>. Phase 8b wired <c>RequestOptions.Timeout</c> (TRANSPORT-5), and the row now lives in
+/// <c>SyncExecuteWireTests</c> over the real synchronous path (7c's inherit-only hand-off). This class keeps the options-instance
+/// row below, which is PAGE-36's real claim at the seam.
 /// </para>
 /// <para>
 /// The blocking pager reads each page through <c>ResponseBody.OpenRead</c>, which <c>HttpResponseMessageBody</c> has implemented

@@ -40,23 +40,43 @@ public sealed class SendFailuresTests
     }
 
     [Fact]
-    public void Row_1_a_cancellation_the_caller_requested_is_returned_as_it_is()
+    public void Row_1_a_cancellation_that_already_carries_the_callers_token_is_returned_as_it_is()
     {
-        var native = CancelledByTheClient();
+        var caller = Signalled();
+        var native = new TaskCanceledException("cancelled", innerException: null, caller);
 
-        var mapped = SendFailures.Map(native, deadlineFired: false, Signalled());
+        var mapped = SendFailures.Map(native, deadlineFired: false, caller);
 
         Assert.Same(native, mapped);
     }
 
     [Fact]
+    public void Row_1_a_cancellation_that_carries_a_linked_token_becomes_one_that_carries_the_callers()
+    {
+        // With a deadline armed the native client sees a token linked to the caller's, and its exception carries that one.
+        var caller = Signalled();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(caller);
+        var native = new TaskCanceledException("cancelled", new IOException("x"), linked.Token);
+
+        var mapped = SendFailures.Map(native, deadlineFired: false, caller);
+
+        var cancelled = Assert.IsAssignableFrom<OperationCanceledException>(mapped);
+        Assert.NotSame(native, cancelled);
+        Assert.Equal(caller, cancelled.CancellationToken);
+        Assert.Null(cancelled.InnerException);
+        Assert.Same(native, Assert.Single(ExceptionTrail.GetSuppressed(cancelled)));
+    }
+
+    [Fact]
     public void Row_1_wins_even_when_the_deadline_also_fired()
     {
-        var native = CancelledByTheClient();
+        var caller = Signalled();
+        var native = new TaskCanceledException("cancelled", innerException: null, caller);
 
-        var mapped = SendFailures.Map(native, deadlineFired: true, Signalled());
+        var mapped = SendFailures.Map(native, deadlineFired: true, caller);
 
         Assert.Same(native, mapped);
+        Assert.IsNotType<ServiceRequestTimeoutException>(mapped);
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Net;
+using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Request;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -166,5 +168,156 @@ public sealed class DeadlineTests
         Assert.Equal(transportDefault, CallDeadline.Effective(RequestOptions.Empty, transportDefault));
         Assert.Equal(TimeSpan.FromSeconds(2), CallDeadline.Effective(new RequestOptions { Timeout = TimeSpan.FromSeconds(2) }, transportDefault: null));
         Assert.Null(CallDeadline.Effective(RequestOptions.Empty, transportDefault: null));
+    }
+
+    // ------------------------------------------------------------------------------------------------------------------------
+    // End to end through the transport, over a stub handler that waits on the token the transport gives it. The clock is fake, so
+    // "100 seconds" is one Advance and no row waits on a wall clock.
+
+    private static readonly Request s_request = Request.Get("https://example.test/ping");
+
+    // Waits until its gate opens or the token it was given is signalled, and reports when it started.
+    private sealed class WaitingHandler : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Calls => _calls;
+
+        private int _calls;
+
+        public Task Started => _started.Task;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            _started.TrySetResult();
+            await Gate.Task.WaitAsync(cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+    }
+
+    private static SystemNetHttpClient Over(HttpMessageHandler handler, FakeTimeProvider clock, TimeSpan? timeout = null, bool noDefault = false) =>
+        new(handler, noDefault
+            ? new SystemNetHttpClientOptions { TimeProvider = clock, Timeout = null }
+            : timeout is { } t ? new SystemNetHttpClientOptions { TimeProvider = clock, Timeout = t } : new SystemNetHttpClientOptions { TimeProvider = clock });
+
+    [Fact]
+    public async Task A_per_call_timeout_ends_the_call_as_a_retryable_timeout_and_leaves_the_callers_token_alone()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock);
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var call = transport.ExecuteAsync(s_request, new RequestOptions { Timeout = TimeSpan.FromMilliseconds(100) }, caller.Token);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromMilliseconds(100));
+
+        var failure = await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => call);
+        Assert.True(failure.IsRetryable);
+        Assert.False(caller.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task A_call_without_a_timeout_uses_the_transports_hundred_second_default()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock);
+
+        var call = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        clock.Advance(TimeSpan.FromSeconds(99));
+        Assert.False(call.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => call);
+    }
+
+    [Fact]
+    public async Task A_configured_default_replaces_the_hundred_seconds()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock, timeout: TimeSpan.FromSeconds(2));
+
+        var call = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromSeconds(2));
+
+        await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => call);
+    }
+
+    [Fact]
+    public async Task No_default_and_no_per_call_timeout_means_the_call_is_never_cut()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock, noDefault: true);
+
+        var call = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromDays(30));
+        Assert.False(call.IsCompleted);
+        handler.Gate.SetResult();
+
+        await using var response = await call;
+        Assert.Equal(200, response.Status.Code);
+    }
+
+    [Fact]
+    public async Task One_calls_timeout_does_not_leak_into_another_call_on_the_same_transport()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock);
+
+        var shortCall = transport.ExecuteAsync(s_request, new RequestOptions { Timeout = TimeSpan.FromMilliseconds(100) }, TestContext.Current.CancellationToken);
+        var defaultCall = transport.ExecuteAsync(s_request, RequestOptions.Empty, TestContext.Current.CancellationToken);
+        while (handler.Calls < 2)
+        {
+            await Task.Yield();
+        }
+
+        clock.Advance(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAsync<ServiceRequestTimeoutException>(() => shortCall);
+        Assert.False(defaultCall.IsCompleted);
+        handler.Gate.SetResult();
+        await using var response = await defaultCall;
+        Assert.Equal(200, response.Status.Code);
+    }
+
+    [Fact]
+    public async Task The_callers_own_cancellation_is_a_cancellation_and_never_a_timeout()
+    {
+        var clock = new FakeTimeProvider();
+        using var handler = new WaitingHandler();
+        await using var transport = Over(handler, clock);
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var call = transport.ExecuteAsync(s_request, new RequestOptions { Timeout = TimeSpan.FromSeconds(5) }, caller.Token);
+        await handler.Started.WaitAsync(TestContext.Current.CancellationToken);
+        await caller.CancelAsync();
+
+        var failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+        Assert.Equal(caller.Token, failure.CancellationToken);
+    }
+
+    [Fact]
+    public async Task The_owned_clients_own_timeout_is_infinite_and_a_borrowed_clients_is_untouched()
+    {
+        await using var owned = new SystemNetHttpClient();
+        await using var viaHandler = new SystemNetHttpClient(new WaitingHandler());
+        using var borrowed = new HttpClient(new WaitingHandler()) { Timeout = TimeSpan.FromSeconds(7) };
+        await using var transport = new SystemNetHttpClient(borrowed);
+
+        Assert.Equal(Timeout.InfiniteTimeSpan, owned.NativeClientTimeout);
+        Assert.Equal(Timeout.InfiniteTimeSpan, viaHandler.NativeClientTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(7), borrowed.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(7), transport.NativeClientTimeout);
     }
 }
