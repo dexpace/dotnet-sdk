@@ -148,6 +148,11 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`explicit-proxy` (phase 8b, P8b-4; `CFG-28`).** `new SystemNetHttpClient()` goes direct and no longer inherits the runtime's `HTTP_PROXY`, `HTTPS_PROXY` and
   `NO_PROXY` handling; a consumer who wants the environment writes `Proxy = ProxyOptions.FromEnvironment()` in `SystemNetHttpClientOptions`. A transport over a
   caller's `HttpClient` or handler leaves the proxy to that client or handler. Recorded by phase 8b (2026-10-11).
+- **`borrowed-client-default-deadline` (phase 8b, P8b-6; `TRANSPORT-5`).** The transport's 100 second default deadline (`SystemNetHttpClientOptions.Timeout`) applies to a
+  transport over a caller's `HttpClient` as well as an owned one, so a borrowed client whose own `Timeout` is longer than 100 seconds (or infinite) is cut at 100 seconds
+  on a call that sets no `RequestOptions.Timeout`, where before only that client's `Timeout` bounded it. The shorter of the two wins; `Timeout = null` in the options leaves
+  the client's own `Timeout` the only bound. Recorded by the phase 8b review (2026-10-11), as a breaking change, not an asymmetry the design chose to hide; see
+  [`transport.md`](./sdk-documentation/transport.md).
 - **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
   strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
   strategies turn out to need it. Recorded by phase 7c (2026-10-09).

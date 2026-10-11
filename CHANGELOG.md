@@ -381,8 +381,11 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 - **Breaking (phase 8b):** the new `SystemNetHttpClient(HttpMessageHandler)` constructor rejects a handler whose primary `SocketsHttpHandler`/`HttpClientHandler` follows redirects with `ArgumentException`
   (`AllowAutoRedirect` defaults to `true`, so `new SystemNetHttpClient(new SocketsHttpHandler())` throws; `TRANSPORT-1`). **Migration:** set `AllowAutoRedirect = false` on the handler.
 - **Breaking (phase 8b), PR 2:** `RequestOptions.Timeout` is enforced (it was accepted and ignored): per call, on `SystemNetHttpClientOptions.TimeProvider`, until the response headers arrive, clamped to `[1 ms, 49 days]`.
-  The owned `HttpClient.Timeout` is now infinite and the transport's own 100 second default (`SystemNetHttpClientOptions.Timeout`) replaces it, so the observable bound is unchanged (`TRANSPORT-5`, `-6`).
-  **Migration:** none for a call that sets no timeout; set `SystemNetHttpClientOptions.Timeout` (`null` for no default) to change the default.
+  The owned `HttpClient.Timeout` is now infinite and the transport's own 100 second default (`SystemNetHttpClientOptions.Timeout`) replaces it, so the owned bound is unchanged (`TRANSPORT-5`, `-6`).
+  **A borrowed `HttpClient` is bounded differently:** the default applies to every construction, so a transport over a caller's `HttpClient` whose own `Timeout` is longer than 100 seconds (or infinite) now cuts a call that sets
+  no `RequestOptions.Timeout` at 100 seconds with a retryable `ServiceRequestTimeoutException`; before, that client's own `Timeout` alone bounded it. **Migration:** none for an owned transport or a call that sets a
+  timeout; for a borrowed client with a longer `Timeout`, `new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })` (its own `Timeout` is then the only bound) or a longer
+  `RequestOptions.Timeout`. Set `SystemNetHttpClientOptions.Timeout` to change the default.
 - **Breaking (phase 8b):** an internal cancellation (`CancelPendingRequests` on a borrowed client, or the native client or the transport disposed mid-call) is a terminal `OperationCanceledException` with the native
   exception on its `ExceptionTrail`; it used to surface as a retryable `ServiceRequestTimeoutException` and was retried. A real timeout stays a retryable `ServiceRequestTimeoutException`, and a cancellation by the
   caller now always carries the caller's own token (`TRANSPORT-4`, `-8`, `XCUT-1`, `XCUT-2`). **Migration:** treat the `OperationCanceledException` as a cancellation; it is not retried.

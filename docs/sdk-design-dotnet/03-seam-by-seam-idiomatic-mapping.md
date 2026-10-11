@@ -627,6 +627,8 @@ clamped to `[1 ms, 49 days]`. The native failure is classified once for both fac
 deadline or a `TaskCanceledException` over a `TimeoutException` (a retryable `ServiceRequestTimeoutException`), any other cancellation (a new terminal `OperationCanceledException` with the native exception on its
 `ExceptionTrail`, not on `InnerException`, because the retry classifier walks the cause chain and calls any `IOException` in it retryable), and a native request failure (`ServiceRequestException`).
 The transport abandons no `Task<Response>`, so the `SEAM-30` race has no occasion to arise and `LateResult` is not used (**TRANSPORT-4**, **-5**, **-6**, **-8**, **-9**).
+*Review correction, 2026-10-11:* the 100 second default applies to every construction, so it also cuts a call over a *borrowed* `HttpClient` whose own `Timeout` is longer (the shorter of the two bounds a call that sets none);
+before 8b only that client's `Timeout` bounded it. The owned bound is unchanged. This is a breaking change for the borrowed construction, migrated by `SystemNetHttpClientOptions { Timeout = null }`, not an unchanged bound; the paragraph above is not otherwise altered.
 
 ### 3.4 The wire-codec (serde) seam → kept separate, even though embedding is free
 

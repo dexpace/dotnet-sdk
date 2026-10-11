@@ -77,10 +77,15 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <see cref="ServiceRequestException"/>; and a cancellation the native client raised from inside (<c>CancelPendingRequests</c>, the
 /// native client or this transport disposed mid-call) is a new, terminal <see cref="OperationCanceledException"/> that the SDK's
 /// retry does not repeat, the native exception kept on its <see cref="ExceptionTrail"/>. A borrowed client's own <c>Timeout</c> still
-/// bounds a longer per-call value, since a client shared with others cannot be lengthened without changing it.
+/// bounds a longer per-call value, since a client shared with others cannot be lengthened without changing it. The transport's default
+/// applies to a borrowed client as well, so the shorter of the two bounds a call that sets none: a borrowed client whose <c>Timeout</c>
+/// is longer than 100 seconds (or infinite) is cut at 100 seconds unless you say otherwise, with
+/// <c>new SystemNetHttpClientOptions { Timeout = null }</c> (the client's own <c>Timeout</c> is then the only bound) or a longer
+/// <see cref="RequestOptions.Timeout"/> on the call.
 /// <b>Breaking</b> (phase 8b): <see cref="RequestOptions.Timeout"/> was ignored; the transport's own <c>HttpClient</c> now has an
-/// infinite <c>Timeout</c> and the 100 second default above replaces it; and an internal cancellation used to surface as a retryable
-/// <see cref="ServiceRequestTimeoutException"/>.
+/// infinite <c>Timeout</c> and the 100 second default above replaces it, so the owned bound is unchanged; a <b>borrowed</b> client used
+/// to be bounded by its own <c>Timeout</c> alone and is now also cut at that default (migration above); and an internal cancellation
+/// used to surface as a retryable <see cref="ServiceRequestTimeoutException"/>.
 /// </para>
 /// <para>
 /// <b>After dispose (SEAM-15).</b> Every call made after <c>Dispose</c> or <c>DisposeAsync</c> throws
@@ -218,6 +223,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// request URI whose scheme, host, port or path differs from the one sent) fails the call (see remarks).
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
+    /// <remarks>
+    /// <b>Breaking</b> (phase 8b): the transport's default deadline, 100 seconds, now bounds a call that sets no
+    /// <see cref="RequestOptions.Timeout"/> even when <paramref name="client"/>'s own <c>Timeout</c> is longer (before, that
+    /// <c>Timeout</c> alone bounded it). To keep it the only bound, use
+    /// <c>new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })</c>.
+    /// </remarks>
     public SystemNetHttpClient(SystemHttpClient client)
         : this(client, new SystemNetHttpClientOptions())
     {
@@ -238,6 +249,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// <b>Breaking</b> (phase 8b): these were events 1 to 3, and a repeated drop was a <see cref="LogLevel.Warning"/> each time.
     /// Use <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> to log every drop loudly or only at debug.
     /// </param>
+    /// <remarks>
+    /// <b>Breaking</b> (phase 8b): the transport's default deadline, 100 seconds, now bounds a call that sets no
+    /// <see cref="RequestOptions.Timeout"/> even when <paramref name="client"/>'s own <c>Timeout</c> is longer (before, that
+    /// <c>Timeout</c> alone bounded it). To keep it the only bound, use
+    /// <c>new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Logger = logger, Timeout = null })</c>.
+    /// </remarks>
     public SystemNetHttpClient(SystemHttpClient client, ILogger logger)
         : this(client, OptionsFor(logger))
     {
@@ -251,6 +268,11 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// <param name="options">The transport's settings. <see cref="SystemNetHttpClientOptions.Proxy"/> must be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="client"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="options"/> carries a proxy: the client's owner decides it (TRANSPORT-15).</exception>
+    /// <remarks>
+    /// <see cref="SystemNetHttpClientOptions.Timeout"/> is a deadline on top of <paramref name="client"/>'s own <c>Timeout</c>, not in
+    /// place of it: the shorter bounds a call that sets no <see cref="RequestOptions.Timeout"/>. Its 100 second default therefore cuts
+    /// a call over a client whose own <c>Timeout</c> is longer; set it to <see langword="null"/> to leave the client's the only bound.
+    /// </remarks>
     public SystemNetHttpClient(SystemHttpClient client, SystemNetHttpClientOptions options)
         : this(client, Construction.Borrowed, RequireNoProxy(options))
     {

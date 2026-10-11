@@ -19,7 +19,7 @@ What a constructor takes states who owns what. Pass a handler and you keep it; p
 |---|---|---|---|---|
 | `()`, `(ILogger)`, `(SystemNetHttpClientOptions)` | owned, built by the transport | owned `SocketsHttpHandler { AllowAutoRedirect = false }`, disposed with the transport | `SystemNetHttpClientOptions.Proxy`, else direct | only when the proxy is an HTTP proxy that carries credentials |
 | `(HttpMessageHandler)`, `(HttpMessageHandler, SystemNetHttpClientOptions)` | owned, an `HttpClient` the transport builds over your handler | **yours**: never disposed, never changed | yours; `Proxy` in the options throws | yes (the chain is opaque) |
-| `(HttpClient)`, `(HttpClient, ILogger)`, `(HttpClient, SystemNetHttpClientOptions)` | **yours**: never disposed, never changed; its `Timeout` stays an outer bound | invisible | yours; `Proxy` in the options throws | yes |
+| `(HttpClient)`, `(HttpClient, ILogger)`, `(HttpClient, SystemNetHttpClientOptions)` | **yours**: never disposed, never changed; its `Timeout` stays an outer bound, and the transport's 100 s default cuts a longer one | invisible | yours; `Proxy` in the options throws | yes |
 
 ```csharp
 // Owned: nothing to dispose but the transport. No proxy, and no environment variable is read.
@@ -104,6 +104,12 @@ headers arrive**, as `AttemptTimeout` (phase 6a) does; the body read is bounded 
 source is disposed when `SendAsync` returns, which does not affect the body (measured: disposing the token after a `ResponseHeadersRead`
 send leaves a later chunk readable). A borrowed client's own `Timeout` remains an outer bound that a longer per-call value cannot lift,
 since lengthening a client shared with others would mean changing it.
+
+The transport's default applies to a **borrowed** client too, so the shorter of the default and the client's own `Timeout` bounds a call
+that sets none: a borrowed `HttpClient` with an infinite or longer `Timeout` is cut at 100 seconds with a retryable
+`ServiceRequestTimeoutException`, where before phase 8b its own `Timeout` alone bounded the call (breaking change 3, below).
+`new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })` leaves the client's own `Timeout` the only bound; a
+per-call `RequestOptions.Timeout` replaces the default for that call (`DeadlineTests` pins all three).
 
 One helper classifies every native failure, on both faces, state first and the shape of the runtime's exception second:
 
@@ -234,7 +240,7 @@ content there would be wire-identical; it is left out deliberately (`TRANSPORT-2
 |---|---|---|
 | 1 | the owned transport no longer reads `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` | `new SystemNetHttpClient(new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() })` |
 | 2 | `Execute` is genuinely synchronous | implement `Send` in a custom handler, or call `ExecuteAsync` |
-| 3 | `RequestOptions.Timeout` is enforced; the owned `HttpClient.Timeout` is infinite and the 100 s default replaces it | set `SystemNetHttpClientOptions.Timeout` (`null` for none) |
+| 3 | `RequestOptions.Timeout` is enforced; the owned `HttpClient.Timeout` is infinite and the 100 s default replaces it (the owned bound is unchanged). **A borrowed `HttpClient` is now also cut at the 100 s default** where only its own `Timeout` bounded it | set `SystemNetHttpClientOptions.Timeout` (`null` for none); for a borrowed client with a longer `Timeout`, `new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })` or a longer `RequestOptions.Timeout` |
 | 4 | an internal cancellation is terminal | treat the `OperationCanceledException` as a cancellation; it is not retried |
 | 5 | every call after `Dispose` throws `ObjectDisposedException`, borrowed clients included | do not use a disposed transport; your `HttpClient` is unaffected |
 | 6 | the caller's `Content-Type` wins; a content header on a body-less request is sent (on `POST`/`PUT`/`PATCH`/`DELETE`/`OPTIONS`) or dropped with a log (`GET`/`HEAD`/`TRACE`) | stop relying on the body's type overriding your header |

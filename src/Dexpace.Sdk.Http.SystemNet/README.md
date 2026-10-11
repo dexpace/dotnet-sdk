@@ -33,7 +33,9 @@ rejected with `ArgumentException`: the SDK's `RedirectPolicy` is the only redire
 - **Deadlines.** `RequestOptions.Timeout`, else `SystemNetHttpClientOptions.Timeout` (100 seconds), bounds the exchange until the
   response headers arrive; reading the body is bounded by the token you pass to the read. An elapsed deadline is a retryable
   `ServiceRequestTimeoutException`; your cancellation is an `OperationCanceledException`; a cancellation raised from inside the native
-  client is a terminal `OperationCanceledException` that is not retried.
+  client is a terminal `OperationCanceledException` that is not retried. The 100 second default applies to a transport over your own
+  `HttpClient` too, so a client with a longer (or infinite) `Timeout` is cut at 100 seconds: pass
+  `new SystemNetHttpClientOptions { Timeout = null }` to leave its own `Timeout` the only bound.
 - **Synchronous calls.** `Execute` is genuinely synchronous (`HttpClient.Send`). A custom primary handler that overrides only
   `SendAsync` makes it throw `NotSupportedException`, and a `DelegatingHandler` that overrides only `SendAsync` is **skipped** on
   that face: implement `Send` in such handlers, or call `ExecuteAsync`.

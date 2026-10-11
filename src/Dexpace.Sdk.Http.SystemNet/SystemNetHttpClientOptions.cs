@@ -68,6 +68,12 @@ public sealed record SystemNetHttpClientOptions
     /// until the response headers arrive; <see langword="null"/> means no transport default. Defaults to 100 seconds, the
     /// <c>HttpClient</c> default it replaces. At most 49 days.
     /// </summary>
+    /// <remarks>
+    /// It applies to every construction. Over a caller's <c>HttpClient</c> it is a deadline on top of that client's own
+    /// <c>Timeout</c>, so the shorter of the two bounds the call: a borrowed client with an infinite or longer <c>Timeout</c> is cut at
+    /// 100 seconds by default. Set <see langword="null"/> to leave the client's own <c>Timeout</c> the only bound
+    /// (<c>RequestOptions.Timeout</c> on a call overrides this value, but cannot lengthen past the client's own).
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not <see langword="null"/> and is outside <c>(0, 49 days]</c>.</exception>
     public TimeSpan? Timeout
     {
