@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
+using Dexpace.Sdk.Core.Errors;
 using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Http.SystemNet;
@@ -33,17 +34,31 @@ internal static class ProxyWarnings
         var hasHook = options.ChallengeCredentials is not null;
         if (hasHook && options.UserName is not null)
         {
-            s_unsupported(logger, "the credentials hook wins and the user name and password are ignored", nameof(ProxyOptions.UserName), null);
+            Log(logger, "the credentials hook wins and the user name and password are ignored", nameof(ProxyOptions.UserName), null);
         }
 
         if (hasHook && socks)
         {
-            s_unsupported(logger, "a SOCKS handshake has no challenge, so the hook is asked once per connection with the proxy scheme as the authentication type", nameof(ProxyOptions.ChallengeCredentials), null);
+            Log(logger, "a SOCKS handshake has no challenge, so the hook is asked once per connection with the proxy scheme as the authentication type", nameof(ProxyOptions.ChallengeCredentials), null);
         }
 
         if (!hasHook && options.Type == ProxyType.Socks4 && options.Password is not null)
         {
-            s_unsupported(logger, "SOCKS4 carries a user id only, so the password is ignored", nameof(ProxyOptions.Password), null);
+            Log(logger, "SOCKS4 carries a user id only, so the password is ignored", nameof(ProxyOptions.Password), null);
+        }
+    }
+
+    // OBS-20: a logger that throws must not fail the operation, and here the operation is a constructor that has already built
+    // an HttpClient it would leak.
+    private static void Log(ILogger logger, string feature, string member, Exception? exception)
+    {
+        try
+        {
+            s_unsupported(logger, feature, member, exception);
+        }
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
+        {
+            // Swallowed by design (OBS-20).
         }
     }
 }

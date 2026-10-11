@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
@@ -29,9 +30,25 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// connection.
 /// </para>
 /// <para>
-/// <b>Ownership.</b> When constructed with a caller-supplied <c>HttpClient</c> the underlying client
-/// is <em>not</em> disposed by this adapter; when constructed without one the adapter owns and disposes an
-/// internally created client.
+/// <b>Construction and ownership (TRANSPORT-1, TRANSPORT-15).</b> What the constructor takes states who owns what:
+/// </para>
+/// <list type="table">
+/// <listheader><term>Constructor</term><description>Native client, handler, proxy</description></listheader>
+/// <item><term><c>()</c>, <c>(ILogger)</c>, <c>(SystemNetHttpClientOptions)</c></term><description>
+/// Owned: the transport builds a <c>SocketsHttpHandler</c> with <c>AllowAutoRedirect = false</c> and disposes it with the
+/// transport. <see cref="SystemNetHttpClientOptions.Proxy"/> installs the proxy; with none the connection is direct.</description></item>
+/// <item><term><c>(HttpMessageHandler)</c>, <c>(HttpMessageHandler, SystemNetHttpClientOptions)</c></term><description>
+/// The transport owns the <c>HttpClient</c> it builds over your handler and never disposes or changes the handler. A chain
+/// whose primary handler follows redirects is rejected with <see cref="ArgumentException"/>. The handler keeps its own proxy.</description></item>
+/// <item><term><c>(HttpClient)</c>, <c>(HttpClient, ILogger)</c>, <c>(HttpClient, SystemNetHttpClientOptions)</c></term><description>
+/// Borrowed: your client is never disposed or changed. Its handler keeps its own proxy.</description></item>
+/// </list>
+/// <para>
+/// A <see cref="SystemNetHttpClientOptions.Proxy"/> passed with a handler or a client throws <see cref="ArgumentException"/>:
+/// the proxy of something you own is yours to configure.
+/// <b>Breaking</b> (phase 8b): the parameterless and logger constructors no longer inherit the runtime's process-wide proxy,
+/// which reads <c>HTTP_PROXY</c>, <c>HTTPS_PROXY</c> and <c>NO_PROXY</c> on first use (CFG-28: the environment is consulted only
+/// when you ask). To keep it, resolve it yourself: <c>new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() }</c>.
 /// </para>
 /// <para>
 /// <b>Redirects (TRANSPORT-1).</b> The SDK pipeline's <c>RedirectPolicy</c> is the only redirect authority. The
@@ -55,10 +72,11 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// then.
 /// </para>
 /// <para>
-/// <b>After dispose (SEAM-15).</b> An owned client throws <see cref="ObjectDisposedException"/> from every call, since
-/// <c>HttpClient</c> does; a borrowed client keeps working, because it is never disposed. Disposal itself is idempotent
-/// (SEAM-14, latched in 3b); phase 8b adds the <see cref="ObjectDisposedException"/> after dispose for both owned and
-/// borrowed clients (SEAM-15).
+/// <b>After dispose (SEAM-15).</b> Every call made after <c>Dispose</c> or <c>DisposeAsync</c> throws
+/// <see cref="ObjectDisposedException"/> for every construction, a borrowed <c>HttpClient</c> included: the asynchronous face
+/// returns a faulted task and never throws from the call (TRANSPORT-21). Your own <c>HttpClient</c> keeps working. Disposal is
+/// idempotent (SEAM-14) and never waits for a call in flight (TRANSPORT-16).
+/// <b>Breaking</b> (phase 8b): a transport over a borrowed client used to keep serving after it was disposed.
 /// </para>
 /// <para>
 /// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,
@@ -117,21 +135,23 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 
     private readonly SystemHttpClient _client;
     private readonly bool _ownsClient;
+    private readonly SendSettings _settings;
     private readonly ILogger _logger;
     private int _disposed;
     private int _releases;
 
     /// <summary>
-    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects.
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects and goes direct: no
+    /// proxy, and no environment variable is read (CFG-28).
     /// </summary>
     public SystemNetHttpClient()
-        : this(CreateOwnedClient(), ownsClient: true, NullLogger.Instance)
+        : this(new SystemNetHttpClientOptions())
     {
     }
 
     /// <summary>
-    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, logging
-    /// header drops to <paramref name="logger"/>.
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, logging header
+    /// drops to <paramref name="logger"/>.
     /// </summary>
     /// <param name="logger">
     /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
@@ -139,7 +159,49 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
     /// </param>
     public SystemNetHttpClient(ILogger logger)
-        : this(CreateOwnedClient(), ownsClient: true, logger)
+        : this(OptionsFor(logger))
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, configured by
+    /// <paramref name="options"/>. The options are read once, here.
+    /// </summary>
+    /// <param name="options">The transport's settings, including the optional proxy to install (TRANSPORT-30).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public SystemNetHttpClient(SystemNetHttpClientOptions options)
+        : this(CreateOwnedClient(options, configure: null), Construction.Owned, options)
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport that owns an <c>HttpClient</c> it builds over a caller's <paramref name="handler"/>. The handler is
+    /// borrowed: it is never disposed or changed, so its owner decides its proxy, certificates and lifetime (TRANSPORT-15).
+    /// </summary>
+    /// <param name="handler">
+    /// The outermost handler of the caller's chain. Its primary handler must not follow redirects.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="handler"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The chain's primary handler follows redirects (TRANSPORT-1).</exception>
+    public SystemNetHttpClient(HttpMessageHandler handler)
+        : this(handler, new SystemNetHttpClientOptions())
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport that owns an <c>HttpClient</c> it builds over a caller's <paramref name="handler"/>, configured by
+    /// <paramref name="options"/>. The handler is borrowed: it is never disposed or changed (TRANSPORT-15).
+    /// </summary>
+    /// <param name="handler">
+    /// The outermost handler of the caller's chain. Its primary handler must not follow redirects.
+    /// </param>
+    /// <param name="options">The transport's settings. <see cref="SystemNetHttpClientOptions.Proxy"/> must be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="handler"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// The chain's primary handler follows redirects (TRANSPORT-1), or <paramref name="options"/> carries a proxy.
+    /// </exception>
+    public SystemNetHttpClient(HttpMessageHandler handler, SystemNetHttpClientOptions options)
+        : this(CreateHandlerClient(handler, options), Construction.Handler, options)
     {
     }
 
@@ -150,7 +212,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
     public SystemNetHttpClient(SystemHttpClient client)
-        : this(client, ownsClient: false, NullLogger.Instance)
+        : this(client, new SystemNetHttpClientOptions())
     {
     }
 
@@ -167,28 +229,68 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
     /// </param>
     public SystemNetHttpClient(SystemHttpClient client, ILogger logger)
-        : this(client, ownsClient: false, logger)
+        : this(client, OptionsFor(logger))
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport backed by a caller-supplied <c>HttpClient</c>, configured by <paramref name="options"/>. The
+    /// supplied client is not disposed or changed, and its handler must not follow redirects (see remarks).
+    /// </summary>
+    /// <param name="client">The HTTP client to wrap.</param>
+    /// <param name="options">The transport's settings. <see cref="SystemNetHttpClientOptions.Proxy"/> must be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="client"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="options"/> carries a proxy: the client's owner decides it (TRANSPORT-15).</exception>
+    public SystemNetHttpClient(SystemHttpClient client, SystemNetHttpClientOptions options)
+        : this(client, Construction.Borrowed, RequireNoProxy(options))
     {
     }
 
     /// <summary>
     /// Test seam: the SDK-managed construction, with <paramref name="configureOwnedHandler"/> applied to the owned
-    /// handler after the SDK's own settings, so a wire test can pin environment-dependent settings (the proxy) without
-    /// leaving the owned-client path.
+    /// handler after the SDK's own settings, so a wire test can pin settings without leaving the owned-client path.
     /// </summary>
     internal SystemNetHttpClient(Action<SocketsHttpHandler> configureOwnedHandler)
-        : this(CreateOwnedClient(configureOwnedHandler), ownsClient: true, NullLogger.Instance)
+        : this(configureOwnedHandler, new SystemNetHttpClientOptions())
     {
     }
 
-    private SystemNetHttpClient(SystemHttpClient client, bool ownsClient, ILogger logger)
+    /// <summary>The seam with the options a test wants to construct the owned transport with.</summary>
+    internal SystemNetHttpClient(Action<SocketsHttpHandler> configureOwnedHandler, SystemNetHttpClientOptions options)
+        : this(CreateOwnedClient(options, configureOwnedHandler), Construction.Owned, options)
+    {
+    }
+
+    private SystemNetHttpClient(SystemHttpClient client, Construction construction, SystemNetHttpClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
         _client = client;
-        _ownsClient = ownsClient;
-        _logger = logger;
+        _ownsClient = construction != Construction.Borrowed;
+        _logger = options.Logger;
+        _settings = new SendSettings(
+            options.Logger,
+            options.Timeout,
+            options.HeaderDropLogging,
+            options.ResendBufferLimit,
+            options.TimeProvider,
+            ResendCapable: construction != Construction.Owned || CarriesProxyCredentials(options.Proxy));
+        if (construction == Construction.Owned && options.Proxy is { } proxy)
+        {
+            ProxyWarnings.Emit(options.Logger, proxy);
+        }
     }
+
+    // What built the native client decides whether it can re-send a request behind the transport's back (TRANSPORT-18).
+    private enum Construction
+    {
+        Owned,
+        Handler,
+        Borrowed,
+    }
+
+    // The settings the transport resolved from its options when it was constructed.
+    internal SendSettings Settings => _settings;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -203,6 +305,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         using var message = ToHttpRequestMessage(request);
 
         // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
@@ -234,9 +337,9 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             ThrowIfRedirected(sentUri, response);
             return ToResponse(response, request);
         }
-        catch
+        catch (Exception ex)
         {
-            response.Dispose();
+            NativeDisposal.DisposeQuietly(response, ex);
             throw;
         }
     }
@@ -275,15 +378,52 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
-    // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does.
-#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8).
-    private static SystemHttpClient CreateOwnedClient(Action<SocketsHttpHandler>? configure = null)
+    // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does. With no proxy in the
+    // options the handler goes direct (UseProxy = false, Proxy = null), so the runtime's process-wide default proxy, which reads
+    // HTTP(S)_PROXY and NO_PROXY, is never consulted (CFG-28, P8b-4); with one, an adapter over ProxyOptions is installed.
+    // The handler's own Credentials stay unset, so a proxy credential can only answer a 407 from that proxy (TRANSPORT-30).
+#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8, P8b-3).
+    private static SystemHttpClient CreateOwnedClient(SystemNetHttpClientOptions options, Action<SocketsHttpHandler>? configure)
     {
-        var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        ArgumentNullException.ThrowIfNull(options);
+        var proxy = options.Proxy is { } configured ? new ProxyOptionsWebProxy(configured) : null;
+        var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = proxy is not null, Proxy = proxy };
         configure?.Invoke(handler);
         return new(handler);
     }
+
+    // The same factory over a caller's handler: the client is the transport's, the handler is not (disposeHandler: false).
+    private static SystemHttpClient CreateHandlerClient(HttpMessageHandler handler, SystemNetHttpClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        RequireNoProxy(options);
+        HandlerChain.ThrowIfFollowsRedirects(handler);
+        return new(handler, disposeHandler: false);
+    }
 #pragma warning restore RS0030
+
+    private static SystemNetHttpClientOptions OptionsFor(ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        return new SystemNetHttpClientOptions { Logger = logger };
+    }
+
+    // TRANSPORT-15: a proxy in the options is meaningful only for the handler the transport builds itself.
+    private static SystemNetHttpClientOptions RequireNoProxy(SystemNetHttpClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.Proxy is null
+            ? options
+            : throw new ArgumentException(
+                "SystemNetHttpClientOptions.Proxy applies only to the handler the transport creates itself. A transport over your "
+                + "HttpClient or handler leaves its proxy to its owner (TRANSPORT-15); configure the proxy on that client or handler.",
+                nameof(options));
+    }
+
+    // Only an HTTP proxy that is given credentials challenges with a 407, which the native client answers by sending the same
+    // request again (TRANSPORT-18, design G5); a SOCKS proxy authenticates inside its handshake, with no request to re-send.
+    private static bool CarriesProxyCredentials(ProxyOptions? proxy) =>
+        proxy is { Type: ProxyType.Http } and ({ UserName: not null } or { ChallengeCredentials: not null });
 
     // TRANSPORT-1's last line for a borrowed client (design §3.2, §6.2): after an automatic redirect the handler leaves
     // the final URI on RequestMessage.RequestUri. Only scheme, host, port and path are compared, in Uri's normalised

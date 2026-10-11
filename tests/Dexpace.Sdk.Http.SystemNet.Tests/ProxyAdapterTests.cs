@@ -259,6 +259,17 @@ public sealed class ProxyAdapterTests
         AssertWarning(entry, "UserName");
     }
 
+    [Fact]
+    public void A_logger_that_throws_does_not_fail_the_warning()
+    {
+        var logger = new ThrowingLogger { ThrowOnLog = true };
+
+        var thrown = Record.Exception(() => ProxyWarnings.Emit(logger, new ProxyOptions { Type = ProxyType.Socks4, Host = "p", Port = 1, UserName = "u", Password = "p" }));
+
+        Assert.Null(thrown);
+        Assert.Single(logger.Attempts);
+    }
+
     private static void AssertWarning(RecordedLog entry, string member)
     {
         Assert.Equal(LogLevel.Warning, entry.Level);

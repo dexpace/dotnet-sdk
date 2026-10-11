@@ -2,6 +2,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using Dexpace.Sdk.Core.Configuration;
+using Dexpace.Sdk.Core.Diagnostics;
+using Dexpace.Sdk.TestSupport.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -109,5 +112,89 @@ public sealed class SystemNetHttpClientOptionsTests
         Assert.DoesNotContain("alice", text, StringComparison.Ordinal);
         Assert.DoesNotContain("s3cret", text, StringComparison.Ordinal);
         Assert.Contains("***", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_transport_snapshots_its_options_when_it_is_constructed()
+    {
+        var options = new SystemNetHttpClientOptions { Timeout = TimeSpan.FromSeconds(5), ResendBufferLimit = 7 };
+        using var transport = new SystemNetHttpClient(options);
+
+        var later = options with { Timeout = TimeSpan.FromSeconds(99), ResendBufferLimit = 9 };
+
+        Assert.NotEqual(options, later);
+        Assert.Equal(TimeSpan.FromSeconds(5), transport.Settings.Timeout);
+        Assert.Equal(7L, transport.Settings.ResendBufferLimit);
+    }
+
+    [Fact]
+    public void The_logger_constructors_carry_the_logger_and_otherwise_the_defaults()
+    {
+        var logger = new RecordingLogger();
+        using var owned = new SystemNetHttpClient(logger);
+        using var borrowed = new SystemNetHttpClient(new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }), logger);
+
+        Assert.Same(logger, owned.Settings.Logger);
+        Assert.Same(logger, borrowed.Settings.Logger);
+        Assert.Equal(TimeSpan.FromSeconds(100), owned.Settings.Timeout);
+        Assert.Throws<ArgumentNullException>(() => new SystemNetHttpClient((ILogger)null!));
+    }
+
+    [Fact]
+    public void An_unhonourable_proxy_configuration_is_warned_about_once_at_construction()
+    {
+        var logger = new RecordingLogger();
+        var options = new SystemNetHttpClientOptions
+        {
+            Logger = logger,
+            Proxy = new ProxyOptions { Type = ProxyType.Socks4, Host = "proxy.test", Port = 1080, UserName = "alice", Password = "s3cret" },
+        };
+
+        using var transport = new SystemNetHttpClient(options);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(DexpaceLogEvents.TransportProxyFeatureUnsupportedId, entry.EventId.Id);
+        Assert.DoesNotContain("s3cret", entry.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_owned_handler_goes_direct_unless_a_proxy_is_given_so_the_runtimes_default_is_never_consulted()
+    {
+        SocketsHttpHandler? seen = null;
+        using var transport = new SystemNetHttpClient(handler => seen = handler, new SystemNetHttpClientOptions());
+
+        Assert.NotNull(seen);
+        Assert.False(seen.UseProxy);
+        Assert.Null(seen.Proxy);
+        Assert.False(seen.AllowAutoRedirect);
+    }
+
+    [Fact]
+    public void The_owned_handler_installs_the_adapter_and_leaves_every_server_credential_unset()
+    {
+        SocketsHttpHandler? seen = null;
+        var options = new SystemNetHttpClientOptions { Proxy = new ProxyOptions { Host = "proxy.test", Port = 3128, UserName = "alice", Password = "s3cret" } };
+        using var transport = new SystemNetHttpClient(handler => seen = handler, options);
+
+        Assert.NotNull(seen);
+        Assert.True(seen.UseProxy);
+        Assert.IsType<ProxyOptionsWebProxy>(seen.Proxy);
+        Assert.Null(seen.Credentials);
+        Assert.Null(seen.DefaultProxyCredentials);
+        Assert.False(seen.PreAuthenticate);
+        Assert.False(seen.AllowAutoRedirect);
+    }
+
+    [Fact]
+    public void The_proxy_uri_given_to_the_runtime_has_no_userinfo()
+    {
+        SocketsHttpHandler? seen = null;
+        var options = new SystemNetHttpClientOptions { Proxy = new ProxyOptions { Host = "proxy.test", Port = 3128, UserName = "alice", Password = "s3cret" } };
+        using var transport = new SystemNetHttpClient(handler => seen = handler, options);
+
+        var uri = seen!.Proxy!.GetProxy(new Uri("http://origin.test/"));
+
+        Assert.Equal(string.Empty, uri!.UserInfo);
     }
 }

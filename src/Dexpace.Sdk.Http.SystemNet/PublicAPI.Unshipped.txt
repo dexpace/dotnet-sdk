@@ -9,9 +9,13 @@ Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.DisposeAsync() -> System.Threadin
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(Microsoft.Extensions.Logging.ILogger! logger) -> void
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client, Microsoft.Extensions.Logging.ILogger! logger) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpMessageHandler! handler) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpMessageHandler! handler, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.<Clone>$() -> Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions!
 Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Equals(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? other) -> bool

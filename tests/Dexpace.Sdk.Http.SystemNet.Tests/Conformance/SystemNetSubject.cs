@@ -97,11 +97,6 @@ internal static class SystemNetSubject
                 Assertion = "transport-14.name-malformed-dropped",
             },
             new("TRANSPORT-18", "a native re-send of a single-use body fails with StreamConsumedException instead of replaying identical bytes (design section 11 item 18); 8b's bounded capture closes it") { Owner = "8b" },
-            new("SEAM-15", "a transport over a borrowed HttpClient does not throw ObjectDisposedException after dispose until 8b's latch for borrowed clients; the owned transport already does")
-            {
-                Owner = "8b",
-                Face = TransportFace.Async,
-            },
         ],
     };
 
