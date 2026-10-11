@@ -311,6 +311,15 @@ whatever proxy it has (**TRANSPORT-15**). **CFG-24**'s first layer — `https.pr
 no
 .NET source, and the explicit `ProxyOptions` argument stands in for it; that is the same tier substitution as above.
 
+**Dated correction, 2026-10-11 (phase 8b, P8b-4, lead ruling).** The sentence "an SDK-managed `Http.SystemNet` transport calls that resolver explicitly at construction" is corrected to the
+strict reading of **CFG-28**. A constructor that consults the environment is itself an implicit read at construction, whoever's code calls the resolver, and a DI package that resolves with
+`ProxyOptions.FromEnvironment(key => configuration[key], logger)` would collide with a second, process-environment read inside the transport. No `SystemNetHttpClient` constructor calls
+`FromEnvironment`: the owned handler has `UseProxy = false` unless `SystemNetHttpClientOptions.Proxy` is set, and a caller who wants the environment writes
+`Proxy = ProxyOptions.FromEnvironment()`. `HttpClient.DefaultProxy` is banned in `src/` (§9.1) and an IL scan of the transport assembly pins that it reads neither the environment nor a
+process-wide default. The installed `IWebProxy` returns the proxy URI without userinfo, applies **CFG-23**'s glob dialect, and answers a `407` from `ChallengeCredentials` or a Basic-only pair while the
+handler's own credentials stay unset (**TRANSPORT-30**). The runtime asks a SOCKS proxy's credentials once per connection with the proxy scheme (`socks5`, `socks4`) as the authentication type
+(verified, 10.0.401). The rest of the paragraph above stands as written.
+
 **Dates, identifiers, equality, identity** (**CFG-29**–**CFG-36**). **CFG-29**'s canonical format is
 `DateTimeOffset.ToString("r", CultureInfo.InvariantCulture)` (verified: `Sun, 06 Nov 1994 08:49:37 GMT`). Parsing is
 the obvious-tool-is-wrong case: `ParseExact(s, "r", ...)` **validates the weekday** — `Mon, 06 Nov 1994 ...`

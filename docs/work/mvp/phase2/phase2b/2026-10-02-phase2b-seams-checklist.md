@@ -165,3 +165,9 @@ The plan's own "Findings" section was resolved at review and is not repeated. Wh
 `SerdeException` and the profiles; 8a drives the kit against `DelegateHttpClient` and owns the per-transport proofs; 8b
 builds the real synchronous send, the `ObjectDisposedException` latch and `RequestOptions.Timeout`; 9 flips the DI half of
 `SEAM-5`/`SEAM-6`.
+
+## Correction 2026-10-11 (phase 8b)
+
+The ⏳ 8b clauses are closed by the [8b checklist](../../phase8/phase8b/2026-10-09-phase8b-reference-transport-checklist.md). `SEAM-11`: `SystemNetHttpClient.Execute` is genuinely synchronous (`HttpClient.Send`, the body written through `RequestBody.WriteTo`) and `RequestOptions.Timeout` is enforced
+(`SyncExecuteTests`, `SyncExecuteWireTests`, `DeadlineTests`; kit `transport-4`, `-5`, `-6`, `-17`, `-25`). `SEAM-15`: every construction throws `ObjectDisposedException` after dispose, a borrowed client included, the asynchronous face through a
+faulted task (`AfterDisposeTests`; kit `seam-15.after-dispose`, waiver deleted). Both rows are ✅. The rows above stand as written.

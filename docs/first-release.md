@@ -83,8 +83,18 @@ phases add the rest as they decline or defer something. Nothing below is a block
 
 ### Unsatisfied MUSTs
 
-None is recorded yet. Every candidate must first be argued in design §10 and then pass phase 11's audit. The
-roadmap's parity target is at most five clauses unsatisfied or unmet on a stated domain, each one argued.
+Every candidate must first be argued in design §10 and then pass phase 11's audit. The roadmap's parity target is at most five clauses
+unsatisfied or unmet on a stated domain, each one argued.
+
+- **`TRANSPORT-14` (MUST), the malformed inbound header *name* clause.** `SocketsHttpHandler` rejects the whole response on a header name holding
+  a space, a control byte or a non-ASCII byte, before the adapter sees any header, and exposes no leniency switch; the value and obs-text clauses are met.
+  Phase 8b (2026-10-11); design §10 entry 32 and P8b-14. The conformance driver carries a permanent waiver for `transport-14.name-malformed-dropped` alone.
+- **`TRANSPORT-2` (MUST), the native retry for a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE`.** `SocketsHttpHandler` has no switch for its
+  own connection-failure retry, and re-sends a request with no content whose connection ends before any response byte up to three more times. The
+  transport keeps it off for a body-less `POST`, `PUT`, `PATCH` and extension methods (a zero-length content, the same bytes on the wire), and leaves
+  the idempotent methods, which RFC 9110 section 9.2.2 permits the retry for and to which attaching content would break `TRANSPORT-26`. There is no
+  consumer-side switch for those methods short of a different primary handler. Phase 8b (2026-10-11); design §10 entry 33 and P8b-T2. The driver carries a
+  permanent waiver for `transport-2.bodyless-not-resent`, which turns stale (and fails the run) if the runtime stops the retry.
 
 ### SHOULD- and MAY-level requirements declined for v1
 
@@ -99,10 +109,14 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`REDIR-27` (MAY): the redirect target header is not configurable.** The header is `Location`; a `LocationHeader` option has no consumer
   and no trigger is named. Phase 6b (2026-10-08); design §12's deferred list and P6b-21.
 
+- **`TRANSPORT-28` (SHOULD), the zero-copy file path.** A `FileRequestBody` is replayable and each write copies exactly its range (the MUST half is met), but
+  `HttpClient` writes content to its own connection stream, possibly an `SslStream`, so no sendfile path is reachable through it and the transport does not
+  special-case file bodies. Phase 8b (2026-10-11); P8b-15.
+
 - **Authentication features outside the requirements (phase 6c, P6c-13, P6c-19, P6c-35, P6c-40).** Not built, and not planned for v1: **claims challenges**
   (`WWW-Authenticate: Bearer … claims="…"`, continuous access evaluation; the bearer hook re-fetches with the same `TokenRequestContext`), an **`apiKey` in a query
   string or a cookie** (`AUTH-26` is header-only; no policy stamps either), a **preemptive Digest** (the handler answers a challenge and remembers only counts),
-  **`407` proxy challenges in the pipeline** (a forward proxy's `407` is answered by the transport from `ProxyOptions.ChallengeCredentials`, phase 8b), and a
+  **`407` proxy challenges in the pipeline** (a forward proxy's `407` is answered by the transport from `ProxyOptions.ChallengeCredentials` or the Basic pair, phase 8b), and a
   **`NamedKeyCredential`** (a prefixed key is `new ApiKeyCredential(key, scheme: "SharedAccessKey")`). Digest's MD5 algorithms are unavailable on a host whose crypto
   provider refuses MD5 (design §10 entry 16).
 
@@ -126,6 +140,14 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   would hand that server the bearer token. An API that pages across hosts (a CDN, a regional host) opts in, knowing the credential then goes to
   the new origin. A custom strategy and `PaginationStrategies.Create` get no such guard. Recorded by phase 7c (2026-10-09); see
   [`pagination.md`](./sdk-documentation/pagination.md).
+- **`sync-borrowed-handlers` (phase 8b, P8b-9; `SEAM-11`, `PIPE-28`).** `SystemNetHttpClient.Execute` is genuinely synchronous (`HttpClient.Send`) for every
+  construction. A primary handler you supply that overrides only `SendAsync` makes it throw `NotSupportedException`, and a `DelegatingHandler` in the chain
+  that overrides only `SendAsync` is skipped silently on that face, because the runtime forwards the synchronous call straight to its inner handler. The async
+  face runs it. Implement `Send` in such handlers, or call `ExecuteAsync`. Recorded by phase 8b (2026-10-11); see
+  [`transport.md`](./sdk-documentation/transport.md).
+- **`explicit-proxy` (phase 8b, P8b-4; `CFG-28`).** `new SystemNetHttpClient()` goes direct and no longer inherits the runtime's `HTTP_PROXY`, `HTTPS_PROXY` and
+  `NO_PROXY` handling; a consumer who wants the environment writes `Proxy = ProxyOptions.FromEnvironment()` in `SystemNetHttpClientOptions`. A transport over a
+  caller's `HttpClient` or handler leaves the proxy to that client or handler. Recorded by phase 8b (2026-10-11).
 - **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
   strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
   strategies turn out to need it. Recorded by phase 7c (2026-10-09).

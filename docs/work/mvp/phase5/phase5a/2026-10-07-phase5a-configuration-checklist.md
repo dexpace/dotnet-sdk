@@ -100,3 +100,10 @@ P5a-2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 20, 21, 22, 23, 24, 25 and
 `CFG-35`'s "6a wires `XCUT-5`/`XCUT-6`" clause is closed: `HttpResponseException.IsRetryable` is baked from `RetryFacts.IsRetryableStatus` and the `IRetryableError`
 capability widens the cause walk (`RetryClassifierTests`). Also, `RetryOptions` and the two timeouts now validate where they are set (5a deferred them to
 6a); `configuration.md` carries the matching note. The rows above stand as written at 5a's exit.
+
+## Correction 2026-10-11 (phase 8b)
+
+The transport half of the `CFG-28` scan (finding F8, `Dexpace.Sdk.Core.Tests` cannot see `Dexpace.Sdk.Http.SystemNet`) is built: `NoImplicitEnvironmentReadArchitectureTests` in `Dexpace.Sdk.Http.SystemNet.Tests` walks the IL of every method in the transport assembly
+for calls to `Environment.GetEnvironmentVariable(s)`, `ProxyOptions.FromEnvironment`, `HttpClient.DefaultProxy` and `WebRequest.DefaultWebProxy`, with one permitted caller (the runtime's own trace-propagation switch, P5c-11) and a self-test that the scanner
+finds a planted call. The strict reading of `CFG-28` was taken (P8b-4): no `SystemNetHttpClient` constructor calls `FromEnvironment`, and the owned handler goes direct unless `SystemNetHttpClientOptions.Proxy` is set. `HttpClient.DefaultProxy` joined
+`BannedSymbols.txt`. The hand-off "the transport constructor's `FromEnvironment` call" is therefore not taken, by ruling. The rows above stand as written.

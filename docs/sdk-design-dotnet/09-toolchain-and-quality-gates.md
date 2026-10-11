@@ -88,6 +88,9 @@ does not reference); `Uri.ToString()` on any wire, log or equality path (§3.5);
 **Correction 2026-10-07 (phase 4a, P4a-11, P4a-12).** The banned list gains `AsyncLocal<T>`, and the value-comparing `TryRemove` entry
 names `BoundedMap`'s slot.
 
+**Dated correction, 2026-10-11 (phase 8b, P8b-4).** The banned list gains `HttpClient.DefaultProxy` (get and set): the runtime's process-wide proxy reads `HTTP(S)_PROXY` and `NO_PROXY` implicitly and diverges from
+the specification's bypass dialect (§8.2), so no `src/` code reads or sets it. The transport installs a `ProxyOptions`-backed `IWebProxy` or goes direct.
+
 ### 9.2 The zero-dependency gate, and NFR-8 applying literally
 
 **NFR-8** exempts ecosystems without whole-program dead-code elimination; .NET has two — ILLink trimming and

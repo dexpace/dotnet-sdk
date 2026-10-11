@@ -456,6 +456,20 @@ delegate-backed factories are `DelegateHttpClient.Create` (asynchronous) and `De
 conformance kit needs (P2b-6). `SystemNetHttpClient.Execute` is still sync-over-async and ignores its options until phase
 8b, and the `ObjectDisposedException` latch is phase 3b's and 8b's. *Dated correction*; the line above stands as written.
 
+**As built (2026-10-11, phase 8b):** built. `SystemNetHttpClient.Execute` is genuinely synchronous: it calls `HttpClient.Send` with `ResponseHeadersRead` on the calling thread for every
+construction, `RequestBodyContent` overrides `SerializeToStream` over `RequestBody.WriteTo`, and no sync-over-async remains in the package (**SEAM-11**, **PIPE-28**, **TRANSPORT-17**; P8b-9). A
+borrowed client or handler that implements only `SendAsync` is the runtime's documented hazard, not engineered around: a primary handler without `Send` throws `NotSupportedException`
+(verified on 10.0.401), and a `DelegatingHandler` that overrides only `SendAsync` is skipped silently on the sync face (`docs/first-release.md`, `sync-borrowed-handlers`). Headers are partitioned
+by `OutboundHeaderMapper`: the caller's `Content-Type` is authoritative, a content header on a body-less `POST`/`PUT`/`PATCH`/`DELETE`/`OPTIONS` travels on an empty content and on a `GET`/`HEAD`/`TRACE` is
+dropped and logged, every refusal is a drop under `HeaderDropLogging` (events 110 to 112 in core's `DexpaceLogEvents`), and a framing header is dropped at `Debug` (**TRANSPORT-10**, **-11**, **-12**, **-13**,
+**-26**; P8b-11 to P8b-13). A handler-taking constructor builds an owned `HttpClient` over a borrowed handler and rejects a primary `SocketsHttpHandler`/`HttpClientHandler` that follows redirects
+(**TRANSPORT-1**, **-15**; P8b-3), and **SEAM-15**'s `ObjectDisposedException` latch holds for every construction, borrowed included (P8b-16). The `TRANSPORT-2` paragraph above is
+refined twice. First, **TRANSPORT-18** is answered by a bounded capture rather than by failing the send: the first write of a single-use body is teed into at most `ResendBufferLimit` bytes (1 MiB) where the
+native layer can re-send, replayed on a later serialisation, and refused with a `StreamConsumedException` that names the limit beyond it (P8b-10; §11 item 18). Second, the native retry is
+not reproduced as "not reproduced here" any more: the kit measures it (`HttpConnection.SendAsync` marks a request retryable only while it has no content), so a body-less `POST`, `PUT`, `PATCH` or
+extension method is sent with a zero-length content, which is byte for byte what the native client writes for those methods, and cannot be re-sent; a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` still is
+(**TRANSPORT-2**, §10 entry 33; P8b-T2). *Dated correction*; the paragraphs above stand as written.
+
 ### 3.3 The asynchronous transport seam and the canonical pivot
 
 **What the reference requires and why.** **SEAM-16** requires the async transport's future to "complete either with a
@@ -604,6 +618,15 @@ in `src/`. *Dated correction*.
 `DisposeQuietly`" is gone. `AsAsync` disposes a response produced after the token is signalled through `Disposal.DisposeQuietly`, so the task completes cancelled and the
 failure is reported as an `exception` event tagged `dexpace.dispose.suppressed` on the current `Activity` (and as a warning when a logger is supplied).
 
+
+**Dated correction, 2026-10-11 (phase 8b, P8b-6, P8b-7).** "Deadlines, end to end" is built in the transport as `CallDeadline`: a timer source created per call on `SystemNetHttpClientOptions.TimeProvider`
+(default `TimeProvider.System`), linked to the caller's token, disposed when the native send returns, never touching the shared `HttpClient` (whose own `Timeout` is infinite for a client the transport
+builds, the 100 second default living in the options). The deadline bounds the exchange until the response headers arrive, as `AttemptTimeout` does: disposing the token a
+`SendAsync(..., ResponseHeadersRead, token)` was given after it returned does not cut a later body read (verified, 10.0.401), so the body is bounded by the token the caller passes to the read. A positive deadline is
+clamped to `[1 ms, 49 days]`. The native failure is classified once for both faces, state first and exception shape second: the caller's cancellation (an exception that carries the caller's own token), a fired
+deadline or a `TaskCanceledException` over a `TimeoutException` (a retryable `ServiceRequestTimeoutException`), any other cancellation (a new terminal `OperationCanceledException` with the native exception on its
+`ExceptionTrail`, not on `InnerException`, because the retry classifier walks the cause chain and calls any `IOException` in it retryable), and a native request failure (`ServiceRequestException`).
+The transport abandons no `Task<Response>`, so the `SEAM-30` race has no occasion to arise and `LateResult` is not used (**TRANSPORT-4**, **-5**, **-6**, **-8**, **-9**).
 
 ### 3.4 The wire-codec (serde) seam → kept separate, even though embedding is free
 
@@ -915,6 +938,10 @@ stands as written, with two corrections. *Dated correction*.
 (`ExceptionTrail.AddSuppressed`) and reports it nowhere else: exactly one of two ways, never a third (P4b-15). Without a
 primary it keeps the `Activity` event and the optional logger; `dexpace.dispose.primary_type` is gone, since that branch no
 longer reports. `LoggingResponseBody`'s two filters use `ExceptionFacts.IsFatal` too (same set).
+
+**As built (2026-10-11, phase 8b, P8b-16, P8b-17):** **SEAM-15** is built for every construction: both faces throw `ObjectDisposedException` after dispose, owned or borrowed or handler-built, the
+asynchronous face through a faulted task (**TRANSPORT-21**); the borrowed `HttpClient` itself is never touched. The transport's dispose-on-throw for a live native response (**TRANSPORT-22**) uses a local
+`NativeDisposal` over the public `ExceptionFacts.IsFatal` and `ExceptionTrail.AddSuppressed`, so core's `Disposal` stays internal. *Dated correction*; the text above stands as written.
 
 ### 3.8 The observability, time and configuration seams
 
