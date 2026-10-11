@@ -25,8 +25,9 @@ namespace Dexpace.Sdk.Core.Pagination;
 /// <b>Honest above the transport, not below it.</b> The pager never blocks on a task. The thread it blocks is the
 /// transport's, and the transport has to support a synchronous read: each page is read through
 /// <c>ResponseBody.OpenRead</c>. <c>SystemNetHttpClient</c>'s response body implements it (phase 7b), so a blocking walk
-/// over that transport, directly or through an <c>HttpPipeline</c>, works; its <c>Execute</c> still blocks on the async send
-/// until roadmap phase 8b (<c>PIPE-28</c>). Over a transport whose bodies do not override <c>OpenRead</c>, the first
+/// over that transport, directly or through an <c>HttpPipeline</c>, works; its <c>Execute</c> is <c>HttpClient.Send</c>, genuinely
+/// synchronous since roadmap phase 8b (<c>PIPE-28</c>), so no thread waits on an async send below the pager. A transport that
+/// still blocks on its own async send leaves that gap. Over a transport whose bodies do not override <c>OpenRead</c>, the first
 /// <c>MoveNext</c> throws <see cref="NotSupportedException"/>. Each page is buffered through the body's stream under the
 /// 64 MiB materialisation cap, so a page envelope larger than that fails with <c>BodyTooLargeException</c>, refused up front
 /// when the body declares a larger length; the async pager streams. A page envelope over 64 MiB is not a paging use case.

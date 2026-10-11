@@ -171,7 +171,8 @@ six *dated corrections*:
   64 MiB materialisation cap. Over `SystemNetHttpClient` it does not work until 8b: `Execute` stays sync-over-async (`PIPE-28`), and the transport's
   `HttpResponseMessageBody` has no `OpenRead`, so `CreateBlocking` throws `NotSupportedException` on the first page (review correction, 2026-10-09; use `Pageable.Create` there).
   *Dated correction, 2026-10-09 (rebase onto 7b):* 7b gave `HttpResponseMessageBody` its `OpenRead` first, so `CreateBlocking` over `SystemNetHttpClient` works;
-  only the sync-over-async `Execute` remains 8b's.
+  only the sync-over-async `Execute` remains 8b's. *Dated correction, 2026-10-11 (phase 8b):* `SystemNetHttpClient.Execute` is now `HttpClient.Send`, genuinely synchronous (P8b-9), so no gap remains
+  below the blocking pager over the reference transport.
 - **The fetcher front-end returns `FetchedPage<T>`, not a `Page<T>` carrying `ContinuationToken`/`NextLink` (P7c-15, P7c-16).** `Page<T>` stays a response-free value;
   one mutable `PagingOptions` is passed to every fetcher call of a walk and is fresh per walk; the fetcher disposes its own response (see §10 entry 17's amendment).
 - **The `Link` strategy ends the walk on a cross-origin target and strips userinfo (P7c-12).** §11 item 66. Targets holding a space, control, `<`, `>` or `"` are

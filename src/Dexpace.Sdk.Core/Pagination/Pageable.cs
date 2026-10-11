@@ -96,12 +96,13 @@ public static class Pageable
     /// <c>AsBlocking</c> vocabulary.
     /// </para>
     /// <para>
-    /// The blocking pager is honest above the transport and inherits <c>PIPE-28</c>'s gap below it. It reads each page
-    /// through <c>ResponseBody.OpenRead</c>, which <c>SystemNetHttpClient</c>'s response body implements (phase 7b), so it
-    /// works over that transport, directly or through an <c>HttpPipeline</c>; the transport's <c>Execute</c> still blocks on
-    /// its async send until phase 8b. Over a transport whose bodies do not override <c>OpenRead</c>, the first
-    /// <c>MoveNext</c> throws <see cref="NotSupportedException"/>; use <see cref="Create{TPage,T}"/> there. Each page
-    /// envelope is buffered under the 64 MiB materialisation cap.
+    /// The blocking pager is honest above the transport and blocks on no task of its own. It reads each page through
+    /// <c>ResponseBody.OpenRead</c>, which <c>SystemNetHttpClient</c>'s response body implements (phase 7b), so it works over
+    /// that transport, directly or through an <c>HttpPipeline</c>; the transport's <c>Execute</c> is genuinely synchronous
+    /// (<c>HttpClient.Send</c>, <c>PIPE-28</c>; phase 8b), so no thread waits on an async send below the pager either. A transport
+    /// that still blocks on its own async send leaves that gap below the pager. Over a transport whose bodies do not override
+    /// <c>OpenRead</c>, the first <c>MoveNext</c> throws <see cref="NotSupportedException"/>; use <see cref="Create{TPage,T}"/>
+    /// there. Each page envelope is buffered under the 64 MiB materialisation cap.
     /// </para>
     /// </remarks>
     public static Pageable<T> CreateBlocking<TPage, T>(
