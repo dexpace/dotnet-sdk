@@ -52,6 +52,10 @@ property the seam exists for; a second adapter over the same property is a later
 **As built (d45e64b):** partial: `Core`, `Http.SystemNet` and `Serialization.SystemTextJson` exist;
 `Extensions.DependencyInjection` and `Conformance` are not built.
 
+**Correction (2026-10-09, phase 8a): `Dexpace.Sdk.Conformance` is built.** `src/Dexpace.Sdk.Conformance/` references `Dexpace.Sdk.Core` only, is packable (`0.0.1-alpha.1`, unpublished; its first published version is
+the first release's lockstep version, `0.1.0` proposed, phase 12's decision) and carries the `Dexpace.Sdk.Conformance.Wire` loopback fixture promoted from the SystemNet test project. Its tests are
+`tests/Dexpace.Sdk.Conformance.Tests/`; `Dexpace.Sdk.Http.SystemNet.Tests` drives it against the reference transport. See [`docs/sdk-documentation/conformance.md`](../sdk-documentation/conformance.md).
+
 ### 2.2 Later packages
 
 Deliberately deferred, in rough priority order: `Dexpace.Sdk.Reactive` (`System.Reactive`) bridging pagination and

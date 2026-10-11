@@ -4,6 +4,7 @@
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
+using Dexpace.Sdk.TestSupport.Recovery;
 using Dexpace.Sdk.TestSupport.Transports;
 using Xunit;
 
@@ -76,6 +77,42 @@ public sealed class AsyncToSyncBridgeTests
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => blocked.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void A_future_cancelled_by_its_own_source_surfaces_OperationCanceledException_not_an_IO_error()
+    {
+        // ASYNC-14: a task cancelled independently of the call's token surfaces its cancellation as it is, carrying its own
+        // token: not an IOException, and not an AggregateException.
+        using var own = new CancellationTokenSource();
+        own.Cancel();
+        using var blocking = new FuncTransport((_, _, _) => Task.FromCanceled<Response>(own.Token)).AsBlocking();
+
+        var thrown = Assert.ThrowsAny<OperationCanceledException>(() => blocking.Execute(NewRequest(), RequestOptions.Empty, CancellationToken.None));
+
+        Assert.IsNotType<AggregateException>(thrown);
+        Assert.Equal(own.Token, thrown.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_self_referential_cause_chain_terminates_when_unwrapped()
+    {
+        // ASYNC-13: unwrapping is cycle-safe. A failure whose cause chain loops (to itself, or between two) comes back as the
+        // very exception the transport raised, in bounded time, and never inside an AggregateException. Not on Windows: there the
+        // bridge's rethrow never returns, because the runtime walks a thrown exception's chain to its end in cooperative GC mode,
+        // and the next collection freezes the whole test host (see CyclicExceptions). The bridge is the same code on every OS, so
+        // the Linux and macOS rows hold it to the clause.
+        Assert.SkipWhen(OperatingSystem.IsWindows(), CyclicExceptions.WindowsThrowHangs);
+        foreach (var cyclic in new[] { CyclicExceptions.SelfCycle(), CyclicExceptions.TwoNodeCycle() })
+        {
+            using var blocking = new FuncTransport((_, _, _) => Task.FromException<Response>(cyclic)).AsBlocking();
+
+            var surfaced = Task.Run(
+                () => Assert.ThrowsAny<Exception>(() => blocking.Execute(NewRequest(), RequestOptions.Empty, CancellationToken.None)),
+                TestContext.Current.CancellationToken);
+
+            Assert.Same(cyclic, await surfaced.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        }
     }
 
     [Fact]

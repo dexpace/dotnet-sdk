@@ -10,9 +10,9 @@
 // log latch. This port's model already rejects a non-token name (design §11 item 36), so the Ruby row's antecedent is
 // unreachable through the public API; TRANSPORT-13's latch is phase 8b's.
 
+using Dexpace.Sdk.Conformance.Wire;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;

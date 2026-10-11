@@ -3,13 +3,13 @@
 
 using System.Buffers;
 using System.Text;
+using Dexpace.Sdk.Conformance.Wire;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pagination;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Serialization;
-using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;
 

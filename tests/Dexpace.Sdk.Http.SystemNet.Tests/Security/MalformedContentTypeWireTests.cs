@@ -2,9 +2,9 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Net;
+using Dexpace.Sdk.Conformance.Wire;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
-using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;
 

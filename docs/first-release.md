@@ -26,7 +26,7 @@ release.
 | `Dexpace.Sdk.Core` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 0–7, 10 |
 | `Dexpace.Sdk.Http.SystemNet` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 1, 8b |
 | `Dexpace.Sdk.Serialization.SystemTextJson` | yes | `net8.0;net10.0` | no — `0.0.1-alpha.1` | phase 7a |
-| `Dexpace.Sdk.Conformance` | no | — | no | phase 8a owns the csproj and version; phase 12 publishes it |
+| `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.0.1-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` proposed (a release that adds an assertion is at least a minor version) | phase 10 completes it (the invariant, packaging and codec suites); phase 12 publishes it and decides the number |
 | `Dexpace.Sdk.Extensions.DependencyInjection` | no | — | no | phase 9 |
 
 The target frameworks changed in phase 0. The lead approved the roadmap's decision D1 on 2026-09-28: every package

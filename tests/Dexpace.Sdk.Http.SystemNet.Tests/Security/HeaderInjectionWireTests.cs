@@ -8,9 +8,9 @@
 // re-check is exercised through the one bypass the model admits: a value accepted on the lenient inbound path
 // (HTTP-19) and re-used on a request.
 
+using Dexpace.Sdk.Conformance.Wire;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Http.SystemNet.Tests.Loopback;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using SystemHttpClient = System.Net.Http.HttpClient;

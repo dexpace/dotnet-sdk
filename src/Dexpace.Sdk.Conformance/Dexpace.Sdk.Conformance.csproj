@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.Conformance</RootNamespace>
+    <AssemblyName>Dexpace.Sdk.Conformance</AssemblyName>
+    <PackageId>Dexpace.Sdk.Conformance</PackageId>
+    <Description>
+      Transport conformance kit for the dexpace SDK: framework-free assertions for the TRANSPORT and ASYNC requirements,
+      a loopback HTTP/1.1 wire fixture, per-requirement reporting and waivers. Drive it from any test framework.
+    </Description>
+    <PackageTags>http;sdk;conformance;testing;dexpace</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- The kit references core and nothing else (roadmap constraint 2, design §2.4): the Microsoft.Extensions.Logging
+       abstractions it needs for TransportSettings.Logger arrive through core's own closure. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Internals go to this library's own test project only (design §2.3). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dexpace.Sdk.Conformance.Tests" />
+  </ItemGroup>
+
+</Project>

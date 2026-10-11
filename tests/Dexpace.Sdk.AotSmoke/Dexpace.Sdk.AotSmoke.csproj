@@ -3,7 +3,8 @@
   <!-- NFR-9's regression guard (design §9.2): a consumer of every package, published with NativeAOT and run by
        CI's aot-smoke job. The analyzer proves the libraries are annotated; this binary proves the annotations
        are true. Phase 0 exercises the current surface over an in-process transport; phase 7 extends it to the
-       Tristate, paging and SSE round trip, and phase 10 completes it (roadmap constraint 1). -->
+       Tristate, paging and SSE round trip, phase 8a adds a slice of the conformance kit, and phase 10 completes it
+       (roadmap constraint 1). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Dexpace.Sdk.AotSmoke</RootNamespace>
@@ -28,6 +29,7 @@
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Serialization.SystemTextJson\Dexpace.Sdk.Serialization.SystemTextJson.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
   </ItemGroup>
 
 </Project>

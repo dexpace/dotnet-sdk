@@ -235,6 +235,14 @@ call and not the second. Reporting is per requirement ID, with the Appendix B it
 is the worst of their assertions, the unit Ruby settled on after finding one B.7 item vacuous for one ID and failing
 for another.
 
+**Correction (2026-10-09, phase 8a).** Four statements of this section are replaced by what the kit does. (1) The kit **is** measured by the coverage gate: `scripts/ci/coverage-gate.cs` fails closed on a packable
+library without coverage data, a package third-party authors depend on deserves the floor, and the negative controls exercise its failure paths; "with the conformance kit … excluded" no longer applies to it (the
+smoke consumer and test support remain excluded). (2) The fixture gained **release observation**: `WaitForRequestAsync` and `WaitForConnectionReleasedAsync`, where *released* means the client closed the
+connection or sent a further request on it, observed from the server side because a pooling client returns a connection to its pool, and a release check sends probe requests through the transport and refuses
+to count a close the server initiated. (3) A result has **six statuses**, not five: `NotExercised` (the subject lacks a face or a capability hook) is distinct from `Vacuous` (the antecedent is absent, measured
+from inside the assertion); waivers are by requirement ID, narrow by assertion and face, and must stay needed. (4) The second driver, which D3 asked for to prove the assertions are about the contract, runs
+the kit through `DelegateHttpClient` over a **test-only raw-socket HTTP/1.1 client** that shares no code with `HttpClient`, not over a second shipped transport.
+
 **Coverage, mutation and benchmarks.** **NFR-5**'s floor is 80% aggregate line coverage over the library assemblies,
 enforced by a coverlet threshold on the default test run, with the conformance kit, the smoke consumer and test
 support excluded. Line coverage says a line ran, not that a test checked it, so the modules whose bugs are silent —
