@@ -1,12 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Collections.Frozen;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
@@ -95,11 +90,27 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <b>Breaking</b> (phase 8b): a transport over a borrowed client used to keep serving after it was disposed.
 /// </para>
 /// <para>
-/// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,
-/// <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and <c>Expect</c> — are
-/// dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (TRANSPORT-11). Every other
-/// header is re-checked against the model's outbound rule at the wire boundary, and one that fails it is dropped
-/// with a <see cref="LogLevel.Warning"/> naming it; values are never logged (XCUT-18, TRANSPORT-12).
+/// <b>Outbound headers (TRANSPORT-10, -11, -12, -13, -26; OBS-19).</b> The framing headers the client computes itself —
+/// <c>Host</c>, <c>Content-Length</c>, <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and
+/// <c>Expect</c> — are dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (event 111). Every other
+/// header is re-checked against the model's outbound rule at the wire boundary, and one that fails it, or that the native client
+/// cannot carry, is dropped alone and logged by name under <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> (event 110: a
+/// <see cref="LogLevel.Warning"/> for the first drop of a name, a <see cref="LogLevel.Debug"/> after, by default). A drop is never
+/// silent and a value is never logged (XCUT-18). The caller's <c>Content-Type</c> is the one sent; the body's media type is used only
+/// when the caller set none. A content header (<c>Allow</c>, <c>Content-*</c>, <c>Expires</c>, <c>Last-Modified</c>) on a request that may
+/// carry no content (<c>GET</c>, <c>HEAD</c>, <c>TRACE</c>) is dropped and logged, because attaching content would break TRANSPORT-26; on a
+/// body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c>, <c>DELETE</c> or <c>OPTIONS</c> it travels on an empty content, which the wire shows as
+/// <c>Content-Length: 0</c>.
+/// <b>Breaking</b> (phase 8b): the body's <c>Content-Type</c> used to override the caller's header; a content header on a body-less
+/// request used to vanish unlogged; and the drop events are now ids 110 to 112 with <c>http.transport.*</c> names where they were 1 to 3
+/// (a repeated drop of one name is a <see cref="LogLevel.Debug"/>, not another <see cref="LogLevel.Warning"/>).
+/// </para>
+/// <para>
+/// <b>Native retry (TRANSPORT-2).</b> <c>SocketsHttpHandler</c> has no switch for its own connection-failure retry, which re-sends a
+/// request that has no content when its connection ends before any response byte. A body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or
+/// extension-method request is therefore given a zero-length content (the same bytes on the wire) and is sent once. A body-less
+/// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> or <c>TRACE</c> is still re-sent by the native client, up to three more times:
+/// all are idempotent, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6.
 /// </para>
 /// <para>
 /// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
@@ -122,28 +133,6 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </remarks>
 public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 {
-    // TRANSPORT-11: the framing set the native client computes from the body and the connection (design §3.2).
-    private static readonly FrozenSet<string> s_framingHeaders = FrozenSet.Create(
-        StringComparer.OrdinalIgnoreCase,
-        "host",
-        "content-length",
-        "transfer-encoding",
-        "connection",
-        "keep-alive",
-        "upgrade",
-        "te",
-        "expect");
-
-    private static readonly Action<ILogger, string, Exception?> s_framingHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(1, "FramingHeaderDropped"),
-        "Dropped the caller-set '{HeaderName}' header: the transport computes it (TRANSPORT-11).");
-
-    private static readonly Action<ILogger, string, Exception?> s_unsafeHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Warning,
-        new EventId(2, "UnsafeHeaderDropped"),
-        "Dropped the '{HeaderName}' request header: it is not valid on the wire (XCUT-18, TRANSPORT-12).");
-
     private static readonly Action<ILogger, string, Exception?> s_inboundHeaderDropped = LoggerMessage.Define<string>(
         LogLevel.Debug,
         new EventId(3, "InboundHeaderDropped"),
@@ -153,6 +142,8 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     private readonly bool _ownsClient;
     private readonly SendSettings _settings;
     private readonly ILogger _logger;
+    private readonly HeaderDropLog _drops;
+    private readonly OutboundHeaderMapper _mapper;
     private int _disposed;
     private int _releases;
     private int _captures;
@@ -285,6 +276,8 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         _client = client;
         _ownsClient = construction != Construction.Borrowed;
         _logger = options.Logger;
+        _drops = new HeaderDropLog(options.Logger, options.HeaderDropLogging);
+        _mapper = new OutboundHeaderMapper(_drops, CreateCapture);
         _settings = new SendSettings(
             options.Logger,
             options.Timeout,
@@ -332,7 +325,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        using var message = ToHttpRequestMessage(request);
+        using var message = _mapper.Map(request);
 
         // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
         var sentUri = message.RequestUri!;
@@ -390,7 +383,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        using var message = ToHttpRequestMessage(request);
+        using var message = _mapper.Map(request);
 
         var sentUri = message.RequestUri!;
         HttpResponseMessage native;
@@ -440,17 +433,6 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         Dispose();
         return ValueTask.CompletedTask;
     }
-
-    // The methods the native client frames with Content-Length: 0 when they carry no content (GET, HEAD, OPTIONS and DELETE get no
-    // framing header, so a substitute would change the wire; TRACE gets one but stays without content, TRANSPORT-26 and RFC 9110
-    // section 9.3.8; CONNECT is never sent by the SDK).
-    private static bool CarriesZeroLengthContent(Method method) =>
-        !(method.Name.Equals("GET", StringComparison.OrdinalIgnoreCase)
-            || method.Name.Equals("HEAD", StringComparison.OrdinalIgnoreCase)
-            || method.Name.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase)
-            || method.Name.Equals("DELETE", StringComparison.OrdinalIgnoreCase)
-            || method.Name.Equals("TRACE", StringComparison.OrdinalIgnoreCase)
-            || method.Name.Equals("CONNECT", StringComparison.OrdinalIgnoreCase));
 
     // TRANSPORT-18 (P8b-10): a single-use body is teed into a bounded capture, but only where the native layer can send the request
     // again behind the transport's back, and never for a body that can be written twice anyway.
@@ -544,97 +526,6 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
                 + "could not strip credentials from it. Configure the client's primary handler with "
                 + "AllowAutoRedirect = false (TRANSPORT-1).");
         }
-    }
-
-    private static bool IsWireSafe(string name, IReadOnlyList<string> values)
-    {
-        if (!HttpHeaderSyntax.IsValidName(name))
-        {
-            return false;
-        }
-
-        foreach (var value in values)
-        {
-            if (!HttpHeaderSyntax.IsValidOutboundValue(value))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private HttpRequestMessage ToHttpRequestMessage(Request request)
-    {
-        var message = new HttpRequestMessage(new HttpMethod(request.Method.Name), request.Url);
-        if (request.Body is { } body)
-        {
-            message.Content = new RequestBodyContent(body, CreateCapture(body));
-        }
-        else if (CarriesZeroLengthContent(request.Method))
-        {
-            // TRANSPORT-2 (P8b-T2, design section 10 entry 33): SocketsHttpHandler re-sends a request with no content whose connection
-            // ended before any response byte, and has no switch for it. A zero-length content is what it writes for these methods
-            // anyway (Content-Length: 0, byte for byte), and with content present the retry cannot fire.
-            message.Content = new ByteArrayContent([]);
-        }
-
-        var (stripTraceparent, stripTracestate) = StripTraceContext(request);
-        foreach (var (name, values) in request.Headers)
-        {
-            // Design §8.1, P5c-11: the SDK's own stamp for the current attempt is dropped so the runtime writes its child
-            // span's id. Nothing the caller intended is lost, so the drop is silent.
-            if ((stripTraceparent && TraceContextStripping.IsTraceparent(name))
-                || (stripTracestate && TraceContextStripping.IsTracestate(name)))
-            {
-                continue;
-            }
-
-            if (s_framingHeaders.Contains(name))
-            {
-                s_framingHeaderDropped(_logger, name, null);
-                continue;
-            }
-
-            // Content-Type is owned by the content (set in RequestBodyContent); skip it here.
-            if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            // XCUT-18 defence in depth: the model validated this header, but a value accepted on the lenient inbound
-            // path can be re-used on a request. Drop it rather than let HttpClient write it or fail the whole send.
-            if (!IsWireSafe(name, values))
-            {
-                s_unsafeHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
-                continue;
-            }
-
-            foreach (var value in values)
-            {
-                if (!message.Headers.TryAddWithoutValidation(name, value))
-                {
-                    message.Content?.Headers.TryAddWithoutValidation(name, value);
-                }
-            }
-        }
-
-        return message;
-    }
-
-    // Decided once, before the header loop: the loop order is not guaranteed, and the tracestate decision follows the
-    // traceparent's. Nothing is allocated when there is no ambient activity.
-    private static (bool Traceparent, bool Tracestate) StripTraceContext(Request request)
-    {
-        if (Activity.Current is not { Id: { } currentId } current
-            || request.Headers.Get("traceparent") is not { } carried
-            || !TraceContextStripping.ShouldStripTraceparent(carried, currentId, TraceContextStripping.RuntimeInjects(current)))
-        {
-            return (false, false);
-        }
-
-        var tracestate = request.Headers.Get("tracestate");
-        return (true, tracestate is not null && TraceContextStripping.ShouldStripTracestate(tracestate, current.TraceStateString, traceparentStripped: true));
     }
 
     private Response ToResponse(HttpResponseMessage message, Request request)

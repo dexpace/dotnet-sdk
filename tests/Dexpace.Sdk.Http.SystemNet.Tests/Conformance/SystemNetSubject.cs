@@ -136,9 +136,6 @@ internal static class SystemNetSubject
             {
                 Assertion = "transport-2.bodyless-not-resent",
             },
-            new("TRANSPORT-10", "F7: RequestBodyContent stamps the body's media type and the caller's Content-Type header is skipped, so the body's type wins on the wire") { Owner = "8b" },
-            new("TRANSPORT-12", "F7: a content-class header (Content-Language, Content-Encoding, Allow) on a body-less request is dropped without a log entry") { Owner = "8b" },
-            new("TRANSPORT-13", "no drop-logging policy yet: framing drops log at Debug every time and a refused header is not logged (phase 1 and 5b hand-offs: OBS-19 and TRANSPORT-13 are 8b's)") { Owner = "8b" },
             new("TRANSPORT-14", "F1: SocketsHttpHandler fails the whole response on a malformed header name before the adapter sees it; 8b dispositions it (a design section 10 entry if no handler-level workaround exists)")
             {
                 Owner = "8b",

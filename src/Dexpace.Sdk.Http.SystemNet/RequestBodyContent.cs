@@ -11,7 +11,8 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <see cref="System.Net.Http.HttpClient"/> without first buffering into memory.
 /// </summary>
 /// <remarks>
-/// With a <see cref="ResendCapture"/> the first serialisation of a single-use body is teed into the capture and a later one
+/// It carries no <c>Content-Type</c> of its own: <c>OutboundHeaderMapper</c> stamps the body's media type only when the caller set
+/// none (<c>TRANSPORT-10</c>). With a <see cref="ResendCapture"/> the first serialisation of a single-use body is teed into the capture and a later one
 /// replays it, so a send the native client repeats (a proxy's <c>407</c> answered, a stale connection) carries identical bytes
 /// (<c>TRANSPORT-18</c>); without one the body is written as it is, and a single-use body's own latch refuses a second write.
 /// </remarks>
@@ -24,10 +25,6 @@ internal sealed class RequestBodyContent : HttpContent
     {
         _body = body;
         _capture = capture;
-        if (body.ContentType is { } contentType)
-        {
-            Headers.TryAddWithoutValidation("Content-Type", contentType.ToString());
-        }
     }
 
     protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
