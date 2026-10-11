@@ -249,9 +249,11 @@ transport that cannot meet one (a native client that rejects a whole response ov
 `TRANSPORT-2` has two assertions because the clause has two halves. `transport-2.no-silent-resend` is the specification's own
 conformance sentence: a single-use body whose exchange was reset reaches the server at most once. A native client never re-writes
 content it already wrote, with its retry on or off, so passing it does not show the retry is off. `transport-2.bodyless-not-resent`
-does: a body-less `POST`, `DELETE` and `GET` on a warmed keep-alive connection, reset after the server read them and before any
-response byte, must each arrive exactly once. `SocketsHttpHandler` has no switch for its own retry and re-sends such a request up to
-three more times, so the reference transport is waived for it (owner `8b`) while it passes the first half.
+does: a body-less `POST`, `DELETE` and `GET` on a warmed keep-alive connection, whose connection the server closes after reading
+them and before any response byte, must each arrive exactly once. The close is orderly, not `Abort()`'s FIN and reset: whether a native
+client re-sends turns on what its read reports, and only an orderly close is reported the same way, as an end of stream, on every
+platform. `SocketsHttpHandler` has no switch for its own retry and re-sends such a request up to three more times, so the reference
+transport is waived for it (owner `8b`) on every platform while it passes the first half.
 
 Two assertions measure whether their clause applies instead of asking the subject. `transport-13.drop-log-once-per-name` governs a header
 the transport dropped, so a transport that put both headers on the wire dropped none and the result is `Vacuous` (no waiver needed). And
