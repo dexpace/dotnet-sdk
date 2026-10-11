@@ -67,6 +67,7 @@ internal static partial class SmokeChecks
             await CheckServerSentEventsAsync();
             await CheckPhase7cPaginationAsync();
             await CheckPhase8aConformanceAsync();
+            await CheckPhase8bAsync();
         }
         catch (SmokeFailureException failure)
         {
