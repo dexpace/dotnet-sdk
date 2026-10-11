@@ -155,6 +155,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     private readonly ILogger _logger;
     private int _disposed;
     private int _releases;
+    private int _captures;
 
     /// <summary>
     /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects and goes direct: no
@@ -308,6 +309,10 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     // The settings the transport resolved from its options when it was constructed.
     internal SendSettings Settings => _settings;
 
+    // How many replay captures this transport built: zero where the native layer cannot re-send (an owned client with no proxy
+    // credentials) and for every replayable body. A per-instance counter, so parallel tests never share it.
+    internal int CapturesCreated => Volatile.Read(ref _captures);
+
     // The native client's own Timeout: infinite for a client the transport builds (its deadline replaces it), the caller's for a borrowed one.
     internal TimeSpan NativeClientTimeout => _client.Timeout;
 
@@ -436,6 +441,19 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
+    // TRANSPORT-18 (P8b-10): a single-use body is teed into a bounded capture, but only where the native layer can send the request
+    // again behind the transport's back, and never for a body that can be written twice anyway.
+    private ResendCapture? CreateCapture(RequestBody body)
+    {
+        if (!_settings.ResendCapable || body.IsReplayable)
+        {
+            return null;
+        }
+
+        Interlocked.Increment(ref _captures);
+        return new ResendCapture(_settings.ResendBufferLimit);
+    }
+
     // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first, and a throwing dispose never
     // replaces the failure in flight (NativeDisposal).
     private Response AdaptGuarded(HttpResponseMessage native, Uri sentUri, Request request)
@@ -540,7 +558,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         var message = new HttpRequestMessage(new HttpMethod(request.Method.Name), request.Url);
         if (request.Body is { } body)
         {
-            message.Content = new RequestBodyContent(body);
+            message.Content = new RequestBodyContent(body, CreateCapture(body));
         }
 
         var (stripTraceparent, stripTracestate) = StripTraceContext(request);

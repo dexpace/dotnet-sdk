@@ -145,7 +145,6 @@ internal static class SystemNetSubject
                 Owner = "8b",
                 Assertion = "transport-14.name-malformed-dropped",
             },
-            new("TRANSPORT-18", "a native re-send of a single-use body fails with StreamConsumedException instead of replaying identical bytes (design section 11 item 18); 8b's bounded capture closes it") { Owner = "8b" },
         ],
     };
 
