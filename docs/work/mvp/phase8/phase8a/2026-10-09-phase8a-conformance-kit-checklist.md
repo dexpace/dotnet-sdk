@@ -73,7 +73,7 @@ test phase 8a added; the rest already existed.
 | `ASYNC-10` | MUST | ✅ | `BridgeLoggingContextTests.Capture_happens_per_call_not_at_AsAsync_construction` (`Unit`, new): one bridge built under scope A, called under B then C, sees B then C. Mutation: suppressing `ExecutionContext` flow failed it. |
 | `ASYNC-11` | MUST | ✅ | `BridgeLoggingContextTests.A_caller_with_no_scope_clears_the_workers_own_scope_for_the_call_and_the_worker_gets_it_back` (`Unit`, new, from the review): the worker thread has a logging scope of its own, the caller has none, and inside the call the worker's scope is invisible (the caller's empty context replaced it) and after the call it is back. Mutation: suppressing `ExecutionContext` flow failed it. `With_no_scope_provider_a_round_trip_raises_nothing_and_sees_no_scope` (`Unit`, new) is the plan's "no provider" case over a `NullLogger`. |
 | `ASYNC-12` | MUST | ✅ | The `ASYNC-8` pin run on a scheduler that starts a dedicated thread per task (`RecordingTaskScheduler`) and on `TaskScheduler.Default` (`LongRunning`): the `ExecutionContext` is carried onto the new thread. |
-| `ASYNC-13` | MUST | ✅ | `AsyncToSyncBridgeTests.A_self_referential_cause_chain_terminates_when_unwrapped` (`Unit`, new; `CyclicExceptions.SelfCycle` and `TwoNodeCycle`): the exception the transport raised comes back as itself in bounded time; existing `A_faulted_InvalidOperationException_surfaces_as_itself_not_as_an_AggregateException`. |
+| `ASYNC-13` | MUST | ✅ | `AsyncToSyncBridgeTests.A_self_referential_cause_chain_terminates_when_unwrapped` (`Unit`, new; `CyclicExceptions.SelfCycle` and `TwoNodeCycle`): the exception the transport raised comes back as itself in bounded time; existing `A_faulted_InvalidOperationException_surfaces_as_itself_not_as_an_AggregateException`. Skipped on Windows (`CyclicExceptions.WindowsThrowHangs`), where throwing a cyclic chain freezes the test host inside the runtime (deviation 15); the bridge is the same code on every OS and the Linux and macOS rows run the pin. |
 | `ASYNC-14` | MUST | ✅ (cooperative, design §10 entry 8) | `AsyncToSyncBridgeTests.A_future_cancelled_by_its_own_source_surfaces_OperationCanceledException_not_an_IO_error` (`Unit`, new): carries its own source's token, is not an `IOException` or an `AggregateException`; the interrupt half is §10 entry 8. |
 | `ASYNC-15` | MUST | ✅ | Kit `transport-15.*` and `transport-16.close-idempotent-nonblocking` (above); the bridges own nothing: `ClientDisposeIdempotenceTests.Bridge_and_delegate_disposes_are_idempotent`, `SyncToAsyncBridgeTests.Disposing_the_bridge_disposes_neither_the_scheduler_nor_the_client` (`Unit`, existing). The interrupt-safe clause is §10 entry 8. |
 | `ASYNC-16` | SHOULD | N/A | No SDK adapter owns an executor or worker threads (design §3.7: "none of the MVP packages owns any"); `AsAsync` runs on the caller's scheduler and owns it not. |
@@ -163,6 +163,23 @@ hook (`transport-8`, `-15.borrowed`, `-18`, `-22`, `-30`) and two `Vacuous` (`se
     - **`transport-3` accepted a cancellation without the caller's token (minor)** and **`transport-7.attempt-timeout-aborts` accepted any `SdkException` (minor).** Both now require the thing their clause names (the caller's token on the exception or its cause chain; a timeout on the failure, its causes or its trail), each with new controls.
     - **The `ASYNC-11` pin could not fail (minor).** Replaced by a worker-with-its-own-scope pin that the `ExecutionContext` mutation fails (above).
     - **`LoopbackServer`'s remarks still said it will be promoted (minor).** They state the library contract (BCL only, no test-framework types, every await configured, observation members safe from any thread).
+15. **The Windows hang of `Dexpace.Sdk.Core.Tests` was the `ASYNC-13` pin, not the logging-context tests.** It hung on both Windows runs seen
+    (`c495a6a`, `170bb88`, each after `f35e47d` added the pin; `main` passes there), on no other OS, and the two orphans the runner
+    terminated each time were the coverlet controller and its test host, not a process a test spawned.
+    Throwing an exception walks its whole inner-exception chain on Windows only: the managed dispatch's first frame records Watson bucketing
+    details (dotnet/runtime `release/10.0`, `excep.cpp`: `StackTraceInfo::AppendElement` calls `SetupWatsonBucket` under
+    `#ifndef TARGET_UNIX`, then `SetupInitialThrowBucketDetails`, with `IsWatsonEnabled()` always `TRUE` in `dwreport.cpp`), which calls
+    `ExceptionObject::GetBaseException` (`object.h`), a `while` over `_innerException` until null. On `CyclicExceptions` that loop never
+    ends, under `GCX_COOP`, so the next collection waits for the thread forever and every managed thread with it: no xUnit `Timeout`, no
+    `WaitAsync` bound and no test result can fire. The pin threw such a chain through `AsBlocking`'s `GetAwaiter().GetResult()`, the
+    first test in the suites to throw one rather than walk it. A Linux model (a native `_innerException` walk in cooperative mode, then
+    `GC.Collect`) froze the same way on a cycle and returned in 0 ms without one. The pin now skips on Windows; `cfe4948`'s
+    scheduler changes (`ForceYielding`, the 30 s timeouts, `Dispose` not joining its own thread) stay as defence but were not the cause,
+    and their comment says so. CI's test step now takes a hang dump (`Microsoft.Testing.Extensions.HangDump`, five minutes without a
+    finished test), so a future hang fails the step with a dump whose thread stacks name the test; a host frozen like this one cannot
+    answer the extension's in-progress-tests query, so the stacks are the record. Restoring for that package also dropped a stale
+    `Dexpace.Sdk.Http.SystemNet` edge from `Dexpace.Sdk.Conformance.Tests`'s lock file (the kit never referenced it; locked mode had not
+    flagged it).
 
 ## Verdicts for the lead
 
