@@ -114,3 +114,8 @@ M:System.Environment.GetEnvironmentVariables(System.EnvironmentVariableTarget);N
 # Process-wide trace-id generation belongs to the application (OBS-27, design §10 entry 24, P5c-14): a library must not set
 # the hook the application owns, so the SDK never installs a generator.
 P:System.Diagnostics.Activity.TraceIdGenerator;A library never sets the process-wide trace-id generator; the application owns it (OBS-27, design §10 entry 24)
+
+# The runtime's process-wide default proxy reads HTTP(S)_PROXY and NO_PROXY implicitly, on first use, and diverges from the
+# spec's bypass dialect (no NO_PROXY=* bypass, port defaulting, userinfo in the proxy URI, regex bypass entries). The transport
+# installs a ProxyOptionsWebProxy from an explicit ProxyOptions, or goes direct (CFG-23, CFG-25, CFG-27, CFG-28, design §8.2, P8b-4).
+P:System.Net.Http.HttpClient.DefaultProxy;The runtime's process-wide proxy reads HTTP(S)_PROXY and NO_PROXY implicitly and diverges from the spec's bypass dialect; install a ProxyOptionsWebProxy from an explicit ProxyOptions (CFG-28, P8b-4)
