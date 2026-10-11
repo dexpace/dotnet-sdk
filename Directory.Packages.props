@@ -36,6 +36,9 @@
     <PackageVersion Include="coverlet.MTP" Version="10.1.0" />
     <!-- The TRX report (report-trx option), for the per-OS test-results artifact CI uploads. -->
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <!-- The hang dump (hangdump options), so a test host that stops making progress in CI is dumped and the tests still running
+         are named, instead of the job running into its timeout with no word on which test hung (phase 8a, #88). -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.4.1" />
     <!-- The FakeTimeProvider of styleguide 11.6, re-exported to every suite by Dexpace.Sdk.TestSupport. -->
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
   </ItemGroup>
