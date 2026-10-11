@@ -120,7 +120,11 @@ public sealed class BodylessRetryWireTests
 
         Assert.Equal(1, server.Requests.Count(recorded => recorded.Target == "/expect"));
         Assert.Empty(server.Requests[0].HeaderValues("Expect"));
-        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Debug && entry.Message.Contains("'Expect'", StringComparison.Ordinal));
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.Level == LogLevel.Debug
+                && entry.EventId.Id == DexpaceLogEvents.TransportFramingHeaderDroppedId
+                && entry.Message.Contains("'Expect'", StringComparison.Ordinal));
     }
 
     // ------------------------------------------------------------------------------------------------------------------------
@@ -134,6 +138,8 @@ public sealed class BodylessRetryWireTests
 
         public bool HadContent { get; private set; }
 
+        public bool HadExpect { get; private set; }
+
         protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken) => Record(request);
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
@@ -143,6 +149,7 @@ public sealed class BodylessRetryWireTests
         {
             Seen = request;
             HadContent = request.Content is not null;
+            HadExpect = request.Headers.Contains("Expect");
             ContentLength = request.Content?.Headers.ContentLength;
             return new HttpResponseMessage(HttpStatusCode.OK);
         }
@@ -184,10 +191,28 @@ public sealed class BodylessRetryWireTests
         Assert.Equal(7, handler.ContentLength);
     }
 
-    [Fact]
-    public void The_framing_event_id_names_the_expect_drop()
+    // Lead ruling P8b-T2(a) says the Expect is "logged as a drop under the policy". Expect is a TRANSPORT-11 framing header (P8b-12) that the
+    // transport drops from every request, with or without a body, so the drop it logs is the framing one: event 111 at Debug, whatever
+    // HeaderDropLogging says (event 110 is the policy's, for a header the native client cannot send). The checklist records this reading;
+    // this row pins it, so routing the Expect through the policy for a body-less POST alone (one header logging differently by whether the
+    // request has a body) would have to change the row on purpose.
+    [Theory]
+    [InlineData(HeaderDropLogging.FirstPerName)]
+    [InlineData(HeaderDropLogging.Every)]
+    [InlineData(HeaderDropLogging.VerboseOnly)]
+    public async Task The_Expect_drop_is_a_framing_drop_at_debug_under_every_header_drop_logging_mode(HeaderDropLogging mode)
     {
-        // The event the Expect drop is logged under (TRANSPORT-11): until the header drop log lands it is the transport's own Debug entry.
-        Assert.Equal(111, DexpaceLogEvents.TransportFramingHeaderDroppedId);
+        var logger = new RecordingLogger();
+        using var handler = new CapturingHandler();
+        await using var transport = new SystemNetHttpClient(handler, new SystemNetHttpClientOptions { Logger = logger, HeaderDropLogging = mode });
+        var request = Request.Create(Method.Post, "https://example.test/x").WithHeader("Expect", "100-continue");
+
+        await using var response = await transport.ExecuteAsync(request, RequestOptions.Empty, Ct);
+
+        Assert.False(handler.HadExpect);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(DexpaceLogEvents.TransportFramingHeaderDroppedId, entry.EventId.Id);
+        Assert.Equal(LogLevel.Debug, entry.Level);
+        Assert.DoesNotContain(logger.Entries, recorded => recorded.EventId.Id == DexpaceLogEvents.TransportHeaderDroppedId);
     }
 }

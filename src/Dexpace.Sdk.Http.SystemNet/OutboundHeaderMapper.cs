@@ -27,7 +27,9 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <para>
 /// <b>The content.</b> A request with a body carries it. A body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or extension method carries a
 /// zero-length content: the native client writes <c>Content-Length: 0</c> for these anyway, byte for byte, and with content present
-/// its connection-failure retry cannot fire (<c>TRANSPORT-2</c>, design §10 entry 33). A body-less <c>DELETE</c> or <c>OPTIONS</c> carries
+/// its connection-failure retry cannot fire (<c>TRANSPORT-2</c>, design §10 entry 33). A caller <c>Expect: 100-continue</c> would bring that
+/// retry back, but it needs no rule of its own: <c>Expect</c> is a framing header, dropped from every request and logged as a framing drop
+/// (event 111, <see cref="Microsoft.Extensions.Logging.LogLevel.Debug"/>), not under <c>HeaderDropLogging</c> (event 110). A body-less <c>DELETE</c> or <c>OPTIONS</c> carries
 /// one only when the caller set a content header; a body-less <c>GET</c>, <c>HEAD</c>, <c>TRACE</c> or <c>CONNECT</c> carries none
 /// (<c>TRANSPORT-26</c>), so a content header on it is dropped and logged.
 /// </para>
