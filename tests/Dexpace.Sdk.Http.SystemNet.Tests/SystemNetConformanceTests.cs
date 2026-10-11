@@ -10,8 +10,8 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests;
 /// <summary>
 /// The transport conformance kit driven against the reference transport (phase 8a, P8a-15) through both of its constructions
 /// (phase 8b, P8b-21): one case per (subject, assertion, face), plus the whole suite as a report per subject. The waivers in
-/// <see cref="SystemNetSubject.Options"/> are phase 8b's rows; phase 8b closes each by deleting its waiver, and the kit fails the
-/// run if a waiver is left after its row is fixed.
+/// <see cref="SystemNetSubject.Options"/> are the two permanent decisions phase 8b recorded (design section 10 entries 32 and 33); the
+/// kit fails the run if a waiver is left after its clause starts to pass, so a runtime that fixes either is noticed.
 /// </summary>
 [Trait("Category", "Conformance")]
 public sealed class SystemNetConformanceTests
@@ -69,22 +69,22 @@ public sealed class SystemNetConformanceTests
     }
 
     // </driver>
-    // A waiver is either a row phase 8b is still closing (Owner "8b") or a recorded permanent decision (no owner, narrowed to one assertion).
+    // Phase 8b closed every row it owned by deleting its waiver (exit criterion 2): no waiver carries Owner "8b" any more. What is
+    // left is two recorded decisions, each narrowed to the one assertion it covers, each citing the design section 10 entry that
+    // records why the clause is unmet on a stated domain.
     [Fact]
-    public void Only_8b_waivers_and_the_recorded_permanent_decisions_remain() => Assert.All(
-        SystemNetSubject.Options.Waivers,
-        waiver =>
-        {
-            if (waiver.Owner is null)
-            {
-                Assert.NotNull(waiver.Assertion);
-                Assert.Contains("design section 10 entry", waiver.Reason, StringComparison.Ordinal);
-            }
-            else
-            {
-                Assert.Equal("8b", waiver.Owner);
-            }
-        });
+    public void Only_the_two_recorded_permanent_decisions_remain()
+    {
+        var waivers = SystemNetSubject.Options.Waivers;
+
+        Assert.DoesNotContain(waivers, waiver => waiver.Owner is not null);
+        Assert.Equal(
+            ["TRANSPORT-14|transport-14.name-malformed-dropped", "TRANSPORT-2|transport-2.bodyless-not-resent"],
+            waivers.Select(waiver => $"{waiver.RequirementId}|{waiver.Assertion}").Order(StringComparer.Ordinal));
+        Assert.Contains("design section 10 entry 32", waivers.Single(waiver => waiver.RequirementId == "TRANSPORT-14").Reason, StringComparison.Ordinal);
+        Assert.Contains("design section 10 entry 33", waivers.Single(waiver => waiver.RequirementId == "TRANSPORT-2").Reason, StringComparison.Ordinal);
+        Assert.All(waivers, waiver => Assert.Null(waiver.Face));
+    }
 
     [Fact]
     public void Only_known_waiver_targets_remain() => Assert.All(

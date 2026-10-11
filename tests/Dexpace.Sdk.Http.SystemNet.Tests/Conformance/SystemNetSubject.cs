@@ -121,10 +121,10 @@ internal static class SystemNetSubject
 #pragma warning restore CA2000
 
     /// <summary>
-    /// The bounds of the driver and the waivers of phase 8a's first run against the reference transport: exactly the failing set,
-    /// each a requirement owned by phase 8b, each named for the fact that explains it. <c>TRANSPORT-2</c>'s is narrowed to the
-    /// body-less assertion (the single-use clause passes), as is <c>TRANSPORT-14</c>'s to its name clause. Phase 8b closes a row by
-    /// deleting its waiver; a waiver left behind after its row is fixed fails the run.
+    /// The bounds of the driver and its two permanent waivers (phase 8b, P8b-14, P8b-T2). Phase 8b deleted every waiver that carried
+    /// <c>Owner = "8b"</c> in the change that closed its row; what remains is a decision, narrowed to the one assertion it covers:
+    /// <c>TRANSPORT-14</c>'s malformed-name clause (design section 10 entry 32) and <c>TRANSPORT-2</c>'s body-less clause for the
+    /// methods that carry no content (design section 10 entry 33). A waiver whose assertion starts to pass fails the run.
     /// </summary>
     internal static TransportSuiteOptions Options { get; } = new()
     {
@@ -136,9 +136,8 @@ internal static class SystemNetSubject
             {
                 Assertion = "transport-2.bodyless-not-resent",
             },
-            new("TRANSPORT-14", "F1: SocketsHttpHandler fails the whole response on a malformed header name before the adapter sees it; 8b dispositions it (a design section 10 entry if no handler-level workaround exists)")
+            new("TRANSPORT-14", "SocketsHttpHandler rejects the whole response on a malformed header name (a space, a control byte or a non-ASCII byte) before the adapter sees any header, and has no leniency switch; no handler-level workaround exists short of replacing its HTTP/1.1 parser. Unmet on that stated domain: design section 10 entry 32 (the value and obs-text clauses are met and unwaived)")
             {
-                Owner = "8b",
                 Assertion = "transport-14.name-malformed-dropped",
             },
         ],
