@@ -22,7 +22,17 @@ namespace Dexpace.Sdk.Core.Tests.Clients;
 [Trait("Category", "Unit")]
 public sealed class BridgeLoggingContextTests
 {
+    // A bound on every test here: a continuation lost on a scheduler fails the test instead of hanging the run.
+    private const int TestTimeout = 30_000;
+
     private static Request NewRequest() => Request.Get("https://api.example.com/v1/items");
+
+    // Resumes the test on the thread pool. A bridged call completes on the scheduler's own thread, and an await would otherwise
+    // run the rest of the test inline there, with TaskScheduler.Current set to that scheduler: a later await is then queued to
+    // it, and once the worker has been disposed that continuation is lost and the test never ends (seen as a hung run on
+    // Windows); WorkerWithAmbientScope.Dispose would also join its own thread.
+    private static async Task<Response> OffTheScheduler(Task<Response> call) =>
+        await call.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
 
     private static string[] ScopesVisibleTo(LoggerExternalScopeProvider provider)
     {
@@ -116,7 +126,10 @@ public sealed class BridgeLoggingContextTests
         public void Dispose()
         {
             _queue.CompleteAdding();
-            _thread.Join(TimeSpan.FromSeconds(10));
+            if (Thread.CurrentThread != _thread)
+            {
+                _thread.Join(TimeSpan.FromSeconds(10));
+            }
         }
 
         protected override void QueueTask(Task task) => _queue.Add(task);
@@ -126,7 +139,7 @@ public sealed class BridgeLoggingContextTests
         protected override IEnumerable<Task> GetScheduledTasks() => [];
     }
 
-    [Fact]
+    [Fact(Timeout = TestTimeout)]
     public async Task A_logging_scope_opened_on_the_caller_is_visible_inside_the_blocking_Execute()
     {
         // ASYNC-8, ASYNC-12: on the default scheduler (a dedicated LongRunning thread) and on a scheduler that starts a new
@@ -140,14 +153,14 @@ public sealed class BridgeLoggingContextTests
 
             using (provider.Push("caller"))
             {
-                using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
+                using var response = await OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
             }
 
             Assert.Equal(["caller"], Assert.Single(transport.Seen));
         }
     }
 
-    [Fact]
+    [Fact(Timeout = TestTimeout)]
     public async Task The_workers_own_scope_is_intact_after_a_call_returns_and_after_one_throws()
     {
         // ASYNC-9: save, install, restore, including when the call throws: what is ambient on the worker thread is what it was.
@@ -160,15 +173,15 @@ public sealed class BridgeLoggingContextTests
 
         using (provider.Push("caller"))
         {
-            using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
+            using var response = await OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken)));
         }
 
         worker.Dispose();
         Assert.Equal(["worker-scope", "worker-scope"], worker.AmbientAfterEachTask);
     }
 
-    [Fact]
+    [Fact(Timeout = TestTimeout)]
     public async Task Capture_happens_per_call_not_at_AsAsync_construction()
     {
         // ASYNC-10: one bridge, built under scope A, called under B and then under C: the blocking client sees B, then C.
@@ -186,7 +199,7 @@ public sealed class BridgeLoggingContextTests
             {
                 using (provider.Push(scope))
                 {
-                    using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
+                    using var response = await OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
                 }
             }
         }
@@ -194,7 +207,7 @@ public sealed class BridgeLoggingContextTests
         Assert.Equal([["B"], ["C"]], transport.Seen);
     }
 
-    [Fact]
+    [Fact(Timeout = TestTimeout)]
     public async Task A_caller_with_no_scope_clears_the_workers_own_scope_for_the_call_and_the_worker_gets_it_back()
     {
         // ASYNC-11: "reinstating an empty context clears the target thread's context rather than raising an error". The worker
@@ -205,7 +218,7 @@ public sealed class BridgeLoggingContextTests
         var transport = new ScopeRecordingTransport(provider);
         await using var bridge = transport.AsAsync(worker);
 
-        using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
+        using var response = await OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
         worker.Dispose();
 
         Assert.Equal(Status.Ok, response.Status);
@@ -213,7 +226,7 @@ public sealed class BridgeLoggingContextTests
         Assert.Equal([["worker-scope"]], worker.ScopesAfterEachTask);
     }
 
-    [Fact]
+    [Fact(Timeout = TestTimeout)]
     public async Task With_no_scope_provider_a_round_trip_raises_nothing_and_sees_no_scope()
     {
         // ASYNC-11: no logging backend at all (a NullLogger: BeginScope has nothing to open, Log has nothing to write) and no
@@ -222,7 +235,7 @@ public sealed class BridgeLoggingContextTests
         var transport = new ScopeRecordingTransport(provider, NullLogger.Instance);
         await using var bridge = transport.AsAsync(TaskScheduler.Default);
 
-        using var response = await bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken);
+        using var response = await OffTheScheduler(bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken));
 
         Assert.Equal(Status.Ok, response.Status);
         Assert.Empty(Assert.Single(transport.Seen));
