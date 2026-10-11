@@ -56,6 +56,14 @@ const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailed = "
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.RetryDelayOverrideFailedId = 140 -> int
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TokenRefreshFailed = "dexpace.auth.token_refresh_failed" -> string!
 const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TokenRefreshFailedId = 160 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportFramingHeaderDropped = "http.transport.framing_header_dropped" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportFramingHeaderDroppedId = 111 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportHeaderDropped = "http.transport.header_dropped" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportHeaderDroppedId = 110 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportInboundHeaderDropped = "http.transport.inbound_header_dropped" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportInboundHeaderDroppedId = 112 -> int
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportProxyFeatureUnsupported = "http.transport.proxy_feature_unsupported" -> string!
+const Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents.TransportProxyFeatureUnsupportedId = 113 -> int
 const Dexpace.Sdk.Core.Http.Response.Response.MaxBufferedErrorBytes = 1048576 -> int
 const Dexpace.Sdk.Core.Http.Response.ResponseBody.DefaultMaxMaterializedBytes = 67108864 -> long
 Dexpace.Sdk.Core.Auth.AccessToken

@@ -25,12 +25,20 @@ public sealed class LogVocabularyTests
         Assert.Equal("http.instrumentation.log_failed", DexpaceLogEvents.LogFailed);
         Assert.Equal("http.instrumentation.body_capture_failed", DexpaceLogEvents.BodyCaptureFailed);
         Assert.Equal("dexpace.dispose.suppressed", DexpaceLogEvents.DisposeSuppressed);
+        Assert.Equal("http.transport.header_dropped", DexpaceLogEvents.TransportHeaderDropped);
+        Assert.Equal("http.transport.framing_header_dropped", DexpaceLogEvents.TransportFramingHeaderDropped);
+        Assert.Equal("http.transport.inbound_header_dropped", DexpaceLogEvents.TransportInboundHeaderDropped);
+        Assert.Equal("http.transport.proxy_feature_unsupported", DexpaceLogEvents.TransportProxyFeatureUnsupported);
         Assert.Equal(100, DexpaceLogEvents.HttpRequestId);
         Assert.Equal(101, DexpaceLogEvents.HttpResponseId);
         Assert.Equal(102, DexpaceLogEvents.HttpFailureId);
         Assert.Equal(120, DexpaceLogEvents.LogFailedId);
         Assert.Equal(121, DexpaceLogEvents.BodyCaptureFailedId);
         Assert.Equal(130, DexpaceLogEvents.DisposeSuppressedId);
+        Assert.Equal(110, DexpaceLogEvents.TransportHeaderDroppedId);
+        Assert.Equal(111, DexpaceLogEvents.TransportFramingHeaderDroppedId);
+        Assert.Equal(112, DexpaceLogEvents.TransportInboundHeaderDroppedId);
+        Assert.Equal(113, DexpaceLogEvents.TransportProxyFeatureUnsupportedId);
     }
 
     [Fact]
@@ -80,6 +88,12 @@ public sealed class LogVocabularyTests
             Assert.InRange(ids[name], 100, 109);
         }
 
+        // 8b (P8b-13): 110-113 are the transport block (header drops and proxy warnings); 114-119 stay reserved.
+        foreach (var name in (string[])["TransportHeaderDroppedId", "TransportFramingHeaderDroppedId", "TransportInboundHeaderDroppedId", "TransportProxyFeatureUnsupportedId"])
+        {
+            Assert.InRange(ids[name], 110, 119);
+        }
+
         foreach (var name in (string[])["LogFailedId", "BodyCaptureFailedId"])
         {
             Assert.InRange(ids[name], 120, 129);
@@ -99,8 +113,8 @@ public sealed class LogVocabularyTests
         // 6c (P6c-37): 160 is the only id in the auth block; 161-169 stay reserved.
         Assert.Equal(160, ids["TokenRefreshFailedId"]);
 
-        // 110-119 (8b header drops), 141-149 (retry), 155-159 (redirect) and 161-169 (auth) are reserved and unused.
-        Assert.DoesNotContain(ids.Values, id => id is (>= 110 and <= 119) or (>= 141 and <= 149) or (>= 155 and <= 159) or (>= 161 and <= 169));
+        // 114-119 (transport), 141-149 (retry), 155-159 (redirect) and 161-169 (auth) are reserved and unused.
+        Assert.DoesNotContain(ids.Values, id => id is (>= 114 and <= 119) or (>= 141 and <= 149) or (>= 155 and <= 159) or (>= 161 and <= 169));
         Assert.Equal(ids.Count, ids.Values.Distinct().Count());
     }
 

@@ -11,9 +11,9 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 /// <remarks>
 /// <para>
 /// Every member is a <see langword="const"/>, so <c>PublicAPI.Unshipped.txt</c> records each value and renaming one is a
-/// reviewed change. The ids are partitioned by subsystem (P5b-21): 100-109 request and response, 110-119 transport header
-/// drops (reserved for the transport conformance phase, OBS-19), 120-129 instrumentation diagnostics, 130-139 disposal,
-/// 140-149 retry, 150-159 redirect and 160-169 authentication.
+/// reviewed change. The ids are partitioned by subsystem (P5b-21): 100-109 request and response, 110-119 transport (110-113
+/// header drops and proxy warnings, OBS-19, TRANSPORT-13, TRANSPORT-30; phase 8b), 120-129 instrumentation diagnostics,
+/// 130-139 disposal, 140-149 retry, 150-159 redirect and 160-169 authentication.
 /// </para>
 /// </remarks>
 public static class DexpaceLogEvents
@@ -42,6 +42,18 @@ public static class DexpaceLogEvents
     /// <summary>The warning written when an eligible redirect has an unusable <c>Location</c> and is returned unfollowed (<see cref="RedirectLocationMalformedId"/>, REDIR-28).</summary>
     public const string RedirectLocationMalformed = "http.redirect.location_malformed";
 
+    /// <summary>The event a transport writes when it drops one request header and the drop-logging policy decides its level: <see cref="Microsoft.Extensions.Logging.LogLevel.Warning"/> for the first drop of a name, <see cref="Microsoft.Extensions.Logging.LogLevel.Debug"/> after (<see cref="TransportHeaderDroppedId"/>, TRANSPORT-12, TRANSPORT-13, OBS-19). The header name is logged, never its value.</summary>
+    public const string TransportHeaderDropped = "http.transport.header_dropped";
+
+    /// <summary>The debug event a transport writes when it drops a caller-set framing header it computes itself (<see cref="TransportFramingHeaderDroppedId"/>, TRANSPORT-11).</summary>
+    public const string TransportFramingHeaderDropped = "http.transport.framing_header_dropped";
+
+    /// <summary>The debug event a transport writes when it drops a response header whose value carries a control character (<see cref="TransportInboundHeaderDroppedId"/>, TRANSPORT-14).</summary>
+    public const string TransportInboundHeaderDropped = "http.transport.inbound_header_dropped";
+
+    /// <summary>The warning a transport writes once at construction when a proxy setting cannot be honoured, naming the feature and never a credential (<see cref="TransportProxyFeatureUnsupportedId"/>, TRANSPORT-30).</summary>
+    public const string TransportProxyFeatureUnsupported = "http.transport.proxy_feature_unsupported";
+
     /// <summary>The diagnostic written when emitting a log event itself failed (<see cref="LogFailedId"/>, OBS-20).</summary>
     public const string LogFailed = "http.instrumentation.log_failed";
 
@@ -62,6 +74,18 @@ public static class DexpaceLogEvents
 
     /// <summary>The numeric id of <see cref="HttpResponse"/> for an attempt that failed.</summary>
     public const int HttpFailureId = 102;
+
+    /// <summary>The numeric id of <see cref="TransportHeaderDropped"/>; ids 110 to 119 are the transport block.</summary>
+    public const int TransportHeaderDroppedId = 110;
+
+    /// <summary>The numeric id of <see cref="TransportFramingHeaderDropped"/>.</summary>
+    public const int TransportFramingHeaderDroppedId = 111;
+
+    /// <summary>The numeric id of <see cref="TransportInboundHeaderDropped"/>.</summary>
+    public const int TransportInboundHeaderDroppedId = 112;
+
+    /// <summary>The numeric id of <see cref="TransportProxyFeatureUnsupported"/>; ids 114 to 119 stay reserved.</summary>
+    public const int TransportProxyFeatureUnsupportedId = 113;
 
     /// <summary>The numeric id of <see cref="LogFailed"/>.</summary>
     public const int LogFailedId = 120;
