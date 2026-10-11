@@ -54,9 +54,14 @@ internal static class IlCallScanner
         }
     }
 
-    /// <summary>Every call site in every type of <paramref name="assembly"/> (nested and compiler-generated types included).</summary>
+    /// <summary>
+    /// Every call site in every type of <paramref name="assembly"/> (nested and compiler-generated types included), except the types a
+    /// coverage tool injects: <c>coverlet</c> adds a <c>Coverlet.Core.Instrumentation.Tracker</c> type to the instrumented assembly whose
+    /// own code reads the environment, which is not the library's.
+    /// </summary>
     /// <param name="assembly">The assembly to scan.</param>
-    public static IReadOnlyList<IlCall> FindCalls(Assembly assembly) => FindCalls(assembly.GetTypes());
+    public static IReadOnlyList<IlCall> FindCalls(Assembly assembly) =>
+        FindCalls(assembly.GetTypes().Where(type => type.FullName?.StartsWith("Coverlet.Core.Instrumentation", StringComparison.Ordinal) != true));
 
     /// <summary>Every call site in the given types' declared methods and constructors.</summary>
     /// <param name="types">The types to scan.</param>
