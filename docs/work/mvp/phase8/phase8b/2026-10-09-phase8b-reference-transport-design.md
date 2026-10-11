@@ -642,3 +642,29 @@ card: none — every card item for 8b is built (the real `Execute` and `Serializ
 classified apart from cancellation, the content-header partition with the caller's `Content-Type` authoritative, per-header drops,
 `TryParse` and dispose-on-throw on both faces, the `ObjectDisposedException` latch, the redirect-refusing handler constructor, and
 `ProxyOptions` installation).
+
+---
+
+## Addendum, 2026-10-11 (execution and review)
+
+Written at close-out; the text above stands as written. Four things changed the scope or the exit criteria after the design was filed.
+
+**1. `TRANSPORT-2` is in scope (lead ruling P8b-T2; plan task 2.8).** The design's scope is the 14 rows 8b owns; 8a's finding F-T2 (`SocketsHttpHandler` re-sends a body-less request whose connection ends before any response byte, with no
+switch) was left to 8b to "turn off, or record as unmet", and the design did not take it. The lead ruled a **partial fix plus an unmet clause on a stated domain**: a body-less `POST`, `PUT`, `PATCH` or extension-method request is
+given a zero-length content (the wire is byte-identical, `Content-Length: 0`), which closes the retry for those methods; `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` are idempotent, attaching content to them would break
+`TRANSPORT-26` or RFC 9110 section 8.6, and they stay re-sent by the native client. Design §10 entry 33 and a `docs/first-release.md` *Unsatisfied MUSTs* line record the residual (evidence and the plan task are in
+[the plan](2026-10-09-phase8b-reference-transport.md), task 2.8). The scope is therefore **15 rows**: the 14 plus `TRANSPORT-2` (split: the single-use sentence and the three methods met, the idempotent methods unmet). The
+reading of the table above in which `TRANSPORT-14` is the only split MUST row no longer holds: `TRANSPORT-2` is a second one.
+
+**2. Exit criterion 2 is amended.** "The only permanent SystemNet waiver is the assertion-scoped `TRANSPORT-14` name clause" becomes: **the only permanent SystemNet waivers are two assertion-scoped ones, `transport-14.name-malformed-dropped`
+(entry 32) and `transport-2.bodyless-not-resent` (entry 33)**; there is still no waiver with `Owner = "8b"`, `transport-30.*` runs and passes, and each permanent waiver turns stale (and fails the run) the day its assertion passes.
+
+**3. The unmet-MUST budget is exceeded, not spent from.** The rows above (Q2, P8b-14, the hand-off to 11) and the ruling P8b-T2 say entries 32 and 33 "spend one of the five". The roadmap allows at most five clauses unmet on a stated domain,
+and §10 entries 16, 18, 24, 26 and 31 had used all five before 8b: **entry 32 is the sixth and entry 33 the seventh**, seven against a target of five. This is an open item for the lead and for phase 11's parity audit (design §10's correction,
+the checklist's *Open items* and `docs/first-release.md`), not a decision 8b can take.
+
+**4. A borrowed `HttpClient` is cut at the 100 second default (breaking change 3, completed).** The options table says the 100 second `Timeout` default means "no owned-client behaviour changes", and breaking change 3 says "same observable
+bound". That holds for the owned construction. The default applies to every construction (P8b-6), so a transport over a *borrowed* `HttpClient` whose own `Timeout` is longer than 100 seconds (or infinite) now cuts a call that sets no
+`RequestOptions.Timeout` at 100 seconds; before, that client's own `Timeout` alone bounded it. It is recorded as a breaking change for the borrowed construction, migrated by `new SystemNetHttpClientOptions { Timeout = null }` (or a longer
+per-call `RequestOptions.Timeout`), in the `CHANGELOG`, `transport.md`, the XML remarks, `docs/first-release.md` (`borrowed-client-default-deadline`) and design §3.3, and pinned by `DeadlineTests`. The alternative, a borrowed construction
+defaulting to no transport deadline, would keep the old bound but make the same options record mean two things; it is left to the lead (the checklist's open items).

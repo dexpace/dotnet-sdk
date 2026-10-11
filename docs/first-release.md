@@ -86,6 +86,11 @@ phases add the rest as they decline or defer something. Nothing below is a block
 Every candidate must first be argued in design §10 and then pass phase 11's audit. The roadmap's parity target is at most five clauses
 unsatisfied or unmet on a stated domain, each one argued.
 
+**Open item for the lead and phase 11 (phase 8b, 2026-10-11): the count is seven, over the target of five by two.** Design §10 records seven clauses unmet on a stated domain: entries
+16, 18, 24, 26 and 31 (earlier phases; their lines are not in this list yet) and, from phase 8b, 32 and 33 below. The P8b-14 and P8b-T2 rulings spent "one of the five" and "a second of the five" on
+a budget the earlier entries had already used up; the two lines below are therefore over the target, and phase 11 must either retire two clauses, re-rule the target, or argue the excess. 8b raised
+no other clause, and its `TRACE` question (checklist) would shrink entry 33's residual but not remove it.
+
 - **`TRANSPORT-14` (MUST), the malformed inbound header *name* clause.** `SocketsHttpHandler` rejects the whole response on a header name holding
   a space, a control byte or a non-ASCII byte, before the adapter sees any header, and exposes no leniency switch; the value and obs-text clauses are met.
   Phase 8b (2026-10-11); design §10 entry 32 and P8b-14. The conformance driver carries a permanent waiver for `transport-14.name-malformed-dropped` alone.

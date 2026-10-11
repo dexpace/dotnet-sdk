@@ -612,11 +612,41 @@ first serialisation it wraps the destination and, after `WriteTo`/`WriteToAsync`
 
 **Verify.** V-build; V-fast `NoAbandonedResponseArchitectureTests`, `FileRequestBodyReplayTests`; V-conf (`transport-9`, `transport-28` `Passed`). **IDs.** `TRANSPORT-9`, `TRANSPORT-28`. **Commit.** `test: pin that the transport abandons no response and replays file ranges`.
 
-## Task 2.7 — PR 2 gate
+## Task 2.7 — PR 2 gate (runs after task 2.8; see the addendum below)
 
 V-gate; additionally: `rg -n "GetAwaiter\(\)\.GetResult\(\)|#pragma warning disable RS0030" src/Dexpace.Sdk.Http.SystemNet` finds nothing except the owned-client factory's `RS0030` pragma (exit criterion 3);
 V-conf lists no `transport-4/5/6/8/18` waiver; the coverage gate (`dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80` after a clean coverlet run, per `CLAUDE.md`); `scripts/ci/reproducible-pack.sh` (two packs,
 byte-compare). Stop; no push.
+
+## Task 2.8 — `TRANSPORT-2`: keep the native retry off where the wire allows it (`TRANSPORT-2`, `TRANSPORT-26`, `TRANSPORT-11`; lead ruling P8b-T2; design §10 entry 33) — *added at execution, 2026-10-11*
+
+**Why it exists.** The plan did not cover `TRANSPORT-2`, which 8a handed to 8b (its finding F-T2: `SocketsHttpHandler` re-sends a body-less request whose connection ends before any response byte, up to three more times, and has no
+switch for it). The lead's ruling P8b-T2 (the design's addendum, below) is a partial fix plus an unmet clause on a stated domain, and orders it as this task in PR 2. Runtime evidence (dotnet/runtime `release/10.0`,
+`HttpConnection.cs`): `SendAsync` clears `_canRetry`; only a first response read of zero bytes sets it, and only `if (request.Content is null || allowExpect100ToContinue is not null)`; an `IOException` becomes
+`RequestRetryType.RetryOnConnectionFailure` only while it is set; `WriteHeaders` writes `Content-Length: 0` for null content only when `request.Method.MustHaveRequestBody`, which is true for every method except `GET`, `HEAD`,
+`CONNECT`, `OPTIONS` and `DELETE` (and, measured, `TRACE` writes it too).
+
+**Files.** Production: `SystemNetHttpClient.cs` (the message builder; moved into `OutboundHeaderMapper` by task 3.2, which owns the one builder both faces use). Tests: new `BodylessRetryWireTests.cs` (`Integration`),
+`SystemNetConformanceTests.cs` and `Conformance/SystemNetSubject.cs` (the `TRANSPORT-2` waiver).
+
+**Tests first (red evidence: behavioural, against the pre-change source).**
+
+- Against a loopback peer that reads each request and then closes in order (an empty `LoopbackResponse.Raw(..., closeConnection: true)`, never `Abort`, whose FIN and reset the platforms read differently): a body-less `POST`, `PUT`, `PATCH`
+  and an extension method reach the server **exactly once** on both faces; `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reach it **more than once** (the residual, pinned so a runtime change is noticed).
+- The wire bytes of a body-less `POST` are byte-identical to the native client's for no content (`Content-Length: 0`).
+- A caller `Expect: 100-continue` on a body-less `POST` is dropped (it would re-enable the retry through `allowExpect100ToContinue`), is logged, and the request still reaches the server once.
+- Which methods get the substitute content, observed at a capturing handler: `POST`, `PUT`, `PATCH`, an extension method yes; `GET`, `HEAD`, `OPTIONS`, `DELETE`, `TRACE` no; a request that has a body keeps its own.
+
+**Production change.** A body-less request whose method is body-permitted and for which the native client already writes `Content-Length: 0` (not `GET`, `HEAD`, `TRACE`, `CONNECT`, `OPTIONS`, `DELETE`) is given a zero-length
+content, so `request.Content` is not null and the native retry cannot fire. `TRACE` stays without content (`TRANSPORT-26`, RFC 9110 section 9.3.8). `Expect` is already a `TRANSPORT-11` framing header dropped from every
+request, so it needs no rule of its own: its drop is the framing one (event 111, `Debug`), which the plan's header partition (task 3.2) keeps. The `TRANSPORT-2` waiver in `SystemNetSubject` is narrowed to
+`transport-2.bodyless-not-resent` and made permanent (`Owner = null`, reason citing entry 33): the assertion still fails on its `DELETE` step, so the stale rule keeps the waiver. Design §10 entry 33 and a
+`docs/first-release.md` *Unsatisfied MUSTs* line record the residual; `docs/knowledge/notes/transport-adapter.md` records the finding.
+
+**Verify.** V-build; V-fast `BodylessRetryWireTests`; V-conf (`transport-2.no-silent-resend` `Passed`; `transport-2.bodyless-not-resent` waived, permanent). **IDs.** `TRANSPORT-2`.
+**Commit.** `feat: keep the native retry off for body-less POST, PUT and PATCH; waive the residual`.
+
+> The task number 2.8 is the lead's. Task 2.7 is the PR 2 gate and is run after it, as the executor did; the counts below (**29 tasks**, nine breaking changes, 14 rows) are the plan's as written, and the execution added this task and `TRANSPORT-2` as a 15th checklist row.
 
 ---
 
@@ -850,7 +880,7 @@ Count: **14 rows**, all mapped (10 MUST, 4 SHOULD). By exit: 12 ✅ (`TRANSPORT-
 | 3 — headers | 3.1–3.5 | `TRANSPORT-10`, `-12`, `-13`, `-14`; `OBS-19` |
 | 4 — close-out | 4.1–4.7 | documentation, checklist, `CHANGELOG.md`, corrections, `TRANSPORT-14`/`-28` declined clauses recorded |
 
-Task count: 0.1 (pre-flight) + 9 (PR 1) + 7 (PR 2) + 5 (PR 3) + 7 (PR 4) = **29 tasks**.
+Task count: 0.1 (pre-flight) + 9 (PR 1) + 7 (PR 2) + 5 (PR 3) + 7 (PR 4) = **29 tasks**; execution added **task 2.8** (`TRANSPORT-2`, lead ruling P8b-T2) for **30**, and a 15th checklist row (`TRANSPORT-2`, split).
 
 ## Exit criteria (the design's list, mapped to tasks)
 
@@ -864,7 +894,8 @@ Task count: 0.1 (pre-flight) + 9 (PR 1) + 7 (PR 2) + 5 (PR 3) + 7 (PR 4) = **29 
 
 - **P8b-2** constructors plus an options record, versus static factories. **P8b-4** the strict proxy reading (overrides design §8.2; fallback is a constructor-time `FromEnvironment`, one constructor change). **P8b-7** an internal cancel as a plain
   `OperationCanceledException`, versus a new public `SdkException` subtype. **P8b-9** the real `Send` for borrowed clients (G1, G2 hazard documented), versus keeping sync-over-async for them. **P8b-10** the 1 MiB `ResendBufferLimit` default.
-  **P8b-14** spending one of phase 11's five unmet MUSTs on `TRANSPORT-14`'s name clause. **P8b-18** the `CallKey` stamp handed to phase 9.
+  **P8b-14** spending one of phase 11's five unmet MUSTs on `TRANSPORT-14`'s name clause (*correction, 2026-10-11:* the five were already used up before 8b, so P8b-14 and P8b-T2 take the count to seven against the target of five; see the
+  design's addendum). **P8b-18** the `CallKey` stamp handed to phase 9.
 - **Plan-level additions flagged for the lead:** R1 (`CannedHandler` gains `Send`), R2 (a possible 8b edit of 8a's `transport-14` assertion), R6 (explicit-`init` record), R7 (`CallDeadline` as a class).
 - **Findings while planning.** (a) `SmokeChecks.CheckPipelineReworkAsync` drives the sync face over an async-only handler and would break under the real sync path (R1); (b) core's `LogVocabularyTests` pins 110 to 119 as unused (R4); (c) 8a's plan
   already carries the waiver-narrowing the design asks for (R2); (d) design G7 (`https://` through a credentialed proxy never re-sends) needs TLS termination to test on the fixture, so task 2.5 leaves it to task 0.1's probe if the fixture cannot terminate TLS.
