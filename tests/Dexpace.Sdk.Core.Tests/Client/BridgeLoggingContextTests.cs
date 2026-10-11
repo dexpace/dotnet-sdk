@@ -27,10 +27,10 @@ public sealed class BridgeLoggingContextTests
 
     private static Request NewRequest() => Request.Get("https://api.example.com/v1/items");
 
-    // Resumes the test on the thread pool. A bridged call completes on the scheduler's own thread, and an await would otherwise
-    // run the rest of the test inline there, with TaskScheduler.Current set to that scheduler: a later await is then queued to
-    // it, and once the worker has been disposed that continuation is lost and the test never ends (seen as a hung run on
-    // Windows); WorkerWithAmbientScope.Dispose would also join its own thread.
+    // Resumes the test on the thread pool. A bridged call completes on the scheduler's own thread, and an await that resumed
+    // inline there would run the rest of the test with TaskScheduler.Current set to that scheduler, so a later await could be
+    // queued to a worker that has been disposed; WorkerWithAmbientScope.Dispose would also join its own thread. Defensive: the
+    // phase 8a Windows hang it was first blamed for was a cyclic exception thrown elsewhere in the suite (see CyclicExceptions).
     private static async Task<Response> OffTheScheduler(Task<Response> call) =>
         await call.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
 
