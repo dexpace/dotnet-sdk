@@ -24,7 +24,7 @@ namespace Dexpace.Sdk.Core.Client;
 /// </para>
 /// <para>
 /// <b>Cancellation (SEAM-13).</b> The call takes a <see cref="CancellationToken"/>. Honouring it inside blocking I/O is
-/// the implementation's; the reference transport only does so once phase 8b lands a real synchronous send.
+/// the implementation's; the reference transport does so through <c>HttpClient.Send</c>, a genuinely synchronous send (phase 8b).
 /// </para>
 /// <para>
 /// <b>Lifecycle (SEAM-14, SEAM-15).</b> Dispose is idempotent and ownership-aware. What a call does after dispose is

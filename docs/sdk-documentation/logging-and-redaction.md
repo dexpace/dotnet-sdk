@@ -62,7 +62,7 @@ The request preview rides on the response (or failure) event, not on `http.reque
 after the request event has gone.
 
 **Event-id ranges.** Core's ids are partitioned by subsystem so later phases never collide: 100-109 request and response,
-110-119 transport header drops (reserved for the transport conformance phase, `OBS-19`), 120-129 instrumentation diagnostics,
+110-113 transport header drops and proxy warnings (phase 8b: `http.transport.header_dropped` 110, `framing_header_dropped` 111, `inbound_header_dropped` 112, `proxy_feature_unsupported` 113; `OBS-19`, `TRANSPORT-13`) and 114-119 reserved, 120-129 instrumentation diagnostics,
 130-139 disposal, 140-149 retry, 150-159 redirect, 160-169 authentication.
 
 ### Levels

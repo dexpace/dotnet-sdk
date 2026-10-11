@@ -1,13 +1,9 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Collections.Frozen;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
@@ -29,9 +25,25 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// connection.
 /// </para>
 /// <para>
-/// <b>Ownership.</b> When constructed with a caller-supplied <c>HttpClient</c> the underlying client
-/// is <em>not</em> disposed by this adapter; when constructed without one the adapter owns and disposes an
-/// internally created client.
+/// <b>Construction and ownership (TRANSPORT-1, TRANSPORT-15).</b> What the constructor takes states who owns what:
+/// </para>
+/// <list type="table">
+/// <listheader><term>Constructor</term><description>Native client, handler, proxy</description></listheader>
+/// <item><term><c>()</c>, <c>(ILogger)</c>, <c>(SystemNetHttpClientOptions)</c></term><description>
+/// Owned: the transport builds a <c>SocketsHttpHandler</c> with <c>AllowAutoRedirect = false</c> and disposes it with the
+/// transport. <see cref="SystemNetHttpClientOptions.Proxy"/> installs the proxy; with none the connection is direct.</description></item>
+/// <item><term><c>(HttpMessageHandler)</c>, <c>(HttpMessageHandler, SystemNetHttpClientOptions)</c></term><description>
+/// The transport owns the <c>HttpClient</c> it builds over your handler and never disposes or changes the handler. A chain
+/// whose primary handler follows redirects is rejected with <see cref="ArgumentException"/>. The handler keeps its own proxy.</description></item>
+/// <item><term><c>(HttpClient)</c>, <c>(HttpClient, ILogger)</c>, <c>(HttpClient, SystemNetHttpClientOptions)</c></term><description>
+/// Borrowed: your client is never disposed or changed. Its handler keeps its own proxy.</description></item>
+/// </list>
+/// <para>
+/// A <see cref="SystemNetHttpClientOptions.Proxy"/> passed with a handler or a client throws <see cref="ArgumentException"/>:
+/// the proxy of something you own is yours to configure.
+/// <b>Breaking</b> (phase 8b): the parameterless and logger constructors no longer inherit the runtime's process-wide proxy,
+/// which reads <c>HTTP_PROXY</c>, <c>HTTPS_PROXY</c> and <c>NO_PROXY</c> on first use (CFG-28: the environment is consulted only
+/// when you ask). To keep it, resolve it yourself: <c>new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() }</c>.
 /// </para>
 /// <para>
 /// <b>Redirects (TRANSPORT-1).</b> The SDK pipeline's <c>RedirectPolicy</c> is the only redirect authority. The
@@ -51,26 +63,66 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// now <c>ExecuteAsync(Request, RequestOptions, CancellationToken)</c> and
 /// <c>Execute(Request, RequestOptions, CancellationToken)</c>, with no parameter defaults. Callers that import
 /// <c>Dexpace.Sdk.Core.Client</c> keep calling <c>ExecuteAsync(request, token)</c> through its option-less extension.
-/// <see cref="RequestOptions"/> are ignored until phase 8b (SEAM-11), and the synchronous call is sync-over-async until
-/// then.
+/// The synchronous call is genuinely synchronous as of phase 8b (below).
 /// </para>
 /// <para>
-/// <b>After dispose (SEAM-15).</b> An owned client throws <see cref="ObjectDisposedException"/> from every call, since
-/// <c>HttpClient</c> does; a borrowed client keeps working, because it is never disposed. Disposal itself is idempotent
-/// (SEAM-14, latched in 3b); phase 8b adds the <see cref="ObjectDisposedException"/> after dispose for both owned and
-/// borrowed clients (SEAM-15).
+/// <b>Deadlines and failures (TRANSPORT-4, -5, -6, -8, -20; XCUT-1, XCUT-2).</b> A call's deadline is
+/// <see cref="RequestOptions.Timeout"/> when it sets one, else <see cref="SystemNetHttpClientOptions.Timeout"/> (100 seconds unless
+/// configured). It is armed per call on <see cref="SystemNetHttpClientOptions.TimeProvider"/>, linked with the caller's token, and it
+/// never changes the shared <c>HttpClient</c>. It bounds the exchange until the response headers arrive: reading the body is bounded
+/// by the token the caller passes to the read. A deadline below one millisecond is raised to one, and one above 49 days lowered to
+/// 49 days. The outcome is classified by what the transport knows first and the shape of the runtime's exception second:
+/// the caller's cancellation is an <see cref="OperationCanceledException"/>; a fired deadline, or a borrowed client's own
+/// <c>Timeout</c>, is a retryable <see cref="ServiceRequestTimeoutException"/>; a failure to reach the server is a retryable
+/// <see cref="ServiceRequestException"/>; and a cancellation the native client raised from inside (<c>CancelPendingRequests</c>, the
+/// native client or this transport disposed mid-call) is a new, terminal <see cref="OperationCanceledException"/> that the SDK's
+/// retry does not repeat, the native exception kept on its <see cref="ExceptionTrail"/>. A borrowed client's own <c>Timeout</c> still
+/// bounds a longer per-call value, since a client shared with others cannot be lengthened without changing it. The transport's default
+/// applies to a borrowed client as well, so the shorter of the two bounds a call that sets none: a borrowed client whose <c>Timeout</c>
+/// is longer than 100 seconds (or infinite) is cut at 100 seconds unless you say otherwise, with
+/// <c>new SystemNetHttpClientOptions { Timeout = null }</c> (the client's own <c>Timeout</c> is then the only bound) or a longer
+/// <see cref="RequestOptions.Timeout"/> on the call.
+/// <b>Breaking</b> (phase 8b): <see cref="RequestOptions.Timeout"/> was ignored; the transport's own <c>HttpClient</c> now has an
+/// infinite <c>Timeout</c> and the 100 second default above replaces it, so the owned bound is unchanged; a <b>borrowed</b> client used
+/// to be bounded by its own <c>Timeout</c> alone and is now also cut at that default (migration above); and an internal cancellation
+/// used to surface as a retryable <see cref="ServiceRequestTimeoutException"/>.
 /// </para>
 /// <para>
-/// <b>Outbound headers.</b> The framing headers the client computes itself — <c>Host</c>, <c>Content-Length</c>,
-/// <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and <c>Expect</c> — are
-/// dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (TRANSPORT-11). Every other
-/// header is re-checked against the model's outbound rule at the wire boundary, and one that fails it is dropped
-/// with a <see cref="LogLevel.Warning"/> naming it; values are never logged (XCUT-18, TRANSPORT-12).
+/// <b>After dispose (SEAM-15).</b> Every call made after <c>Dispose</c> or <c>DisposeAsync</c> throws
+/// <see cref="ObjectDisposedException"/> for every construction, a borrowed <c>HttpClient</c> included: the asynchronous face
+/// returns a faulted task and never throws from the call (TRANSPORT-21). Your own <c>HttpClient</c> keeps working. Disposal is
+/// idempotent (SEAM-14) and never waits for a call in flight (TRANSPORT-16).
+/// <b>Breaking</b> (phase 8b): a transport over a borrowed client used to keep serving after it was disposed.
+/// </para>
+/// <para>
+/// <b>Outbound headers (TRANSPORT-10, -11, -12, -13, -26; OBS-19).</b> The framing headers the client computes itself —
+/// <c>Host</c>, <c>Content-Length</c>, <c>Transfer-Encoding</c>, <c>Connection</c>, <c>Keep-Alive</c>, <c>Upgrade</c>, <c>TE</c> and
+/// <c>Expect</c> — are dropped from the request, each with a <see cref="LogLevel.Debug"/> entry naming it (event 111). Every other
+/// header is re-checked against the model's outbound rule at the wire boundary, and one that fails it, or that the native client
+/// cannot carry, is dropped alone and logged by name under <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> (event 110: a
+/// <see cref="LogLevel.Warning"/> for the first drop of a name, a <see cref="LogLevel.Debug"/> after, by default). A drop is never
+/// silent and a value is never logged (XCUT-18). The caller's <c>Content-Type</c> is the one sent; the body's media type is used only
+/// when the caller set none. A content header (<c>Allow</c>, <c>Content-*</c>, <c>Expires</c>, <c>Last-Modified</c>) on a request that may
+/// carry no content (<c>GET</c>, <c>HEAD</c>, <c>TRACE</c>) is dropped and logged, because attaching content would break TRANSPORT-26; on a
+/// body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c>, <c>DELETE</c> or <c>OPTIONS</c> it travels on an empty content, which the wire shows as
+/// <c>Content-Length: 0</c>.
+/// <b>Breaking</b> (phase 8b): the body's <c>Content-Type</c> used to override the caller's header; a content header on a body-less
+/// request used to vanish unlogged; and the drop events are now ids 110 to 112 with <c>http.transport.*</c> names where they were 1 to 3
+/// (a repeated drop of one name is a <see cref="LogLevel.Debug"/>, not another <see cref="LogLevel.Warning"/>).
+/// </para>
+/// <para>
+/// <b>Native retry (TRANSPORT-2).</b> <c>SocketsHttpHandler</c> has no switch for its own connection-failure retry, which re-sends a
+/// request that has no content when its connection ends before any response byte. A body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or
+/// extension-method request is therefore given a zero-length content (the same bytes on the wire) and is sent once. A body-less
+/// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> or <c>TRACE</c> is still re-sent by the native client, up to three more times:
+/// all are idempotent, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6.
 /// </para>
 /// <para>
 /// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
-/// carrying a control character is dropped. An unparseable <c>Content-Type</c> becomes "no media type"
-/// (TRANSPORT-27), and if adapting the response throws, the native response is disposed first (TRANSPORT-22).
+/// carrying a control character is dropped alone and logged by name (TRANSPORT-14, event 112). A malformed header <em>name</em> is
+/// not reachable here: <c>SocketsHttpHandler</c> refuses the whole response before this adapter sees a header (design §10 entry 32).
+/// An unparseable <c>Content-Type</c> becomes "no media type" (TRANSPORT-27), and if adapting the response throws, the native
+/// response is disposed first (TRANSPORT-22).
 /// </para>
 /// <para>
 /// <b>Trace context (design §8.1, phase 5c P5c-11).</b> <c>InstrumentationPolicy</c> stamps the attempt span's
@@ -88,58 +140,80 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </remarks>
 public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 {
-    // TRANSPORT-11: the framing set the native client computes from the body and the connection (design §3.2).
-    private static readonly FrozenSet<string> s_framingHeaders = FrozenSet.Create(
-        StringComparer.OrdinalIgnoreCase,
-        "host",
-        "content-length",
-        "transfer-encoding",
-        "connection",
-        "keep-alive",
-        "upgrade",
-        "te",
-        "expect");
-
-    private static readonly Action<ILogger, string, Exception?> s_framingHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(1, "FramingHeaderDropped"),
-        "Dropped the caller-set '{HeaderName}' header: the transport computes it (TRANSPORT-11).");
-
-    private static readonly Action<ILogger, string, Exception?> s_unsafeHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Warning,
-        new EventId(2, "UnsafeHeaderDropped"),
-        "Dropped the '{HeaderName}' request header: it is not valid on the wire (XCUT-18, TRANSPORT-12).");
-
-    private static readonly Action<ILogger, string, Exception?> s_inboundHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(3, "InboundHeaderDropped"),
-        "Dropped the '{HeaderName}' response header: its value carries a control character (HTTP-19, XCUT-18).");
-
     private readonly SystemHttpClient _client;
     private readonly bool _ownsClient;
-    private readonly ILogger _logger;
+    private readonly SendSettings _settings;
+    private readonly HeaderDropLog _drops;
+    private readonly OutboundHeaderMapper _mapper;
     private int _disposed;
     private int _releases;
+    private int _captures;
 
     /// <summary>
-    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects.
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects and goes direct: no
+    /// proxy, and no environment variable is read (CFG-28).
     /// </summary>
     public SystemNetHttpClient()
-        : this(CreateOwnedClient(), ownsClient: true, NullLogger.Instance)
+        : this(new SystemNetHttpClientOptions())
     {
     }
 
     /// <summary>
-    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, logging
-    /// header drops to <paramref name="logger"/>.
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, logging header
+    /// drops to <paramref name="logger"/>.
     /// </summary>
     /// <param name="logger">
-    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
-    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
-    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// Receives an entry per dropped header, naming it and never its value (events 110 to 112, ids from <c>DexpaceLogEvents</c>):
+    /// a <see cref="LogLevel.Warning"/> for the first drop of a request header name the native client cannot send and a
+    /// <see cref="LogLevel.Debug"/> for every later drop of it, a <see cref="LogLevel.Debug"/> for a framing header the transport
+    /// computes itself, and a <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// <b>Breaking</b> (phase 8b): these were events 1 to 3, and a repeated drop was a <see cref="LogLevel.Warning"/> each time.
+    /// Use <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> to log every drop loudly or only at debug.
     /// </param>
     public SystemNetHttpClient(ILogger logger)
-        : this(CreateOwnedClient(), ownsClient: true, logger)
+        : this(OptionsFor(logger))
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport backed by an internally owned <c>HttpClient</c> that does not follow redirects, configured by
+    /// <paramref name="options"/>. The options are read once, here.
+    /// </summary>
+    /// <param name="options">The transport's settings, including the optional proxy to install (TRANSPORT-30).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public SystemNetHttpClient(SystemNetHttpClientOptions options)
+        : this(CreateOwnedClient(options, configure: null), Construction.Owned, options)
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport that owns an <c>HttpClient</c> it builds over a caller's <paramref name="handler"/>. The handler is
+    /// borrowed: it is never disposed or changed, so its owner decides its proxy, certificates and lifetime (TRANSPORT-15).
+    /// </summary>
+    /// <param name="handler">
+    /// The outermost handler of the caller's chain. Its primary handler must not follow redirects.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="handler"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The chain's primary handler follows redirects (TRANSPORT-1).</exception>
+    public SystemNetHttpClient(HttpMessageHandler handler)
+        : this(handler, new SystemNetHttpClientOptions())
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport that owns an <c>HttpClient</c> it builds over a caller's <paramref name="handler"/>, configured by
+    /// <paramref name="options"/>. The handler is borrowed: it is never disposed or changed (TRANSPORT-15).
+    /// </summary>
+    /// <param name="handler">
+    /// The outermost handler of the caller's chain. Its primary handler must not follow redirects.
+    /// </param>
+    /// <param name="options">The transport's settings. <see cref="SystemNetHttpClientOptions.Proxy"/> must be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="handler"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// The chain's primary handler follows redirects (TRANSPORT-1), or <paramref name="options"/> carries a proxy.
+    /// </exception>
+    public SystemNetHttpClient(HttpMessageHandler handler, SystemNetHttpClientOptions options)
+        : this(CreateHandlerClient(handler, options), Construction.Handler, options)
     {
     }
 
@@ -149,8 +223,14 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// request URI whose scheme, host, port or path differs from the one sent) fails the call (see remarks).
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
+    /// <remarks>
+    /// <b>Breaking</b> (phase 8b): the transport's default deadline, 100 seconds, now bounds a call that sets no
+    /// <see cref="RequestOptions.Timeout"/> even when <paramref name="client"/>'s own <c>Timeout</c> is longer (before, that
+    /// <c>Timeout</c> alone bounded it). To keep it the only bound, use
+    /// <c>new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })</c>.
+    /// </remarks>
     public SystemNetHttpClient(SystemHttpClient client)
-        : this(client, ownsClient: false, NullLogger.Instance)
+        : this(client, new SystemNetHttpClientOptions())
     {
     }
 
@@ -162,39 +242,103 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
     /// <param name="logger">
-    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
-    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
-    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// Receives an entry per dropped header, naming it and never its value (events 110 to 112, ids from <c>DexpaceLogEvents</c>):
+    /// a <see cref="LogLevel.Warning"/> for the first drop of a request header name the native client cannot send and a
+    /// <see cref="LogLevel.Debug"/> for every later drop of it, a <see cref="LogLevel.Debug"/> for a framing header the transport
+    /// computes itself, and a <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// <b>Breaking</b> (phase 8b): these were events 1 to 3, and a repeated drop was a <see cref="LogLevel.Warning"/> each time.
+    /// Use <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> to log every drop loudly or only at debug.
     /// </param>
+    /// <remarks>
+    /// <b>Breaking</b> (phase 8b): the transport's default deadline, 100 seconds, now bounds a call that sets no
+    /// <see cref="RequestOptions.Timeout"/> even when <paramref name="client"/>'s own <c>Timeout</c> is longer (before, that
+    /// <c>Timeout</c> alone bounded it). To keep it the only bound, use
+    /// <c>new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Logger = logger, Timeout = null })</c>.
+    /// </remarks>
     public SystemNetHttpClient(SystemHttpClient client, ILogger logger)
-        : this(client, ownsClient: false, logger)
+        : this(client, OptionsFor(logger))
+    {
+    }
+
+    /// <summary>
+    /// Creates a transport backed by a caller-supplied <c>HttpClient</c>, configured by <paramref name="options"/>. The
+    /// supplied client is not disposed or changed, and its handler must not follow redirects (see remarks).
+    /// </summary>
+    /// <param name="client">The HTTP client to wrap.</param>
+    /// <param name="options">The transport's settings. <see cref="SystemNetHttpClientOptions.Proxy"/> must be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="client"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="options"/> carries a proxy: the client's owner decides it (TRANSPORT-15).</exception>
+    /// <remarks>
+    /// <see cref="SystemNetHttpClientOptions.Timeout"/> is a deadline on top of <paramref name="client"/>'s own <c>Timeout</c>, not in
+    /// place of it: the shorter bounds a call that sets no <see cref="RequestOptions.Timeout"/>. Its 100 second default therefore cuts
+    /// a call over a client whose own <c>Timeout</c> is longer; set it to <see langword="null"/> to leave the client's the only bound.
+    /// </remarks>
+    public SystemNetHttpClient(SystemHttpClient client, SystemNetHttpClientOptions options)
+        : this(client, Construction.Borrowed, RequireNoProxy(options))
     {
     }
 
     /// <summary>
     /// Test seam: the SDK-managed construction, with <paramref name="configureOwnedHandler"/> applied to the owned
-    /// handler after the SDK's own settings, so a wire test can pin environment-dependent settings (the proxy) without
-    /// leaving the owned-client path.
+    /// handler after the SDK's own settings, so a wire test can pin settings without leaving the owned-client path.
     /// </summary>
     internal SystemNetHttpClient(Action<SocketsHttpHandler> configureOwnedHandler)
-        : this(CreateOwnedClient(configureOwnedHandler), ownsClient: true, NullLogger.Instance)
+        : this(configureOwnedHandler, new SystemNetHttpClientOptions())
     {
     }
 
-    private SystemNetHttpClient(SystemHttpClient client, bool ownsClient, ILogger logger)
+    /// <summary>The seam with the options a test wants to construct the owned transport with.</summary>
+    internal SystemNetHttpClient(Action<SocketsHttpHandler> configureOwnedHandler, SystemNetHttpClientOptions options)
+        : this(CreateOwnedClient(options, configureOwnedHandler), Construction.Owned, options)
+    {
+    }
+
+    private SystemNetHttpClient(SystemHttpClient client, Construction construction, SystemNetHttpClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
         _client = client;
-        _ownsClient = ownsClient;
-        _logger = logger;
+        _ownsClient = construction != Construction.Borrowed;
+        _drops = new HeaderDropLog(options.Logger, options.HeaderDropLogging);
+        _mapper = new OutboundHeaderMapper(_drops, CreateCapture);
+        _settings = new SendSettings(
+            options.Logger,
+            options.Timeout,
+            options.HeaderDropLogging,
+            options.ResendBufferLimit,
+            options.TimeProvider,
+            ResendCapable: construction != Construction.Owned || CarriesProxyCredentials(options.Proxy));
+        if (construction == Construction.Owned && options.Proxy is { } proxy)
+        {
+            ProxyWarnings.Emit(options.Logger, proxy);
+        }
     }
+
+    // What built the native client decides whether it can re-send a request behind the transport's back (TRANSPORT-18).
+    private enum Construction
+    {
+        Owned,
+        Handler,
+        Borrowed,
+    }
+
+    // The settings the transport resolved from its options when it was constructed.
+    internal SendSettings Settings => _settings;
+
+    // How many replay captures this transport built: zero where the native layer cannot re-send (an owned client with no proxy
+    // credentials) and for every replayable body. A per-instance counter, so parallel tests never share it.
+    internal int CapturesCreated => Volatile.Read(ref _captures);
+
+    // The native client's own Timeout: infinite for a client the transport builds (its deadline replaces it), the caller's for a borrowed one.
+    internal TimeSpan NativeClientTimeout => _client.Timeout;
 
     /// <inheritdoc/>
     /// <remarks>
-    /// <see cref="RequestOptions"/> are accepted and read by nothing until phase 8b wires
-    /// <see cref="RequestOptions.Timeout"/> (TRANSPORT-5), which SEAM-11 permits.
+    /// The call's deadline is <see cref="RequestOptions.Timeout"/>, else <see cref="SystemNetHttpClientOptions.Timeout"/>, and it
+    /// bounds the exchange until the response headers arrive (TRANSPORT-5, TRANSPORT-6; see the class remarks for the failure
+    /// classification).
     /// </remarks>
+    /// <exception cref="ObjectDisposedException">The transport was disposed (SEAM-15); delivered through the returned task.</exception>
     /// <exception cref="SdkException">
     /// A caller-supplied client followed a redirect itself (TRANSPORT-1): the final request URI differs from the one
     /// sent in scheme, host, port or path. The response has been disposed.
@@ -203,51 +347,89 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        using var message = ToHttpRequestMessage(request);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        using var message = _mapper.Map(request);
 
         // The handler rewrites message.RequestUri in place when it follows a redirect, so keep what was sent.
         var sentUri = message.RequestUri!;
-        HttpResponseMessage response;
-        try
+        HttpResponseMessage native;
+        using (var deadline = CallDeadline.Start(CallDeadline.Effective(options, _settings.Timeout), _settings.TimeProvider, cancellationToken))
         {
-            response = await _client
-                .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException ex)
-        {
-            // Cancellation not requested by the caller ⇒ the client's internal timeout fired.
-            throw new ServiceRequestTimeoutException("The request timed out before a response was received.", ex);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new ServiceRequestException("The request could not be sent to the server.", ex);
+            try
+            {
+                native = await _client
+                    .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (SendFailures.IsTransportFailure(ex))
+            {
+                var mapped = SendFailures.Map(ex, deadline.Fired, cancellationToken);
+                if (ReferenceEquals(mapped, ex))
+                {
+                    throw;
+                }
+
+                throw mapped;
+            }
         }
 
-        // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first.
-        try
-        {
-            ThrowIfRedirected(sentUri, response);
-            return ToResponse(response, request);
-        }
-        catch
-        {
-            response.Dispose();
-            throw;
-        }
+        return AdaptGuarded(native, sentUri, request);
     }
 
     /// <inheritdoc/>
-    // The transport's documented sync bridge (design §3.3). CA2000 reads the awaited Task as an undisposed
-    // IDisposable; a Task needs no disposal (it holds no wait handle unless one is requested).
-#pragma warning disable RS0030, CA2000
-    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
-        ExecuteAsync(request, options, cancellationToken).GetAwaiter().GetResult();
-#pragma warning restore RS0030, CA2000
+    /// <remarks>
+    /// <para>
+    /// Genuinely synchronous (SEAM-11, PIPE-28): it calls <c>HttpClient.Send</c> on the calling thread and writes the request body
+    /// through the body's own <see cref="RequestBody.WriteTo"/>, with no sync-over-async anywhere. The deadline, the failure
+    /// classification and the guarded adaptation are the asynchronous face's (see <see cref="ExecuteAsync"/>).
+    /// </para>
+    /// <para>
+    /// <b>The handler hazard.</b> <c>HttpClient.Send</c> needs a handler that implements <c>Send</c>. The runtime's own handlers
+    /// do. A custom primary handler that overrides only <c>SendAsync</c> makes this method throw
+    /// <see cref="NotSupportedException"/> (loudly), and a <see cref="DelegatingHandler"/> in a chain that overrides only
+    /// <c>SendAsync</c> is skipped silently on this face, because the runtime forwards the synchronous call straight to its inner
+    /// handler. Implement <c>Send</c> in such a handler, or call <see cref="ExecuteAsync"/>.
+    /// <b>Breaking</b> (phase 8b): <c>Execute</c> used to block on the asynchronous send, which honoured a <c>SendAsync</c>-only handler.
+    /// </para>
+    /// <para>
+    /// A <see cref="RequestBody"/> subclass that does not override <see cref="RequestBody.WriteTo"/> fails the send with
+    /// <see cref="NotSupportedException"/>; every body the SDK creates overrides it.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The transport was disposed (SEAM-15).</exception>
+    /// <exception cref="NotSupportedException">The primary handler implements no <c>Send</c>, or the body implements no synchronous write.</exception>
+    /// <exception cref="SdkException">
+    /// A caller-supplied client followed a redirect itself (TRANSPORT-1), as <see cref="ExecuteAsync"/> documents.
+    /// </exception>
+    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        using var message = _mapper.Map(request);
+
+        var sentUri = message.RequestUri!;
+        HttpResponseMessage native;
+        using (var deadline = CallDeadline.Start(CallDeadline.Effective(options, _settings.Timeout), _settings.TimeProvider, cancellationToken))
+        {
+            try
+            {
+                native = _client.Send(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+            }
+            catch (Exception ex) when (SendFailures.IsTransportFailure(ex))
+            {
+                var mapped = SendFailures.Map(ex, deadline.Fired, cancellationToken);
+                if (ReferenceEquals(mapped, ex))
+                {
+                    throw;
+                }
+
+                throw mapped;
+            }
+        }
+
+        return AdaptGuarded(native, sentUri, request);
+    }
 
     /// <inheritdoc/>
     public void Dispose()
@@ -275,15 +457,81 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         return ValueTask.CompletedTask;
     }
 
-    // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does.
-#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8).
-    private static SystemHttpClient CreateOwnedClient(Action<SocketsHttpHandler>? configure = null)
+    // TRANSPORT-18 (P8b-10): a single-use body is teed into a bounded capture, but only where the native layer can send the request
+    // again behind the transport's back, and never for a body that can be written twice anyway.
+    private ResendCapture? CreateCapture(RequestBody body)
     {
-        var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        if (!_settings.ResendCapable || body.IsReplayable)
+        {
+            return null;
+        }
+
+        Interlocked.Increment(ref _captures);
+        return new ResendCapture(_settings.ResendBufferLimit);
+    }
+
+    // TRANSPORT-22: once the native response is live, any throw while adapting it disposes it first, and a throwing dispose never
+    // replaces the failure in flight (NativeDisposal).
+    private Response AdaptGuarded(HttpResponseMessage native, Uri sentUri, Request request)
+    {
+        try
+        {
+            ThrowIfRedirected(sentUri, native);
+            return ToResponse(native, request);
+        }
+        catch (Exception ex)
+        {
+            NativeDisposal.DisposeQuietly(native, ex);
+            throw;
+        }
+    }
+
+    // TRANSPORT-1: the SDK-managed client never follows a redirect; the pipeline's RedirectPolicy does. With no proxy in the
+    // options the handler goes direct (UseProxy = false, Proxy = null), so the runtime's process-wide default proxy, which reads
+    // HTTP(S)_PROXY and NO_PROXY, is never consulted (CFG-28, P8b-4); with one, an adapter over ProxyOptions is installed.
+    // The handler's own Credentials stay unset, so a proxy credential can only answer a 407 from that proxy (TRANSPORT-30).
+#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8, P8b-3).
+    private static SystemHttpClient CreateOwnedClient(SystemNetHttpClientOptions options, Action<SocketsHttpHandler>? configure)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var proxy = options.Proxy is { } configured ? new ProxyOptionsWebProxy(configured) : null;
+        var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = proxy is not null, Proxy = proxy };
         configure?.Invoke(handler);
-        return new(handler);
+        return new(handler) { Timeout = Timeout.InfiniteTimeSpan };
+    }
+
+    // The same factory over a caller's handler: the client is the transport's, the handler is not (disposeHandler: false).
+    private static SystemHttpClient CreateHandlerClient(HttpMessageHandler handler, SystemNetHttpClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        RequireNoProxy(options);
+        HandlerChain.ThrowIfFollowsRedirects(handler);
+        return new(handler, disposeHandler: false) { Timeout = Timeout.InfiniteTimeSpan };
     }
 #pragma warning restore RS0030
+
+    private static SystemNetHttpClientOptions OptionsFor(ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        return new SystemNetHttpClientOptions { Logger = logger };
+    }
+
+    // TRANSPORT-15: a proxy in the options is meaningful only for the handler the transport builds itself.
+    private static SystemNetHttpClientOptions RequireNoProxy(SystemNetHttpClientOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.Proxy is null
+            ? options
+            : throw new ArgumentException(
+                "SystemNetHttpClientOptions.Proxy applies only to the handler the transport creates itself. A transport over your "
+                + "HttpClient or handler leaves its proxy to its owner (TRANSPORT-15); configure the proxy on that client or handler.",
+                nameof(options));
+    }
+
+    // Only an HTTP proxy that is given credentials challenges with a 407, which the native client answers by sending the same
+    // request again (TRANSPORT-18, design G5); a SOCKS proxy authenticates inside its handshake, with no request to re-send.
+    private static bool CarriesProxyCredentials(ProxyOptions? proxy) =>
+        proxy is { Type: ProxyType.Http } and ({ UserName: not null } or { ChallengeCredentials: not null });
 
     // TRANSPORT-1's last line for a borrowed client (design §3.2, §6.2): after an automatic redirect the handler leaves
     // the final URI on RequestMessage.RequestUri. Only scheme, host, port and path are compared, in Uri's normalised
@@ -301,90 +549,6 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
                 + "could not strip credentials from it. Configure the client's primary handler with "
                 + "AllowAutoRedirect = false (TRANSPORT-1).");
         }
-    }
-
-    private static bool IsWireSafe(string name, IReadOnlyList<string> values)
-    {
-        if (!HttpHeaderSyntax.IsValidName(name))
-        {
-            return false;
-        }
-
-        foreach (var value in values)
-        {
-            if (!HttpHeaderSyntax.IsValidOutboundValue(value))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private HttpRequestMessage ToHttpRequestMessage(Request request)
-    {
-        var message = new HttpRequestMessage(new HttpMethod(request.Method.Name), request.Url);
-        if (request.Body is { } body)
-        {
-            message.Content = new RequestBodyContent(body);
-        }
-
-        var (stripTraceparent, stripTracestate) = StripTraceContext(request);
-        foreach (var (name, values) in request.Headers)
-        {
-            // Design §8.1, P5c-11: the SDK's own stamp for the current attempt is dropped so the runtime writes its child
-            // span's id. Nothing the caller intended is lost, so the drop is silent.
-            if ((stripTraceparent && TraceContextStripping.IsTraceparent(name))
-                || (stripTracestate && TraceContextStripping.IsTracestate(name)))
-            {
-                continue;
-            }
-
-            if (s_framingHeaders.Contains(name))
-            {
-                s_framingHeaderDropped(_logger, name, null);
-                continue;
-            }
-
-            // Content-Type is owned by the content (set in RequestBodyContent); skip it here.
-            if (string.Equals(name, "content-type", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            // XCUT-18 defence in depth: the model validated this header, but a value accepted on the lenient inbound
-            // path can be re-used on a request. Drop it rather than let HttpClient write it or fail the whole send.
-            if (!IsWireSafe(name, values))
-            {
-                s_unsafeHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
-                continue;
-            }
-
-            foreach (var value in values)
-            {
-                if (!message.Headers.TryAddWithoutValidation(name, value))
-                {
-                    message.Content?.Headers.TryAddWithoutValidation(name, value);
-                }
-            }
-        }
-
-        return message;
-    }
-
-    // Decided once, before the header loop: the loop order is not guaranteed, and the tracestate decision follows the
-    // traceparent's. Nothing is allocated when there is no ambient activity.
-    private static (bool Traceparent, bool Tracestate) StripTraceContext(Request request)
-    {
-        if (Activity.Current is not { Id: { } currentId } current
-            || request.Headers.Get("traceparent") is not { } carried
-            || !TraceContextStripping.ShouldStripTraceparent(carried, currentId, TraceContextStripping.RuntimeInjects(current)))
-        {
-            return (false, false);
-        }
-
-        var tracestate = request.Headers.Get("tracestate");
-        return (true, tracestate is not null && TraceContextStripping.ShouldStripTracestate(tracestate, current.TraceStateString, traceparentStripped: true));
     }
 
     private Response ToResponse(HttpResponseMessage message, Request request)
@@ -418,7 +582,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
                 }
                 catch (ArgumentException)
                 {
-                    s_inboundHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
+                    _drops.InboundDropped(name);
                 }
             }
         }

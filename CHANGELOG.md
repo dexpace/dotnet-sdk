@@ -372,6 +372,40 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `InvalidOperationException`; a `null` response from the client and a `null` `PageInfo` from a strategy throw `InvalidOperationException` naming
   the client or strategy type, after the response is closed (`PAGE-4`, `PAGE-28`).
 
+- **Breaking (phase 8b reference transport, `TRANSPORT-1`, `-4`, `-5`, `-6`, `-8`, `-9`, `-10`, `-12`, `-13`, `-14`, `-17`, `-18`, `-28`, `-30`; design and plan under
+  `docs/work/mvp/phase8/phase8b/`), PR 1:** `new SystemNetHttpClient()` and `SystemNetHttpClient(ILogger)` no longer inherit the runtime's process-wide proxy, which read `HTTP_PROXY`,
+  `HTTPS_PROXY` and `NO_PROXY` on first use: the owned handler goes direct unless `SystemNetHttpClientOptions.Proxy` is set (`CFG-28`, `TRANSPORT-30`; `HttpClient.DefaultProxy` is banned in `src/`).
+  **Migration:** `new SystemNetHttpClient(new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() })`.
+- **Breaking (phase 8b):** every call made after `Dispose`/`DisposeAsync` throws `ObjectDisposedException`, a transport over a borrowed `HttpClient` included (a faulted task on the asynchronous face); it used to keep
+  serving (`SEAM-15`). **Migration:** do not use a disposed transport; the borrowed `HttpClient` itself is unaffected.
+- **Breaking (phase 8b):** the new `SystemNetHttpClient(HttpMessageHandler)` constructor rejects a handler whose primary `SocketsHttpHandler`/`HttpClientHandler` follows redirects with `ArgumentException`
+  (`AllowAutoRedirect` defaults to `true`, so `new SystemNetHttpClient(new SocketsHttpHandler())` throws; `TRANSPORT-1`). **Migration:** set `AllowAutoRedirect = false` on the handler.
+- **Breaking (phase 8b), PR 2:** `RequestOptions.Timeout` is enforced (it was accepted and ignored): per call, on `SystemNetHttpClientOptions.TimeProvider`, until the response headers arrive, clamped to `[1 ms, 49 days]`.
+  The owned `HttpClient.Timeout` is now infinite and the transport's own 100 second default (`SystemNetHttpClientOptions.Timeout`) replaces it, so the owned bound is unchanged (`TRANSPORT-5`, `-6`).
+  **A borrowed `HttpClient` is bounded differently:** the default applies to every construction, so a transport over a caller's `HttpClient` whose own `Timeout` is longer than 100 seconds (or infinite) now cuts a call that sets
+  no `RequestOptions.Timeout` at 100 seconds with a retryable `ServiceRequestTimeoutException`; before, that client's own `Timeout` alone bounded it. **Migration:** none for an owned transport or a call that sets a
+  timeout; for a borrowed client with a longer `Timeout`, `new SystemNetHttpClient(client, new SystemNetHttpClientOptions { Timeout = null })` (its own `Timeout` is then the only bound) or a longer
+  `RequestOptions.Timeout`. Set `SystemNetHttpClientOptions.Timeout` to change the default.
+- **Breaking (phase 8b):** an internal cancellation (`CancelPendingRequests` on a borrowed client, or the native client or the transport disposed mid-call) is a terminal `OperationCanceledException` with the native
+  exception on its `ExceptionTrail`; it used to surface as a retryable `ServiceRequestTimeoutException` and was retried. A real timeout stays a retryable `ServiceRequestTimeoutException`, and a cancellation by the
+  caller now always carries the caller's own token (`TRANSPORT-4`, `-8`, `XCUT-1`, `XCUT-2`). **Migration:** treat the `OperationCanceledException` as a cancellation; it is not retried.
+- **Breaking (phase 8b):** `SystemNetHttpClient.Execute` is genuinely synchronous (`HttpClient.Send`; it used to block on the asynchronous send), and writes the request body through `RequestBody.WriteTo`
+  (`SEAM-11`, `PIPE-28`, `TRANSPORT-17`). Over a handler whose primary overrides only `SendAsync` it throws `NotSupportedException`, and a `DelegatingHandler` that overrides only `SendAsync` is skipped on that
+  face. **Migration:** implement `Send` in the handler, or call `ExecuteAsync`.
+- **Breaking (phase 8b):** a native re-send of a single-use request body (a proxy's `407` answered, on a client the native layer can re-send through) is replayed from a capture of at most
+  `SystemNetHttpClientOptions.ResendBufferLimit` bytes (1 MiB; it used to fail with a wrapped `StreamConsumedException`); beyond the limit, or after a failed first write, the send fails with a retryable
+  `ServiceRequestException` whose cause chain ends in a `StreamConsumedException` naming `ResendBufferLimit` and `ToReplayableAsync` (`TRANSPORT-18`). **Migration:** raise `ResendBufferLimit` or
+  `RequestBody.ToReplayableAsync()` a larger single-use stream.
+- **Breaking (phase 8b), PR 3:** the caller's `Content-Type` header is the one sent; the body's media type used to override it and is now used only when the caller set none (`TRANSPORT-10`). A content header
+  (`Allow`, `Content-*`, `Expires`, `Last-Modified`) on a body-less request is carried by an empty content on `POST`/`PUT`/`PATCH`/`DELETE`/`OPTIONS` and is dropped and logged on `GET`/`HEAD`/`TRACE`; it used to vanish
+  unlogged (`TRANSPORT-12`, `-26`). **Migration:** stop relying on the body's type overriding your header.
+- **Breaking (phase 8b):** the transport's header-drop log events are `http.transport.header_dropped` (110), `framing_header_dropped` (111) and `inbound_header_dropped` (112) in `DexpaceLogEvents` (they were ids 1 to 3,
+  `FramingHeaderDropped`, `UnsafeHeaderDropped`, `InboundHeaderDropped`), and under the default `HeaderDropLogging.FirstPerName` a repeated drop of one header name is a `Debug` entry, not another `Warning`
+  (`TRANSPORT-13`, `OBS-19`). **Migration:** filter on the new names; `HeaderDropLogging = Every` restores a `Warning` per drop.
+- **`TRANSPORT-2` (phase 8b):** a body-less `POST`, `PUT`, `PATCH` or extension-method request is sent with a zero-length content, which is what the native client writes for these methods anyway
+  (`Content-Length: 0`, byte for byte), so `SocketsHttpHandler`'s own connection-failure retry cannot fire and the request reaches the server once. A body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` is
+  still re-sent by the native client (up to three more times), which is recorded as design §10 entry 33 and waived permanently for `transport-2.bodyless-not-resent`.
+
 ### Added
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two
@@ -613,6 +647,18 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   retry had been delivering its 200 without the pipeline retrying; `transport-13` is `Vacuous` for a transport that drops no header; `transport-3` requires the caller's token on the cancellation and `transport-7.attempt-timeout-aborts`
   a timeout on the failure.
 - `docs/sdk-documentation/conformance.md`.
+- **Reference-transport hardening** (phase 8b; `TRANSPORT-1`, `-4`, `-5`, `-6`, `-8`, `-9`, `-10`, `-12`, `-13`, `-14`, `-17`, `-18`, `-28`, `-30`, and `TRANSPORT-2`'s native-retry clause for body-less `POST`, `PUT` and `PATCH`). New
+  `SystemNetHttpClientOptions` (`Logger`, `Proxy`, `Timeout`, `HeaderDropLogging`, `ResendBufferLimit`, `TimeProvider`), the `HeaderDropLogging` enum (`FirstPerName`, `Every`, `VerboseOnly`), and four constructors:
+  `(SystemNetHttpClientOptions)`, `(HttpMessageHandler)`, `(HttpMessageHandler, SystemNetHttpClientOptions)` and `(HttpClient, SystemNetHttpClientOptions)`. `ProxyOptions` is installed on the owned handler through an
+  internal `IWebProxy` (spec-correct bypass globs, a proxy URI without userinfo, `ChallengeCredentials` or a Basic-only pair, the handler's own credentials never set), with a once-at-construction
+  `Warning` (event 113) for a setting the native client cannot honour. Core's `DexpaceLogEvents` gains `TransportHeaderDropped` (110), `TransportFramingHeaderDropped` (111),
+  `TransportInboundHeaderDropped` (112) and `TransportProxyFeatureUnsupported` (113), with their ids. `BannedSymbols.txt` bans `HttpClient.DefaultProxy`.
+- Phase 8b tests: the permanent `Security` class `ProxyCredentialWireTests` (the proxy's `407` is answered, an origin's `401` behind it is not, no log carries the pair), architecture scans of the transport assembly
+  (`NoImplicitEnvironmentReadArchitectureTests`, `NoAbandonedResponseArchitectureTests`), unit and wire classes for the handler constructor, options, proxy adapter, deadlines, failure classification, the synchronous path,
+  header partition and drop log, inbound headers, the re-send capture and the body-less retry, and a handler-constructor subject in the conformance driver. The driver runs the whole kit against both constructions with two
+  permanent waivers (`transport-14.name-malformed-dropped`, design §10 entry 32, and `transport-2.bodyless-not-resent`, entry 33) and no `Owner = "8b"` waiver; `transport-30` now runs. NativeAOT smoke check
+  `CheckPhase8bAsync`.
+- `docs/sdk-documentation/transport.md`.
 
 ### Phase 7a — serde
 

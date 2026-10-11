@@ -24,16 +24,16 @@ namespace Dexpace.Sdk.Http.SystemNet.Tests;
 /// <remarks>
 /// <para>
 /// The plan's timeout row (a cursor walk whose <c>RequestOptions.Timeout</c> governs every page and throws
-/// <c>ServiceRequestTimeoutException</c>) is not built: <c>SystemNetHttpClient</c> accepts <see cref="RequestOptions"/> and
-/// reads none of it until phase 8b wires <c>RequestOptions.Timeout</c> (TRANSPORT-5; pinned by
-/// <c>SystemNetHttpClientTests.Options_are_accepted_and_ignored_until_8b</c>), so there is no timeout to fire. The row is
-/// replaced by the options-instance row below, which is PAGE-36's real claim at the seam.
+/// <c>ServiceRequestTimeoutException</c>) was not built here while <c>SystemNetHttpClient</c> read none of its
+/// <see cref="RequestOptions"/>. Phase 8b wired <c>RequestOptions.Timeout</c> (TRANSPORT-5), and the row now lives in
+/// <c>SyncExecuteWireTests</c> over the real synchronous path (7c's inherit-only hand-off). This class keeps the options-instance
+/// row below, which is PAGE-36's real claim at the seam.
 /// </para>
 /// <para>
 /// The blocking pager reads each page through <c>ResponseBody.OpenRead</c>, which <c>HttpResponseMessageBody</c> has implemented
 /// since phase 7b, so <c>Pageable.CreateBlocking</c> over <see cref="SystemNetHttpClient"/>, directly or through a pipeline, walks
-/// every page over the real socket; the last test pins that. The transport's <c>Execute</c> still blocks on its async send until
-/// phase 8b (PIPE-28), which changes nothing the pager can observe.
+/// every page over the real socket; the last test pins that. The transport's <c>Execute</c> has been genuinely synchronous since
+/// phase 8b (PIPE-28), which changes nothing the pager can observe; <c>SyncExecuteWireTests</c> pins the per-call timeout on it.
 /// </para>
 /// </remarks>
 [Trait("Category", "Integration")]
@@ -41,10 +41,10 @@ public sealed class PaginationWireTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private sealed record WirePage(IReadOnlyList<int> Items, string? Next);
+    internal sealed record WirePage(IReadOnlyList<int> Items, string? Next);
 
     // "1,2|next": the items, a bar, the continuation token (empty for none).
-    private sealed class WireSerde : ISerde
+    internal sealed class WireSerde : ISerde
     {
         public MediaType DefaultMediaType => MediaType.Of("text", "plain");
 
@@ -87,9 +87,9 @@ public sealed class PaginationWireTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private static SystemHttpClient DirectClient() => new(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false });
+    internal static SystemHttpClient DirectClient() => new(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false });
 
-    private static LoopbackResponse Page(string body, params string[] linkLines) =>
+    internal static LoopbackResponse Page(string body, params string[] linkLines) =>
         LoopbackResponse.Status(200, "OK", linkLines.Select(line => new KeyValuePair<string, string>("Link", line)), body);
 
     [Fact]
@@ -193,7 +193,7 @@ public sealed class PaginationWireTests
     [InlineData(true)]
     public async Task A_blocking_walk_over_the_real_transport_reads_every_page(bool throughPipeline)
     {
-        // PIPE-28 below the pager: the transport's Execute still blocks on the async send until 8b, but the body it returns has had a
+        // PIPE-28 below the pager: the transport's Execute is genuinely synchronous (phase 8b) and the body it returns has had a
         // synchronous OpenRead since phase 7b, so the blocking pager reads each page over the real socket, directly and through a
         // pipeline. (Until the rebase onto 7b this test pinned the NotSupportedException the missing OpenRead raised.)
         await using var server = LoopbackServer.Start(request => request.Target switch

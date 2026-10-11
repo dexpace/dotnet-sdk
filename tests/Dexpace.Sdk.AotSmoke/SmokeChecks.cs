@@ -67,6 +67,7 @@ internal static partial class SmokeChecks
             await CheckServerSentEventsAsync();
             await CheckPhase7cPaginationAsync();
             await CheckPhase8aConformanceAsync();
+            await CheckPhase8bAsync();
         }
         catch (SmokeFailureException failure)
         {
@@ -1103,6 +1104,10 @@ internal static partial class SmokeChecks
     /// <summary>A handler that answers every request with 201 "pong", echoing the method in a header.</summary>
     private sealed class CannedHandler(HttpStatusCode status = HttpStatusCode.Created) : HttpMessageHandler
     {
+        // Phase 8b: SystemNetHttpClient.Execute reaches HttpClient.Send, which needs a handler that implements it.
+        protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Build(request);
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(Build(request));
 

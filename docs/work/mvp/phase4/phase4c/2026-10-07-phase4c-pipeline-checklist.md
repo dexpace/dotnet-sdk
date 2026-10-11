@@ -147,3 +147,9 @@ disposing (design §11 item 59, P6b-17). The row above stands as written at 4c's
 
 P4c-13's hand-off to 6c is closed: `AuthorizationPolicy.GetCredential` is abstract and the base's sync-over-async bridge and its `RS0030` pragma are gone; the bearer policy's synchronous path is
 `AccessTokenCache.Get` (see the [6c checklist](../../phase6/phase6c/2026-10-08-phase6c-auth-checklist.md)). One fewer documented bridge remains in core. The rows above stand as written.
+
+## Correction 2026-10-11 (phase 8b)
+
+`PIPE-28`'s ⏳ 8b clause, the real synchronous terminal, is closed: `HttpPipeline.Send` reaches `SystemNetHttpClient.Execute`, which calls `HttpClient.Send` with no sync-over-async anywhere in the package (`SyncExecuteTests.Execute_runs_through_a_handler_that_implements_only_Send`;
+`FailureClassificationTests` drives the same pipeline rows through `SendAsync` and `Send`). The row is ✅. The documented bridge of this checklist's `SystemNetHttpClient.Execute` is gone. One residual is the runtime's: a handler that implements only
+`SendAsync` is not run by `Send` (design §3.2; `docs/first-release.md`, `sync-borrowed-handlers`). The row above stands as written.

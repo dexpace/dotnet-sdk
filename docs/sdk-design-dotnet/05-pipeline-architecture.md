@@ -389,7 +389,7 @@ shared pool, take no token, and dispose what they wrap; `HttpPipeline` is not a 
 toward the transport (no latch, so a disposed pipeline stays usable, **SEAM-15** being a MAY); `Flatten` and `Nest` are named
 factories; every shipped policy has one `ProcessCoreAsync(..., bool async)` body. The text above stands as written, with two *dated
 corrections*: *the sync terminal (P4c-13)*: `Build` decides once whether the transport implements `IHttpClient` (its own `Execute`) or
-is bridged through `AsBlocking`, so the sync path is real down to the transport and no further until phase 8b; the retry policy's sync
+is bridged through `AsBlocking`, so the sync path is real down to the transport and no further until phase 8b (*dated correction, 2026-10-11:* the reference transport's `Execute` is `HttpClient.Send` since 8b, P8b-9, so it is real all the way down there); the retry policy's sync
 wait is a genuine blocking wait over the `TimeProvider`, and `AuthorizationPolicy.GetCredential` is the documented bridge until phase 6c
 gives `AccessTokenCache` a sync path. *The options capture (P4c-11)*: `Build(transport)` captures `new DexpaceClientOptions()` and
 `Build(transport, options)` the caller's, so the seam entry points have client options to run with; the `SendAsync`/`Send` overloads

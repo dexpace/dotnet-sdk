@@ -26,14 +26,14 @@ public interface IHttpClient : IDisposable
 
 - **One request, one response** (`SEAM-11`). The body is never pre-buffered; the caller reads and disposes it. Options
   are optional and ignorable: a transport that ignores them behaves exactly as it does for `RequestOptions.Empty`.
-  `SystemNetHttpClient` ignores them until phase 8b.
+  `SystemNetHttpClient` ignored them until phase 8b (*dated correction, 2026-10-11:* it now enforces `RequestOptions.Timeout`; see [`transport.md`](./transport.md)).
 - **No parameter defaults.** A default on an implementation's three-parameter member would let
   `transport.ExecuteAsync(request, default)` bind it with `null` options. The option-less calls are extensions in
   `Dexpace.Sdk.Core.Client`: `client.ExecuteAsync(request, token)` and `client.Execute(request, token)` pass
   `RequestOptions.Empty`, so `using Dexpace.Sdk.Core.Client;` keeps the familiar call shape.
 - **Concurrency** (`SEAM-12`). Both are safe for concurrent calls; a transport keeps per-call state in locals.
 - **Cancellation** (`SEAM-13`). The call's token is the only cancellation channel. Cancelling after the response was
-  delivered does not dispose it. Honouring the token inside blocking I/O needs phase 8b's real synchronous send.
+  delivered does not dispose it. Honouring the token inside blocking I/O needed phase 8b's real synchronous send (*dated correction, 2026-10-11:* built, `Execute` calls `HttpClient.Send` with the token).
 - **Never `null`** (`SEAM-16`, `ASYNC-2`). The async seam returns `Task<Response>` (`SEAM-17`), never `null`, and a
   `null` argument is an `ArgumentNullException` delivered through the returned task. The pipeline's runner converts a
   transport that returns `null` anyway into a `PipelineAbortedException` before any policy sees it.
@@ -153,6 +153,6 @@ Additive: `SerdeException`, `IStringSerde`, `SerdeExtensions`, the option-less `
 The per-transport proofs of `SEAM-11` (no pre-buffering), `SEAM-12` (concurrency) and `SEAM-13` (async abort) are phase 8a's
 conformance kit, built: `transport-25.lazy-body`, `transport-29.concurrent-no-crosstalk` and `transport-3.cancel-is-terminal`, run
 against both the reference transport and a test-only raw-socket client; see [`conformance.md`](./conformance.md). The real
-synchronous send, the `ObjectDisposedException` latch (`seam-15.after-dispose`, waived on the reference transport until then) and
-`RequestOptions.Timeout` are phase 8b's; the SDK-owned dispose latch and `DisposeQuietly` are phase 3b's; attaching `OperationId`
+synchronous send, the `ObjectDisposedException` latch (`seam-15.after-dispose`) and
+`RequestOptions.Timeout` were phase 8b's and are built (*dated correction, 2026-10-11:* [`transport.md`](./transport.md)); the SDK-owned dispose latch and `DisposeQuietly` are phase 3b's; attaching `OperationId`
 to the context chain is phase 4a's; the DI half of `SEAM-5` and `SEAM-6` is phase 9's.

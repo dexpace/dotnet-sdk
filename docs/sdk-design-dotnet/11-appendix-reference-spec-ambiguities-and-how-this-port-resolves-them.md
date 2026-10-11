@@ -102,6 +102,13 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     for a single-use body raises `StreamConsumedException`. `SocketsHttpHandler`'s own credential and proxy
     challenge handling re-sends the same way (documented behaviour, not exercised here), so **TRANSPORT-18** binds
     the SystemNet transport (§3.2).
+
+    **Dated correction, 2026-10-11 (phase 8b, P8b-10).** The re-send is now measured (10.0.401). Through a forward proxy answering `407 Proxy-Authenticate: Basic`, `SocketsHttpHandler` asks the proxy's
+    `ICredentials`, sends the request again with `Proxy-Authorization` and **serialises the request content twice**; the Basic challenge is not cached, so a second `http://` request on the same connection is
+    re-sent too; for an `https://` target the `407` arrives on the `CONNECT`, before any request byte, and the content is serialised zero times. The origin's later `401` is not answered with any credential while the
+    handler's own `Credentials` are unset. **TRANSPORT-18** is therefore answered by a bounded capture: the first write of a non-replayable body is teed into at most `ResendBufferLimit` bytes (1 MiB) on a construction
+    that can re-send, replayed on a later serialisation, and refused (a retryable `ServiceRequestException` over an `IOException` over a `StreamConsumedException` naming the limit) when the first write did not
+    complete or the body outgrew the limit. `HttpClient` wraps an `IOException` from serialisation in an `HttpRequestException`, and leaves most other exceptions unwrapped, which is why the refusal is an `IOException`.
 19. **The retry-unification sanction is stated twice with different scopes**.
     *Carries over*: both quoted separately, neither invoked, because the port keeps both stacks (§6.1). The
     recommendation to consolidate stands.

@@ -177,3 +177,9 @@ The phase-start queries (`--origin note`, `--section conflicts`, `--prefix-info 
   were read from the local clones; each vector case names its origin in `note`.
 - The coverage gate and its self-test, the dependency audit, the reproducible pack, the tools solution and the housekeeping probe were run at the close-out
   (results in the hand-over report).
+
+## Correction 2026-10-11 (phase 8b)
+
+`OBS-19`'s ⏳ 8b is closed: the transport's drop-log policy is `SystemNetHttpClientOptions.HeaderDropLogging` (`FirstPerName`, `Every`, `VerboseOnly`; `HeaderDropLogTests`, kit `transport-13.drop-log-once-per-name`), and the reserved block 110-119 is
+filled to 113 with `http.transport.header_dropped` (110), `framing_header_dropped` (111), `inbound_header_dropped` (112) and `proxy_feature_unsupported` (113), constants in `DexpaceLogEvents` with their `PublicAPI.Unshipped.txt` lines
+(`LogVocabularyTests.Id_ranges_are_inside_the_reserved_blocks` now reserves 114-119). The row is ✅ and the totals above gain one. The row above stands as written.

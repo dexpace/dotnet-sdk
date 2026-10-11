@@ -46,5 +46,5 @@ A leaked `Response` therefore pins its context until the cap evicts it, and an u
 ## Not shipped by 4a
 
 The `CallKey` route to a transport `DelegatingHandler` (a `RequestOptions` carrier and an `HttpRequestOptionsKey<CallKey>`
-stamp) is deferred to 4c and 8b (P4a-13), so `TryGet` has no production reader until then. The pipeline does not yet
+stamp) is deferred to 4c and 8b (P4a-13), so `TryGet` has no production reader until then (*dated correction, 2026-10-11:* phase 8b did not build the stamp, since `RequestOptions` carries no `CallKey` to stamp, P8b-18; it is handed to phase 9 with the first reader, a DI-registered `DelegatingHandler`). The pipeline does not yet
 create these contexts (4c).

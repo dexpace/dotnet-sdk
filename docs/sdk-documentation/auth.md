@@ -150,7 +150,7 @@ var policy = new ChallengeAuthPolicy(new CompositeChallengeHandler(
     new BasicChallengeHandler(new BasicCredential(user, password))));
 ```
 
-A forward proxy's `407` never reaches the pipeline (the transport answers it, phase 8b); the handlers keep a `proxy` flag so a
+A forward proxy's `407` never reaches the pipeline (the transport answers it from `ProxyOptions.ChallengeCredentials` or the Basic pair, phase 8b; [`transport.md`](./transport.md)); the handlers keep a `proxy` flag so a
 caller composing its own proxy handling gets `Proxy-Authorization` (`AUTH-25`).
 
 ## The challenge parser

@@ -226,9 +226,8 @@ blocking on a task. Two things to know:
 
 - **It needs a transport whose bodies read synchronously.** The pager reads each page through `ResponseBody.OpenRead`. The body
   `SystemNetHttpClient` returns implements it (since phase 7b; [`io.md`](./io.md#third-party-bodies)), so `Pageable.CreateBlocking`
-  over that transport, directly or through an `HttpPipeline`, walks every page; below the pager, `SystemNetHttpClient.Execute` still
-  blocks on its async send until the real synchronous transport (roadmap phase 8b, `PIPE-28`), and the pager works unchanged when it
-  lands. Over a transport whose bodies do not override `OpenRead`, the first `MoveNext` throws `NotSupportedException` naming the
+  over that transport, directly or through an `HttpPipeline`, walks every page; below the pager, `SystemNetHttpClient.Execute` blocked on its async send until the real synchronous transport (roadmap phase 8b, `PIPE-28`), and the pager
+  works unchanged now that it has landed (*dated correction, 2026-10-11*; `RequestOptions.Timeout` governs every page on it, see [`transport.md`](./transport.md)). Over a transport whose bodies do not override `OpenRead`, the first `MoveNext` throws `NotSupportedException` naming the
   body type, after the first request went out; use `Pageable.Create` there.
 - **Each page envelope is buffered** under the 64 MiB materialisation cap (a larger one fails with `BodyTooLargeException`);
   the async pager streams. A page envelope over 64 MiB is not a paging use case.

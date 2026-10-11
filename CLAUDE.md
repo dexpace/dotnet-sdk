@@ -141,12 +141,12 @@ dotnet-sdk/
 │   │   ├── IO/                      # internal copy, tee, capture and line-reading helpers
 │   │   ├── Internal/                # Disposal, SdkVersion, TextDecoding, BoundedMap (the one bounded map)
 │   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, RedirectException (+ downgrade / not-replayable leaves), SerdeException, ExceptionFacts, ExceptionTrail
-│   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
+│   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient; SystemNetHttpClientOptions, HeaderDropLogging
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 │   └── Dexpace.Sdk.Conformance/                 # the transport conformance kit (core only): TransportSuite, TransportSubject, the report and waivers, Wire/ (the loopback fixture)
 ├── tests/
 │   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37 and SSE-38
-│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over the kit's Wire/ server and SystemNetConformanceTests (the kit's driver and its Owner = "8b" waivers)
+│   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over the kit's Wire/ server and SystemNetConformanceTests (the kit's driver over both constructions, with its two permanent waivers)
 │   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, a negative control per assertion (Controls/), the raw-socket client (RawSocket/) and its driver (Drivers/)
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
@@ -205,7 +205,12 @@ Layered, bottom-up:
   needs a source-generated context in the default or `Metadata` mode: a fast-path-only (`GenerationMode = Serialization`) context cannot be used with it.
 - **Transports are ownership-aware, and the SDK is the only redirect authority.** A caller-supplied
   `System.Net.Http.HttpClient` is never disposed by `SystemNetHttpClient`; only an internally created one
-  is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails.
+  is. A caller-supplied client must not follow redirects (`AllowAutoRedirect = false`), or the call fails. `SystemNetHttpClient(HttpMessageHandler)`
+  builds an owned `HttpClient` over a handler it **borrows** (never disposed or changed) and rejects a primary `SocketsHttpHandler`/`HttpClientHandler` whose `AllowAutoRedirect` is `true`, its default
+  (`new SystemNetHttpClient(new SocketsHttpHandler())` throws). A proxy is **explicit**: the owned transport goes direct and never reads `HTTP_PROXY`/`NO_PROXY` itself; write
+  `new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() }` to ask for the environment, and `Proxy` with a handler or a client throws. `Execute` is a genuine `HttpClient.Send`, so a custom handler that
+  implements only `SendAsync` throws (primary) or is skipped (delegating) on the sync face; every call after `Dispose` throws `ObjectDisposedException`, borrowed clients included
+  (`docs/sdk-documentation/transport.md`).
 - **Redirects follow only `GET` and `HEAD` by default, and 303 is opt-in.** `RedirectOptions` defaults to 3 hops, `AllowedMethods = {GET, HEAD}`
   and `FollowSeeOther = false`; a `POST` is never rewritten to a `GET`. An https to http hop throws `RedirectSchemeDowngradeException` and a
   method-preserving hop over a single-use body throws `RedirectBodyNotReplayableException` (`ToReplayableAsync` first); a revisited URI returns the 3xx.
@@ -295,6 +300,7 @@ the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerS
 `IPageStrategy` contract and `PageInfo<T>`, the three factories (`Pageable.Create`, `CreateBlocking`, `FromFetchers`), the single-use page view, the `Link` strategy's cross-origin guard and the fetcher
 form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport conformance kit, `Dexpace.Sdk.Conformance` — 43 named assertions for the `TRANSPORT` and `ASYNC` requirements,
 the six result statuses and the by-ID waivers that must stay needed, the loopback `Wire` fixture promoted into it, the two drivers (the reference transport and a test-only raw-socket client) and the requirement
-catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`): phase 8b's hardening of the reference transport (the real synchronous send, per-call timeouts, header
-partitioning, proxy installation — each of its 14 rows is closed by deleting an `Owner = "8b"` waiver from `SystemNetConformanceTests`, and so is `TRANSPORT-2`'s native-retry clause, which 8b either turns off or records as unmet: `SocketsHttpHandler` has no switch for it), the DI package
+catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`; and phase 8b's hardening of the reference transport — the options record and four constructors, the handler check, the
+installed proxy, the per-call deadline with its one failure classification, the real synchronous send, the header partition and drop policy, the bounded re-send capture and the `ObjectDisposedException` latch, with the kit green against both constructions and two permanent assertion-scoped
+waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33) — see `docs/sdk-documentation/transport.md`): the DI package
 `Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release path (12).

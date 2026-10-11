@@ -89,3 +89,10 @@ Each encoded the defect it now contradicts; none was loosened on behaviour it di
 S4's open item is closed: the typed exception the row left to 6c is `HttpsRequiredException` (a subclass of `SdkException` carrying the policy name and the scheme), `AuthHttpsGuardTests`
 asserts the exact type and the scheme, and the seed-origin note stands (`AUTH-29`). S5's `XCUT-19`(d) remainder is closed by `CredentialRedactionTests`, a new permanent `Security`
 class (see the [6c checklist](../phase6/phase6c/2026-10-08-phase6c-auth-checklist.md)). The rows above stand as written at phase 1's exit.
+
+## Correction 2026-10-11 (phase 8b)
+
+The 8b clauses of S1, S2, S3 and S9 are closed by the [8b checklist](../phase8/phase8b/2026-10-09-phase8b-reference-transport-checklist.md), and the five `Security` classes of this phase are unedited. S1 and `TRANSPORT-12`: every drop is now logged by name under
+`HeaderDropLogging` (event 110 for a request header, 112 for a response header; the unsafe-header test still sees one `Warning` for the first drop of a name) and the `Content-Type` question is settled (the caller's header
+wins). S2 and `TRANSPORT-11`: the framing drops are event 111, still `Debug` and still never a value. S3 and `TRANSPORT-1`: the handler-taking constructor rejects a primary handler that follows redirects. S9 and `TRANSPORT-22`/`-27`:
+the dispose-on-throw runs through `NativeDisposal` on both faces. The rows above stand as written.

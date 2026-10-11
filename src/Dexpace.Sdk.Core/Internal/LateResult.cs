@@ -20,8 +20,9 @@ namespace Dexpace.Sdk.Core.Internal;
 /// </para>
 /// <para>
 /// No as-built caller needs it today: <c>AsAsync</c> already disposes a response produced after cancellation inside its
-/// worker (2b). Its consumers are phase 6a (<c>AttemptTimeout</c>, if it abandons a task) and 8b (TRANSPORT-9's per-call
-/// timeout). It is internal because no caller outside core abandons an SDK-produced task it does not own (P5a-9).
+/// worker (2b). Phase 6a's <c>AttemptTimeout</c> would be a consumer if it abandoned a task; phase 8b's per-call timeout is
+/// not one, because the reference transport's deadline cancels the native send through a linked token and abandons nothing
+/// (P8b-8). It is internal because no caller outside core abandons an SDK-produced task it does not own (P5a-9).
 /// </para>
 /// </remarks>
 internal static class LateResult

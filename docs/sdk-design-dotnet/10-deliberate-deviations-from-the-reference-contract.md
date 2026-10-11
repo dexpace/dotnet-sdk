@@ -332,6 +332,31 @@ Entries 1–30 stand as written.
     the file**, and the write is a legitimate empty write. The residue is that a Unix FIFO or device uploads as an empty body instead of failing at construction. A
     P/Invoke `stat` was rejected: platform-specific struct layouts and an AOT-visible native dependency for one validation clause. §3.1.
 
+**Correction (2026-10-11): phase 8b adds entries 32 and 33.** Entry 32 was ruled by the lead on 2026-10-11 (the [phase 8b design](../work/mvp/phase8/phase8b/2026-10-09-phase8b-reference-transport-design.md), P8b-14) and
+entry 33 the same day (P8b-T2, the lead's disposition of the finding the 8a review raised as F-T2). Entries 1–31 stand as written. With entry 31 these leave the count of MUST clauses unmet on a stated domain
+at seven, not the four the paragraph above counts; the paragraph is not rewritten. **The count is over the parity target.** The roadmap's parity table (*MUST disposition*) allows *at most five*
+unsatisfied clauses; entries 16, 18, 24, 26 and 31 already used all five, so entry 32 is the sixth and entry 33 the seventh. Both rulings were taken on the premise that budget remained ("spend one of
+the five"), which was false; the over-budget of two is an **open item for the lead and for phase 11's parity audit** (recorded in the phase 8b checklist and `docs/first-release.md`), and neither
+entry is within the five.
+
+32. **A malformed inbound header *name* fails the whole response on `SocketsHttpHandler`.** *Touches* **TRANSPORT-14** (a MUST clause unmet on a stated domain, for its name half only). *Judged*: the clause asks
+    the adapter to drop a response header whose name holds a space, a control byte or a non-ASCII byte and deliver the rest. `SocketsHttpHandler`'s HTTP/1.1 parser raises `HttpRequestException` ("Received an invalid
+    header name") for the whole response before the adapter sees any header, and exposes no leniency switch (measured by the kit on 10.0.401); the only workaround is replacing the parser. The value half is met
+    (`Headers.Builder.AddInbound` drops a header whose value carries a control byte and keeps the rest) and so is the obs-text SHOULD. The conformance kit asserts the three clauses separately
+    (`transport-14.value-control-dropped`, `.obs-text-preserved`, `.name-malformed-dropped`), and the SystemNet driver carries a permanent waiver for the last alone, which turns stale, and so fails the run, the
+    day the runtime stops rejecting. It is the sixth clause unmet on a stated domain (after entries 16, 18, 24, 26 and 31) against the parity target of at most five, so it is over the
+    target and open for the lead and for the audit of roadmap phase 11 (see the correction above). §3.2.
+33. **`SocketsHttpHandler` re-sends a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` whose connection ends before any response byte.** *Touches* **TRANSPORT-2** (a MUST clause unmet on a stated domain, for
+    its native-retry clause only). *Judged*: the clause asks the transport to turn the native client's own retry off so the SDK's pipeline is the only retry authority. `SocketsHttpHandler` has no switch for it
+    (runtime 10.0, `HttpConnection.SendAsync`: `_canRetry` is cleared on every send and set only when the first read for the response returns zero bytes, for a request with no content or with an
+    `Expect: 100-continue`; an `IOException` becomes a connection-failure retry only while it is set), and a request that qualifies is sent up to three more times. The transport closes the clause for every method whose
+    framing it can keep byte-identical: a body-less `POST`, `PUT`, `PATCH` or extension-method request is given a zero-length content, which the native client writes as `Content-Length: 0` for those methods anyway,
+    so the retry cannot fire (a caller `Expect` is a framing header and is dropped). It leaves `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` as they are: all are idempotent (RFC 9110 section 9.2.2, which permits the
+    automatic retry), and attaching content would break **TRANSPORT-26** or RFC 9110 section 8.6's "SHOULD NOT" (`TRACE` natively writes `Content-Length: 0`, so a content there would be wire-identical, but RFC 9110
+    section 9.3.8 forbids content in a `TRACE`). A single-use body is never re-written, so the specification's own conformance sentence passes. The kit's `transport-2.bodyless-not-resent` carries a permanent waiver
+    for the residual, pinned by `BodylessRetryWireTests` so a runtime change is noticed. It is the seventh clause unmet on a stated domain, so it is over the parity target of at most five by
+    two together with entry 32, and open for the lead and for the audit of roadmap phase 11 (see the correction above). §3.2.
+
 Three things that are deliberately **not** deviations, recorded because a reader may expect them. The fixed-buffer
 encode profile of **SERDE-4** is met, not bent: core derives `Serialize<T>(ISerde, Span<byte>, T)` from the
 `IBufferWriter<byte>` primitive, the caller expresses the offset as `buffer.AsSpan(offset)`, the count is returned,
