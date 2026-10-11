@@ -174,10 +174,10 @@ repository's own wire tests use it too.
 |---|---|
 | `Ok`, `Status` | A fixed-length reply; `keepAlive: true` leaves the connection open (the default closes it) |
 | `Streamed`, `HeadersThenGate` | A chunked body written as the test releases it, or a head at once and the body after a gate |
-| `Raw` | Exactly the bytes you give it: a malformed header, a close-delimited body, a truncated reply |
+| `Raw` | Exactly the bytes you give it: a malformed header, a close-delimited body, a truncated reply; empty and closing, an orderly close before any response byte |
 | `Redirect` | A body-less 3xx |
 | `Gated(gate, then)` | Nothing until the gate opens (a hang before the status line), then `then`; a client that gives up releases the connection |
-| `Abort()` | Reads the request, then resets the connection with no response byte |
+| `Abort()` | Reads the request, then tears the connection down with no response byte: a FIN, then a reset. Linux reports the end of stream to a client's read, macOS usually the reset, so a check that turns on which one the client saw uses an empty closing `Raw` instead |
 | `Hang()` | Reads the request and never answers |
 | `Large(bytes, seed)` | A deterministic multi-megabyte body (its SHA-256 is computable) |
 | `EchoId` | The request's `X-Conformance-Id` as the body, so concurrent callers can check they got their own reply |

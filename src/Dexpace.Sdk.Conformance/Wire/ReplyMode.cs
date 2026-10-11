@@ -9,7 +9,7 @@ internal enum ReplyMode
     /// <summary>Write the reply's bytes (and chunks), then close or keep the connection as the reply says.</summary>
     Normal,
 
-    /// <summary>Read the request, write nothing, and reset the connection.</summary>
+    /// <summary>Read the request, write nothing, and tear the connection down: a FIN, then a reset (see <see cref="LoopbackResponse.Abort"/>).</summary>
     Abort,
 
     /// <summary>Read the request, write nothing, and keep the connection open until the client leaves or the server is disposed.</summary>

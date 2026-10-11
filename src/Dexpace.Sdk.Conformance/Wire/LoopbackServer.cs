@@ -341,6 +341,7 @@ public sealed class LoopbackServer : IAsyncDisposable
         {
             case ReplyMode.Abort:
                 // Marked before the reset, and the reset before the release: a release check can tell this from a client leaving.
+                // Disposing the client shuts the stream down first, so a FIN precedes the reset (LoopbackResponse.Abort's remarks).
                 state.MarkServerClosedFirst();
                 client.Client.LingerState = new LingerOption(true, 0);
                 client.Dispose();

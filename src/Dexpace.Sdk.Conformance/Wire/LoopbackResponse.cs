@@ -191,10 +191,18 @@ public sealed class LoopbackResponse
     }
 
     /// <summary>
-    /// Reads the request, records it, then resets the connection (a TCP reset) without writing a byte: the first-connection
-    /// failure and the peer reset of a transport that sent a request and got nothing back. It does not change
+    /// Reads the request, records it, then tears the connection down without writing a byte: the first-connection failure and
+    /// the peer reset of a transport that sent a request and got nothing back. It does not change
     /// <see cref="LoopbackServer.ConnectionCount"/>.
     /// </summary>
+    /// <remarks>
+    /// On the wire it is a FIN and then a TCP reset, not a bare reset: disposing the server's stream shuts the socket down
+    /// before the zero-linger close resets it. Which of the two a client's read reports is the platform's. Linux reports the end
+    /// of stream, because its receive path checks for a FIN before the socket's error; macOS checks the error first, so a read
+    /// that starts after the reset landed fails with it and one that started before sees the end of stream. A check whose verdict
+    /// turns on which one the client saw must not use this reply: an empty <see cref="Raw(ReadOnlySpan{byte}, bool)"/> that closes
+    /// the connection is an orderly close, which every platform reports as an end of stream.
+    /// </remarks>
     public static LoopbackResponse Abort() => new([], closeConnection: true, mode: ReplyMode.Abort);
 
     /// <summary>
