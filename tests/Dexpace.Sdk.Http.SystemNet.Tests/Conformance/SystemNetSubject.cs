@@ -4,25 +4,29 @@
 using System.Net;
 using Dexpace.Sdk.Conformance;
 using Dexpace.Sdk.Core.Client;
+using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 
 namespace Dexpace.Sdk.Http.SystemNet.Tests.Conformance;
 
 /// <summary>
-/// The reference transport as a conformance subject (phase 8a, P8a-22): the owned form on both faces, and every capability
-/// hook that can be built test-side over a borrowed <c>HttpClient</c>, so phase 8a changes no line of
-/// <c>Dexpace.Sdk.Http.SystemNet</c>. The one hook it does not supply is <c>CreateWithProxy</c>: the transport has no
-/// proxy-taking construction until phase 8b, so <c>transport-30</c> is <c>NotExercised</c>.
+/// The reference transport as conformance subjects: the owned form (<see cref="Create"/>) and the handler-taking form
+/// (<see cref="CreateViaHandler"/>), each on both faces with every capability hook that can be built test-side. Phase 8b
+/// supplies <c>CreateWithProxy</c> on both, so <c>transport-30</c> is exercised rather than <c>NotExercised</c>.
 /// </summary>
 internal static class SystemNetSubject
 {
-    // The owned transport with a logger (SystemNetHttpClient(ILogger)) builds its handler with the default proxy, which honours
-    // HTTP_PROXY and http_proxy. The wire tests pin that per instance (UseProxy = false through an internal constructor that
-    // takes no logger); the kit needs the logger, so the process-wide default proxy is pinned to "direct" instead, once, before
-    // any owned transport sends: the fixture's socket must be the fixture's whatever the environment says. Nothing else in this
-    // test project relies on a default proxy (every wire test sets UseProxy = false).
-    static SystemNetSubject() => HttpClient.DefaultProxy = new WebProxy();
+    /// <summary>The names of the two subjects, the theory key the driver passes around.</summary>
+    internal static string[] Kinds { get; } = ["owned", "handler"];
+
+    /// <summary>The subject for <paramref name="kind"/>, one of <see cref="Kinds"/>.</summary>
+    internal static TransportSubject For(string kind) => kind switch
+    {
+        "owned" => Create(),
+        "handler" => CreateViaHandler(),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown subject kind."),
+    };
 
     /// <summary>The owned transport on both faces, with the hooks.</summary>
     internal static TransportSubject Create() => new()
@@ -34,6 +38,26 @@ internal static class SystemNetSubject
         CreateWithFaultingAdaptation = settings => Over(settings, inner => new FaultingAdaptationHandler(inner)),
         CreateWithInternalCancel = InternalCancel,
         CreateWithNativeResend = settings => Over(settings, inner => new ResendingHandler(inner)),
+        CreateWithProxy = (settings, proxy) => new SystemNetHttpClient(new SystemNetHttpClientOptions { Logger = settings.Logger, Proxy = proxy }),
+        AfterDispose = AfterDisposeBehavior.ThrowsObjectDisposedException,
+    };
+
+    /// <summary>
+    /// The handler-taking construction on both faces (phase 8b, P8b-3): the transport builds an <c>HttpClient</c> over a caller's
+    /// <c>SocketsHttpHandler</c> and borrows the handler, so the subject's transport also disposes the handler it was given (the
+    /// caller's job, here the wrapper's). Its proxy hook configures the caller's handler, because a handler plus
+    /// <c>SystemNetHttpClientOptions.Proxy</c> is refused.
+    /// </summary>
+    internal static TransportSubject CreateViaHandler() => new()
+    {
+        Name = "Dexpace.Sdk.Http.SystemNet (handler constructor)",
+        CreateAsync = settings => OverHandler(settings),
+        CreateBlocking = settings => OverHandler(settings),
+        CreateBorrowed = Borrowed,
+        CreateWithFaultingAdaptation = settings => OverHandler(settings, inner => new FaultingAdaptationHandler(inner)),
+        CreateWithInternalCancel = HandlerInternalCancel,
+        CreateWithNativeResend = settings => OverHandler(settings, inner => new ResendingHandler(inner)),
+        CreateWithProxy = HandlerProxy,
         AfterDispose = AfterDisposeBehavior.ThrowsObjectDisposedException,
     };
 
@@ -64,6 +88,35 @@ internal static class SystemNetSubject
     {
         var transport = Over(settings);
         return new InternalCancellation(transport, transport.Native.CancelPendingRequests);
+    }
+
+    private static HandlerBackedTransport OverHandler(TransportSettings settings, Func<HttpMessageHandler, DelegatingHandler>? wrap = null)
+    {
+        HttpMessageHandler primary = new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false };
+        return HandlerBacked(primary, wrap, settings);
+    }
+
+    private static HandlerBackedTransport HandlerBacked(HttpMessageHandler primary, Func<HttpMessageHandler, DelegatingHandler>? wrap, TransportSettings settings)
+    {
+        var chain = wrap is null ? primary : wrap(primary);
+        return new HandlerBackedTransport(chain, new SystemNetHttpClient(chain, new SystemNetHttpClientOptions { Logger = settings.Logger }));
+    }
+
+    // TRANSPORT-8 on the handler construction: the cancellation comes from inside the handler chain, not from the caller's token
+    // and not from a deadline, the same shape HttpClient.CancelPendingRequests produces on a borrowed client.
+    private static InternalCancellation HandlerInternalCancel(TransportSettings settings)
+    {
+        CancelOnDemandHandler? trigger = null;
+        var transport = OverHandler(settings, inner => trigger = new CancelOnDemandHandler(inner));
+        return new InternalCancellation(transport, trigger!.CancelInFlight);
+    }
+
+    // TRANSPORT-30 on a handler the caller owns: a test-local WebProxy with credentials, since a handler plus SystemNetHttpClientOptions.Proxy is refused.
+    private static HandlerBackedTransport HandlerProxy(TransportSettings settings, ProxyOptions proxy)
+    {
+        var webProxy = new WebProxy(new Uri($"http://{proxy.Host}:{proxy.Port}/")) { Credentials = new NetworkCredential(proxy.UserName, proxy.Password) };
+        HttpMessageHandler primary = new SocketsHttpHandler { UseProxy = true, Proxy = webProxy, AllowAutoRedirect = false };
+        return HandlerBacked(primary, wrap: null, settings);
     }
 #pragma warning restore CA2000
 
@@ -122,6 +175,55 @@ internal static class SystemNetSubject
         {
             native.Dispose();
             return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// A transport over a caller's handler chain on both faces, which also releases that chain when it is disposed: the handler
+    /// is the caller's, and here the caller is the driver, so an idle pooled connection does not outlive its run.
+    /// </summary>
+    internal sealed class HandlerBackedTransport(HttpMessageHandler chain, SystemNetHttpClient inner) : IAsyncHttpClient, IHttpClient
+    {
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            inner.ExecuteAsync(request, options, cancellationToken);
+
+        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            inner.Execute(request, options, cancellationToken);
+
+        public void Dispose()
+        {
+            inner.Dispose();
+            chain.Dispose();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await inner.DisposeAsync();
+            chain.Dispose();
+        }
+    }
+
+    /// <summary>Cancels every call in flight through it on demand, from inside the handler chain, with a source that is neither the caller's token nor a deadline.</summary>
+    private sealed class CancelOnDemandHandler(HttpMessageHandler inner) : DelegatingHandler(inner)
+    {
+        private readonly CancellationTokenSource _cancel = new();
+
+        internal void CancelInFlight() => _cancel.Cancel();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancel.Token);
+            return await base.SendAsync(request, linked.Token);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _cancel.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 

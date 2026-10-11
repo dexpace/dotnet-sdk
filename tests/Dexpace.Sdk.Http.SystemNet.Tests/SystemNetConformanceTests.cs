@@ -8,34 +8,40 @@ using Xunit;
 namespace Dexpace.Sdk.Http.SystemNet.Tests;
 
 /// <summary>
-/// The transport conformance kit driven against the reference transport (phase 8a, P8a-15): one case per (assertion, face),
-/// plus the whole suite as a report. The waivers in <see cref="SystemNetSubject.Options"/> are phase 8b's rows; phase 8b closes
-/// each by deleting its waiver, and the kit fails the run if a waiver is left after its row is fixed.
+/// The transport conformance kit driven against the reference transport (phase 8a, P8a-15) through both of its constructions
+/// (phase 8b, P8b-21): one case per (subject, assertion, face), plus the whole suite as a report per subject. The waivers in
+/// <see cref="SystemNetSubject.Options"/> are phase 8b's rows; phase 8b closes each by deleting its waiver, and the kit fails the
+/// run if a waiver is left after its row is fixed.
 /// </summary>
 [Trait("Category", "Conformance")]
 public sealed class SystemNetConformanceTests
 {
     // <driver>
-    public static TheoryData<string, TransportFace> Rows()
+    public static TheoryData<string, string, TransportFace> Rows()
     {
-        var rows = new TheoryData<string, TransportFace>();
-        foreach (var assertion in TransportSuite.Assertions)
+        var rows = new TheoryData<string, string, TransportFace>();
+        foreach (var kind in SystemNetSubject.Kinds)
         {
-            foreach (var face in assertion.Faces)
+            foreach (var assertion in TransportSuite.Assertions)
             {
-                rows.Add(assertion.Name, face);
+                foreach (var face in assertion.Faces)
+                {
+                    rows.Add(kind, assertion.Name, face);
+                }
             }
         }
 
         return rows;
     }
 
+    public static TheoryData<string> Subjects() => [.. SystemNetSubject.Kinds];
+
     [Theory]
     [MemberData(nameof(Rows))]
-    public async Task Assertion_holds(string name, TransportFace face)
+    public async Task Assertion_holds(string subject, string name, TransportFace face)
     {
         var assertion = TransportSuite.Assertions.Single(a => a.Name == name);
-        var result = await TransportSuite.RunAsync(SystemNetSubject.Create(), assertion, face, SystemNetSubject.Options, TestContext.Current.CancellationToken);
+        var result = await TransportSuite.RunAsync(SystemNetSubject.For(subject), assertion, face, SystemNetSubject.Options, TestContext.Current.CancellationToken);
 
         if (result.Status == ConformanceStatus.Passed)
         {
@@ -52,10 +58,11 @@ public sealed class SystemNetConformanceTests
         }
     }
 
-    [Fact]
-    public async Task The_whole_suite_is_green_and_its_report_is_written()
+    [Theory]
+    [MemberData(nameof(Subjects))]
+    public async Task The_whole_suite_is_green_and_its_report_is_written(string subject)
     {
-        var report = await TransportSuite.RunAllAsync(SystemNetSubject.Create(), SystemNetSubject.Options, TestContext.Current.CancellationToken);
+        var report = await TransportSuite.RunAllAsync(SystemNetSubject.For(subject), SystemNetSubject.Options, TestContext.Current.CancellationToken);
 
         TestContext.Current.TestOutputHelper?.WriteLine(report.ToString());
         Assert.True(report.IsGreen, report.ToString());
