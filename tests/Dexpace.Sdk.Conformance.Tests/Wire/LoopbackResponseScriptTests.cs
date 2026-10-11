@@ -177,6 +177,24 @@ public sealed class LoopbackResponseScriptTests
     }
 
     [Fact]
+    public async Task An_empty_reply_that_closes_is_an_end_of_stream_SocketsHttpHandler_re_sends_on_every_platform()
+    {
+        // SocketsHttpHandler re-sends a request with no content only when its first read for the response returns end of
+        // stream (HttpConnection.SendAsync sets _canRetry there and nowhere else); a read that fails, a reset among them, is
+        // never re-sent. An orderly close is read as end of stream on every platform. Abort's FIN-then-reset is not: Linux
+        // reads the FIN, macOS usually the reset, so the arrival count behind it is the platform's.
+        await using var server = LoopbackServer.Start(_ => LoopbackResponse.Raw(ReadOnlySpan<byte>.Empty, closeConnection: true));
+        using var client = DirectClient();
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync(server.Url("/a"), Ct));
+
+        Assert.Equal(HttpRequestError.ResponseEnded, error.HttpRequestError);
+        Assert.True(server.Requests.Count > 1, $"an end of stream before any response byte is re-sent natively; arrivals: {server.Requests.Count}");
+        Assert.Equal(server.Requests.Count, server.ConnectionCount);
+        Assert.Empty(server.Faults);
+    }
+
+    [Fact]
     public async Task A_hanging_reply_never_writes_and_a_client_that_leaves_releases_the_connection()
     {
         await using var server = LoopbackServer.Start(LoopbackResponse.Hang());

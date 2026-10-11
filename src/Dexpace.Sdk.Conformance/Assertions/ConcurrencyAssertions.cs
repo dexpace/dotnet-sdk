@@ -12,7 +12,7 @@ namespace Dexpace.Sdk.Conformance;
 /// <summary>
 /// A transport shared by concurrent callers keeps their calls apart (<c>TRANSPORT-29</c>), and never re-sends a request behind
 /// the caller's back (<c>TRANSPORT-2</c>): not a single-use body, which cannot be written twice, and not a body-less request,
-/// which a native client re-sends silently after a reset that comes before any response byte.
+/// which a native client re-sends silently when its connection ends before any response byte.
 /// </summary>
 internal static class ConcurrencyAssertions
 {
@@ -54,12 +54,14 @@ internal static class ConcurrencyAssertions
     }
 
     // TRANSPORT-2: the native client's own retry is off, so a request that carries nothing a second write could be refused for (a POST,
-    // a DELETE or a GET with no body) reaches the server exactly once when the connection is reset after the server read it and before
+    // a DELETE or a GET with no body) reaches the server exactly once when the connection is closed after the server read it and before
     // any response byte. Native clients re-send such a request silently, on a warmed keep-alive connection and on a new one, so the
-    // pipeline's retry budget is spent behind its back and a non-idempotent request is delivered more than once.
+    // pipeline's retry budget is spent behind its back and a non-idempotent request is delivered more than once. The server closes in
+    // order (ClosedUnanswered), never with Abort: the verdict turns on what the client's read reports, and only an orderly close is
+    // reported the same way on every platform.
     private static async Task BodylessNotResentAsync(SuiteContext context, CancellationToken cancellationToken)
     {
-        var server = context.StartServer(request => request.Target == WarmPath ? LoopbackResponse.Ok("warm", keepAlive: true) : LoopbackResponse.Abort());
+        var server = context.StartServer(request => request.Target == WarmPath ? LoopbackResponse.Ok("warm", keepAlive: true) : ClosedUnanswered());
         var transport = context.CreateTransport();
 
         foreach (var method in new[] { Method.Post, Method.Delete, Method.Get })
@@ -81,6 +83,20 @@ internal static class ConcurrencyAssertions
                 arrivals.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
     }
+
+    /// <summary>
+    /// The reply <c>transport-2.bodyless-not-resent</c> ends every unanswered exchange with: the server has read the request, writes
+    /// nothing and closes the connection in order (a FIN and no reset), the dead keep-alive connection a pooling client re-sends on.
+    /// </summary>
+    /// <remarks>
+    /// Every platform reports an orderly close to the client's pending read as an end of stream, which is the one failure
+    /// <c>SocketsHttpHandler</c> re-sends a request with no content after (<c>HttpConnection.SendAsync</c> marks the request
+    /// retryable only when that read returns zero bytes; a read that throws, a reset among them, is not re-sent). <see cref="LoopbackResponse.Abort"/>
+    /// would make the count the platform's: its FIN is followed by a reset, Linux's receive path reports the FIN first (four
+    /// arrivals) and macOS's checks the socket's error first, so a read that starts after the reset landed fails and is not
+    /// re-sent (one arrival, or two when the first read won the race and the second lost it).
+    /// </remarks>
+    internal static LoopbackResponse ClosedUnanswered() => LoopbackResponse.Raw(ReadOnlySpan<byte>.Empty, closeConnection: true);
 
     // A GET that warms the transport's connection: a pooling client now holds a keep-alive connection to reuse for the next request.
     private static async Task WarmAsync(LoopbackServer server, IFaceTransport transport, CancellationToken cancellationToken)
