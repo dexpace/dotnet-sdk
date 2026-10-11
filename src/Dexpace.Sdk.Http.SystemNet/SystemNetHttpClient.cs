@@ -114,8 +114,10 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </para>
 /// <para>
 /// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
-/// carrying a control character is dropped. An unparseable <c>Content-Type</c> becomes "no media type"
-/// (TRANSPORT-27), and if adapting the response throws, the native response is disposed first (TRANSPORT-22).
+/// carrying a control character is dropped alone and logged by name (TRANSPORT-14, event 112). A malformed header <em>name</em> is
+/// not reachable here: <c>SocketsHttpHandler</c> refuses the whole response before this adapter sees a header (design §10 entry 32).
+/// An unparseable <c>Content-Type</c> becomes "no media type" (TRANSPORT-27), and if adapting the response throws, the native
+/// response is disposed first (TRANSPORT-22).
 /// </para>
 /// <para>
 /// <b>Trace context (design §8.1, phase 5c P5c-11).</b> <c>InstrumentationPolicy</c> stamps the attempt span's
@@ -133,15 +135,9 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </remarks>
 public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
 {
-    private static readonly Action<ILogger, string, Exception?> s_inboundHeaderDropped = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(3, "InboundHeaderDropped"),
-        "Dropped the '{HeaderName}' response header: its value carries a control character (HTTP-19, XCUT-18).");
-
     private readonly SystemHttpClient _client;
     private readonly bool _ownsClient;
     private readonly SendSettings _settings;
-    private readonly ILogger _logger;
     private readonly HeaderDropLog _drops;
     private readonly OutboundHeaderMapper _mapper;
     private int _disposed;
@@ -162,9 +158,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// drops to <paramref name="logger"/>.
     /// </summary>
     /// <param name="logger">
-    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
-    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
-    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// Receives an entry per dropped header, naming it and never its value (events 110 to 112, ids from <c>DexpaceLogEvents</c>):
+    /// a <see cref="LogLevel.Warning"/> for the first drop of a request header name the native client cannot send and a
+    /// <see cref="LogLevel.Debug"/> for every later drop of it, a <see cref="LogLevel.Debug"/> for a framing header the transport
+    /// computes itself, and a <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// <b>Breaking</b> (phase 8b): these were events 1 to 3, and a repeated drop was a <see cref="LogLevel.Warning"/> each time.
+    /// Use <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> to log every drop loudly or only at debug.
     /// </param>
     public SystemNetHttpClient(ILogger logger)
         : this(OptionsFor(logger))
@@ -232,9 +231,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// </summary>
     /// <param name="client">The HTTP client to wrap.</param>
     /// <param name="logger">
-    /// Receives an entry per dropped header, naming it and never its value: <see cref="LogLevel.Debug"/> for a framing
-    /// header the transport computes itself, <see cref="LogLevel.Warning"/> for a header that is not valid on the
-    /// wire, and <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// Receives an entry per dropped header, naming it and never its value (events 110 to 112, ids from <c>DexpaceLogEvents</c>):
+    /// a <see cref="LogLevel.Warning"/> for the first drop of a request header name the native client cannot send and a
+    /// <see cref="LogLevel.Debug"/> for every later drop of it, a <see cref="LogLevel.Debug"/> for a framing header the transport
+    /// computes itself, and a <see cref="LogLevel.Debug"/> for a response header dropped on the inbound path.
+    /// <b>Breaking</b> (phase 8b): these were events 1 to 3, and a repeated drop was a <see cref="LogLevel.Warning"/> each time.
+    /// Use <see cref="SystemNetHttpClientOptions.HeaderDropLogging"/> to log every drop loudly or only at debug.
     /// </param>
     public SystemNetHttpClient(SystemHttpClient client, ILogger logger)
         : this(client, OptionsFor(logger))
@@ -275,7 +277,6 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(options);
         _client = client;
         _ownsClient = construction != Construction.Borrowed;
-        _logger = options.Logger;
         _drops = new HeaderDropLog(options.Logger, options.HeaderDropLogging);
         _mapper = new OutboundHeaderMapper(_drops, CreateCapture);
         _settings = new SendSettings(
@@ -559,7 +560,7 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
                 }
                 catch (ArgumentException)
                 {
-                    s_inboundHeaderDropped(_logger, HttpHeaderSyntax.EscapeName(name), null);
+                    _drops.InboundDropped(name);
                 }
             }
         }
