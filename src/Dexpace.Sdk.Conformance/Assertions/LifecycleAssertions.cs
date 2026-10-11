@@ -96,7 +96,23 @@ internal static class LifecycleAssertions
         }
         finally
         {
+            TryDelete(path);
+        }
+    }
+
+    // Best effort: on Windows a handle a broken transport leaked makes the delete throw, and that IOException must not replace
+    // the assertion's own failure (the leak is what it reports).
+    private static void TryDelete(string path)
+    {
+        try
+        {
             File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
         }
     }
 
