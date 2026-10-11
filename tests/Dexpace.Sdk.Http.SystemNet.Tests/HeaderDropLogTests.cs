@@ -122,20 +122,28 @@ public sealed class HeaderDropLogTests
     }
 
     [Fact]
-    public void Concurrent_first_drops_of_one_name_warn_exactly_once()
+    public async Task Concurrent_first_drops_of_one_name_warn_exactly_once()
     {
+        const int Threads = 64;
         var logger = new RecordingLogger();
         var log = new HeaderDropLog(logger, HeaderDropLogging.FirstPerName);
-        using var barrier = new Barrier(64);
+        using var go = new ManualResetEventSlim(initialState: false);
 
-        Parallel.For(0, 64, _ =>
-        {
-            barrier.SignalAndWait(TestContext.Current.CancellationToken);
-            log.Dropped("X-Race");
-        });
+        // Dedicated threads released together: a pool-backed barrier of 64 would starve the thread pool until it grew.
+        var workers = Enumerable.Range(0, Threads).Select(_ => Task.Factory.StartNew(
+            () =>
+            {
+                go.Wait(TestContext.Current.CancellationToken);
+                log.Dropped("X-Race");
+            },
+            TestContext.Current.CancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default)).ToArray();
+        go.Set();
+        await Task.WhenAll(workers);
 
         Assert.Equal(1, logger.Entries.Count(entry => entry.Level == LogLevel.Warning));
-        Assert.Equal(63, logger.Entries.Count(entry => entry.Level == LogLevel.Debug));
+        Assert.Equal(Threads - 1, logger.Entries.Count(entry => entry.Level == LogLevel.Debug));
     }
 
     [Fact]
