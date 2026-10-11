@@ -43,8 +43,9 @@ here. The DI package's guidance (phase 9) says the same.
 The reference transport's own `SocketsHttpHandler` is the one native retry the SDK cannot turn off yet: it exposes no switch, and it re-sends
 a request whose connection ends before any response byte (the server closed it; a reset is not re-sent) up to three more times, so a request
 that carries no content (a `GET`, a `DELETE`, a body-less `POST`) can reach the server more than once for a single SDK attempt. A request with a single-use body is never
-re-written. The conformance kit measures it (`transport-2.bodyless-not-resent`, waived for phase 8b; [`conformance.md`](./conformance.md)), and
-8b either turns it off or records the clause as unmet.
+re-written. The conformance kit measures it (`transport-2.bodyless-not-resent`; [`conformance.md`](./conformance.md)). *Dated correction, 2026-10-11 (phase 8b):* the
+transport now keeps it off for a body-less `POST`, `PUT` and `PATCH` (a zero-length content, the same bytes on the wire) and records the idempotent methods that are still re-sent (`GET`, `HEAD`,
+`OPTIONS`, `DELETE`, `TRACE`) as unmet on a stated domain, design §10 entry 33 ([`transport.md`](./transport.md)); a `GET` can still reach the server more than once for one SDK attempt.
 
 ## What is retried
 

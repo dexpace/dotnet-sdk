@@ -116,7 +116,7 @@ predicates the model itself uses are public so that no transport restates them (
 | `EscapeName(string)` | every non-token character as `\uXXXX`, for a log line |
 
 Header names that `HttpClient` knows (`Accept`, `Content-Type`, `User-Agent`, ...) go out in `HttpClient`'s own
-casing; a custom name goes out as the caller wrote it. Mapping the known names is phase 8b's (`TRANSPORT-10`).
+casing; a custom name goes out as the caller wrote it. (*Dated correction, 2026-10-11:* phase 8b's `TRANSPORT-10` is the `Content-Type` authority, not a casing map; the known names keep `HttpClient`'s casing, which no requirement asks to change. See [`transport.md`](./transport.md).)
 
 ## `Query`
 

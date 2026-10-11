@@ -60,7 +60,7 @@ one- or two-digit day, a case-insensitive month, the zones `GMT`, `UTC` (any cas
 
 `ProxyOptions` is the transport-facing proxy model: `Type` (`Http`, `Socks4`, `Socks5`), `Host`, `Port`, an ordered `NonProxyHosts` glob
 list, `UserName` and `Password`, an `ICredentials?` `ChallengeCredentials` slot, and `BypassAll`. It is **not** a property of
-`DexpaceClientOptions`, and installing it in a transport is phase 8b's job. `ToString` prints `***` for a present credential
+`DexpaceClientOptions`, and installing it in a transport is the transport's job (built by phase 8b: `SystemNetHttpClientOptions.Proxy`, see [`transport.md`](./transport.md); the transport never reads the environment itself). `ToString` prints `***` for a present credential
 (`CFG-22`). `IsBypassed(host)` matches the globs `*` (any run) and `?` (one character), full-string and case-insensitive, with every
 other character literal (`CFG-23`). Write `*.internal.example.com`: a leading dot is a **literal**, unlike curl and
 `HttpClient.DefaultProxy`.

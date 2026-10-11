@@ -245,6 +245,10 @@ Forty-three assertions, with stable names (renaming one breaks a consumer's waiv
 The rows `TRANSPORT-1`, `-4`, `-5`, `-6`, `-8`, `-9`, `-10`, `-12`, `-13`, `-14`, `-17`, `-18`, `-28` and `-30` are phase 8b's work on the
 reference transport; the kit asserts them all so that 8b is proven by it. `TRANSPORT-14` is split into its three clauses so a
 transport that cannot meet one (a native client that rejects a whole response over a malformed header *name*) waives that one alone.
+*Dated correction, 2026-10-11 (phase 8b):* the rows are built ([`transport.md`](./transport.md)), the reference transport's driver runs the whole kit
+through both of its constructions (the owned one and the handler-taking one, each with a `CreateWithProxy` hook, so `transport-30` is no longer
+`NotExercised`), and no waiver with `Owner = "8b"` remains. Two permanent, assertion-scoped waivers are left (`Owner = null`):
+`transport-14.name-malformed-dropped` (design §10 entry 32) and `transport-2.bodyless-not-resent` (entry 33).
 
 `TRANSPORT-2` has two assertions because the clause has two halves. `transport-2.no-silent-resend` is the specification's own
 conformance sentence: a single-use body whose exchange was reset reaches the server at most once. A native client never re-writes
@@ -253,7 +257,9 @@ does: a body-less `POST`, `DELETE` and `GET` on a warmed keep-alive connection, 
 them and before any response byte, must each arrive exactly once. The close is orderly, not `Abort()`'s FIN and reset: whether a native
 client re-sends turns on what its read reports, and only an orderly close is reported the same way, as an end of stream, on every
 platform. `SocketsHttpHandler` has no switch for its own retry and re-sends such a request up to three more times, so the reference
-transport is waived for it (owner `8b`) on every platform while it passes the first half.
+transport was waived for it (owner `8b`) on every platform while it passed the first half. *Dated correction, 2026-10-11 (phase 8b):* the
+transport now sends a body-less `POST`, `PUT` and `PATCH` once (a zero-length content, the wire unchanged), so the assertion's `POST` step passes, but its `DELETE` and
+`GET` steps still arrive four times: the waiver is permanent (`Owner = null`), narrowed to this assertion, and turns stale if the runtime ever stops the retry.
 
 Two assertions measure whether their clause applies instead of asking the subject. `transport-13.drop-log-once-per-name` governs a header
 the transport dropped, so a transport that put both headers on the wire dropped none and the result is `Vacuous` (no waiver needed). And
