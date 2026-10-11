@@ -131,9 +131,16 @@ public class SystemNetHttpClientTests
             () => transport.Execute(Request.Get("https://example.test/ping"), RequestOptions.Empty, cts.Token));
     }
 
-    // Honours the token the way a real handler does, so the sync call's token is observable without a socket.
+    // Honours the token the way a real handler does, so the sync call's token is observable without a socket. It overrides Send as
+    // well as SendAsync, because the transport's Execute is genuinely synchronous (phase 8b, G1).
     private sealed class TokenObservingHandler : HttpMessageHandler
     {
+        protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)

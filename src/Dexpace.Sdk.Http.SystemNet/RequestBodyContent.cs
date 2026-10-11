@@ -26,6 +26,11 @@ internal sealed class RequestBodyContent : HttpContent
     protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
         _body.WriteToAsync(stream);
 
+    // The synchronous twin (SEAM-11, TRANSPORT-17; phase 8b): HttpClient.Send writes the body here, on the calling thread, through
+    // the body's own WriteTo, so a single-use body is written once and nothing blocks on an asynchronous write.
+    protected override void SerializeToStream(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+        _body.WriteTo(stream, cancellationToken);
+
     protected override Task SerializeToStreamAsync(
         Stream stream,
         TransportContext? context,

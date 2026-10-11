@@ -64,6 +64,24 @@ public sealed class TracePropagationWireTests
     }
 
     [Fact]
+    public async Task The_synchronous_face_strips_the_stamp_the_same_way()
+    {
+        // Phase 8b: the sync terminal builds its message with the one ToHttpRequestMessage, so it inherits the strip (5c's hand-off).
+        using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk", "System.Net.Http");
+        await using var server = LoopbackServer.Start(LoopbackResponse.Ok("ok"));
+        await using var transport = OwnedTransport();
+        using var pipeline = PipelineOver(transport);
+
+        using var response = await Task.Run(() => pipeline.Send(Request.Get(server.Url("/traced").AbsoluteUri), Ct), Ct);
+
+        var attempt = Assert.Single(recorder.StartedOfKind(ActivityKind.Client), a => a.Source.Name == "Dexpace.Sdk");
+        var runtime = Assert.Single(recorder.Started, a => a.Source.Name == "System.Net.Http");
+        var wire = Parse(Assert.Single(server.Requests).Header("traceparent")!);
+        Assert.Equal(runtime.SpanId.ToHexString(), wire.ParentId);
+        Assert.NotEqual(attempt.SpanId.ToHexString(), wire.ParentId);
+    }
+
+    [Fact]
     public async Task The_attempt_span_is_the_wire_parent_without_a_runtime_listener()
     {
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");

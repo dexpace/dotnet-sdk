@@ -68,7 +68,7 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// now <c>ExecuteAsync(Request, RequestOptions, CancellationToken)</c> and
 /// <c>Execute(Request, RequestOptions, CancellationToken)</c>, with no parameter defaults. Callers that import
 /// <c>Dexpace.Sdk.Core.Client</c> keep calling <c>ExecuteAsync(request, token)</c> through its option-less extension.
-/// The synchronous call is sync-over-async until the real synchronous path lands (SEAM-11).
+/// The synchronous call is genuinely synchronous as of phase 8b (below).
 /// </para>
 /// <para>
 /// <b>Deadlines and failures (TRANSPORT-4, -5, -6, -8, -20; XCUT-1, XCUT-2).</b> A call's deadline is
@@ -356,12 +356,59 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     }
 
     /// <inheritdoc/>
-    // The transport's documented sync bridge (design §3.3). CA2000 reads the awaited Task as an undisposed
-    // IDisposable; a Task needs no disposal (it holds no wait handle unless one is requested).
-#pragma warning disable RS0030, CA2000
-    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
-        ExecuteAsync(request, options, cancellationToken).GetAwaiter().GetResult();
-#pragma warning restore RS0030, CA2000
+    /// <remarks>
+    /// <para>
+    /// Genuinely synchronous (SEAM-11, PIPE-28): it calls <c>HttpClient.Send</c> on the calling thread and writes the request body
+    /// through the body's own <see cref="RequestBody.WriteTo"/>, with no sync-over-async anywhere. The deadline, the failure
+    /// classification and the guarded adaptation are the asynchronous face's (see <see cref="ExecuteAsync"/>).
+    /// </para>
+    /// <para>
+    /// <b>The handler hazard.</b> <c>HttpClient.Send</c> needs a handler that implements <c>Send</c>. The runtime's own handlers
+    /// do. A custom primary handler that overrides only <c>SendAsync</c> makes this method throw
+    /// <see cref="NotSupportedException"/> (loudly), and a <see cref="DelegatingHandler"/> in a chain that overrides only
+    /// <c>SendAsync</c> is skipped silently on this face, because the runtime forwards the synchronous call straight to its inner
+    /// handler. Implement <c>Send</c> in such a handler, or call <see cref="ExecuteAsync"/>.
+    /// <b>Breaking</b> (phase 8b): <c>Execute</c> used to block on the asynchronous send, which honoured a <c>SendAsync</c>-only handler.
+    /// </para>
+    /// <para>
+    /// A <see cref="RequestBody"/> subclass that does not override <see cref="RequestBody.WriteTo"/> fails the send with
+    /// <see cref="NotSupportedException"/>; every body the SDK creates overrides it.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The transport was disposed (SEAM-15).</exception>
+    /// <exception cref="NotSupportedException">The primary handler implements no <c>Send</c>, or the body implements no synchronous write.</exception>
+    /// <exception cref="SdkException">
+    /// A caller-supplied client followed a redirect itself (TRANSPORT-1), as <see cref="ExecuteAsync"/> documents.
+    /// </exception>
+    public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        using var message = ToHttpRequestMessage(request);
+
+        var sentUri = message.RequestUri!;
+        HttpResponseMessage native;
+        using (var deadline = CallDeadline.Start(CallDeadline.Effective(options, _settings.Timeout), _settings.TimeProvider, cancellationToken))
+        {
+            try
+            {
+                native = _client.Send(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+            }
+            catch (Exception ex) when (SendFailures.IsTransportFailure(ex))
+            {
+                var mapped = SendFailures.Map(ex, deadline.Fired, cancellationToken);
+                if (ReferenceEquals(mapped, ex))
+                {
+                    throw;
+                }
+
+                throw mapped;
+            }
+        }
+
+        return AdaptGuarded(native, sentUri, request);
+    }
 
     /// <inheritdoc/>
     public void Dispose()
