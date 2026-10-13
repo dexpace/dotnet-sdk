@@ -30,4 +30,14 @@ public sealed class SystemNetHttpClientSurfaceTests
             Assert.All(member.GetParameters(), p => Assert.False(p.HasDefaultValue, $"{member.Name}({p.Name}) declares a default"));
         }
     }
+
+    [Fact]
+    public void The_public_surface_gains_exactly_CreatePrimaryHandler()
+    {
+        var method = typeof(SystemNetHttpClient).GetMethod("CreatePrimaryHandler", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        Assert.Equal(typeof(System.Net.Http.SocketsHttpHandler), method!.ReturnType);
+        Assert.Equal(typeof(SystemNetHttpClientOptions), Assert.Single(method.GetParameters()).ParameterType);
+    }
 }

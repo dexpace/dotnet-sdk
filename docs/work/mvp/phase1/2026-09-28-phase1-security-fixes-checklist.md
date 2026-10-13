@@ -96,3 +96,8 @@ The 8b clauses of S1, S2, S3 and S9 are closed by the [8b checklist](../phase8/p
 `HeaderDropLogging` (event 110 for a request header, 112 for a response header; the unsafe-header test still sees one `Warning` for the first drop of a name) and the `Content-Type` question is settled (the caller's header
 wins). S2 and `TRANSPORT-11`: the framing drops are event 111, still `Debug` and still never a value. S3 and `TRANSPORT-1`: the handler-taking constructor rejects a primary handler that follows redirects. S9 and `TRANSPORT-22`/`-27`:
 the dispose-on-throw runs through `NativeDisposal` on both faces. The rows above stand as written.
+
+## Dated correction, 2026-10-13 (phase 9)
+
+S3's row 9 hand-off is **closed**: the DI package configures each named client's primary handler with `AllowAutoRedirect = false`, and `NamedClientRedirectWireTests` (`Security`, `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Security/`) proves it at the wire over two loopback origins: the named client returns the 3xx and never contacts the target, a cross-origin hop through
+the pipeline carries no credential, and a substituted redirect-following primary fails the resolution before either origin is contacted. The phase-1 `Security` classes are unedited.

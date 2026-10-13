@@ -470,6 +470,10 @@ not reproduced as "not reproduced here" any more: the kit measures it (`HttpConn
 extension method is sent with a zero-length content, which is byte for byte what the native client writes for those methods, and cannot be re-sent; a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` still is
 (**TRANSPORT-2**, §10 entry 33; P8b-T2). *Dated correction*; the paragraphs above stand as written.
 
+**Correction (2026-10-13, phase 9, `TRANSPORT-1`): the named client's primary handler.** The DI package builds each named client's primary through `SystemNetHttpClient.CreatePrimaryHandler(options)` (`AllowAutoRedirect = false`, direct unless a proxy was asked
+for, server credentials unset), composes it with `IHttpClientFactory`'s chain (`RemoveAllLoggers()`, an infinite handler lifetime and a `PooledConnectionLifetime`, a container-owned lease that releases the primary) and builds the transport with the 8b handler constructor, whose
+redirect check walks the chain to the primary: a caller who swaps in a redirect-following primary fails at first resolution (phase 9 V3, V8, P9-12, P9-13). `NamedClientRedirectWireTests` (`Security`) is phase 1 S3's row 9.
+
 ### 3.3 The asynchronous transport seam and the canonical pivot
 
 **What the reference requires and why.** **SEAM-16** requires the async transport's future to "complete either with a
@@ -855,6 +859,11 @@ why neither is ever activated by presence.
 
 **As built (d45e64b):** built — diverges: core has no registry and takes the transport explicitly, as designed; the DI
 package and its single-registration validation are not built.
+
+**As built (2026-10-13, phase 9): `SEAM-5`, `SEAM-6` and `SEAM-7` under DI.** `AddDexpaceClient` registers `HttpPipeline`, `IAsyncHttpClient`, `ISerde` and `DexpaceClientOptions` as keyed singletons per client. `UseTransport` and `UseSerde` replace the package's default
+descriptor; `SEAM-6`'s "different provider" failure is thrown **at the `Use*` call**, naming the client and both implementations, earlier than this section's validator timing (P9-16); the validator scans the captured `IServiceCollection` for keyed `IAsyncHttpClient` and `ISerde`
+descriptors under the client's key (more than one fails listing each, none fails with the install hint), because `GetRequiredKeyedService` silently resolves the last (§11 item 8, measured, V4). `SEAM-7` is the keyed singleton, created once under 64 concurrent first resolutions (`KeyedSingletonTests`);
+`SEAM-7` stays N/A. `SEAM-8` to `SEAM-10` are unchanged.
 
 ### 3.7 Lifecycle and ownership
 

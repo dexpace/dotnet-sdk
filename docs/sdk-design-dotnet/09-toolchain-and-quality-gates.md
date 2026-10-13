@@ -91,6 +91,8 @@ names `BoundedMap`'s slot.
 **Dated correction, 2026-10-11 (phase 8b, P8b-4).** The banned list gains `HttpClient.DefaultProxy` (get and set): the runtime's process-wide proxy reads `HTTP(S)_PROXY` and `NO_PROXY` implicitly and diverges from
 the specification's bypass dialect (§8.2), so no `src/` code reads or sets it. The transport installs a `ProxyOptions`-backed `IWebProxy` or goes direct.
 
+**Correction (2026-10-13, phase 9): the banned list gains `ConfigurationBinder`** (`T:Microsoft.Extensions.Configuration.ConfigurationBinder`): bind through the DI package's reader (P9-4, V1). The type arrives transitively with `Microsoft.Extensions.Http` and is banned, not removed.
+
 ### 9.2 The zero-dependency gate, and NFR-8 applying literally
 
 **NFR-8** exempts ecosystems without whole-program dead-code elimination; .NET has two — ILLink trimming and
@@ -201,6 +203,9 @@ security measure on .NET
 strong-named consumers cannot reference an unsigned assembly, with the key committed as Microsoft's library guidance
 recommends.
 
+**Correction (2026-10-13, phase 9): the audit's policy record and the AOT smoke.** `scripts/ci/dependency-audit.cs` holds each library to `Policy(ThirdParty, Projects)`: the allowed packages are the closure of the facade and of the one third-party root, the allowed projects the closure of core and of the
+first-party projects the policy names, and every listed Dexpace project must carry the library's lockstep version (P9-3). "At most one third-party library" counts a root package whose closure is one publisher's lock-stepped family as one library (§10 entry 2). The AOT smoke gains `CheckPhase9Async` over the DI package (P9-21, V7).
+
 ### 9.3 Tests, and why a local server rather than only a stubbing library
 
 **xUnit is the framework, and the conformance kit is framework-free.** The house guide wants xUnit v3 on
@@ -288,6 +293,8 @@ adapters to test: the pivot is the runtime's `Task` (§3.3), so **ASYNC-1**, **A
 vacuous-by-antecedent (§11 item 21). **B.9** is this chapter's table, with **NFR-8**/**NFR-9**
 applicable and exercised. A failing item the port has decided not to satisfy is reported as a failure by the kit and
 suppressed in this repository's build by a named waiver listing the requirement ID, so the gap stays visible.
+
+**Correction (2026-10-13, phase 9): a third conformance driver.** `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/` runs the kit over the DI-built transport on both faces, with the two permanent assertion-scoped waivers of the SystemNet drivers (§10 entries 32 and 33) (P9-22).
 
 ### 9.4 The vendored styleguide as quality gates
 

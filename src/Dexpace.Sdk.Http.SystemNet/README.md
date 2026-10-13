@@ -19,6 +19,10 @@ What a constructor takes says who owns what:
 A handler whose primary `SocketsHttpHandler`/`HttpClientHandler` follows redirects (`AllowAutoRedirect` defaults to `true`) is
 rejected with `ArgumentException`: the SDK's `RedirectPolicy` is the only redirect authority. Set `AllowAutoRedirect = false`.
 
+`SystemNetHttpClient.CreatePrimaryHandler(SystemNetHttpClientOptions)` returns the `SocketsHttpHandler` the owned construction builds (no redirects, direct unless a proxy is set, server credentials
+unset), for a primary handler in an `IHttpClientFactory` chain; the caller owns it, and the handler constructor then takes the chain with `Proxy` left `null`.
+[`Dexpace.Sdk.Extensions.DependencyInjection`](https://www.nuget.org/packages/Dexpace.Sdk.Extensions.DependencyInjection) builds a named client that way.
+
 ## Behaviour
 
 - **Streaming.** Response bodies are delivered as live streams (`HttpCompletionOption.ResponseHeadersRead`),

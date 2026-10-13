@@ -23,6 +23,7 @@ dotnet format  Dexpace.Sdk.sln --verify-no-changes            # formatting gate 
 dotnet test    --solution Dexpace.Sdk.sln --configuration Release
 dotnet test    --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-trait "Category=Security"
 dotnet test    --project tests/Dexpace.Sdk.Http.SystemNet.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the reference transport
+dotnet test    --project tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the DI-built named-client transport
 dotnet pack    Dexpace.Sdk.sln --configuration Release --output artifacts/packages
 ```
 
@@ -77,7 +78,8 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   `Microsoft.Extensions.Logging.Abstractions` (band-matched to the target, 10.0.x), and build-only packages
   marked `PrivateAssets="all"`. The logging facade is a recorded deviation (`logging-abstractions-dependency`,
   design §10); nobody re-litigates it, and nothing else is added. Adapters are held to the same rule plus
-  NFR-2's "at most one third-party library". `scripts/ci/dependency-audit.cs` enforces it on every pack.
+  NFR-2's "at most one third-party library", where a root package whose closure is one publisher's lock-stepped family counts as one (the DI package's is `Microsoft.Extensions.Http`, design §10 entry 2).
+  `scripts/ci/dependency-audit.cs` enforces it on every pack, from one policy record per library (its one third-party root and the first-party projects it may reference).
 - **Narrow, fully-documented public API.** `GenerateDocumentationFile` is on, so every public member
   needs a `///` XML doc comment (missing docs are CS1591 → build error). Implementation helpers are
   `internal`, with `InternalsVisibleTo` granted to the library's own test project only.
@@ -143,16 +145,18 @@ dotnet-sdk/
 │   │   └── Errors/                  # SdkException hierarchy, IRetryableError, OperationTimeoutException, RedirectException (+ downgrade / not-replayable leaves), SerdeException, ExceptionFacts, ExceptionTrail
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient; SystemNetHttpClientOptions, HeaderDropLogging
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
+│   ├── Dexpace.Sdk.Extensions.DependencyInjection/ # host integration: AddDexpaceClient, DexpaceClientBuilder, the configuration reader and its grammars, validation, the named client over IHttpClientFactory
 │   └── Dexpace.Sdk.Conformance/                 # the transport conformance kit (core only): TransportSuite, TransportSubject, the report and waivers, Wire/ (the loopback fixture)
 ├── tests/
 │   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37 and SSE-38
 │   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over the kit's Wire/ server and SystemNetConformanceTests (the kit's driver over both constructions, with its two permanent waivers)
 │   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, a negative control per assertion (Controls/), the raw-socket client (RawSocket/) and its driver (Drivers/)
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
+│   ├── Dexpace.Sdk.Extensions.DependencyInjection.Tests/ # the reader, registration, the named client, the third conformance driver (Conformance/) and NamedClientRedirectWireTests (Security/)
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
 ├── scripts/
-│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs, reproducible-pack.sh
+│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs (one policy record per library), reproducible-pack.sh
 │   └── knowledge                    # the knowledge-lookup CLI
 ├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/{housekeeping,knowledge-harvest}/{src,tests}
 ├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates
@@ -224,6 +228,11 @@ Layered, bottom-up:
   `tests/Dexpace.Sdk.Conformance.Tests/Controls/` that it must fail (`AssertionCatalogueTests` fails an assertion with none); a leaked-socket control must root what it leaks, because a finalizer
   closes it otherwise. A `ConformanceWaiver` whose assertion now passes fails the run, so fixing a requirement means deleting its waiver in the same change. The kit never calls `Task.Delay`, and a release check
   needs a keep-alive reply, never a `Connection: close` one.
+- **Host integration is configured by a reader, not the binder, and fails at start naming the key.** `Dexpace.Sdk.Extensions.DependencyInjection` reads the `IConfigurationSection` the caller hands `AddDexpaceClient` with its own grammars
+  (`ConfigurationBinder` is banned in `src/`: the generator binds no `init` accessor, the reflection mode is not AOT-safe); every bad value, rejected setting and unknown key fails `ValidateOnStart` at once as `"<path>: <rule>"`, never quoting a configured
+  value (a numeric accessor message may echo the number), and with no host `IStartupValidator.Validate()` or the first resolution fails the same way. An empty value is absent (it silently shadows a lower provider); there is no reload; a codec is required
+  (`UseSerde`); dispose the provider with `DisposeAsync` (a synchronous dispose throws for an async-only transport); no configuration value turns the environment proxy read on. Compose `AddStandardResilienceHandler` with
+  `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, never with the SDK's `MaxRetryAttempts = 0` (`docs/sdk-documentation/dependency-injection.md`).
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
   reference them without a `Version` attribute.
 
@@ -302,5 +311,6 @@ form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport co
 the six result statuses and the by-ID waivers that must stay needed, the loopback `Wire` fixture promoted into it, the two drivers (the reference transport and a test-only raw-socket client) and the requirement
 catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`; and phase 8b's hardening of the reference transport — the options record and four constructors, the handler check, the
 installed proxy, the per-call deadline with its one failure classification, the real synchronous send, the header partition and drop policy, the bounded re-send capture and the `ObjectDisposedException` latch, with the kit green against both constructions and two permanent assertion-scoped
-waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33) — see `docs/sdk-documentation/transport.md`): the DI package
-`Dexpace.Sdk.Extensions.DependencyInjection` (9), and the release path (12).
+waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33) — see `docs/sdk-documentation/transport.md`; and phase 9's host integration — the DI package `Dexpace.Sdk.Extensions.DependencyInjection`: `AddDexpaceClient` and the builder, the hand-written configuration reader and its grammars, the validator with `ValidateOnStart`, the named client over
+`IHttpClientFactory` with its redirect-off primary and container-owned lease, the single-registration check, `DexpaceConfigurationKeys`, the audit's policy record, the third conformance driver — see `docs/sdk-documentation/dependency-injection.md`): only the cross-cutting invariant and
+conformance suites (10), the deviation audit (11) and the release path (12).

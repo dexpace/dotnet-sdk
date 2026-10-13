@@ -886,3 +886,14 @@ finding was checked against the source first. One line each; the plan follows th
 
 **Open rulings after validation** (taken at their recommended defaults): P9-1, P9-2, P9-4, P9-5, **P9-7 (now open)**, P9-9 (unknown keys), P9-10, P9-12, P9-15, P9-17, P9-19, P9-20,
 **P9-28 (new)** and **P9-29 (new)**. Row tally unchanged by the resolution: 15 owned rows, 13 ✅ (5 split), 2 N/A, 0 🚫, 0 ⏳.
+
+## Correction (2026-10-13): which keyed services fail on invalid configuration
+
+D and the "Zero candidates" bullet say the client fails the resolution of "each of its keyed services" (and "any of the client's keyed services"). That is true of
+every service **the package builds** (the transport, the pipeline, the options, a codec created by a `UseSerde(Func<…>)` factory) and untrue of a caller-supplied
+instance: `UseSerde(instance)` and `UseTransport(instance)` are returned as given and never consult the validated state, so resolving the keyed `ISerde` with bad
+configuration succeeds. The code stays as built: wrapping a caller's instance in a factory would make the container dispose it, breaking `XCUT-22`. The start-up
+failure (`ValidateOnStart`, `IStartupValidator.Validate()`) is unchanged and still reports every failure. `dependency-injection.md` carries the corrected wording.
+
+A second, same-day finding: a value set on a **group** key (`Transport:Proxy`, `Auth`, `Auth:ApiKey`, `Retry`) failed nothing and was dropped silently, against P9-9. It
+now fails as `"<path>: a group of keys, not a value (…)"` with a fixed rule text that never quotes the value; an empty or blank value stays absent (P9-7).

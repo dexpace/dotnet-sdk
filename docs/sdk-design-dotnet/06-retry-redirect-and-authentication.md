@@ -212,6 +212,10 @@ above stands as written, with six *dated corrections*:
   set is classified (P6a-6).
 - **The random source is injectable through internal constructors only (P6a-27)**, not a public parameter.
 
+**Correction (2026-10-13, phase 9, `XCUT-10`, P9-19, V6): the guidance for a resilience handler.** Measured on `Microsoft.Extensions.Http.Resilience` 10.10.0: `AddStandardResilienceHandler(o => o.Retry.MaxRetryAttempts = 0)` fails the handler's own options validation, and under its defaults the handler
+re-sent a `POST` body (the server was reached four times for one SDK attempt). The "set the SDK's own `MaxRetryAttempts` to 0" option is therefore **withdrawn** (it leaves a handler retry behind the SDK's re-send gate, which is this section's hazard); the "handler without its retry" option stands and its spelling is
+`o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, which keeps the circuit breaker, rate limiter and timeouts. This replaces "cited from its documentation, not verified here". `ResilienceCompositionTests` pins it.
+
 ### 6.2 Redirect
 
 **P13 — the transport follows redirects by default, and does it wrong.** `HttpClientHandler.AllowAutoRedirect` and

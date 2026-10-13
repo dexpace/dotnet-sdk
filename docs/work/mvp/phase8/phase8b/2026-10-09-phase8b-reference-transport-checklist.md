@@ -150,3 +150,8 @@ and the roadmap's Phase Status Notes and Phase List row.
 - **10:** audits `XCUT-2` (the classification table), `XCUT-18` (the wire re-check and drop logs) and `XCUT-22` against this evidence.
 - **11:** `TRANSPORT-14`'s name clause (entry 32) and `TRANSPORT-2`'s residual (entry 33) are the sixth and seventh clauses unmet on a stated domain, **seven against the parity target of at most five** (Open items, 1): the audit must retire clauses, re-rule the target or argue the excess. The lead's decision on `TRACE` (Open items, 2) can shrink entry 33 but not remove it.
 - **12:** release notes carry breaking changes 1, 2, 3 (for a borrowed client: the 100 s default deadline) and 4 prominently; `sync-borrowed-handlers`, `explicit-proxy` and the `TRANSPORT-28` declined SHOULD are in `docs/first-release.md`.
+
+## Dated correction, 2026-10-13 (phase 9)
+
+`TRANSPORT-1` stays **✅**, with the named-client clause added: the DI package's primary handler is `SystemNetHttpClient.CreatePrimaryHandler` (`AllowAutoRedirect = false`) and the handler constructor's check refuses a caller-substituted redirect-following primary at first resolution (`NamedClientTests`, `NamedClientRedirectWireTests` (`Security`),
+`transport-1.redirect-not-followed` on the third driver). **P8b-18's disposition:** the `CallKey` stamp is **not built** in phase 9 either (P9-20): phase 9 registers no `DelegatingHandler` and reads no call context below the transport, so there is still no reader; it is a post-release trigger in `docs/first-release.md`.

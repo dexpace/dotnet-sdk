@@ -308,10 +308,6 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
             options.ResendBufferLimit,
             options.TimeProvider,
             ResendCapable: construction != Construction.Owned || CarriesProxyCredentials(options.Proxy));
-        if (construction == Construction.Owned && options.Proxy is { } proxy)
-        {
-            ProxyWarnings.Emit(options.Logger, proxy);
-        }
     }
 
     // What built the native client decides whether it can re-send a request behind the transport's back (TRANSPORT-18).
@@ -490,12 +486,41 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     // options the handler goes direct (UseProxy = false, Proxy = null), so the runtime's process-wide default proxy, which reads
     // HTTP(S)_PROXY and NO_PROXY, is never consulted (CFG-28, P8b-4); with one, an adapter over ProxyOptions is installed.
     // The handler's own Credentials stay unset, so a proxy credential can only answer a 407 from that proxy (TRANSPORT-30).
-#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8, P8b-3).
-    private static SystemHttpClient CreateOwnedClient(SystemNetHttpClientOptions options, Action<SocketsHttpHandler>? configure)
+    /// <summary>
+    /// Builds the <c>SocketsHttpHandler</c> the owned construction uses, so a factory-built handler chain starts from the same
+    /// invariants: it never follows a redirect (TRANSPORT-1), it goes direct unless <see cref="SystemNetHttpClientOptions.Proxy"/>
+    /// is set (CFG-28), and its server <c>Credentials</c> stay unset so a proxy credential can only answer a 407 (TRANSPORT-30).
+    /// </summary>
+    /// <param name="options">
+    /// The transport's settings. Only <see cref="SystemNetHttpClientOptions.Proxy"/> and <see cref="SystemNetHttpClientOptions.Logger"/>
+    /// are read: the logger receives the TRANSPORT-30 warnings for a proxy setting the native client cannot honour.
+    /// </param>
+    /// <returns>A new handler, owned by the caller.</returns>
+    /// <remarks>
+    /// The caller owns the returned handler and must dispose it. Pass it as the primary handler of a chain whose outermost handler is given
+    /// to <see cref="SystemNetHttpClient(HttpMessageHandler, SystemNetHttpClientOptions)"/>, with a <see cref="SystemNetHttpClientOptions"/>
+    /// whose <see cref="SystemNetHttpClientOptions.Proxy"/> is <see langword="null"/>: that constructor refuses a proxy (TRANSPORT-15),
+    /// because a handler you own keeps its own.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public static SocketsHttpHandler CreatePrimaryHandler(SystemNetHttpClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         var proxy = options.Proxy is { } configured ? new ProxyOptionsWebProxy(configured) : null;
         var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = proxy is not null, Proxy = proxy };
+        if (options.Proxy is { } warned)
+        {
+            ProxyWarnings.Emit(options.Logger, warned);
+        }
+
+        return handler;
+    }
+
+#pragma warning disable RS0030 // The transport's owned-client factory: the one sanctioned construction (styleguide 13.8, P8b-3).
+    private static SystemHttpClient CreateOwnedClient(SystemNetHttpClientOptions options, Action<SocketsHttpHandler>? configure)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var handler = CreatePrimaryHandler(options);
         configure?.Invoke(handler);
         return new(handler) { Timeout = Timeout.InfiniteTimeSpan };
     }

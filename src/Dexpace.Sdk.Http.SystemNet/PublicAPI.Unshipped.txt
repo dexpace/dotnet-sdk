@@ -35,5 +35,6 @@ Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Timeout.init -> void
 override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Equals(object? obj) -> bool
 override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.GetHashCode() -> int
 override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.ToString() -> string!
+static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.CreatePrimaryHandler(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> System.Net.Http.SocketsHttpHandler!
 static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.operator !=(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? left, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? right) -> bool
 static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.operator ==(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? left, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? right) -> bool
