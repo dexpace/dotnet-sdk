@@ -183,3 +183,8 @@ The phase-start queries (`--origin note`, `--section conflicts`, `--prefix-info 
 `OBS-19`'s ⏳ 8b is closed: the transport's drop-log policy is `SystemNetHttpClientOptions.HeaderDropLogging` (`FirstPerName`, `Every`, `VerboseOnly`; `HeaderDropLogTests`, kit `transport-13.drop-log-once-per-name`), and the reserved block 110-119 is
 filled to 113 with `http.transport.header_dropped` (110), `framing_header_dropped` (111), `inbound_header_dropped` (112) and `proxy_feature_unsupported` (113), constants in `DexpaceLogEvents` with their `PublicAPI.Unshipped.txt` lines
 (`LogVocabularyTests.Id_ranges_are_inside_the_reserved_blocks` now reserves 114-119). The row is ✅ and the totals above gain one. The row above stands as written.
+
+## Dated correction, 2026-10-13 (phase 9)
+
+`OBS-35` is **✅** (a split, §10 entry 26 now touching it): `Logging:Level` is read by name only, case-insensitive and trimmed, from the section the caller passes (no baked key); a number or an unknown name fails the boot naming the key and listing the names (`LogLevelBindingTests`, `Unit`). **V4 was run** (phase 9 V1): both binder modes admit a numeric level and an
+undefined one, so the binder alone cannot satisfy the row; the DI package's hand-written reader does.

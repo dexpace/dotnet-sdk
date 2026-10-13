@@ -171,3 +171,8 @@ builds the real synchronous send, the `ObjectDisposedException` latch and `Reque
 The ⏳ 8b clauses are closed by the [8b checklist](../../phase8/phase8b/2026-10-09-phase8b-reference-transport-checklist.md). `SEAM-11`: `SystemNetHttpClient.Execute` is genuinely synchronous (`HttpClient.Send`, the body written through `RequestBody.WriteTo`) and `RequestOptions.Timeout` is enforced
 (`SyncExecuteTests`, `SyncExecuteWireTests`, `DeadlineTests`; kit `transport-4`, `-5`, `-6`, `-17`, `-25`). `SEAM-15`: every construction throws `ObjectDisposedException` after dispose, a borrowed client included, the asynchronous face through a
 faulted task (`AfterDisposeTests`; kit `seam-15.after-dispose`, waiver deleted). Both rows are ✅. The rows above stand as written.
+
+## Dated correction, 2026-10-13 (phase 9)
+
+`SEAM-5` and `SEAM-6`: the DI half is **✅**, built by `Dexpace.Sdk.Extensions.DependencyInjection` (P9-16): an explicit `UseTransport`/`UseSerde` replaces the package's default and wins; a different second install throws `InvalidOperationException` at the call, naming the client and both implementations (earlier than design §3.6's validator timing); keyed
+duplicates fail `ValidateOnStart` listing every implementation; no codec fails with the install hint (`SingleRegistrationTests`, `Unit`). The DI-less half stays N/A. `SEAM-7` stays **N/A**, citing the singleton lifetime: `KeyedSingletonTests` (`Unit`) proves one construction under 64 concurrent first resolutions.

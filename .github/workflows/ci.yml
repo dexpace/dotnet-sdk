@@ -18,8 +18,11 @@ name: CI
 # Transport conformance kit (Dexpace.Sdk.Conformance, phase 8a): on. Two drivers run in the default test step, the reference
 # transport (tests/Dexpace.Sdk.Http.SystemNet.Tests/SystemNetConformanceTests.cs, whose Owner = "8b" waivers phase 8b deletes
 # as it closes their rows) and a test-only raw-socket client reached through DelegateHttpClient
-# (tests/Dexpace.Sdk.Conformance.Tests/Drivers/); both carry [Trait("Category", "Conformance")] and run on every OS row. The kit
-# is a measured library of the coverage gate, and a slice of it runs in the NativeAOT smoke consumer.
+# (tests/Dexpace.Sdk.Conformance.Tests/Drivers/); both carry [Trait("Category", "Conformance")] and run on every OS row. Phase 9 adds a
+# third, over the transport AddDexpaceClient builds from IHttpClientFactory
+# (tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/), which needs no CI step of its own: it runs in the solution's
+# test step and its coverage report is picked up by name. The kit is a measured library of the coverage gate, and a slice of it runs
+# in the NativeAOT smoke consumer, which also exercises the DI package (phase 9).
 #
 # Gates wired but inert until their subject exists, and the phase that turns each on:
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in

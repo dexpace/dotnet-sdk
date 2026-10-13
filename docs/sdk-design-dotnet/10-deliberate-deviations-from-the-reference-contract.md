@@ -37,6 +37,9 @@ line and in the roadmap.
    `Options.ConfigurationExtensions` — one publisher's lock-stepped hosting family, which is what "integrate with the
    host" means on .NET. Splitting it would hand the consumer four packages to wire one feature. The transport and
    codec adapters stay within the one-library budget. §2.1.
+   *Dated correction, 2026-10-13, phase 9 (P9-2, P9-3):* measured: `Microsoft.Extensions.Http` is the one root, and its closure is the 13 `Microsoft.Extensions.*` packages (`Http`, `Configuration.Abstractions`, `Configuration`, `Configuration.Binder`,
+   `DependencyInjection.Abstractions`, `DependencyInjection`, `Diagnostics.Abstractions`, `Diagnostics`, `Logging.Abstractions`, `Logging`, `Options`, `Options.ConfigurationExtensions`, `Primitives`), all band-matched; the package also references the reference transport
+   (`Dexpace.Sdk.Http.SystemNet`), a first-party project the audit's policy names. The audit counts the root as one library.
 3. **The byte-stream provider seam is retired; its behavioural contract is not.** *Touches* **SEAM-3**–**SEAM-10**
    as applied to this seam, **IO-30**–**IO-36**, **IO-39**, **XCUT-23** as applied to this seam. *Judged* (P2).
    `Stream`, `Memory<byte>`, `IBufferWriter<byte>`, `MemoryStream`, `ArrayPool<byte>` and `Encoding` are in the
@@ -111,6 +114,7 @@ line and in the roadmap.
    and lists every registered type on ambiguity; `TryAdd` gives **SEAM-6**'s idempotence and singleton lifetime
    **SEAM-7**'s caching. **SEAM-8** has no auto-resolved provider to replace, and **SEAM-10** is vacuous in one
    default load context. §3.6.
+   *Dated correction, 2026-10-13, phase 9 (P9-16): as built:* `SEAM-6`'s different-provider failure is thrown at the `UseTransport`/`UseSerde` call; the validator scans the keyed descriptors for `SEAM-5`; `SEAM-7` is the keyed singleton.
 10. **No builder objects beyond the multimap builders, and no generic `IBuilder<T>`.** *Touches* **SEAM-29** (its
     generic builder contract), **HTTP-2** (its builder clause), **HTTP-3** (`newBuilder()` for the non-multimap
     models), **HTTP-4** (its message form). *Judged* (P11, P14). Object initializers with `required` members,
@@ -270,6 +274,8 @@ line and in the roadmap.
     system-property layer — the same substitution applied twice. §8.2.
     *Dated correction, 2026-10-07, phase 5a (P5a-15):* `FromEnvironment` reads the upper- and lower-case names, skips upper-case
     `HTTP_PROXY` when `GATEWAY_INTERFACE` is present, serves one proxy for every target, and never falls through on a malformed value.
+    *Dated correction, 2026-10-13, phase 9 (P9-7; open for the lead):* an empty or whitespace-only value is **absent**: the record default applies, and a lower provider's value that the empty one shadows is not consulted (`IConfiguration` merges providers before the reader sees a key).
+    This replaces "an empty environment value is *present* ... and then fails binding at startup": the deviation is now a silent shadow rather than a loud failure, recorded as `di-empty-shadows` in `docs/first-release.md`. The bind is the DI package's reader, not the binder (§8.2).
 26. **Unparseable configuration fails at startup instead of falling back silently.** *Touches* **CFG-5**, **CFG-6**,
     **CFG-7** (their never-throw letters; the **CFG-6** and **CFG-7** grammars are kept). *Judged, against the
     specification's letter and with the house guide* (`docs/styleguide/csharp-aspnetcore/01-host-and-configuration.md`
@@ -278,6 +284,8 @@ line and in the roadmap.
     fails instead. The grammars are kept exactly: a custom `TimeSpan` converter implements **CFG-7** (the default one
     reads `"1000"` as 1000 days, verified), and a base-10 integer converter replaces `Int32Converter`, which accepts
     `"0x10"` (verified). §8.2.
+    *Dated correction, 2026-10-13, phase 9 (P9-8, P9-9):* touches **OBS-35** as well (an unrecognised level fails the boot naming the key and listing the names, where the specification falls back). The grammars are the DI package's reader's, not converters registered with the binder: both binder modes
+    were measured (V1, V2) and neither can serve; every failure is reported at once as `"<path>: <rule>"` and never quotes a configured string, URL or credential (an accessor's numeric range message may echo the number, P9-28).
 
 ### Departures from the house styleguide
 

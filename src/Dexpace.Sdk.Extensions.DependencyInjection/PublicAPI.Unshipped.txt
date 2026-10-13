@@ -1,0 +1,27 @@
+#nullable enable
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.AddPolicy(System.Func<System.IServiceProvider!, Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy!>! factory) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.Configure(System.Func<Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!>! configure) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.ConfigureCredentials(System.Func<System.IServiceProvider!, Dexpace.Sdk.Core.Auth.AuthCredentials!, Dexpace.Sdk.Core.Auth.AuthCredentials!>! configure) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.ConfigureTransport(System.Func<Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions!, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions!>! configure) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.HttpClient.get -> Microsoft.Extensions.DependencyInjection.IHttpClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.Name.get -> string!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseAuth(Dexpace.Sdk.Core.Auth.AuthDescriptor! descriptor) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseAuthPolicy(System.Func<System.IServiceProvider!, Dexpace.Sdk.Core.Pipeline.HttpPipelinePolicy!>! factory) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseProxyFromEnvironment() -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseProxyFromEnvironment(System.Func<string!, string?>! lookup) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseSerde(Dexpace.Sdk.Core.Serialization.ISerde! serde) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseSerde(System.Func<System.IServiceProvider!, Dexpace.Sdk.Core.Serialization.ISerde!>! factory) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseTransport(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder.UseTransport(System.Func<System.IServiceProvider!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>! factory) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys
+Dexpace.Sdk.Extensions.DependencyInjection.DexpaceServiceCollectionExtensions
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.HttpProxy = "HTTP_PROXY" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.HttpsProxy = "HTTPS_PROXY" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.LogLevel = "Logging:Level" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.MaxRetryAttempts = "Retry:MaxRetryAttempts" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.NoProxy = "NO_PROXY" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.SectionName = "Dexpace" -> string!
+static Dexpace.Sdk.Extensions.DependencyInjection.DexpaceServiceCollectionExtensions.AddDexpaceClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
+static Dexpace.Sdk.Extensions.DependencyInjection.DexpaceServiceCollectionExtensions.AddDexpaceClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name, Microsoft.Extensions.Configuration.IConfigurationSection! configuration) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!

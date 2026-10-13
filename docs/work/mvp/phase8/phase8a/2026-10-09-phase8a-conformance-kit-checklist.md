@@ -205,3 +205,8 @@ hook (`transport-8`, `-15.borrowed`, `-18`, `-22`, `-30`) and two `Vacuous` (`se
 - **9:** a third driver over the transport `AddDexpaceClient` builds from `IHttpClientFactory`; `transport-1.redirect-not-followed` is the proof its named client has redirects off.
 - **10:** the invariant, packaging and codec suites in the same package (the 7a `SERDE` lift and 7c's `link-header.json` and splice properties go there); `APPENDIX_B.md` over all 61 items, extending the B.6/B.7 view; `RequirementCatalog` reused for the row-count gate.
 - **12:** publish the kit at the lockstep version; `conformance.md` joins the user documentation; the post-release trigger "first external adapter author" (a non-xUnit runner) stays open.
+
+## Dated correction, 2026-10-13 (phase 9)
+
+The third driver is built: `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/` runs the kit over the transport `AddDexpaceClient` builds from `IHttpClientFactory`, green on both faces with the two permanent assertion-scoped waivers of the SystemNet drivers; `transport-1.redirect-not-followed` passes on both faces, and `transport-15.owned-released` is what the
+container-owned primary-handler lease earns (it failed on the driver's first build). `transport-15.borrowed-survives` is `NotExercised` there: the package never borrows a client.

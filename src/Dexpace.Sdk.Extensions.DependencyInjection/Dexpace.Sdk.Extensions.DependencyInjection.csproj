@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.Extensions.DependencyInjection</RootNamespace>
+    <AssemblyName>Dexpace.Sdk.Extensions.DependencyInjection</AssemblyName>
+    <PackageId>Dexpace.Sdk.Extensions.DependencyInjection</PackageId>
+    <Description>
+      Host integration for the dexpace SDK: registers named clients (pipeline, transport, codec and options) as keyed
+      services over Microsoft.Extensions.DependencyInjection and reads their configuration from an IConfigurationSection.
+    </Description>
+    <PackageTags>http;sdk;dependency-injection;configuration;dexpace</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+    <ProjectReference Include="..\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one third-party root of the hosting family (design §10 entry 2, phase 9 P9-3): its closure carries
+         DependencyInjection, Options, Configuration and Logging, all band-matched to net10.0. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dexpace.Sdk.Extensions.DependencyInjection.Tests" />
+  </ItemGroup>
+
+</Project>

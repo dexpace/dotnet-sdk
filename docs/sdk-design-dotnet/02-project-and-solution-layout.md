@@ -56,6 +56,11 @@ property the seam exists for; a second adapter over the same property is a later
 the first release's lockstep version, `0.1.0` proposed, phase 12's decision) and carries the `Dexpace.Sdk.Conformance.Wire` loopback fixture promoted from the SystemNet test project. Its tests are
 `tests/Dexpace.Sdk.Conformance.Tests/`; `Dexpace.Sdk.Http.SystemNet.Tests` drives it against the reference transport. See [`docs/sdk-documentation/conformance.md`](../sdk-documentation/conformance.md).
 
+**Correction (2026-10-13, phase 9): `Dexpace.Sdk.Extensions.DependencyInjection` is built.** `src/Dexpace.Sdk.Extensions.DependencyInjection/` references `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` (the named client's primary handler is
+`SystemNetHttpClient.CreatePrimaryHandler`) and one third-party root, `Microsoft.Extensions.Http` 10.0.12, whose closure is the hosting family of 13 packages, all band-matched (phase 9 V5); it does not reference a codec (P9-2, P9-17).
+The dependency audit holds it to a policy record, `("Microsoft.Extensions.Http", ["Dexpace.Sdk.Http.SystemNet"])`. Packable at `0.0.1-alpha.1`, unpublished. See [`docs/sdk-documentation/dependency-injection.md`](../sdk-documentation/dependency-injection.md).
+**As built (phase 9):** the package exists; the SystemNet reference departs from this section's "core only" cell and is recorded against `NFR-2` in §10 entry 2.
+
 ### 2.2 Later packages
 
 Deliberately deferred, in rough priority order: `Dexpace.Sdk.Reactive` (`System.Reactive`) bridging pagination and

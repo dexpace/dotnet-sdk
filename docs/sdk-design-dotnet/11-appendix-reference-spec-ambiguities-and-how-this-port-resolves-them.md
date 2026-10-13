@@ -54,6 +54,8 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
    loudly": `Microsoft.Extensions.DependencyInjection` resolves a single service to its *last* registration and
    silently ignores earlier ones (documented behaviour). The DI package must detect multiple registrations of the
    SDK's seams itself (§3.6, §8.2).
+**Correction 2026-10-13 (phase 9, V4).** Item 8 measured: two keyed `IAsyncHttpClient` registrations under one key resolve silently to the **last**; `ValidateScopes` and `ValidateOnBuild` do not run options validation, which runs at `IStartupValidator.Validate()` (what the hosting startup calls) or at first resolution. A validator that scans the captured `IServiceCollection` lists every candidate.
+
 9. **Appendix B covers only nine of nineteen prefixes.** *Carries over.* Appendix B (PAGE, SSE, SERDE, OBS, CFG,
    TRANSPORT, ASYNC, XCUT, NFR) reads like a conformance definition but is not one. *Resolved* (§9.3): Appendix B
    conformance is stated as a strictly weaker claim than full conformance; the conformance kit reports per
@@ -138,6 +140,9 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     underneath, and two engines multiply sends and re-send bodies the SDK's safety gate never saw (entry 18's
     verification). *Resolved*: one retry layer per call path, the SDK's; nothing the SDK creates adds a retrying
     handler, and composing a resilience handler without its retry strategy is documented (§6.1).
+**Correction 2026-10-13 (phase 9, P9-19, V6).** Item 24 as built: the composition is `AddStandardResilienceHandler(o => o.Retry.ShouldHandle = _ => ValueTask.FromResult(false))`. The SDK-side `MaxRetryAttempts = 0` option is withdrawn (the handler's default retry re-sent a `POST` body behind the SDK's gate, four server arrivals for one SDK attempt), and the handler-side
+`MaxRetryAttempts = 0` is refused by the handler's own options validation.
+
 25. **The HTTPS guard has no loopback exemption**. **XCUT-16** and **AUTH-28** are silent on
     `http://localhost`, and a reader could assume one. *Resolved*: no exemption, matching Azure.Core's bearer
     policy; local development uses HTTPS via `dotnet dev-certs` (§6.3).
@@ -163,6 +168,8 @@ the pull request (#3–#9) that built it. No decision recorded here changed.
     up, so a port cannot tell substance from scaffolding (P11). *Resolved*: kept, with a .NET reader — a
     `DelegatingHandler` below the transport resolves the live call from a `CallKey` stamped into
     `HttpRequestMessage.Options` (§5.4). *Correction 2026-10-07 (4a, P4a-13):* the route is open; 4c carries the key on `RequestOptions` and 8b stamps it.
+**Correction 2026-10-13 (phase 9, P9-20).** Item 30's "kept, with a .NET reader" has no production reader as built: the store is read only through `DexpaceCallContexts.TryGet` in policies, and phase 9 registers no handler below the transport that needs a call's context, so the `CallKey` stamp (P8b-18) is not built. It is a post-release trigger in `docs/first-release.md`.
+
 31. **REDIR-11's marker has a trap the requirement itself flags.** "Only the auth step strips the marker, so a
     pipeline with no auth step … forwards the internal marker to the transport; a robust port should strip the
     signal independently." *Resolved* by removing the marker: redirect and auth both compare against the call's
@@ -348,3 +355,9 @@ carries no `[Experimental]` diagnostic on SDK 10.0.401) with `http.request.metho
 `url.scheme` and, on completion, `http.response.status_code` and `network.protocol.version`, or `error.type` for an exception or a status of 400
 or more; `http.client.active_requests` (up-down counter, `{request}`) with the four start attributes, the same list for `+1` and `-1`. There is no
 count instrument and no operation-level instrument.
+
+67. **`CFG-7` says "ISO-8601 durations" and "a bare number"; `CFG-5` to `CFG-7` do not say what surrounds a value.** *Added by dated correction, 2026-10-13 (phase 9, P9-29; open for the lead).* The DI package's reader reads "ISO-8601" as the **day-time subset**
+    `P[nD][T[nH][nM][n[.f]S]]` (any case; a fraction of at most seven digits, the tick; Java's `Duration.parse`, the reference, accepts the same, with a nine-digit fraction), rejecting years, months, weeks and a sign; reads "a bare number" as **digits only**, in milliseconds (both siblings also accept a
+    bare fraction, `1.5`); and trims ASCII whitespace from every scalar first, **booleans included** (the Ruby port does not trim a boolean). `CFG-6` therefore accepts `" true "`. `1_000` is rejected where the Ruby port tolerates it. §8.2.
+68. **`CFG-2` says an empty value "falls through to the system-property layer" and "rather than resolving to the empty string"; `IConfiguration` merges providers before the reader sees a key.** *Added by dated correction, 2026-10-13 (phase 9, P9-7; open for the lead).* The "rather than resolving to the empty string" half is
+    met (an empty or whitespace-only value is absent and the record default applies); the fall-through half cannot be, so an empty environment value silently shadows a lower provider's value (§10 entry 25). The alternative, an empty value failing start, turns a blank templated variable into a boot failure and drops the met half. §8.2.

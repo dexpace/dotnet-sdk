@@ -406,7 +406,23 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   (`Content-Length: 0`, byte for byte), so `SocketsHttpHandler`'s own connection-failure retry cannot fire and the request reaches the server once. A body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` is
   still re-sent by the native client (up to three more times), which is recorded as design §10 entry 33 and waived permanently for `transport-2.bodyless-not-resent`.
 
+- **Guidance (phase 9, `XCUT-10`; documentation only):** composing `AddStandardResilienceHandler` under a named client is `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`. The older guidance to set the SDK's own
+  `MaxRetryAttempts = 0` is withdrawn: the handler would still re-send a `POST` body behind the SDK's re-send gate, which measurably multiplies the attempts, and the handler-side `o.Retry.MaxRetryAttempts = 0` is refused by
+  the handler's own options validation. See `docs/sdk-documentation/dependency-injection.md`.
+
 ### Added
+
+- **Phase 9 host integration (`CFG-1`, `-2`, `-3`, `-4`, `-5`, `-6`, `-7`, `-10`, `-11`, `-14`, `-37`, `-38`, `SEAM-5`, `SEAM-6`, `OBS-35`; design and plan under `docs/work/mvp/phase9/`):** the new package
+  `Dexpace.Sdk.Extensions.DependencyInjection`. `AddDexpaceClient(name[, IConfigurationSection])` returns a sealed `DexpaceClientBuilder` (`Configure`, `ConfigureTransport`, `ConfigureCredentials`, `UseTransport`, `UseSerde`,
+  `UseAuth`, `UseAuthPolicy`, `AddPolicy`, `UseProxyFromEnvironment` with and without a lookup, and `HttpClient`, the `IHttpClientBuilder` of the named client) and registers the client as keyed singletons (`HttpPipeline`,
+  `IAsyncHttpClient`, `ISerde`, `DexpaceClientOptions`). Settings are read by the package's own reader, not by the configuration binder (neither mode can serve: the generator binds no `init` accessor, the reflection mode is
+  not AOT-safe): base-10 integers, strict booleans, `CFG-7` durations (ISO-8601 day-time, shorthand, bare milliseconds, `none`), enums by name, lists that replace the defaults; an empty value is absent; every bad key, accessor
+  rejection and unknown key fails `ValidateOnStart` at once as `"<path>: <rule>"`, never quoting a configured value, and a host-less provider fails at first resolution. The named client is built over `IHttpClientFactory` with a
+  redirect-off primary, no factory loggers and an infinite handler lifetime with a pooled-connection lifetime, and a container-owned lease releases the primary. `DexpaceConfigurationKeys` publishes the conventional keys
+  (never read). One transport and one codec per client, explicit installs replace the defaults, a different second install throws at the call and keyed duplicates fail at start. `SystemNetHttpClient.CreatePrimaryHandler(options)`
+  is the one place the owned-handler invariants are built. `BannedSymbols.txt` bans `ConfigurationBinder` in `src/`; `scripts/ci/dependency-audit.cs` holds each library to a policy record (one third-party root, plus the
+  first-party projects it names). A third conformance driver runs the kit over the DI-built transport on both faces with the two permanent waivers; `NamedClientRedirectWireTests` is phase 1 S3's row 9; the AOT smoke covers
+  the package; `docs/sdk-documentation/dependency-injection.md`.
 
 - `docs/sdk-documentation/tracing-and-metrics.md`; the AOT smoke covers the operation span, its attempt child and the two
   metrics (`OBS-31`, `OBS-32`).

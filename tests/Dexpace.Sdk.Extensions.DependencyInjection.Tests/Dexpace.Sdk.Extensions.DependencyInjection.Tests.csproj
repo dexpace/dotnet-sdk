@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The DI package's own suite (phase 9): the configuration reader, the registration API, the named client and the
+       third conformance driver. The package's internals are visible to it. -->
+  <PropertyGroup>
+    <RootNamespace>Dexpace.Sdk.Extensions.DependencyInjection.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Tests are exempt from the strict documentation gate. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The four conformance hook handlers, shared by linked source with the SystemNet suite (phase 9, task 4.1), so Dexpace.Sdk.TestSupport and
+         Dexpace.Sdk.Core.Tests (SEAM-2's partition) do not change. -->
+    <Compile Include="..\Dexpace.Sdk.Http.SystemNet.Tests\Conformance\Handlers\*.cs" Link="Conformance\Handlers\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Http.SystemNet\Dexpace.Sdk.Http.SystemNet.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Extensions.DependencyInjection\Dexpace.Sdk.Extensions.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Serialization.SystemTextJson\Dexpace.Sdk.Serialization.SystemTextJson.csproj" />
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
+    <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
+  </ItemGroup>
+
+</Project>

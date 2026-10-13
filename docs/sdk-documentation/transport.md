@@ -250,3 +250,11 @@ content there would be wire-identical; it is left out deliberately (`TRANSPORT-2
 
 A body-less `POST`, `PUT`, `PATCH` or extension-method request now carries a zero-length content (the same bytes on the wire) and is no
 longer re-sent by the native client; that is a fix of `TRANSPORT-2`, not a break.
+
+## Factory-built chains (`TRANSPORT-1`, `-15`, `-30`; phase 9, P9-12)
+
+*Added 2026-10-13 (phase 9).* `SystemNetHttpClient.CreatePrimaryHandler(SystemNetHttpClientOptions)` returns the `SocketsHttpHandler` the owned construction builds: `AllowAutoRedirect = false`, `UseProxy` only when `Proxy` is set (through the
+internal adapter over `ProxyOptions`), server `Credentials` unset, and the `TRANSPORT-30` warnings through `options.Logger`. The owned construction is built on it, so the invariants have one source. The caller owns the returned handler: pass it as the
+primary of a chain given to `new SystemNetHttpClient(chain, options)` with `options.Proxy` left `null` (that constructor refuses a proxy: a handler you own keeps its own). The DI package builds each named client's primary this way and
+composes it with `IHttpClientFactory`'s chain; see [`dependency-injection.md`](./dependency-injection.md). The handler constructor's redirect check walks the chain to the primary, so a factory chain whose primary was left at its default
+(`AllowAutoRedirect = true`) is refused.

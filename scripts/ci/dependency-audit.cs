@@ -12,11 +12,14 @@
 //   - Dexpace.Sdk.Core may reference only the framework, Microsoft.Extensions.Logging.Abstractions (with the
 //     closure its own nuspec requires) and build-only PrivateAssets="all" packages, which never reach either
 //     file;
-//   - an adapter may reference the same, plus Dexpace.Sdk.Core, plus at most one third-party library;
+//   - an adapter may reference the same, plus Dexpace.Sdk.Core, plus at most one third-party library, plus the
+//     first-party Dexpace projects its policy names;
+//     "at most one third-party library" counts a root package whose closure is one publisher's lock-stepped family
+//     as one library (design §10 entry 2), and first-party Dexpace packages are not third-party;
 //   - every Microsoft.Extensions.* / System.* package is band-matched to the target framework's major version;
 //   - every package targets exactly the floor of roadmap decision D1 (net10.0).
 // A new library must be added to the policies table below, which is where a reviewer sees its one third-party library
-// named. Exit 0 when every library conforms, 1 on any violation, 2 on a usage or input error.
+// and its first-party projects named. Exit 0 when every library conforms, 1 on any violation, 2 on a usage or input error.
 
 #:property RestorePackagesWithLockFile=false
 #:property PublishAot=false
@@ -34,14 +37,17 @@ const string Core = "Dexpace.Sdk.Core";
 const string TargetFramework = "net10.0";
 const int FrameworkMajor = 10;
 
-// The one place an adapter's third-party library is named. SystemTextJson takes none: System.Text.Json is in
-// the shared framework, so the adapter's "one library" is the runtime's own (design §9.2).
-var policies = new Dictionary<string, string?>(StringComparer.Ordinal)
+// The one place an adapter's third-party library and first-party projects are named. SystemTextJson takes no third-party
+// library: System.Text.Json is in the shared framework, so the adapter's "one library" is the runtime's own (design §9.2).
+// The DI package's one third-party root is Microsoft.Extensions.Http, whose closure is the hosting family (design §10
+// entry 2, phase 9 P9-3), and it references the reference transport, a first-party project.
+var policies = new Dictionary<string, Policy>(StringComparer.Ordinal)
 {
-    [Core] = null,
-    ["Dexpace.Sdk.Http.SystemNet"] = null,
-    ["Dexpace.Sdk.Serialization.SystemTextJson"] = null,
-    ["Dexpace.Sdk.Conformance"] = null,
+    [Core] = new(null, []),
+    ["Dexpace.Sdk.Http.SystemNet"] = new(null, []),
+    ["Dexpace.Sdk.Serialization.SystemTextJson"] = new(null, []),
+    ["Dexpace.Sdk.Conformance"] = new(null, []),
+    ["Dexpace.Sdk.Extensions.DependencyInjection"] = new("Microsoft.Extensions.Http", ["Dexpace.Sdk.Http.SystemNet"]),
 };
 
 if (args.Length != 2)
@@ -57,7 +63,7 @@ var libraries = Directory.GetDirectories("src").Select(Path.GetFileName).OfType<
 
 foreach (var library in libraries)
 {
-    if (!policies.TryGetValue(library, out var thirdParty))
+    if (!policies.TryGetValue(library, out var policy))
     {
         violations.Add($"{library}: no dependency policy; add it to the policies table in scripts/ci/dependency-audit.cs");
         continue;
@@ -70,8 +76,8 @@ foreach (var library in libraries)
         return 2;
     }
 
-    AuditDepsJson(library, thirdParty, depsJson, violations);
-    if (!AuditNuspec(library, thirdParty, packageDir, violations))
+    AuditDepsJson(library, policy, depsJson, violations);
+    if (!AuditNuspec(library, policy, packageDir, violations))
     {
         return 2;
     }
@@ -87,7 +93,7 @@ Console.WriteLine(violations.Count == 0
     : $"dependency-audit: {violations.Count} violation(s)");
 return violations.Count == 0 ? 0 : 1;
 
-void AuditDepsJson(string library, string? thirdParty, string path, List<string> found)
+void AuditDepsJson(string library, Policy policy, string path, List<string> found)
 {
     using var document = JsonDocument.Parse(File.ReadAllText(path));
     var root = document.RootElement;
@@ -111,12 +117,17 @@ void AuditDepsJson(string library, string? thirdParty, string path, List<string>
         StringComparer.Ordinal);
 
     var allowedPackages = Closure(graph, Facade);
-    if (thirdParty is not null)
+    if (policy.ThirdParty is not null)
     {
-        allowedPackages.UnionWith(Closure(graph, thirdParty));
+        allowedPackages.UnionWith(Closure(graph, policy.ThirdParty));
     }
 
     var allowedProjects = library == Core ? new HashSet<string>(StringComparer.Ordinal) { Core } : Closure(graph, Core);
+    foreach (var project in policy.Projects)
+    {
+        allowedProjects.UnionWith(Closure(graph, project));
+    }
+
     allowedProjects.Add(library);
 
     var packages = kinds.Where(kind => kind.Value.Type == "package").ToList();
@@ -138,7 +149,7 @@ void AuditDepsJson(string library, string? thirdParty, string path, List<string>
     {
         if (!allowedProjects.Contains(name))
         {
-            found.Add($"{library}: references project {name}; a library references at most {Core}");
+            found.Add($"{library}: references project {name}; a library references at most {Core} and the projects its policy names");
         }
     }
 
@@ -148,7 +159,7 @@ void AuditDepsJson(string library, string? thirdParty, string path, List<string>
     }
 }
 
-bool AuditNuspec(string library, string? thirdParty, string directory, List<string> found)
+bool AuditNuspec(string library, Policy policy, string directory, List<string> found)
 {
     var nupkg = Directory.Exists(directory)
         ? Directory.GetFiles(directory, $"{library}.*.nupkg")
@@ -178,9 +189,10 @@ bool AuditNuspec(string library, string? thirdParty, string directory, List<stri
     // facade: CentralPackageTransitivePinningEnabled promotes a pinned transitive package (the facade, reached
     // through Core) to a direct nuspec dependency, and the rule allows an adapter the facade in any case.
     var expected = new HashSet<string>(StringComparer.Ordinal) { library == Core ? Facade : Core };
-    if (thirdParty is not null)
+    expected.UnionWith(policy.Projects);
+    if (policy.ThirdParty is not null)
     {
-        expected.Add(thirdParty);
+        expected.Add(policy.ThirdParty);
     }
 
     var optional = library == Core ? [] : new HashSet<string>(StringComparer.Ordinal) { Facade };
@@ -195,9 +207,12 @@ bool AuditNuspec(string library, string? thirdParty, string directory, List<stri
             found.Add($"{library}: nuspec group {group.Attribute("targetFramework")?.Value} depends on [{string.Join(", ", dependencies.Keys.Order(StringComparer.Ordinal))}], expected [{string.Join(", ", expected.Order(StringComparer.Ordinal))}]{(optional.Count > 0 ? $" (plus optionally {Facade})" : string.Empty)}");
         }
 
-        if (dependencies.TryGetValue(Core, out var coreVersion) && coreVersion != version)
+        foreach (var dexpace in policy.Projects.Append(Core))
         {
-            found.Add($"{library}: depends on {Core} {coreVersion}, not its own lockstep version {version} (design §2.3)");
+            if (dependencies.TryGetValue(dexpace, out var dexpaceVersion) && dexpaceVersion != version)
+            {
+                found.Add($"{library}: depends on {dexpace} {dexpaceVersion}, not its own lockstep version {version} (design §2.3)");
+            }
         }
 
         if (dependencies.TryGetValue(Facade, out var facadeVersion) && !facadeVersion.StartsWith($"{FrameworkMajor}.", StringComparison.Ordinal))
@@ -226,3 +241,7 @@ static HashSet<string> Closure(Dictionary<string, List<string>> graph, string st
 
     return seen;
 }
+
+// A library's allowance beyond core and the facade: its one third-party root package (null for none) and the first-party
+// projects it may reference.
+sealed record Policy(string? ThirdParty, string[] Projects);

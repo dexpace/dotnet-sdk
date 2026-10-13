@@ -27,7 +27,7 @@ release.
 | `Dexpace.Sdk.Http.SystemNet` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 1, 8b |
 | `Dexpace.Sdk.Serialization.SystemTextJson` | yes | `net8.0;net10.0` | no — `0.0.1-alpha.1` | phase 7a |
 | `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.0.1-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` proposed (a release that adds an assertion is at least a minor version) | phase 10 completes it (the invariant, packaging and codec suites); phase 12 publishes it and decides the number |
-| `Dexpace.Sdk.Extensions.DependencyInjection` | no | — | no | phase 9 |
+| `Dexpace.Sdk.Extensions.DependencyInjection` | yes (phase 9) | `net10.0` | no — `0.0.1-alpha.1`; it references `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` and `Microsoft.Extensions.Http` (the hosting family's one root), at the lockstep version | phase 12 (the release path) |
 
 The target frameworks changed in phase 0. The lead approved the roadmap's decision D1 on 2026-09-28: every package
 targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .NET 8 leaves support on 2026-11-10.
@@ -158,6 +158,13 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   on a call that sets no `RequestOptions.Timeout`, where before only that client's `Timeout` bounded it. The shorter of the two wins; `Timeout = null` in the options leaves
   the client's own `Timeout` the only bound. Recorded by the phase 8b review (2026-10-11), as a breaking change, not an asymmetry the design chose to hide; see
   [`transport.md`](./sdk-documentation/transport.md).
+- **`di-no-reload` (phase 9, P9-11).** A named client's settings are read once, at first resolution; the package registers no change-token source, so a reloaded `appsettings.json` does not reach a built client. A built client is immutable
+  (`CFG-8`), and rebuilding a pipeline mid-flight would orphan the token cache and the transport's per-instance state. Recorded by phase 9 (2026-10-13); see [`dependency-injection.md`](./sdk-documentation/dependency-injection.md).
+- **`di-handler-lifetime` (phase 9, P9-13, P9-14).** The DI package holds one handler chain per named client for the process, with an infinite `IHttpClientFactory` handler lifetime and `Transport:PooledConnectionLifetime` (default 2 minutes) doing
+  the rotation's job inside the one handler; a container-owned lease releases the primary the package built. `builder.HttpClient.ConfigureHttpClient(...)` has no effect (the package uses the handler, never `CreateClient`), and the factory's own logging
+  handlers are removed so the SDK's redacted events are the one HTTP log stream. Recorded by phase 9 (2026-10-13).
+- **`di-empty-shadows` (phase 9, P9-7; design §10 entry 25).** An empty or whitespace-only configuration value is absent, so the record's default applies, and `IConfiguration` merges its providers before the package reads a key: an empty environment value
+  over a value in `appsettings.json` therefore resolves the record default, silently. The alternative (an empty value fails start) is the lead's to rule on. Recorded by phase 9 (2026-10-13).
 - **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
   strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
   strategies turn out to need it. Recorded by phase 7c (2026-10-09).
@@ -206,3 +213,7 @@ Each entry names an event that no v1 phase can produce, and the one job to do wh
 
 - **The first external adapter author.** The job is to confirm that `Dexpace.Sdk.Conformance` runs under a test
   framework other than xUnit, which is the claim design §9.3 makes and nothing in this repository exercises.
+- **The first consumer that needs a call's context below the transport.** The `CallKey` carrier on `RequestOptions`, the stamp from `SystemNetHttpClient` and a reader (a DI-registered `DelegatingHandler`, say) are not built: phase 9 registered no handler
+  that reads a call's context, so the stamp would have been surface without a consumer, which `NFR-4` locks at the first release (P9-20; design §11 item 30). The job is to build the three together.
+- **The first generated SDK that asks for a typed-client overload.** `AddDexpaceClient<TClient>` is not built (P9-5): it needs `ActivatorUtilities` under trimming annotations for a convenience a generated SDK's own `AddXClient` already provides. The job is to add it
+  additively if one asks.

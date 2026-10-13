@@ -353,6 +353,12 @@ contains a space; the version fallback is `unknown`, and the default `User-Agent
 P5a-12)*: `HttpDate` is the shared RFC 1123 formatter and parser. *Equality (P5a-20)*: `DeepValue` is internal and recursion-bounded
 (128 levels) because a self-referential array would end the process.
 
+**As built (2026-10-13, phase 9) and corrections to this section.** (1) **Binding is the DI package's reader, not the configuration binder** (P9-4): the source generator binds no `init` accessor and says nothing, the reflection mode is 64 trim and AOT warnings and mis-binds `TimeSpan`, `int`,
+enums, two sets and a list default (V1), so an internal reader walks the section by known keys with the package's own grammars and builds each record with `with`; `ConfigurationBinder` is banned in `src/`. The text above that expects the binder plus two registered converters is superseded.
+(2) **The duration grammar is the reader's own** (V2: `XmlConvert` reads `P5M` as 150 days and `-PT5S` as minus five seconds, rejects lower case and truncates sub-tick fractions): ISO-8601 day-time, `<n><unit>`, bare milliseconds, `none` (P9-8, P9-29). (3) **`CFG-2`: an empty value is absent** and the record default applies; the
+shadowed lower provider is not consulted (P9-7, §10 entry 25). (4) **Tier 1 is a `with` transform**: the records are immutable (`CFG-8`), so `Configure(Func<DexpaceClientOptions, DexpaceClientOptions>)` replaces `Action<DexpaceClientOptions>`, applied after the configuration values in call order (P9-6).
+(5) **No reload**: the snapshot is taken at first resolution. (6) **The proxy has two sources**, the explicit `Transport:Proxy:*` keys or code-only `UseProxyFromEnvironment`, never a configuration switch (P9-15). (7) **`OBS-35`'s key is the caller's section**: the package bakes in none; `DexpaceConfigurationKeys` publishes the names (P9-23).
+
 ### 8.3 The clock, the wait, and the prohibition
 
 **CFG-15** requires the time seam to expose a wall clock, a monotonic elapsed counter and a blocking interruptible

@@ -283,3 +283,10 @@ version: `0.1.0` is proposed, and `docs/first-release.md` makes the number phase
   banned, §10 entry 8).
 - **Codec and pagination vectors.** The `SERDE` lift of phase 7a and the pagination vectors of phase 7c are phase 10's invariant and
   codec suites, in this same package.
+
+## The third driver (phase 9, P9-22)
+
+*Added 2026-10-13.* `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/` runs the kit over the transport `AddDexpaceClient` builds from `IHttpClientFactory`: a fresh container per transport, the kit's logger forwarded through a
+single-logger factory, the hooks added as handlers of the named client (the faulting, re-sending and cancel-on-demand handlers are the SystemNet suite's, shared by linked source) and the proxy hook through the `Transport:Proxy:*` keys. It is green on both
+faces with the two permanent assertion-scoped waivers of the SystemNet drivers (design §10 entries 32 and 33); `transport-15.borrowed-survives` is `NotExercised` because the package never borrows a client. `transport-1.redirect-not-followed` passing on both
+faces is the proof the 8a hand-off named, and `transport-15.owned-released` is what the container-owned primary-handler lease earns: it failed on the first build of the driver, because the factory never releases a handler whose lifetime is infinite.

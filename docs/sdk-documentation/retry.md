@@ -40,6 +40,11 @@ There is **one retry layer per call path** (`TRANSPORT-2`, design §11 item 24):
 itself (for example `AddStandardResilienceHandler` on an `HttpClient`), turn its retries off or set `MaxRetryAttempts = 0`
 here. The DI package's guidance (phase 9) says the same.
 
+*Dated correction, 2026-10-13 (phase 9, `XCUT-10`, P9-19):* the "or set `MaxRetryAttempts = 0` here" half is withdrawn. A handler that retries by itself keeps retrying behind the SDK's re-send gate, and measured against a
+server answering `503`, a `POST` with a body reached it four times under the standard resilience handler's defaults. The composition is to turn the handler's retry off, which for
+`AddStandardResilienceHandler` is `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)` (the handler-side `o.Retry.MaxRetryAttempts = 0` is refused by the handler's own options validation). See
+[`dependency-injection.md`](./dependency-injection.md).
+
 The reference transport's own `SocketsHttpHandler` is the one native retry the SDK cannot turn off yet: it exposes no switch, and it re-sends
 a request whose connection ends before any response byte (the server closed it; a reset is not re-sent) up to three more times, so a request
 that carries no content (a `GET`, a `DELETE`, a body-less `POST`) can reach the server more than once for a single SDK attempt. A request with a single-use body is never
