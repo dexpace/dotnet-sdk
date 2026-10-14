@@ -409,8 +409,24 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 - **Guidance (phase 9, `XCUT-10`; documentation only):** composing `AddStandardResilienceHandler` under a named client is `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`. The older guidance to set the SDK's own
   `MaxRetryAttempts = 0` is withdrawn: the handler would still re-send a `POST` body behind the SDK's re-send gate, which measurably multiplies the attempts, and the handler-side `o.Retry.MaxRetryAttempts = 0` is refused by
   the handler's own options validation. See `docs/sdk-documentation/dependency-injection.md`.
+- **Phase 10, additive (`XCUT-1`..`XCUT-24`, `NFR-1`..`NFR-17`):** `TransportFace` gains `None` (value `2`), the face of an assertion that has none; `SuiteRunner` rejects it, the new suite runners accept it, and no existing value moves.
+  `Seam2ArchitectureTests` admits `Dexpace.Sdk.Conformance` as a reference of `Dexpace.Sdk.Core.Tests` (the core driver of the invariant suite), the kit itself staying core-only. `scripts/ci/reproducible-pack.sh` now packs `HEAD` from two
+  `git worktree`s at different paths, so an absolute path embedded in a package fails the job (a git checkout is the reproducible input; it warns on a dirty tree). `BannedSymbols.txt` bans `Exception.GetBaseException` and the seven public
+  `ConcurrentDictionary` constructors in `src/` (`RS0030`; `BoundedMap` is the one construction site, under one scoped pragma). Every `severity = none` block of `.editorconfig` states when to re-enable it. No production behaviour changed.
 
 ### Added
+
+- **Phase 10 cross-cutting invariants and non-functional requirements (`XCUT-1`..`XCUT-24`, `NFR-1`..`NFR-17`; design and plan under `docs/work/mvp/phase10/`):** `Dexpace.Sdk.Conformance` gains three suites beside the transport suite, with one result model
+  (`TransportFace.None`, `SuiteRunnerCore`, `SuiteOptions`, a per-suite preamble, `ConformanceReport.Combine`). `InvariantSuite` runs 28 assertions over an `InvariantSubject` whose hooks default to core (a hook left `null` is `NotExercised`): cancellation and
+  timeout (`XCUT-1`..`-3`), the error taxonomy and the one classifier (`XCUT-4`..`-9`), retry safety, concurrency and the single-flight cache (`XCUT-10`..`-12`), lifecycle, bounded maps and no external aliasing (`XCUT-13`..`-15`), security by default
+  (`XCUT-16`..`-19`) and the host invariants (`XCUT-20`..`-24`, `NFR-11`'s scheduler-agnostic call). `CodecSuite` runs 11 assertions over an `ISerde` and the public probe models in `Dexpace.Sdk.Conformance.Codec` (`SERDE-1`..`-3`, `-9`, `-10`, `-12`, `-15`..`-17`,
+  `-19`, `-20`); `PackagingSuite` runs 8 assertions over the packed `.nupkg` files with BCL readers (`NFR-1`, `-2`, `-3`, `-8`, `-10`, `-13`, `-14`, `-15`). Each assertion has a deliberately broken subject in `tests/Dexpace.Sdk.Conformance.Tests/Controls/` that it must
+  fail. Three first-party drivers run them: the core driver, the dependency-injection driver (`xcut-23`) and the System.Text.Json driver, each pinning its expected `NotExercised` list; the NativeAOT smoke runs the invariant and codec suites (`CheckPhase10Async`).
+  Gates: `scripts/ci/packaging-conformance.cs` (a CI step after Pack); `scripts/ci/requirement-coverage.cs --check` with its self-test (every one of the 645 requirements of appendix C is owned by a checklist row, with its level and a legend mark; a Linux CI step);
+  `AppendixBCoverageTests` over the new `tests/Dexpace.Sdk.Conformance.Tests/APPENDIX_B.md` (61 items); `Nfr11PublicSurfaceArchitectureTests`, `NFR4ArchitectureTests`, `LicenseHeaderTests` (the `scripts/ci` apps included), `AnalyzerWaiverTests` and `CiWorkflowTests`.
+  `AppendixBMap` covers all 61 appendix-B items. `docs/sdk-documentation/cross-cutting-invariants.md` is the phase page (where each `XCUT` row is enforced, the gate table, how to run the suites over your own composition); `conformance.md` describes the suites; the checklist
+  `docs/work/mvp/phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md` has the 41 rows. Declined with triggers: Stryker.NET (it refuses Microsoft.Testing.Platform projects) and `benchmarks/`; `XCUT-24`'s non-consuming clause for an error-body snapshot above 1 MiB
+  is a recorded SHOULD decline.
 
 - **Phase 9 host integration (`CFG-1`, `-2`, `-3`, `-4`, `-5`, `-6`, `-7`, `-10`, `-11`, `-14`, `-37`, `-38`, `SEAM-5`, `SEAM-6`, `OBS-35`; design and plan under `docs/work/mvp/phase9/`):** the new package
   `Dexpace.Sdk.Extensions.DependencyInjection`. `AddDexpaceClient(name[, IConfigurationSection])` returns a sealed `DexpaceClientBuilder` (`Configure`, `ConfigureTransport`, `ConfigureCredentials`, `UseTransport`, `UseSerde`,
