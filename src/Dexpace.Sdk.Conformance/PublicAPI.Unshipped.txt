@@ -23,8 +23,10 @@ Dexpace.Sdk.Conformance.ConformanceReport
 Dexpace.Sdk.Conformance.ConformanceReport.ByAppendixBItem.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
 Dexpace.Sdk.Conformance.ConformanceReport.ByRequirement.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.ConformanceStatus>!
 Dexpace.Sdk.Conformance.ConformanceReport.IsGreen.get -> bool
+Dexpace.Sdk.Conformance.ConformanceReport.PreambleText.get -> string!
 Dexpace.Sdk.Conformance.ConformanceReport.Results.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceResult!>!
 Dexpace.Sdk.Conformance.ConformanceReport.SubjectName.get -> string!
+Dexpace.Sdk.Conformance.ConformanceReport.Suite.get -> string!
 Dexpace.Sdk.Conformance.ConformanceResult
 Dexpace.Sdk.Conformance.ConformanceResult.<Clone>$() -> Dexpace.Sdk.Conformance.ConformanceResult!
 Dexpace.Sdk.Conformance.ConformanceResult.Assertion.get -> Dexpace.Sdk.Conformance.ConformanceAssertion!
@@ -77,6 +79,7 @@ Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.R
 Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
+Dexpace.Sdk.Conformance.TransportFace.None = 2 -> Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportSettings
 Dexpace.Sdk.Conformance.TransportSettings.<Clone>$() -> Dexpace.Sdk.Conformance.TransportSettings!
 Dexpace.Sdk.Conformance.TransportSettings.Equals(Dexpace.Sdk.Conformance.TransportSettings? other) -> bool
@@ -156,6 +159,7 @@ override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
 override Dexpace.Sdk.Conformance.TransportSettings.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.TransportSettings.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.TransportSettings.ToString() -> string!
+static Dexpace.Sdk.Conformance.ConformanceReport.Combine(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceReport!>! reports) -> Dexpace.Sdk.Conformance.ConformanceReport!
 static Dexpace.Sdk.Conformance.ConformanceReport.Create(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceResult!>! results) -> Dexpace.Sdk.Conformance.ConformanceReport!
 static Dexpace.Sdk.Conformance.ConformanceReport.Preamble.get -> string!
 static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
