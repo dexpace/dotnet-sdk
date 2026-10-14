@@ -16,7 +16,7 @@ namespace Dexpace.Sdk.Conformance.Tests.Gates;
 public sealed partial class CiWorkflowTests
 {
     /// <summary>
-    /// The gates: the step's name, and the command that must appear in its <c>run:</c>. The requirement-coverage gates join with the commit that adds
+    /// The gates: the step's name, and the command that must appear in its <c>run:</c>. The requirement-coverage gates joined with the commit that added
     /// their steps (plan 4.9, R8).
     /// </summary>
     internal static IReadOnlyList<(string Step, string Command)> Gates { get; } =
@@ -35,6 +35,8 @@ public sealed partial class CiWorkflowTests
         ("Tools - format", "dotnet format tools/Dexpace.Tools.sln --verify-no-changes"),
         ("Tools - test", "dotnet test --solution tools/Dexpace.Tools.sln --configuration Release"),
         ("Knowledge corpus structure", "scripts/knowledge verify-structure"),
+        ("Requirement coverage self-test", "scripts/ci/requirement-coverage-selftest.sh"),
+        ("Requirement coverage", "dotnet run scripts/ci/requirement-coverage.cs -- --check"),
         ("Pack twice and compare", "scripts/ci/reproducible-pack.sh"),
         ("Publish", "dotnet publish tests/Dexpace.Sdk.AotSmoke/Dexpace.Sdk.AotSmoke.csproj"),
         ("Run", "./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke"),
@@ -44,6 +46,8 @@ public sealed partial class CiWorkflowTests
     internal static IReadOnlyDictionary<string, string> Conditionals { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["Knowledge corpus structure"] = "runner.os == 'Linux'",
+        ["Requirement coverage self-test"] = "runner.os == 'Linux'",
+        ["Requirement coverage"] = "runner.os == 'Linux'",
         ["Upload test results"] = "always()",
     };
 

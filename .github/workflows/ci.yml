@@ -35,6 +35,7 @@ name: CI
 # System.Text.Json adapter (tests/Dexpace.Sdk.AotSmoke/SmokeChecks.Phase10.cs); NFR-11's public-signature type scan is
 # tests/Dexpace.Sdk.Core.Tests/Architecture/Nfr11PublicSurfaceArchitectureTests.cs; the packaging suite runs after Pack (below); and
 # tests/Dexpace.Sdk.Conformance.Tests/Gates/CiWorkflowTests.cs fails if a gate here is dropped or made advisory (NFR-17).
+# The requirement-coverage check (scripts/ci/requirement-coverage.cs --check, with its self-test) blocks every pull request on the Linux row.
 
 on:
   push:
@@ -144,6 +145,16 @@ jobs:
       - name: Knowledge corpus structure
         if: runner.os == 'Linux'
         run: scripts/knowledge verify-structure
+
+      # Blocking. Every ID of appendix C is owned by a checklist row under docs/work/ with its level and a legend mark (roadmap phase 10 exit); a
+      # structural check over committed files, so one row suffices. The self-test first proves the check fails on each kind of finding.
+      - name: Requirement coverage self-test
+        if: runner.os == 'Linux'
+        run: scripts/ci/requirement-coverage-selftest.sh
+
+      - name: Requirement coverage
+        if: runner.os == 'Linux'
+        run: dotnet run scripts/ci/requirement-coverage.cs -- --check
 
       - name: Upload test results
         if: always()
