@@ -46,7 +46,9 @@ internal sealed class BoundedMap<TKey, TValue>
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
         Capacity = capacity;
+#pragma warning disable RS0030 // The one sanctioned construction of ConcurrentDictionary (XCUT-14, P10-18): a map outside this class must be a BoundedMap.
         _map = new ConcurrentDictionary<TKey, Slot>(comparer);
+#pragma warning restore RS0030
     }
 
     /// <summary>The bound.</summary>
