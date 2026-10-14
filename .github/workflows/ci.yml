@@ -118,6 +118,12 @@ jobs:
       - name: Dependency audit
         run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages
 
+      # NFR-1/-2/-3/-8/-9/-10/-13/-14/-15 (phase 10, P10-10): the kit's PackagingSuite over the packed .nupkg files: the published metadata (nuspec
+      # dependencies, license, versions) and each packed assembly's attributes (IsTrimmable, IsAotCompatible, InternalsVisibleTo, the version),
+      # read without loading them. The audit above reads the build output's closure; this reads what was published (two checks, two subjects).
+      - name: Packaging conformance
+        run: dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages
+
       - name: Tools - restore (locked)
         run: dotnet restore tools/Dexpace.Tools.sln --locked-mode
 

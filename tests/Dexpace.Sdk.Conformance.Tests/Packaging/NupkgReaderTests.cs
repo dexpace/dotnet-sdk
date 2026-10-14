@@ -57,6 +57,20 @@ public sealed class NupkgReaderTests : IDisposable
     }
 
     [Fact]
+    public void A_real_compiled_assembly_with_attributes_of_every_shape_is_read()
+    {
+        // Phase 10 lesson (3.5): a compiled library carries attributes with integer and array arguments (CompilationRelaxations, Debuggable, Extension);
+        // only the four string-constructor attributes may be decoded, or a real package is "not a readable managed assembly".
+        var facts = AssemblyMetadataReader.Read(File.ReadAllBytes(typeof(Dexpace.Sdk.Core.Http.Request.Request).Assembly.Location));
+
+        Assert.Equal("True", facts.AssemblyMetadata["IsTrimmable"]);
+        Assert.Equal("True", facts.AssemblyMetadata["IsAotCompatible"]);
+        Assert.Contains("Dexpace.Sdk.Core.Tests", facts.InternalsVisibleTo);
+        Assert.Equal(".NETCoreApp,Version=v10.0", facts.TargetFramework);
+        Assert.False(string.IsNullOrEmpty(facts.InformationalVersion));
+    }
+
+    [Fact]
     public void A_missing_file_names_the_file()
     {
         var failure = Assert.Throws<FileNotFoundException>(() => NupkgReader.Read(Path.Combine(_directory.FullName, "Missing.1.0.0.nupkg")));

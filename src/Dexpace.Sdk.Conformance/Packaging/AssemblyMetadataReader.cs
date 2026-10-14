@@ -13,6 +13,15 @@ namespace Dexpace.Sdk.Conformance;
 /// </summary>
 internal static class AssemblyMetadataReader
 {
+    // The only attributes decoded: each has a constructor of string parameters only, which is what the blob reading below assumes.
+    private static readonly HashSet<string> s_read = new(StringComparer.Ordinal)
+    {
+        "System.Reflection.AssemblyMetadataAttribute",
+        "System.Reflection.AssemblyInformationalVersionAttribute",
+        "System.Runtime.CompilerServices.InternalsVisibleToAttribute",
+        "System.Runtime.Versioning.TargetFrameworkAttribute",
+    };
+
     /// <summary>Reads the attributes of the assembly in <paramref name="image"/>.</summary>
     /// <param name="image">The bytes of a managed assembly.</param>
     /// <exception cref="ConformanceException">The bytes are not a managed assembly.</exception>
@@ -35,8 +44,14 @@ internal static class AssemblyMetadataReader
             foreach (var handle in reader.GetAssemblyDefinition().GetCustomAttributes())
             {
                 var attribute = reader.GetCustomAttribute(handle);
+                var type = TypeName(reader, attribute);
+                if (!s_read.Contains(type))
+                {
+                    continue;
+                }
+
                 var arguments = Strings(reader, attribute);
-                switch (TypeName(reader, attribute))
+                switch (type)
                 {
                     case "System.Reflection.AssemblyMetadataAttribute" when arguments.Count == 2:
                         metadata[arguments[0]] = arguments[1];
