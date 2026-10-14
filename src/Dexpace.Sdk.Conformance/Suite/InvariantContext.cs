@@ -6,6 +6,7 @@ using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.Core.Pipeline.Policies;
 
 namespace Dexpace.Sdk.Conformance;
 
@@ -64,6 +65,15 @@ internal sealed class InvariantContext(InvariantSubject subject, TransportFace f
     /// <param name="behavior">What the transport does with each send.</param>
     internal ProbeTransport Transport(ProbeTransport.Behavior behavior) => Own(new ProbeTransport(behavior));
 #pragma warning restore CA2000
+
+    /// <summary>
+    /// Returns <paramref name="pipeline"/> with error mapping on: the pipeline itself when it already holds an
+    /// <see cref="ErrorMappingPolicy"/>, otherwise a flattened copy with one added (PIPE-35), so an error status reaches the caller
+    /// as the exception the SDK maps it to rather than as a response.
+    /// </summary>
+    /// <param name="pipeline">The subject's pipeline.</param>
+    internal static HttpPipeline WithErrorMapping(HttpPipeline pipeline) =>
+        pipeline.Policies.OfType<ErrorMappingPolicy>().Any() ? pipeline : PipelineBuilder.Flatten(pipeline).Add(new ErrorMappingPolicy()).Build();
 
     /// <summary>Builds the subject's pipeline over <paramref name="transport"/> on this run's clock and logger.</summary>
     /// <param name="transport">The terminal transport; the pipeline never owns it.</param>

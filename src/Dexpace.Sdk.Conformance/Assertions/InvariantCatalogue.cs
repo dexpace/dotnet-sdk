@@ -13,5 +13,6 @@ internal static class InvariantCatalogue
     internal static IReadOnlyList<ConformanceAssertion> All { get; } =
     [
         .. CancellationInvariants.Assertions(),
+        .. TaxonomyInvariants.Assertions(),
     ];
 }
