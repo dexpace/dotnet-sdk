@@ -11,6 +11,12 @@ internal static class InvariantOptions
     /// <summary>The URL every assertion requests: nothing is sent to it, the transport is in memory.</summary>
     internal const string Url = "https://example.test/resource";
 
+    /// <summary>How many calls the concurrency assertions run at once (<c>XCUT-11</c>); a negative control may rendezvous this many.</summary>
+    internal const int Concurrency = 64;
+
+    /// <summary>How many threads the bounded-map burst runs (<c>XCUT-14</c>), and how many readers race a token (<c>XCUT-12</c>).</summary>
+    internal const int Racers = 8;
+
     /// <summary>Retries up to <paramref name="attempts"/> times, a millisecond apart and without jitter.</summary>
     /// <param name="attempts">The retries after the first send.</param>
     internal static RetryOptions Fast(int attempts) =>

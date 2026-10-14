@@ -3,6 +3,7 @@
 
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
@@ -225,5 +226,86 @@ internal static class BrokenPipelines
     internal sealed class BakedException(bool retryable) : SdkException("baked")
     {
         public override bool IsRetryable => retryable;
+    }
+
+    /// <summary>
+    /// A retry loop with the safety gate applied to one kind of failure only, or to neither (XCUT-10). A request is safe to re-send
+    /// when it has no body and an idempotent method, or a replayable body.
+    /// </summary>
+    internal sealed class RetryLoop(bool gateTransportFailures, bool gateProtocolFailures) : HttpPipelinePolicy
+    {
+        private static readonly HashSet<int> s_retryableStatuses = [408, 429, 500, 502, 503, 504];
+
+        public override PipelineStage Stage => PipelineStage.Retry;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var retries = context.Options.Retry.MaxRetryAttempts;
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    var response = await continuation.RunAsync(request, context);
+                    if (attempt < retries && s_retryableStatuses.Contains(response.Status.Code) && (!gateProtocolFailures || Safe(request)))
+                    {
+                        response.Dispose();
+                        continue;
+                    }
+
+                    return response;
+                }
+                catch (ServiceRequestException) when (attempt < retries && (!gateTransportFailures || Safe(request)))
+                {
+                }
+            }
+        }
+
+        private static bool Safe(Request request) =>
+            request.Body is null
+                ? request.Method == Method.Get || request.Method == Method.Head || request.Method == Method.Put || request.Method == Method.Delete || request.Method == Method.Options
+                : request.Body.IsReplayable;
+    }
+
+    /// <summary>A step that remembers the request in a field shared by every call and forwards what the field holds (XCUT-11). Every call waits for all the others first, so the cross-talk is certain.</summary>
+    internal sealed class HoldsRequestInAField : HttpPipelinePolicy
+    {
+        private readonly TaskCompletionSource _everyoneArrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private Request? _last;
+        private int _arrived;
+
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            _last = request;
+            if (Interlocked.Increment(ref _arrived) == InvariantOptions.Concurrency)
+            {
+                _everyoneArrived.TrySetResult();
+            }
+
+            await _everyoneArrived.Task;
+            return await continuation.RunAsync(_last, context);
+        }
+    }
+
+    /// <summary>A cause walk with no visited set, lazily and without end over a cycle (XCUT-9).</summary>
+    /// <param name="exception">The exception to walk.</param>
+    internal static IEnumerable<Exception> WalkWithoutVisitedSet(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            yield return current;
+        }
+    }
+
+    /// <summary>A cause walk that tracks visited causes with the default equality comparer (XCUT-9).</summary>
+    /// <param name="exception">The exception to walk.</param>
+    internal static IEnumerable<Exception> WalkByEquals(Exception exception)
+    {
+        var seen = new HashSet<Exception>();
+        for (var current = exception; current is not null && seen.Add(current); current = current.InnerException)
+        {
+            yield return current;
+        }
     }
 }
