@@ -59,6 +59,12 @@ internal sealed class InvariantContext(InvariantSubject subject, TransportFace f
         return item;
     }
 
+#pragma warning disable CA2000 // Ownership passes to the context's list, which DisposeAsync drains on every path.
+    /// <summary>Builds an in-memory transport with <paramref name="behavior"/>; disposed with the run.</summary>
+    /// <param name="behavior">What the transport does with each send.</param>
+    internal ProbeTransport Transport(ProbeTransport.Behavior behavior) => Own(new ProbeTransport(behavior));
+#pragma warning restore CA2000
+
     /// <summary>Builds the subject's pipeline over <paramref name="transport"/> on this run's clock and logger.</summary>
     /// <param name="transport">The terminal transport; the pipeline never owns it.</param>
     /// <param name="clientOptions">The call-level options, or the defaults.</param>
@@ -89,10 +95,17 @@ internal sealed class InvariantContext(InvariantSubject subject, TransportFace f
     /// <param name="pipeline">The pipeline.</param>
     /// <param name="request">The request.</param>
     /// <param name="what">What the call is, named if it hangs.</param>
-    /// <param name="token">The caller's token.</param>
+    /// <param name="token">The assertion's token, which bounds the wait for the call to settle.</param>
+    /// <param name="callToken">The token handed to the pipeline as the caller's, or <see langword="null"/> for <paramref name="token"/>. A test that cancels the call cancels this one.</param>
     /// <param name="requestOptions">Per-call options, or none.</param>
-    internal async Task<Exception?> FailureOfAsync(HttpPipeline pipeline, Request request, string what, CancellationToken token, RequestOptions? requestOptions = null) =>
-        await Outcome.OfAsync(SendAsync(pipeline, request, token, requestOptions), Bound, what, token).ConfigureAwait(false);
+    internal async Task<Exception?> FailureOfAsync(
+        HttpPipeline pipeline,
+        Request request,
+        string what,
+        CancellationToken token,
+        CancellationToken? callToken = null,
+        RequestOptions? requestOptions = null) =>
+        await Outcome.OfAsync(SendAsync(pipeline, request, callToken ?? token, requestOptions), Bound, what, token).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()

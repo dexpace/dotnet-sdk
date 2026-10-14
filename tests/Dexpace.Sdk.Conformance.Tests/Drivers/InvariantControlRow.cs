@@ -15,7 +15,8 @@ internal sealed record InvariantControlRow(
     TransportFace Face,
     string Name,
     Func<InvariantSubject> Subject,
-    ConformanceStatus Expected = ConformanceStatus.Failed)
+    ConformanceStatus Expected = ConformanceStatus.Failed,
+    string? Because = null)
 {
     /// <summary>Short bounds so a hung control stays fast: the assertion's bound is six seconds, a wait inside it three.</summary>
     internal static SuiteOptions Options { get; } = new() { AssertionTimeout = TimeSpan.FromSeconds(6) };
@@ -64,8 +65,15 @@ internal sealed record InvariantControlRow(
 
         Assert.True(
             result.Status == row.Expected,
-            $"control '{name}' on {face} expected {row.Expected} but the assertion reported {result.Status}: {result.Detail}");
+            $"control '{name}' on {face} expected {row.Expected} but the assertion reported {result.Status}: {result.Detail}{Trace(result)}");
         Assert.False(string.IsNullOrWhiteSpace(result.Detail));
+        if (row.Because is not null)
+        {
+            // A control must fail for its own reason: a broken subject that trips some other clause proves nothing about this one.
+            Assert.True(
+                result.Detail.Contains(row.Because, StringComparison.OrdinalIgnoreCase),
+                $"control '{name}' on {face} failed, but not for the expected reason '{row.Because}': {result.Detail}");
+        }
     }
 
     /// <summary>Runs the real assertion on one face against <paramref name="subject"/> (the defaults when null) and fails unless it passed.</summary>
@@ -73,6 +81,9 @@ internal sealed record InvariantControlRow(
     {
         var result = await InvariantSuite.RunAsync(subject ?? new InvariantSubject(), Find(assertion), face, Options, TestContext.Current.CancellationToken);
 
-        Assert.True(result.Status == ConformanceStatus.Passed, $"{assertion} on {face} against {subject?.Name ?? "the defaults"}: {result.Status}: {result.Detail}");
+        Assert.True(result.Status == ConformanceStatus.Passed, $"{assertion} on {face} against {subject?.Name ?? "the defaults"}: {result.Status}: {result.Detail}{Trace(result)}");
     }
+
+    private static string Trace(ConformanceResult result) =>
+        result.Status is ConformanceStatus.Errored && result.Exception is { } exception ? Environment.NewLine + exception : string.Empty;
 }

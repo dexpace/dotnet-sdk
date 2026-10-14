@@ -50,7 +50,7 @@ internal sealed class ProbeTransport(ProbeTransport.Behavior behavior) : IAsyncH
                 {
                     signalSent?.TrySetResult();
                     var cancelled = new TaskCompletionSource<Response>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    using var registration = token.Register(static state => ((TaskCompletionSource<Response>)state!).TrySetCanceled(), cancelled);
+                    using var registration = token.Register(() => cancelled.TrySetCanceled(token));
                     return await cancelled.Task.ConfigureAwait(false);
                 },
                 (_, _, token) =>

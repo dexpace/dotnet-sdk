@@ -10,5 +10,8 @@ namespace Dexpace.Sdk.Conformance;
 internal static class InvariantCatalogue
 {
     /// <summary>Every assertion the invariant suite runs.</summary>
-    internal static IReadOnlyList<ConformanceAssertion> All { get; } = [];
+    internal static IReadOnlyList<ConformanceAssertion> All { get; } =
+    [
+        .. CancellationInvariants.Assertions(),
+    ];
 }
