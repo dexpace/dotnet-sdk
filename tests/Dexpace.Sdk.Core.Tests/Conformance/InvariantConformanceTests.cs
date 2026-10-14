@@ -15,6 +15,7 @@ namespace Dexpace.Sdk.Core.Tests.Conformance;
 [Trait("Category", "Conformance")]
 public sealed class InvariantConformanceTests
 {
+    // <driver>
     public static TheoryData<string, TransportFace> Rows()
     {
         var rows = new TheoryData<string, TransportFace>();
@@ -50,6 +51,7 @@ public sealed class InvariantConformanceTests
             Assert.Skip($"{result.Status}: {result.Detail}");
         }
     }
+    // </driver>
 
     [Fact]
     public async Task The_whole_suite_is_green_and_its_report_is_written()

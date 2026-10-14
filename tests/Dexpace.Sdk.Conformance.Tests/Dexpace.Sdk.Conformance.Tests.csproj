@@ -32,6 +32,8 @@
          the preamble identical to the code. -->
     <None Include="..\..\docs\sdk-documentation\conformance.md" Link="spec\conformance.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Drivers\RawSocketConformanceTests.cs" Link="spec\RawSocketConformanceTests.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The invariant suite's core driver, quoted by the page's second sample (phase 10, P10-27). -->
+    <None Include="..\Dexpace.Sdk.Core.Tests\Conformance\InvariantConformanceTests.cs" Link="spec\InvariantConformanceTests.cs.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
