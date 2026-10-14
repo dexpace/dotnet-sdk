@@ -20,6 +20,8 @@
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
     <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Serialization.SystemTextJson\Dexpace.Sdk.Serialization.SystemTextJson.csproj" />
+    <!-- The conformance kit, for the codec suite's driver (phase 10, P10-8): its probe models are registered in this project's own context. -->
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
   </ItemGroup>
 
 </Project>
