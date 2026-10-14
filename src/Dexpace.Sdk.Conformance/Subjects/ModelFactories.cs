@@ -17,13 +17,17 @@ public sealed record ModelFactories
 {
     /// <summary>
     /// Builds a header collection holding one field through the outbound path (name, value) and returns it; throws
-    /// <see cref="ArgumentException"/> for a name or value the outbound grammar refuses. Default: <c>Headers.Builder.Add</c>.
+    /// <see cref="ArgumentException"/> for a name or value the outbound grammar refuses. A name with HTAB at either end may be refused
+    /// or stored trimmed (<c>XCUT-18</c> refuses HTAB in a name and <c>HTTP-17</c> trims surrounding whitespace); it must not be stored
+    /// with the tab. Default: <c>Headers.Builder.Add</c>.
     /// </summary>
     public Func<string, string, Headers> OutboundHeader { get; init; } = static (name, value) => new Headers.Builder().Add(name, value).Build();
 
     /// <summary>
     /// Builds a header collection holding one field through the inbound (lenient) path; throws <see cref="ArgumentException"/> for a
-    /// control byte other than HTAB. Default: <c>Headers.Builder.AddInbound</c>.
+    /// control byte other than HTAB. A name with HTAB at either end is judged as on the outbound path: refused, or stored trimmed
+    /// (<c>HTTP-19</c> keeps inbound names strictly validated, so the trim is reported as a split clause and not required). Default:
+    /// <c>Headers.Builder.AddInbound</c>.
     /// </summary>
     public Func<string, string, Headers> InboundHeader { get; init; } = static (name, value) => new Headers.Builder().AddInbound(name, value).Build();
 

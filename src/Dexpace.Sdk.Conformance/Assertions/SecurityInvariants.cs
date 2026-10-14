@@ -178,14 +178,18 @@ internal static class SecurityInvariants
             RejectsArgument(() => models.OutboundHeader("X-" + c + "-Y", "v"), $"an outbound header name containing {SecurityVectors.Describe(c)} inside it");
             RejectsArgument(() => models.InboundHeader("X-" + c + "-Y", "v"), $"an inbound header name containing {SecurityVectors.Describe(c)} inside it");
 
-            // Surrounding whitespace (SP and HTAB) is trimmed before validation and the trimmed name stored (HTTP-17), so an HTAB at
-            // either end is not part of the name; every other character of the set is refused at the ends too.
+            // HTAB at the end of a name is where two MUSTs meet: XCUT-18 refuses a name with HTAB, and HTTP-17 trims an outbound
+            // (caller-set) name's surrounding whitespace before validating it. A model may do either, so the check is the safety property both
+            // share: the name is refused, or it is stored as exactly the trimmed token and never with the tab. The same is accepted
+            // of an inbound name, which HTTP-19 says stays strictly validated: pinning the trim there would assert what no row supports, and
+            // a model that refuses it follows the text, so the inbound trim is reported as a split clause (checklist, XCUT-18) and not as a pass condition.
+            // Every other character of the set is refused at the ends too.
             foreach (var edged in new[] { c + "X", "X" + c })
             {
                 if (c == '\t')
                 {
-                    Check.Equal(string.Join(",", models.OutboundHeader(edged, "v").Names), "X", "the stored name of an outbound header name with HTAB at one end (surrounding whitespace is trimmed, HTTP-17)");
-                    Check.Equal(string.Join(",", models.InboundHeader(edged, "v").Names), "X", "the stored name of an inbound header name with HTAB at one end (surrounding whitespace is trimmed, HTTP-17)");
+                    RefusesOrStoresTrimmed(() => models.OutboundHeader(edged, "v"), "an outbound header name with HTAB at one end (refused, or trimmed under HTTP-17)");
+                    RefusesOrStoresTrimmed(() => models.InboundHeader(edged, "v"), "an inbound header name with HTAB at one end (refused, or trimmed as the lenient path does)");
                 }
                 else
                 {
@@ -209,6 +213,31 @@ internal static class SecurityInvariants
         Check.Equal(models.InboundHeader("X-Probe", "a\tb").Get("X-Probe"), "a\tb", "an inbound header value with HTAB inside it (accepted)");
         Check.Equal(models.InboundHeader("X-Probe", "café").Get("X-Probe"), "café", "an inbound header value with obs-text (accepted)");
         return Task.CompletedTask;
+    }
+
+    // Refused with an argument error, or built with the one name "X": the trimmed token, never the name with its tab.
+    private static void RefusesOrStoresTrimmed(Func<Headers> build, string what)
+    {
+        Headers? built = null;
+        Exception? thrown = null;
+        try
+        {
+            built = build();
+        }
+#pragma warning disable CA1031 // The point of the method: what the model does with a hostile character is the answer.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            thrown = ex;
+        }
+
+        if (thrown is not null)
+        {
+            Check.True(thrown is ArgumentException, $"{what} must be refused with an argument error or stored trimmed", "ArgumentException or the stored name X", Outcome.Name(thrown));
+            return;
+        }
+
+        Check.Equal(string.Join(",", built!.Names), "X", $"the stored name of {what}");
     }
 
     private static void RejectsArgument(Func<Headers> build, string what)
