@@ -308,4 +308,115 @@ internal static class BrokenPipelines
             yield return current;
         }
     }
+
+    /// <summary>An auth step that stamps its credential without looking at the scheme (XCUT-16).</summary>
+    internal sealed class StampsWithoutGuard : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.Auth;
+
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>
+            continuation.RunAsync(request.WithHeader("Authorization", "Basic c3ZjOnNlY3JldA=="), context);
+    }
+
+    /// <summary>An auth step that fetches its token first and only then checks the scheme (XCUT-16).</summary>
+    internal sealed class FetchesBeforeGuard(Dexpace.Sdk.Core.Auth.TokenCredential credential) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.Auth;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var token = await credential.GetTokenAsync(new Dexpace.Sdk.Core.Auth.TokenRequestContext(["scope"]), context.CancellationToken);
+            return request.Url.Scheme != Uri.UriSchemeHttps
+                ? throw new SdkException("https is required")
+                : await continuation.RunAsync(request.WithHeader("Authorization", "Bearer " + token.Token), context);
+        }
+    }
+
+    /// <summary>What a broken redirect step gets wrong (XCUT-17).</summary>
+    internal enum RedirectBug
+    {
+        /// <summary>It re-issues with the caller's Authorization.</summary>
+        KeepsAuthorization,
+
+        /// <summary>It strips Authorization but keeps Cookie and Proxy-Authorization across origins.</summary>
+        KeepsCookieAcrossOrigins,
+
+        /// <summary>It rebuilds each hop from the seed and judges the origin against the previous hop instead of the seed.</summary>
+        JudgesAgainstPreviousHop,
+    }
+
+    /// <summary>A redirect loop with one hygiene bug (XCUT-17). It follows 3xx with a Location, up to five times.</summary>
+    internal sealed class BrokenRedirect(RedirectBug bug) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.Redirect;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var current = request;
+            var previous = Origin(request.Url);
+            var seed = previous;
+            for (var hop = 0; hop < 5; hop++)
+            {
+                var response = await continuation.RunAsync(current, context);
+                if (response.Status.Code is not (301 or 302 or 307 or 308) || response.Headers.Get("Location") is not { } location)
+                {
+                    return response;
+                }
+
+                response.Dispose();
+                var next = new UriBuilder(new Uri(current.Url, location)) { UserName = string.Empty, Password = string.Empty }.Uri;
+                var origin = Origin(next);
+                var headers = bug == RedirectBug.JudgesAgainstPreviousHop ? request.Headers : current.Headers;
+                if (bug != RedirectBug.KeepsAuthorization)
+                {
+                    headers = headers.Without("Authorization");
+                }
+
+                var crossOrigin = bug == RedirectBug.JudgesAgainstPreviousHop ? origin != previous : origin != seed;
+                if (crossOrigin && bug != RedirectBug.KeepsCookieAcrossOrigins)
+                {
+                    headers = headers.Without("Cookie").Without("Proxy-Authorization");
+                }
+
+                current = new Request(current.Method, next, headers);
+                previous = origin;
+            }
+
+            throw new SdkException("too many redirects");
+        }
+
+        private static string Origin(Uri url) => $"{url.Scheme}://{url.Host}:{url.Port}";
+    }
+
+    /// <summary>A diagnostics step that logs every request header verbatim (XCUT-19).</summary>
+    internal sealed class LogsHeadersVerbatim(Microsoft.Extensions.Logging.ILogger logger) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            foreach (var name in request.Headers.Names)
+            {
+                var line = name + ": " + request.Headers.Get(name);
+                logger.Log(Microsoft.Extensions.Logging.LogLevel.Information, 0, line, null, static (state, _) => state);
+            }
+
+            return continuation.RunAsync(request, context);
+        }
+    }
+
+    /// <summary>A diagnostics step that logs the response body (XCUT-19, XCUT-24).</summary>
+    internal sealed class LogsBody(Microsoft.Extensions.Logging.ILogger logger) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var response = await continuation.RunAsync(request, context);
+            var bytes = await response.Body.ReadAsBytesAsync(context.CancellationToken);
+            var line = System.Text.Encoding.UTF8.GetString(bytes);
+            logger.Log(Microsoft.Extensions.Logging.LogLevel.Information, 0, line, null, static (state, _) => state);
+            return response.WithBody(ResponseBody.FromBytes(bytes));
+        }
+    }
 }
