@@ -4,6 +4,7 @@
 using System.Security.Cryptography;
 using Dexpace.Sdk.Conformance.Tests.Drivers;
 using Dexpace.Sdk.Core.Pipeline;
+using Dexpace.Sdk.Core.Pipeline.Policies;
 using Xunit;
 
 namespace Dexpace.Sdk.Conformance.Tests.Controls;
@@ -33,6 +34,8 @@ public sealed class InvariantHostControlTests
         new("xcut-23.resolution-deterministic", TransportFace.None, "lets a discoverable candidate beat the explicit one", () => Seam(new SeamResolution(Throws, Throws, () => false)), Because: "explicit install must win"),
         .. Both("xcut-24.preview-capped-non-consuming", "buffers the whole body to preview it", "materialize the payload", () => Previewing(new BrokenPipelines.ReadsWholeBody(onlyErrors: false))),
         .. Both("xcut-24.preview-capped-non-consuming", "buffers the whole error body for its snapshot", "error-body snapshot must be byte-capped", () => Previewing(new BrokenPipelines.ReadsWholeBody(onlyErrors: true))),
+        .. Both("xcut-24.preview-capped-non-consuming", "hands back an error with an empty body", "snapshot must carry the truncated body", () => Previewing(new BrokenPipelines.ReplacesErrorBody([]))),
+        .. Both("xcut-24.preview-capped-non-consuming", "hands back an error whose body is not the server's", "prefix of the body", () => Previewing(new BrokenPipelines.ReplacesErrorBody([0xFF, 0xFE, 0xFD]))),
         .. Both("nfr-11.scheduler-agnostic", "blocks on the caller's synchronization context", "single-threaded synchronization context", () => BrokenPipelines.Subject("blocks on the context", _ => [new BrokenPipelines.BlocksOnTheCallersContext()])),
     ];
 
@@ -57,6 +60,20 @@ public sealed class InvariantHostControlTests
 
         Assert.Equal(ConformanceStatus.NotExercised, result.Status);
         Assert.Contains(nameof(InvariantSubject.SeamResolution), result.Detail, StringComparison.Ordinal);
+    }
+
+    // A subject that takes no body preview has no preview to cap: the assertion says so (Vacuous) and never passes it.
+    [Theory]
+    [InlineData(TransportFace.Async)]
+    [InlineData(TransportFace.Blocking)]
+    public async Task A_pipeline_that_logs_no_body_preview_is_vacuous_and_never_passed(TransportFace face)
+    {
+        var silent = BrokenPipelines.Subject("logs nothing", _ => [new ErrorMappingPolicy()]);
+
+        var result = await InvariantSuite.RunAsync(silent, InvariantControlRow.Find("xcut-24.preview-capped-non-consuming"), face, InvariantControlRow.Options, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ConformanceStatus.Vacuous, result.Status);
+        Assert.Contains("no body preview", result.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -509,6 +509,19 @@ internal static class BrokenPipelines
         }
     }
 
+    /// <summary>A step that hands the caller an error response whose body is not the server's: the given bytes in its place (XCUT-24's snapshot clause).</summary>
+    /// <param name="replacement">What the error response's body becomes.</param>
+    internal sealed class ReplacesErrorBody(byte[] replacement) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var response = await continuation.RunAsync(request, context);
+            return response.Status.IsError ? response.WithBody(ResponseBody.FromBytes(replacement, response.Body.ContentType)) : response;
+        }
+    }
+
     /// <summary>A step that waits for work posted to the caller's synchronization context, which a single-threaded caller cannot run while it waits (NFR-11).</summary>
     internal sealed class BlocksOnTheCallersContext : HttpPipelinePolicy
     {

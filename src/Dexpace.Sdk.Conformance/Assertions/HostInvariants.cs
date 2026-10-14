@@ -192,7 +192,7 @@ internal static class HostInvariants
         return Task.CompletedTask;
     }
 
-    // A preview is byte-capped and does not pull the body ahead of its reader; the reader still sees every byte. An error snapshot is byte-capped.
+    // A preview is byte-capped, carries the start of the body and does not pull the body ahead of its reader; the reader still sees every byte. An error snapshot is byte-capped, non-empty and a prefix of the body.
     private static async Task PreviewCappedNonConsumingAsync(InvariantContext context, CancellationToken token)
     {
         PatternStream? source = null;
@@ -222,9 +222,20 @@ internal static class HostInvariants
         var seen = await ReadAndVerifyAsync(stream, token).ConfigureAwait(false);
         Check.Equal(seen, LargeBody, "the bytes the consumer read after a preview was taken (a preview does not disturb the primary read path)");
 
+        // The preview is in the log: some line carries the start of the payload. A pipeline that takes no preview has none to cap.
+        if (!context.Logger.Entries.Any(entry => entry.Contains(PatternStream.Prefix, StringComparison.Ordinal)))
+        {
+            throw new ConformanceVacuousException("the pipeline logged no body preview at the Body level, so there was no preview to cap");
+        }
+
         var largest = context.Logger.Entries.Select(entry => entry.Message.Length).DefaultIfEmpty(0).Max();
         Check.True(largest <= (PreviewCap * 8) + 4096, "a logged body preview must be byte-capped", $"at most {(PreviewCap * 8) + 4096} characters in any log line", largest.ToString(CultureInfo.InvariantCulture));
 
+        await ErrorSnapshotAsync(context, token).ConfigureAwait(false);
+    }
+
+    private static async Task ErrorSnapshotAsync(InvariantContext context, CancellationToken token)
+    {
         PatternStream? failing = null;
         var erroring = context.Transport(ProbeTransport.Behavior.Of((request, _) =>
         {
@@ -242,6 +253,14 @@ internal static class HostInvariants
             failing.BytesPulled.ToString(CultureInfo.InvariantCulture));
         var kept = await Check.GuardAsync(() => http.Response.Body.ReadAsBytesAsync(token), "reading the error's snapshot", token).ConfigureAwait(false);
         Check.True(kept.Length <= Response.MaxBufferedErrorBytes, "the error's snapshot must be byte-capped", $"at most {Response.MaxBufferedErrorBytes} bytes", kept.Length.ToString(CultureInfo.InvariantCulture));
+        Check.True(kept.Length > 0, "the error's snapshot must carry the truncated body, not an empty one", "the start of the body", "no bytes");
+        for (var i = 0; i < kept.Length; i++)
+        {
+            if (kept[i] != PatternStream.At(i))
+            {
+                Check.Fail("the error's snapshot must be a prefix of the body the server sent", $"byte {i} = {PatternStream.At(i)}", kept[i].ToString(CultureInfo.InvariantCulture));
+            }
+        }
     }
 
     private static async Task<long> ReadAndVerifyAsync(Stream stream, CancellationToken token)

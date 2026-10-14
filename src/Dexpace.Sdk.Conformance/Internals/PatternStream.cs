@@ -4,11 +4,18 @@
 namespace Dexpace.Sdk.Conformance;
 
 /// <summary>
-/// A forward-only stream of a fixed length whose byte at position <c>i</c> is <c>i mod 251</c>, generated on demand: a large body
-/// that costs no memory to hold, whose every byte a consumer can verify, and that counts how much of it was pulled (<c>XCUT-24</c>).
+/// A forward-only stream of a fixed length, generated on demand: a large body that costs no memory to hold, whose every byte a
+/// consumer can verify, and that counts how much of it was pulled (<c>XCUT-24</c>). It opens with <see cref="Prefix"/>, printable
+/// ASCII, so a log line or an error snapshot that carries the start of the body can be recognised as carrying it; every byte after
+/// that at position <c>i</c> is <c>i mod 251</c>.
 /// </summary>
 internal sealed class PatternStream(long length) : Stream
 {
+    /// <summary>The opening of every body this stream produces: what a preview or a snapshot of it must show.</summary>
+    internal const string Prefix = "XCUT24-PREVIEW-MARKER|";
+
+    private static readonly byte[] s_prefix = System.Text.Encoding.ASCII.GetBytes(Prefix);
+
     private long _position;
     private long _pulled;
 
@@ -36,7 +43,7 @@ internal sealed class PatternStream(long length) : Stream
 
     /// <summary>The byte at <paramref name="position"/>.</summary>
     /// <param name="position">A zero-based position.</param>
-    internal static byte At(long position) => (byte)(position % 251);
+    internal static byte At(long position) => position < s_prefix.Length ? s_prefix[position] : (byte)(position % 251);
 
     /// <inheritdoc />
     public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
