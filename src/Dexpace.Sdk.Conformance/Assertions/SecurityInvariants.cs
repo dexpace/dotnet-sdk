@@ -14,8 +14,9 @@ using Dexpace.Sdk.Core.Pipeline;
 namespace Dexpace.Sdk.Conformance;
 
 /// <summary>
-/// <c>XCUT-16</c> to <c>XCUT-19</c>: no credential over a non-https scheme, credential hygiene on every redirect hop, header names
-/// and values validated before a transport sees them, and secrets redacted by default in every rendering.
+/// <c>XCUT-16</c> to <c>XCUT-19</c>: no credential over a non-https scheme, credential hygiene on every redirect hop (the redirect
+/// loop on its own, and with the subject's auth step under it), header names and values validated before a transport sees them,
+/// and secrets redacted by default in every rendering.
 /// </summary>
 internal static class SecurityInvariants
 {
@@ -92,11 +93,70 @@ internal static class SecurityInvariants
         var refused = await context.FailureOfAsync(context.Build(downgrade, options), seed, "a redirect from https to http", token).ConfigureAwait(false);
         Check.True(refused is not null, "an https to http redirect must be refused unless the downgrade is enabled", "a failure", "the call succeeded");
         Check.Equal(downgrade.Sends, 1, "the requests sent for a refused downgrade (the http hop is never sent)");
+
+        // XCUT-17(b), the half the hand-seeded headers above cannot show: the subject's own credential-stamping step under the redirect loop.
+        await AuthUnderRedirectAsync(context, "a Basic step", "Basic ", () => context.Subject.Auth.Basic("svc-user", "svc-secret"), token).ConfigureAwait(false);
+        await AuthUnderRedirectAsync(context, "a bearer step", "Bearer ", () => context.Subject.Auth.Bearer(new GatedCredential(context.Time, gated: false)), token).ConfigureAwait(false);
     }
 
-    private static async Task Followed(InvariantContext context, ProbeTransport transport, DexpaceClientOptions options, Request seed, string what, CancellationToken token)
+    // The auth step sits inside the redirect loop, so it stamps every hop it judges to be the seed's origin and none it does not: the
+    // same-origin re-issue is stamped again, a foreign hop (and a retry of one) carries no credential, and coming back to the seed's
+    // origin stamps again. The first request of each call must carry the stamp, or "no credential on the hop" would prove nothing.
+    private static async Task AuthUnderRedirectAsync(InvariantContext context, string step, string scheme, Func<HttpPipelinePolicy> auth, CancellationToken token)
     {
-        var failure = await context.FailureOfAsync(context.Build(transport, options), seed, what, token).ConfigureAwait(false);
+        var seed = Request.Get("https://a.example.test/start")
+            .WithHeader("Cookie", "sid=" + SecurityVectors.CookieSecret)
+            .WithHeader("Proxy-Authorization", "Basic " + SecurityVectors.AuthorizationSecret);
+        var plain = new DexpaceClientOptions { Retry = InvariantOptions.Fast(0) };
+
+        var sameOrigin = context.Transport(Script(("https://a.example.test/start", 302, "https://a.example.test/next")));
+        await Followed(context, WithAuth(context, sameOrigin, plain, auth()), sameOrigin, seed, $"a same-origin redirect under {step}", token).ConfigureAwait(false);
+        AssertStamped(sameOrigin.Requests[0], scheme, $"the seed request under {step}");
+        AssertStamped(sameOrigin.Requests[1], scheme, $"the same-origin re-issue under {step} (Authorization is stripped before the hop, and the credential is re-stamped by the auth step)");
+
+        var crossOrigin = context.Transport(Script(("https://a.example.test/start", 302, "https://b.example.test/x")));
+        await Followed(context, WithAuth(context, crossOrigin, plain, auth()), crossOrigin, seed, $"a cross-origin redirect under {step}", token).ConfigureAwait(false);
+        AssertStamped(crossOrigin.Requests[0], scheme, $"the seed request under {step}");
+        AssertNoCredentials(crossOrigin.Requests[1], $"a cross-origin redirect under {step} (no credential re-stamped on the foreign host)");
+
+        var there = context.Transport(Script(
+            ("https://a.example.test/start", 302, "https://b.example.test/x"),
+            ("https://b.example.test/x", 302, "https://a.example.test/back")));
+        await Followed(context, WithAuth(context, there, plain, auth()), there, seed, $"a hop to a foreign origin and back under {step}", token).ConfigureAwait(false);
+        AssertNoCredentials(there.Requests[1], $"the foreign hop under {step}");
+        AssertStamped(there.Requests[2], scheme, $"the hop back to the seed's origin under {step} (origin is judged against the seed, so the credential is re-stamped)");
+        Check.True(!there.Requests[2].Headers.Contains("Cookie") && !there.Requests[2].Headers.Contains("Proxy-Authorization"), $"a stripped Cookie or Proxy-Authorization must not be restored on the hop back under {step}", "neither", Describe(there.Requests));
+
+        // A permitted https to http hop is foreign to the seed, so it is credential-free and the https guard does not refuse it; its retry
+        // re-sends the stripped request and must not attach the credential again.
+        var retried = context.Transport(Replies(
+            request => ProbeTransport.Empty(request, 302, new Headers.Builder().Add("Location", "http://a.example.test/next").Build()),
+            request => ProbeTransport.Empty(request, 503),
+            request => ProbeTransport.Empty(request, 200)));
+        var permitted = new DexpaceClientOptions { Retry = InvariantOptions.Fast(1), Redirect = new RedirectOptions { AllowHttpsToHttpDowngrade = true } };
+        await Followed(context, WithAuth(context, retried, permitted, auth()), retried, seed, $"a permitted downgrade followed by a retry under {step}", token).ConfigureAwait(false);
+        Check.Equal(retried.Requests.Count, 3, $"the requests sent for a permitted downgrade whose first answer is a 503 under {step} (seed, the http hop, its retry)");
+        AssertStamped(retried.Requests[0], scheme, $"the seed request under {step}");
+        AssertNoCredentials(retried.Requests[1], $"the permitted https to http hop under {step}");
+        AssertNoCredentials(retried.Requests[2], $"the retry of the permitted https to http hop under {step} (a retried foreign hop is re-sent with no credential)");
+    }
+
+    private static void AssertStamped(Request request, string scheme, string where)
+    {
+        var values = request.Headers.GetAll("Authorization");
+        Check.True(
+            values.Count == 1 && values[0].StartsWith(scheme, StringComparison.OrdinalIgnoreCase),
+            $"{where} must carry exactly the credential its auth step stamps",
+            $"one Authorization starting with \"{scheme}\"",
+            values.Count == 0 ? "no Authorization" : string.Join(" | ", values.Select(value => value.Length > scheme.Length ? value[..scheme.Length] + "..." : value)));
+    }
+
+    private static Task Followed(InvariantContext context, ProbeTransport transport, DexpaceClientOptions options, Request seed, string what, CancellationToken token) =>
+        Followed(context, context.Build(transport, options), transport, seed, what, token);
+
+    private static async Task Followed(InvariantContext context, HttpPipeline pipeline, ProbeTransport transport, Request seed, string what, CancellationToken token)
+    {
+        var failure = await context.FailureOfAsync(pipeline, seed, what, token).ConfigureAwait(false);
         Check.True(failure is null, $"{what} must be followed", "success", Outcome.Name(failure));
         Check.True(transport.Requests.Count >= 2, $"{what} must be re-issued", "at least 2 requests", transport.Requests.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
@@ -238,6 +298,10 @@ internal static class SecurityInvariants
                 ? ProbeTransport.Empty(request, 200)
                 : ProbeTransport.Empty(request, hop.Status, new Headers.Builder().Add("Location", hop.Location!).Build());
         });
+
+    // The n-th send is answered by the n-th reply; the last one answers every send after it.
+    private static ProbeTransport.Behavior Replies(params Func<Request, Response>[] replies) =>
+        ProbeTransport.Behavior.Of((request, send) => replies[Math.Min(send, replies.Length) - 1](request));
 
     private static string Describe(IReadOnlyList<Request> requests) =>
         string.Join("; ", requests.Select(request => $"{request.Url.GetComponents(UriComponents.SchemeAndServer | UriComponents.PathAndQuery, UriFormat.Unescaped)} [{string.Join(", ", request.Headers.Names)}]"));

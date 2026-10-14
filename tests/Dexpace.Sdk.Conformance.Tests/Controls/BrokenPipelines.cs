@@ -388,6 +388,41 @@ internal static class BrokenPipelines
         private static string Origin(Uri url) => $"{url.Scheme}://{url.Host}:{url.Port}";
     }
 
+    /// <summary>What a broken credential-stamping step gets wrong under a redirect loop (XCUT-17(b)).</summary>
+    internal enum RestampBug
+    {
+        /// <summary>It stamps its credential on every request, the foreign origin's included.</summary>
+        AcrossOrigins,
+
+        /// <summary>It stamps only the seed's own request, so a same-origin re-issue goes out without the credential the auth step owes it.</summary>
+        OnlyTheSeedRequest,
+
+        /// <summary>It withholds the credential from a foreign hop the first time, then attaches it when that hop is retried.</summary>
+        OnRetryAcrossOrigins,
+    }
+
+    /// <summary>A credential-stamping step with one restamp bug (XCUT-17(b)): it stamps <paramref name="header"/> as the Authorization value.</summary>
+    internal sealed class BrokenRestamp(RestampBug bug, string header) : HttpPipelinePolicy
+    {
+        private readonly HashSet<string> _foreignSeen = [];
+
+        public override PipelineStage Stage => PipelineStage.Auth;
+
+        public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var sameOrigin = Origin(request.Url) == Origin(context.SeedRequest.Url);
+            var stamp = bug switch
+            {
+                RestampBug.AcrossOrigins => true,
+                RestampBug.OnlyTheSeedRequest => request.Url == context.SeedRequest.Url,
+                _ => sameOrigin || !_foreignSeen.Add(request.Url.AbsoluteUri),
+            };
+            return continuation.RunAsync(stamp ? request.WithHeader("Authorization", header) : request, context);
+        }
+
+        private static string Origin(Uri url) => $"{url.Scheme}://{url.Host}:{url.Port}";
+    }
+
     /// <summary>A diagnostics step that logs every request header verbatim (XCUT-19).</summary>
     internal sealed class LogsHeadersVerbatim(Microsoft.Extensions.Logging.ILogger logger) : HttpPipelinePolicy
     {

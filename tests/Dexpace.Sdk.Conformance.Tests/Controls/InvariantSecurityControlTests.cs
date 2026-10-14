@@ -19,6 +19,10 @@ public sealed class InvariantSecurityControlTests
         .. Both("xcut-17.redirect-hygiene", "re-issues with the caller's Authorization", "even a same-origin one", () => Redirecting(BrokenPipelines.RedirectBug.KeepsAuthorization)),
         .. Both("xcut-17.redirect-hygiene", "keeps Cookie and Proxy-Authorization across origins", "cross-origin redirect", () => Redirecting(BrokenPipelines.RedirectBug.KeepsCookieAcrossOrigins)),
         .. Both("xcut-17.redirect-hygiene", "judges the origin against the previous hop", "judged against the seed", () => Redirecting(BrokenPipelines.RedirectBug.JudgesAgainstPreviousHop)),
+        .. Both("xcut-17.redirect-hygiene", "re-stamps its credential on a foreign origin", "no credential re-stamped", () => Restamping(BrokenPipelines.RestampBug.AcrossOrigins)),
+        .. Both("xcut-17.redirect-hygiene", "re-stamps a bearer credential on a foreign origin", "no credential re-stamped", () => RestampingBearer(BrokenPipelines.RestampBug.AcrossOrigins)),
+        .. Both("xcut-17.redirect-hygiene", "stamps only the seed's own request", "re-stamped by the auth step", () => Restamping(BrokenPipelines.RestampBug.OnlyTheSeedRequest)),
+        .. Both("xcut-17.redirect-hygiene", "re-attaches its credential when a foreign hop is retried", "retried", () => Restamping(BrokenPipelines.RestampBug.OnRetryAcrossOrigins)),
         new("xcut-18.model-validation", TransportFace.None, "accepts HTAB in a header name", () => Modelling(new ModelFactories { OutboundHeader = (name, value) => new Headers.Builder().Add(name.Contains('\t', StringComparison.Ordinal) ? "X-Tab" : name, value).Build() }), Because: "outbound header name"),
         new("xcut-18.model-validation", TransportFace.None, "drops a CR from an outbound value and accepts it", () => Modelling(new ModelFactories { OutboundHeader = (name, value) => new Headers.Builder().Add(name, value.Replace("\r", string.Empty, StringComparison.Ordinal)).Build() }), Because: "outbound header value"),
         new("xcut-18.model-validation", TransportFace.None, "accepts a CR or LF in an inbound value", () => Modelling(new ModelFactories { InboundHeader = (name, value) => new Headers.Builder().AddInbound(name, value.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal)).Build() }), Because: "inbound header value"),
@@ -44,6 +48,12 @@ public sealed class InvariantSecurityControlTests
 
     private static InvariantSubject Redirecting(BrokenPipelines.RedirectBug bug) =>
         BrokenPipelines.Subject("redirect: " + bug, _ => [new BrokenPipelines.BrokenRedirect(bug)]);
+
+    private static InvariantSubject Restamping(BrokenPipelines.RestampBug bug) =>
+        new() { Name = "broken: restamp " + bug, Auth = new AuthPolicyFactories { Basic = (_, _) => new BrokenPipelines.BrokenRestamp(bug, "Basic c3ZjOnNlY3JldA==") } };
+
+    private static InvariantSubject RestampingBearer(BrokenPipelines.RestampBug bug) =>
+        new() { Name = "broken: restamp bearer " + bug, Auth = new AuthPolicyFactories { Bearer = _ => new BrokenPipelines.BrokenRestamp(bug, "Bearer broken-token") } };
 
     private static InvariantSubject Modelling(ModelFactories models) => new() { Name = "broken: models", Models = models };
 

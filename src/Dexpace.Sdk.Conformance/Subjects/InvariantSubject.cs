@@ -144,7 +144,11 @@ public sealed record InvariantSubject
         }
     } = new();
 
-    /// <summary>The credential-stamping policies <c>XCUT-16</c> and <c>XCUT-17</c> drive. Default: <see cref="BasicAuthPolicy"/> and <see cref="BearerTokenAuthPolicy"/>.</summary>
+    /// <summary>
+    /// The credential-stamping policies <c>XCUT-16</c> (no credential over <c>http</c>) and <c>XCUT-17</c> (re-stamped by the auth
+    /// step on the seed's origin, absent on a foreign host) drive, each added to the pillar the subject's pipeline leaves open.
+    /// Default: <see cref="BasicAuthPolicy"/> and <see cref="BearerTokenAuthPolicy"/>.
+    /// </summary>
     public AuthPolicyFactories Auth
     {
         get;
