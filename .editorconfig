@@ -125,16 +125,19 @@ dotnet_naming_style.pascal_case.capitalization = pascal_case
 
 # HTTP field names, media-type tokens, and protocol identifiers have a canonical *lower-case*
 # form (RFC 7230 §3.2). Lowercasing is correct here; ToUpperInvariant would be wrong.
+# Re-enable when: a non-protocol string is lower-cased (an HTTP token never is).
 dotnet_diagnostic.CA1308.severity = none
 
 # The SDK deliberately accepts string URLs at its ergonomic entry points (e.g. Request.Get).
 # A System.Uri overload is also provided for callers that prefer it.
+# Re-enable when: the string-URL entry points are removed.
 dotnet_diagnostic.CA1054.severity = none
 dotnet_diagnostic.CA1055.severity = none
 dotnet_diagnostic.CA1056.severity = none
 
 # Argument null-checks are applied where they matter via ArgumentNullException.ThrowIfNull;
 # CA1062's blanket requirement on every public parameter is noise for this surface.
+# Re-enable when: nullable annotations are turned off for any library.
 dotnet_diagnostic.CA1062.severity = none
 
 # --- Application-shaped code -----------------------------------------------------------------
@@ -142,15 +145,18 @@ dotnet_diagnostic.CA1062.severity = none
 # Tests, repository tools and the AOT smoke consumer are applications, not libraries: none runs under a
 # SynchronizationContext it could deadlock, and xUnit's own analyzer (xUnit1030) forbids ConfigureAwait(false)
 # in test methods. Styleguide 9.4 enables CA2007 in library projects and suppresses it in app/host projects.
+# Re-enable when: never for src/ (this section holds application-shaped code only; the library rule above stays a warning).
 [{tests,tools,.claude}/**/*.cs]
 dotnet_diagnostic.CA2007.severity = none
 
 [tests/**/*.cs]
 # Test method names use Pascal_Snake casing by convention (e.g. Method_DoesThing_WhenCondition).
+# Re-enable when: never for src/ (test names only).
 dotnet_diagnostic.CA1707.severity = none
 # CA2000 in tests: a test hands its fakes to the pipeline or transport under test through a factory call or a
 # scripted-response list, which is an ownership hand-off the analyzer cannot follow. Method-call hand-off counts
 # here (never in src/), and Response is exempt because scripted Responses wrap in-memory bodies that the
 # scripted transport owns and hands on. A test that creates a Response it keeps still disposes it.
+# Re-enable when: never for src/ (the method-call hand-off and the Response exemption are test-only relaxations).
 dotnet_code_quality.CA2000.dispose_ownership_transfer_at_method_call = true
 dotnet_code_quality.CA2000.excluded_type_names_with_derived_types = T:Dexpace.Sdk.Core.Http.Response.Response
