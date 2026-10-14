@@ -76,6 +76,14 @@ Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.May = 2 -> Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.Must = 0 -> Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.Should = 1 -> Dexpace.Sdk.Conformance.RequirementLevel
+Dexpace.Sdk.Conformance.SuiteOptions
+Dexpace.Sdk.Conformance.SuiteOptions.<Clone>$() -> Dexpace.Sdk.Conformance.SuiteOptions!
+Dexpace.Sdk.Conformance.SuiteOptions.AssertionTimeout.get -> System.TimeSpan
+Dexpace.Sdk.Conformance.SuiteOptions.AssertionTimeout.init -> void
+Dexpace.Sdk.Conformance.SuiteOptions.Equals(Dexpace.Sdk.Conformance.SuiteOptions? other) -> bool
+Dexpace.Sdk.Conformance.SuiteOptions.SuiteOptions() -> void
+Dexpace.Sdk.Conformance.SuiteOptions.Waivers.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceWaiver!>!
+Dexpace.Sdk.Conformance.SuiteOptions.Waivers.init -> void
 Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Async = 0 -> Dexpace.Sdk.Conformance.TransportFace
 Dexpace.Sdk.Conformance.TransportFace.Blocking = 1 -> Dexpace.Sdk.Conformance.TransportFace
@@ -156,6 +164,9 @@ override Dexpace.Sdk.Conformance.ConformanceResult.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceWaiver.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.ConformanceWaiver.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
+override Dexpace.Sdk.Conformance.SuiteOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.SuiteOptions.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.SuiteOptions.ToString() -> string!
 override Dexpace.Sdk.Conformance.TransportSettings.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.TransportSettings.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.TransportSettings.ToString() -> string!
@@ -166,6 +177,8 @@ static Dexpace.Sdk.Conformance.ConformanceResult.operator !=(Dexpace.Sdk.Conform
 static Dexpace.Sdk.Conformance.ConformanceResult.operator ==(Dexpace.Sdk.Conformance.ConformanceResult? left, Dexpace.Sdk.Conformance.ConformanceResult? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
+static Dexpace.Sdk.Conformance.SuiteOptions.operator !=(Dexpace.Sdk.Conformance.SuiteOptions? left, Dexpace.Sdk.Conformance.SuiteOptions? right) -> bool
+static Dexpace.Sdk.Conformance.SuiteOptions.operator ==(Dexpace.Sdk.Conformance.SuiteOptions? left, Dexpace.Sdk.Conformance.SuiteOptions? right) -> bool
 static Dexpace.Sdk.Conformance.TransportSettings.operator !=(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
 static Dexpace.Sdk.Conformance.TransportSettings.operator ==(Dexpace.Sdk.Conformance.TransportSettings? left, Dexpace.Sdk.Conformance.TransportSettings? right) -> bool
 static Dexpace.Sdk.Conformance.TransportSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!
