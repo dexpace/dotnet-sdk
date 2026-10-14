@@ -14,5 +14,6 @@ internal static class KitCatalogues
     [
         .. TransportSuite.Assertions,
         .. InvariantSuite.Assertions,
+        .. CodecSuite.Assertions,
     ];
 }

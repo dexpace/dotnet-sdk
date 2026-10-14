@@ -20,6 +20,66 @@ Dexpace.Sdk.Conformance.BoundedMapProbe.BoundedMapProbe(int capacity, System.Act
 Dexpace.Sdk.Conformance.BoundedMapProbe.Capacity.get -> int
 Dexpace.Sdk.Conformance.BoundedMapProbe.Count.get -> System.Func<int>!
 Dexpace.Sdk.Conformance.BoundedMapProbe.Insert.get -> System.Action<string!>!
+Dexpace.Sdk.Conformance.Codec.ProbeAddress
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.<Clone>$() -> Dexpace.Sdk.Conformance.Codec.ProbeAddress!
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.City.get -> string!
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.City.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.Deconstruct(out string! Street, out string! City) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.Equals(Dexpace.Sdk.Conformance.Codec.ProbeAddress? other) -> bool
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.ProbeAddress(string! Street, string! City) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.Street.get -> string!
+Dexpace.Sdk.Conformance.Codec.ProbeAddress.Street.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact
+Dexpace.Sdk.Conformance.Codec.ProbeContact.<Clone>$() -> Dexpace.Sdk.Conformance.Codec.ProbeContact!
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Address.get -> Dexpace.Sdk.Conformance.Codec.ProbeAddress!
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Address.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Age.get -> int
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Age.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Deconstruct(out string! Name, out int Age, out Dexpace.Sdk.Conformance.Codec.ProbeAddress! Address, out System.Collections.Generic.IReadOnlyList<string!>! Tags) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Equals(Dexpace.Sdk.Conformance.Codec.ProbeContact? other) -> bool
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Name.get -> string!
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Name.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact.ProbeContact(string! Name, int Age, Dexpace.Sdk.Conformance.Codec.ProbeAddress! Address, System.Collections.Generic.IReadOnlyList<string!>! Tags) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Tags.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.Codec.ProbeContact.Tags.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbePatch
+Dexpace.Sdk.Conformance.Codec.ProbePatch.<Clone>$() -> Dexpace.Sdk.Conformance.Codec.ProbePatch!
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Address.get -> Dexpace.Sdk.Core.Serialization.Tristate<Dexpace.Sdk.Conformance.Codec.ProbeAddress!>
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Address.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Age.get -> Dexpace.Sdk.Core.Serialization.Tristate<int>
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Age.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Deconstruct(out Dexpace.Sdk.Core.Serialization.Tristate<string!> Name, out Dexpace.Sdk.Core.Serialization.Tristate<int> Age, out Dexpace.Sdk.Core.Serialization.Tristate<Dexpace.Sdk.Conformance.Codec.ProbeAddress!> Address) -> void
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Equals(Dexpace.Sdk.Conformance.Codec.ProbePatch? other) -> bool
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Name.get -> Dexpace.Sdk.Core.Serialization.Tristate<string!>
+Dexpace.Sdk.Conformance.Codec.ProbePatch.Name.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbePatch.ProbePatch(Dexpace.Sdk.Core.Serialization.Tristate<string!> Name, Dexpace.Sdk.Core.Serialization.Tristate<int> Age, Dexpace.Sdk.Core.Serialization.Tristate<Dexpace.Sdk.Conformance.Codec.ProbeAddress!> Address) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeSequence
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.<Clone>$() -> Dexpace.Sdk.Conformance.Codec.ProbeSequence!
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.Deconstruct(out Dexpace.Sdk.Core.Serialization.Tristate<string!>[]! Items) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.Equals(Dexpace.Sdk.Conformance.Codec.ProbeSequence? other) -> bool
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.Items.get -> Dexpace.Sdk.Core.Serialization.Tristate<string!>[]!
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.Items.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeSequence.ProbeSequence(Dexpace.Sdk.Core.Serialization.Tristate<string!>[]! Items) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.<Clone>$() -> Dexpace.Sdk.Conformance.Codec.ProbeUnencodable!
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.Callback.get -> System.Action!
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.Callback.init -> void
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.Deconstruct(out System.Action! Callback) -> void
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.Equals(Dexpace.Sdk.Conformance.Codec.ProbeUnencodable? other) -> bool
+Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.ProbeUnencodable(System.Action! Callback) -> void
+Dexpace.Sdk.Conformance.CodecSubject
+Dexpace.Sdk.Conformance.CodecSubject.<Clone>$() -> Dexpace.Sdk.Conformance.CodecSubject!
+Dexpace.Sdk.Conformance.CodecSubject.CodecSubject() -> void
+Dexpace.Sdk.Conformance.CodecSubject.CreateSerde.get -> System.Func<Dexpace.Sdk.Core.Serialization.ISerde!>!
+Dexpace.Sdk.Conformance.CodecSubject.CreateSerde.init -> void
+Dexpace.Sdk.Conformance.CodecSubject.Equals(Dexpace.Sdk.Conformance.CodecSubject? other) -> bool
+Dexpace.Sdk.Conformance.CodecSubject.ExpectedMediaType.get -> Dexpace.Sdk.Core.Http.Common.MediaType?
+Dexpace.Sdk.Conformance.CodecSubject.ExpectedMediaType.init -> void
+Dexpace.Sdk.Conformance.CodecSubject.MalformedPayload.get -> System.ReadOnlyMemory<byte>
+Dexpace.Sdk.Conformance.CodecSubject.MalformedPayload.init -> void
+Dexpace.Sdk.Conformance.CodecSubject.Name.get -> string!
+Dexpace.Sdk.Conformance.CodecSubject.Name.init -> void
+Dexpace.Sdk.Conformance.CodecSuite
 Dexpace.Sdk.Conformance.ConformanceAssertion
 Dexpace.Sdk.Conformance.ConformanceAssertion.Faces.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.TransportFace>!
 Dexpace.Sdk.Conformance.ConformanceAssertion.Level.get -> Dexpace.Sdk.Conformance.RequirementLevel
@@ -266,6 +326,24 @@ Dexpace.Sdk.Conformance.Wire.RecordedRequest.Version.get -> string!
 override Dexpace.Sdk.Conformance.AuthPolicyFactories.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.AuthPolicyFactories.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.AuthPolicyFactories.ToString() -> string!
+override Dexpace.Sdk.Conformance.Codec.ProbeAddress.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.Codec.ProbeAddress.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.Codec.ProbeAddress.ToString() -> string!
+override Dexpace.Sdk.Conformance.Codec.ProbeContact.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.Codec.ProbeContact.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.Codec.ProbeContact.ToString() -> string!
+override Dexpace.Sdk.Conformance.Codec.ProbePatch.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.Codec.ProbePatch.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.Codec.ProbePatch.ToString() -> string!
+override Dexpace.Sdk.Conformance.Codec.ProbeSequence.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.Codec.ProbeSequence.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.Codec.ProbeSequence.ToString() -> string!
+override Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.ToString() -> string!
+override Dexpace.Sdk.Conformance.CodecSubject.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.CodecSubject.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.CodecSubject.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceAssertion.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceReport.ToString() -> string!
 override Dexpace.Sdk.Conformance.ConformanceResult.Equals(object? obj) -> bool
@@ -297,6 +375,23 @@ override Dexpace.Sdk.Conformance.TransportSettings.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.TransportSettings.ToString() -> string!
 static Dexpace.Sdk.Conformance.AuthPolicyFactories.operator !=(Dexpace.Sdk.Conformance.AuthPolicyFactories? left, Dexpace.Sdk.Conformance.AuthPolicyFactories? right) -> bool
 static Dexpace.Sdk.Conformance.AuthPolicyFactories.operator ==(Dexpace.Sdk.Conformance.AuthPolicyFactories? left, Dexpace.Sdk.Conformance.AuthPolicyFactories? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeAddress.operator !=(Dexpace.Sdk.Conformance.Codec.ProbeAddress? left, Dexpace.Sdk.Conformance.Codec.ProbeAddress? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeAddress.operator ==(Dexpace.Sdk.Conformance.Codec.ProbeAddress? left, Dexpace.Sdk.Conformance.Codec.ProbeAddress? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeContact.operator !=(Dexpace.Sdk.Conformance.Codec.ProbeContact? left, Dexpace.Sdk.Conformance.Codec.ProbeContact? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeContact.operator ==(Dexpace.Sdk.Conformance.Codec.ProbeContact? left, Dexpace.Sdk.Conformance.Codec.ProbeContact? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbePatch.operator !=(Dexpace.Sdk.Conformance.Codec.ProbePatch? left, Dexpace.Sdk.Conformance.Codec.ProbePatch? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbePatch.operator ==(Dexpace.Sdk.Conformance.Codec.ProbePatch? left, Dexpace.Sdk.Conformance.Codec.ProbePatch? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeSequence.operator !=(Dexpace.Sdk.Conformance.Codec.ProbeSequence? left, Dexpace.Sdk.Conformance.Codec.ProbeSequence? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeSequence.operator ==(Dexpace.Sdk.Conformance.Codec.ProbeSequence? left, Dexpace.Sdk.Conformance.Codec.ProbeSequence? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.operator !=(Dexpace.Sdk.Conformance.Codec.ProbeUnencodable? left, Dexpace.Sdk.Conformance.Codec.ProbeUnencodable? right) -> bool
+static Dexpace.Sdk.Conformance.Codec.ProbeUnencodable.operator ==(Dexpace.Sdk.Conformance.Codec.ProbeUnencodable? left, Dexpace.Sdk.Conformance.Codec.ProbeUnencodable? right) -> bool
+static Dexpace.Sdk.Conformance.CodecSubject.DefaultMalformedPayload.get -> System.ReadOnlyMemory<byte>
+static Dexpace.Sdk.Conformance.CodecSubject.operator !=(Dexpace.Sdk.Conformance.CodecSubject? left, Dexpace.Sdk.Conformance.CodecSubject? right) -> bool
+static Dexpace.Sdk.Conformance.CodecSubject.operator ==(Dexpace.Sdk.Conformance.CodecSubject? left, Dexpace.Sdk.Conformance.CodecSubject? right) -> bool
+static Dexpace.Sdk.Conformance.CodecSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!
+static Dexpace.Sdk.Conformance.CodecSuite.Preamble.get -> string!
+static Dexpace.Sdk.Conformance.CodecSuite.RunAllAsync(Dexpace.Sdk.Conformance.CodecSubject! subject, Dexpace.Sdk.Conformance.SuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceReport!>!
+static Dexpace.Sdk.Conformance.CodecSuite.RunAsync(Dexpace.Sdk.Conformance.CodecSubject! subject, Dexpace.Sdk.Conformance.ConformanceAssertion! assertion, Dexpace.Sdk.Conformance.TransportFace face, Dexpace.Sdk.Conformance.SuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceResult!>!
 static Dexpace.Sdk.Conformance.ConformanceReport.Combine(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceReport!>! reports) -> Dexpace.Sdk.Conformance.ConformanceReport!
 static Dexpace.Sdk.Conformance.ConformanceReport.Create(string! subjectName, System.Collections.Generic.IEnumerable<Dexpace.Sdk.Conformance.ConformanceResult!>! results) -> Dexpace.Sdk.Conformance.ConformanceReport!
 static Dexpace.Sdk.Conformance.ConformanceReport.Preamble.get -> string!
