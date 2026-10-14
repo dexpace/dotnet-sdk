@@ -27,18 +27,18 @@ The suite assertions are `invariant:` (the kit's `InvariantSuite`); a **split** 
 | `XCUT-8` | `xcut-8.strict-factory-rejects` (hook `MapStrict`), `xcut-8.convenience-returns-response` | 4c `ErrorMappingFactoryTests` | the public `HttpResponseException` constructor accepts a 200: read as the SDK's mapping path, not a constructor a caller invokes (P10-24) |
 | `XCUT-9` | `xcut-9.cycle-safe-walk` (hook `CreateCyclicException`); `Exception.GetBaseException` is banned in `src/` (`RS0030`) | `ExceptionFactsTests` | none |
 | `XCUT-10` | `xcut-10.safety-gate-uniform` on the core and the DI drivers | 6a `RetryResendGateTests`; 9 `NoRetryingHandlerTests` | none |
-| `XCUT-11`, `XCUT-12` | `xcut-11.shared-no-crosstalk`, `xcut-12.single-flight-scoped` | 4c `ConcurrencyTests`; 6c `AccessTokenCacheTests` | none |
+| `XCUT-11`, `XCUT-12` | `xcut-11.shared-no-crosstalk`, `xcut-12.single-flight-scoped` | 4c `ConcurrencyTests`; 6c `AccessTokenCacheTests` | `XCUT-12`'s "cached reads take no lock" clause is cited by reference to `AccessTokenCacheTests.The_hot_path_takes_no_lock` and is not asserted by the suite |
 | `XCUT-13` | `xcut-13.dispose-latched`, `xcut-13.dispose-non-blocking` | `transport-16.close-idempotent-nonblocking` (by reference) | preserving an ambient interrupt flag is vacuous (design §10 entry 8) |
 | `XCUT-14` | `xcut-14.bounded-under-burst`, `xcut-14.drains-after-insert` (hook `CreateBoundedMap`); a second `ConcurrentDictionary` constructor outside `BoundedMap` is banned in `src/` (`RS0030`) | 4a `BoundedMapTests`; 6c `AccessTokenCacheTests` | none |
 | `XCUT-15` | `xcut-15.no-external-alias` | 2a `ModelImmutabilityArchitectureTests` | none |
-| `XCUT-16`, `XCUT-17` | `xcut-16.no-credential-over-http`, `xcut-17.redirect-hygiene` | phase 1 `AuthHttpsGuardTests`, `RedirectWireTests` (`Security`); 6b `RedirectCredentialLeakTests` | none |
-| `XCUT-18` | `xcut-18.model-validation` | phase 1 `HeaderInjectionValidationTests` (`Security`); 8b `HeaderPartitionTests` | surrounding HTAB or space on a name is trimmed before validation (`HTTP-17`); the dispatch-time re-check is the transport suite's (P10-6) |
+| `XCUT-16`, `XCUT-17` | `xcut-16.no-credential-over-http`, `xcut-17.redirect-hygiene` (also composes the subject's Basic and bearer steps under the redirect loop: stamped again on the seed's origin, absent on a foreign host and on a retry of a foreign hop) | phase 1 `AuthHttpsGuardTests`, `RedirectWireTests` (`Security`); 6b `RedirectCredentialLeakTests` | none |
+| `XCUT-18` | `xcut-18.model-validation` | phase 1 `HeaderInjectionValidationTests` (`Security`); 8b `HeaderPartitionTests` | HTAB at the edge of a name is where `XCUT-18` (reject) and `HTTP-17` (trim) meet, so the suite accepts a refusal or a name stored trimmed, outbound and inbound; core trims on both, and the inbound trim is a possible gap against `HTTP-19`, not pinned and routed to phase 11. The dispatch-time re-check is the transport suite's (P10-6) |
 | `XCUT-19` | `xcut-19.redaction-default-deny` | phase 1 `UrlRedactionDefaultDenyTests` (`Security`); 5b `HttpLoggingDefaultsTests` | none |
 | `XCUT-20` | `xcut-20.observability-never-throws` | 5b `EmissionGuardTests` | the SDK's own recording code is total; a listener's callbacks are `OBS-30`'s party (design §11 item 37) |
-| `XCUT-21` | `xcut-21.cnonce-unpredictable` (optional hook `DrawCnonce`) | 6c `DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator` | the operating-system CSPRNG source is cited by reference: an output test cannot tell it from `System.Random` |
+| `XCUT-21` | `xcut-21.cnonce-unpredictable` (optional hook `DrawCnonce`) | 6c `DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator` | the draw must carry at least 128 bits (hex of either case, base64 or base64url); the operating-system CSPRNG source is cited by reference: an output test cannot tell it from `System.Random` |
 | `XCUT-22` | `xcut-22.core-borrows` | `transport-15.borrowed-survives`; 9 `PrimaryHandlerLeaseTests` | none |
 | `XCUT-23` | `xcut-23.resolution-deterministic` (hook `SeamResolution`, supplied by the DI driver) | 9 `SingleRegistrationTests` | the discovery half is vacuous: a seam is a non-nullable parameter (design §10 entry 9, §11 item 8) |
-| `XCUT-24` | `xcut-24.preview-capped-non-consuming` | 5b `BodyPreviewTests` | the non-consuming clause is **declined** for an error-body snapshot above 1 MiB, which is drained, truncated without a marker and replaces the original (P10-23, `docs/first-release.md` *SHOULD declined*) |
+| `XCUT-24` | `xcut-24.preview-capped-non-consuming` | 5b `BodyPreviewTests` | the non-consuming clause is **declined** for an error-body snapshot above 1 MiB, which is drained, truncated without a marker and replaces the original (P10-23, `docs/first-release.md` *SHOULD declined*). A pipeline that logs no body preview is `Vacuous`, and the error's snapshot must be a non-empty prefix of the body |
 
 A finding the measurement made and no phase fixed (P10-25): `ServiceResponseException` is public, documented as part of `XCUT-4`'s taxonomy, and never thrown. It is routed to phase 11 (delete, or argue it as part of
 branch (b) in design §3.2) and to phase 12's public-surface choices.
@@ -46,7 +46,7 @@ branch (b) in design §3.2) and to phase 12's public-surface choices.
 ## The gate table
 
 "Blocking" means the gate fails its CI job. Whether a failing job also blocks a **merge** is a repository setting (a ruleset's required status checks) outside the workflow file: `CiWorkflowTests` pins that every gate below
-is a step of `ci.yml` and that no step or job is advisory, and the checklist records the setting as read.
+is a step of `ci.yml`, that no step or job is advisory, that the workflow triggers on `push` and `pull_request` to `main` with no filter that skips a run, and that no job carries a job-level `if:`, `continue-on-error` or matrix `exclude:`; the checklist records the setting as read.
 
 | Gate | Requirement | Mechanism | State after phase 10 |
 |---|---|---|---|

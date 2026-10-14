@@ -313,7 +313,7 @@ and `ConformanceReport.Combine` merges the two reports by requirement, so no cla
   (`XCUT-9`; the suite only **walks** the exception and never throws it, because a thrown cyclic chain hangs the test host on Windows), `CreateBoundedMap` (`XCUT-14`, a
   `BoundedMapProbe` of insert, count and capacity) and `SeamResolution` (`XCUT-23`). An assertion whose hook is `null` is `NotExercised` with a reason naming the hook, never passed.
 - `DrawCnonce` is optional and is not one of the four: `null` means the suite draws through the public `DigestChallengeHandler.Authorize`, so `xcut-21` is always exercised. It judges the
-  draw's width (32 lower-case hex characters, 128 bits) and that ten thousand draws do not repeat; the operating-system CSPRNG source clause is cited by reference to
+  draw's width (at least 128 bits, written as hex of either case, base64 or base64url; core draws 32 lower-case hex characters) and that ten thousand draws do not repeat; the operating-system CSPRNG source clause is cited by reference to
   `DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator`, because no output test can tell a CSPRNG from `System.Random`.
 
 **The catalogue.** `Faces` is `both` for the asynchronous and blocking surface of `HttpPipeline`, or `none` (`TransportFace.None`) for an assertion that judges a value and drives no call.
