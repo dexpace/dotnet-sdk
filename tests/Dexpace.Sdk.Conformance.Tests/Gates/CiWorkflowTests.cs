@@ -10,7 +10,9 @@ namespace Dexpace.Sdk.Conformance.Tests.Gates;
 /// NFR-17's first half (phase 10, P10-16, plan reading R8): every gate of the gate table is a step of <c>.github/workflows/ci.yml</c>, and no step or job is
 /// advisory. The second half, that a merge requires the checks, is a repository setting outside the file, recorded in the phase checklist. The workflow is read
 /// as text (no YAML package is added): the rules are line-based and documented here. A gate added to the workflow without a row below is not checked, and a row
-/// whose step is renamed or loses its command fails: this is the "every blocking gate stays blocking" pin.
+/// whose step is renamed or loses its command fails: this is the "every blocking gate stays blocking" pin. Two more pins keep the gates reachable:
+/// the workflow must trigger on <c>push</c> and <c>pull_request</c> to <c>main</c> with no filter that skips a pull request, and no job may carry a
+/// job-level <c>if:</c>, <c>continue-on-error</c> or matrix <c>exclude:</c> that would stop a job, or one operating-system leg, from running.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed partial class CiWorkflowTests
@@ -60,7 +62,25 @@ public sealed partial class CiWorkflowTests
     [GeneratedRegex(@"^\s+if:\s*(?<condition>.+?)\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex IfLine();
 
-    private static string Workflow => File.ReadAllText(RepositoryRoot.Of(".github/workflows/ci.yml"));
+    [GeneratedRegex(@"^on:\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex OnBlockStart();
+
+    [GeneratedRegex(@"^ {2}(?<event>[a-z_]+):\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex TriggerEvent();
+
+    [GeneratedRegex(@"^ {4}(?<key>[a-z-]+):\s*(?<value>.*?)\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex TriggerFilter();
+
+    [GeneratedRegex(@"^ {2}(?<id>[A-Za-z0-9_-]+):\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex JobHeader();
+
+    [GeneratedRegex(@"^ {4}steps:\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex StepsKey();
+
+    [GeneratedRegex(@"^\s+(?:if|continue-on-error|exclude):", RegexOptions.CultureInvariant)]
+    private static partial Regex JobGuard();
+
+    private static string Workflow => File.ReadAllText(RepositoryRoot.Of(".github/workflows/ci.yml")).ReplaceLineEndings("\n");
 
     [Fact]
     public void Every_gate_of_the_gate_table_is_a_ci_step()
@@ -100,6 +120,22 @@ public sealed partial class CiWorkflowTests
     }
 
     [Fact]
+    public void The_workflow_runs_on_every_pull_request_and_every_push_to_main()
+    {
+        Assert.Empty(TriggerProblems(Workflow));
+    }
+
+    [Fact]
+    public void No_job_can_be_skipped_whole_or_dropped_from_the_matrix()
+    {
+        var workflow = Workflow;
+
+        Assert.Empty(JobProblems(workflow));
+        // The jobs the other pins name exist, so the scan is not vacuous.
+        Assert.Equal(["build", "reproducible", "aot-smoke"], Jobs(workflow).Select(static job => job.Id));
+    }
+
+    [Fact]
     public void The_checks_can_fail()
     {
         var workflow = Workflow;
@@ -123,11 +159,112 @@ public sealed partial class CiWorkflowTests
         var conditional = workflow.Replace("      - name: Pack\n", "      - name: Pack\n        if: github.event_name == 'push'\n", StringComparison.Ordinal);
         Assert.NotEqual(workflow, conditional);
         Assert.Contains(UndocumentedConditions(conditional), static c => c.Contains("Pack", StringComparison.Ordinal));
+
+        // A workflow that no longer runs on pull requests.
+        var withoutPullRequests = workflow.Replace("  pull_request:\n    branches: [main]\n", string.Empty, StringComparison.Ordinal);
+        Assert.NotEqual(workflow, withoutPullRequests);
+        Assert.Contains(TriggerProblems(withoutPullRequests), static p => p.Contains("pull_request", StringComparison.Ordinal));
+
+        // A trigger that skips some pull requests, or runs for another branch only.
+        var filtered = workflow.Replace("  pull_request:\n    branches: [main]\n", "  pull_request:\n    branches: [main]\n    paths-ignore: ['docs/**']\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, filtered);
+        Assert.Contains(TriggerProblems(filtered), static p => p.Contains("paths-ignore", StringComparison.Ordinal));
+        var elsewhere = workflow.Replace("  push:\n    branches: [main]\n", "  push:\n    branches: [release]\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, elsewhere);
+        Assert.Contains(TriggerProblems(elsewhere), static p => p.Contains("push", StringComparison.Ordinal));
+
+        // A job that is skipped on pull requests, whichever job it is, and a job that cannot fail the run.
+        var skippedBuild = workflow.Replace("    runs-on: ${{ matrix.os }}\n", "    runs-on: ${{ matrix.os }}\n    if: github.event_name == 'push'\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, skippedBuild);
+        Assert.Contains(JobProblems(skippedBuild), static p => p.Contains("build", StringComparison.Ordinal));
+        var skippedReproducible = workflow.Replace("    name: reproducible packages\n", "    name: reproducible packages\n    if: github.event_name == 'push'\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, skippedReproducible);
+        Assert.Contains(JobProblems(skippedReproducible), static p => p.Contains("reproducible", StringComparison.Ordinal));
+        var tolerant = workflow.Replace("    name: NativeAOT smoke\n", "    name: NativeAOT smoke\n    continue-on-error: true\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, tolerant);
+        Assert.Contains(JobProblems(tolerant), static p => p.Contains("aot-smoke", StringComparison.Ordinal));
+
+        // A matrix leg removed.
+        var excluded = workflow.Replace("        os: [ubuntu-latest, windows-latest, macos-latest]\n", "        os: [ubuntu-latest, windows-latest, macos-latest]\n        exclude:\n          - os: windows-latest\n", StringComparison.Ordinal);
+        Assert.NotEqual(workflow, excluded);
+        Assert.Contains(JobProblems(excluded), static p => p.Contains("exclude", StringComparison.Ordinal));
     }
 
-    private static List<(string Name, string Text)> Steps(string workflow)
+    private sealed record Job(string Id, string Settings, List<(string Name, string Text)> Steps);
+
+    // The jobs, each as its own settings block (everything before its steps: name, strategy, runs-on, ...) and its own steps, so a job-level
+    // line is never read as part of the previous job's last step.
+    private static List<Job> Jobs(string workflow)
     {
         var lines = workflow.Split('\n');
+        var first = Array.FindIndex(lines, static line => line.TrimEnd() == "jobs:");
+        Assert.True(first >= 0, "ci.yml has no jobs: block");
+        var headers = Enumerable.Range(first + 1, lines.Length - first - 1).Where(i => JobHeader().IsMatch(lines[i])).Append(lines.Length).ToArray();
+        var jobs = new List<Job>();
+        for (var j = 0; j < headers.Length - 1; j++)
+        {
+            var body = lines[headers[j]..headers[j + 1]];
+            var steps = Array.FindIndex(body, static line => StepsKey().IsMatch(line));
+            var settings = steps < 0 ? body : body[..steps];
+            var stepLines = steps < 0 ? [] : body[steps..];
+            jobs.Add(new Job(JobHeader().Match(lines[headers[j]]).Groups["id"].Value, string.Join('\n', settings), StepsOf(stepLines)));
+        }
+
+        return jobs;
+    }
+
+    // The triggers: each event under on:, with the filters it carries. Only push and pull_request to main, with no other filter, are accepted.
+    private static List<string> TriggerProblems(string workflow)
+    {
+        var lines = workflow.Split('\n');
+        var start = Array.FindIndex(lines, static line => OnBlockStart().IsMatch(line));
+        if (start < 0)
+        {
+            return ["there is no on: block"];
+        }
+
+        var events = new Dictionary<string, List<(string Key, string Value)>>(StringComparer.Ordinal);
+        List<(string Key, string Value)>? current = null;
+        foreach (var line in lines.Skip(start + 1).TakeWhile(static line => line.Length == 0 || line.StartsWith(' ') || line.StartsWith('#')))
+        {
+            if (TriggerEvent().Match(line) is { Success: true } trigger)
+            {
+                current = [];
+                events[trigger.Groups["event"].Value] = current;
+            }
+            else if (TriggerFilter().Match(line) is { Success: true } filter && current is not null)
+            {
+                current.Add((filter.Groups["key"].Value, filter.Groups["value"].Value));
+            }
+        }
+
+        var problems = new List<string>();
+        foreach (var name in new[] { "push", "pull_request" })
+        {
+            if (!events.TryGetValue(name, out var filters))
+            {
+                problems.Add($"the workflow does not run on {name}");
+                continue;
+            }
+
+            problems.AddRange(filters.Where(static f => f.Key != "branches").Select(f => $"{name} carries the filter {f.Key}: a run can be skipped"));
+            if (!filters.Contains(("branches", "[main]")))
+            {
+                problems.Add($"{name} does not run for exactly the branch main (branches: [main])");
+            }
+        }
+
+        return problems;
+    }
+
+    // A job-level if:, continue-on-error or matrix exclude: stops a job, or one operating-system leg of it, from running or from failing the run.
+    private static List<string> JobProblems(string workflow) =>
+        [.. Jobs(workflow).SelectMany(job => job.Settings.Split('\n').Where(static line => JobGuard().IsMatch(line)).Select(line => $"job {job.Id}: {line.Trim()}"))];
+
+    private static List<(string Name, string Text)> Steps(string workflow) => [.. Jobs(workflow).SelectMany(static job => job.Steps)];
+
+    private static List<(string Name, string Text)> StepsOf(string[] lines)
+    {
         var starts = Enumerable.Range(0, lines.Length).Where(i => StepStart().IsMatch(lines[i])).Append(lines.Length).ToArray();
         var steps = new List<(string, string)>();
         for (var s = 0; s < starts.Length - 1; s++)
