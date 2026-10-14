@@ -28,10 +28,13 @@ name: CI
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in
 #     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
 #     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
-#   - NativeAOT smoke consumer: runs below over today's surface, with the Tristate, paging and SSE round trip of phase 7
-#     and a conformance slice from phase 8a; phase 10 completes it.
 #   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
-#   - NFR-11's public-signature type scan: phase 10. Strong naming and author signing (NFR-16): phase 12.
+#   - Strong naming and author signing (NFR-16): phase 12.
+#
+# Phase 10 completed what was inert: the NativeAOT smoke consumer below runs the invariant suite with core's defaults and the codec suite over the
+# System.Text.Json adapter (tests/Dexpace.Sdk.AotSmoke/SmokeChecks.Phase10.cs); NFR-11's public-signature type scan is
+# tests/Dexpace.Sdk.Core.Tests/Architecture/Nfr11PublicSurfaceArchitectureTests.cs; the packaging suite runs after Pack (below); and
+# tests/Dexpace.Sdk.Conformance.Tests/Gates/CiWorkflowTests.cs fails if a gate here is dropped or made advisory (NFR-17).
 
 on:
   push:
