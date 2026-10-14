@@ -8,10 +8,10 @@ using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
-using Dexpace.Sdk.Core.ServerSentEvents;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
+using Dexpace.Sdk.Core.ServerSentEvents;
 using Microsoft.Extensions.Logging;
 
 namespace Dexpace.Sdk.Conformance;

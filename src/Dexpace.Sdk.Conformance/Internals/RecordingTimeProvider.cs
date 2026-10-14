@@ -6,7 +6,7 @@ namespace Dexpace.Sdk.Conformance;
 /// <summary>
 /// A <see cref="TimeProvider"/> over <see cref="TimeProvider.System"/> that counts the timers it creates and the timers that are
 /// disposed, so an assertion can prove that a cancelled wait cancelled the timer it armed (<c>XCUT-3</c>) without sleeping on
-/// the wall clock: the kit never calls <c>Task.Delay</c> or reads a wall clock (the kit's 8a rule). <see cref="Advance"/> moves
+/// the wall clock: the kit never delays through the banned overloads and never reads a wall clock (the kit's 8a rule). <see cref="Advance"/> moves
 /// the clock it reports forward without waiting.
 /// </summary>
 internal sealed class RecordingTimeProvider : TimeProvider

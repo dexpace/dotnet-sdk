@@ -7,7 +7,7 @@ namespace Dexpace.Sdk.Conformance;
 
 /// <summary>
 /// Waiting for a condition another thread or task is about to make true, bounded in real time (suite-contract clause 6). The
-/// kit never sleeps on the wall clock and never calls <c>Task.Delay</c>: the pause between looks is
+/// kit never sleeps on the wall clock and never uses the banned delay overloads: the pause between looks is
 /// <see cref="TimeProviderWaits.DelayAsync"/> over the system clock, and the bound is a cancellation source, so no assertion reads
 /// a clock to decide a verdict.
 /// </summary>
