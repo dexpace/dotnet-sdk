@@ -56,6 +56,18 @@ public sealed record ModelFactories
         };
     };
 
+    /// <summary>
+    /// Builds a header collection holding the field <c>A: 1</c> from a builder, then keeps adding <c>B: 2</c> to that builder, and
+    /// returns what was built before the second field was added; the suite requires <c>B</c> absent. Default: <c>Headers.Builder.Build</c>.
+    /// </summary>
+    public Func<Headers> HeadersAfterBuilderMutation { get; init; } = static () =>
+    {
+        var builder = new Headers.Builder().Add("A", "1");
+        var built = builder.Build();
+        builder.Add("B", "2");
+        return built;
+    };
+
     /// <summary>Returns the given collection with one field set, as a collection that is not the given one. Default: <c>Headers.With</c>.</summary>
     public Func<Headers, string, string, Headers> WithHeader { get; init; } = static (headers, name, value) => headers.With(name, value);
 

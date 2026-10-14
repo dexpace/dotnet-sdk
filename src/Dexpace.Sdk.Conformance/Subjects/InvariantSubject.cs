@@ -6,6 +6,9 @@ using Dexpace.Sdk.Core.Client;
 using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Diagnostics;
 using Dexpace.Sdk.Core.Errors;
+using Dexpace.Sdk.Core.Http.Common;
+using Dexpace.Sdk.Core.Http.Request;
+using Dexpace.Sdk.Core.ServerSentEvents;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Pipeline;
 using Dexpace.Sdk.Core.Pipeline.Policies;
@@ -164,6 +167,21 @@ public sealed record InvariantSubject
     } = DefaultCredentials();
 
     /// <summary>
+    /// Builds the disposable components <c>XCUT-13</c> closes, each over a fresh body: the caller closes one twice, and concurrently,
+    /// and requires the body released exactly once, without waiting for a read parked on it. Default: a core <see cref="Response"/>,
+    /// a <see cref="TypedResponse{T}"/> and a <see cref="ServerSentEventStream"/>.
+    /// </summary>
+    public Func<ResponseBody, IReadOnlyList<DisposableUnderTest>> CreateDisposables
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = DefaultDisposables;
+
+    /// <summary>
     /// <b>No default.</b> The strict status-to-exception factory (<c>XCUT-8</c>): must throw <see cref="ArgumentException"/> for a
     /// non-error status. <see langword="null"/> makes <c>xcut-8.strict-factory-rejects</c> <see cref="ConformanceStatus.NotExercised"/>.
     /// </summary>
@@ -193,6 +211,23 @@ public sealed record InvariantSubject
     /// <c>xcut-23.resolution-deterministic</c> <see cref="ConformanceStatus.NotExercised"/>.
     /// </summary>
     public SeamResolution? SeamResolution { get; init; }
+
+#pragma warning disable CA2000 // Ownership passes to the returned disposables, which the assertion closes.
+    private static DisposableUnderTest[] DefaultDisposables(ResponseBody body)
+    {
+        var request = Request.Get("https://example.test/");
+        var headers = new Headers.Builder().Add("Content-Type", "text/event-stream").Build();
+        var response = new Response(request, Status.Ok, Protocol.Http11, headers, body);
+        var typed = new TypedResponse<int>(new Response(request, Status.Ok, Protocol.Http11, headers, body), new UnusedHandler());
+        var events = ServerSentEventStream.FromResponse(new Response(request, Status.Ok, Protocol.Http11, headers, body));
+        return
+        [
+            new DisposableUnderTest(nameof(Response), response.Dispose, response.DisposeAsync),
+            new DisposableUnderTest(nameof(TypedResponse<int>), typed.Dispose, typed.DisposeAsync),
+            new DisposableUnderTest(nameof(ServerSentEventStream), events.Dispose, events.DisposeAsync),
+        ];
+    }
+#pragma warning restore CA2000
 
     private static CredentialSample[] DefaultCredentials()
     {

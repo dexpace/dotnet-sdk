@@ -92,6 +92,17 @@ Dexpace.Sdk.Conformance.CredentialSample.Render.get -> System.Func<string!>!
 Dexpace.Sdk.Conformance.CredentialSample.Render.init -> void
 Dexpace.Sdk.Conformance.CredentialSample.Secret.get -> string!
 Dexpace.Sdk.Conformance.CredentialSample.Secret.init -> void
+Dexpace.Sdk.Conformance.DisposableUnderTest
+Dexpace.Sdk.Conformance.DisposableUnderTest.<Clone>$() -> Dexpace.Sdk.Conformance.DisposableUnderTest!
+Dexpace.Sdk.Conformance.DisposableUnderTest.Deconstruct(out string! Kind, out System.Action! Dispose, out System.Func<System.Threading.Tasks.ValueTask>! DisposeAsync) -> void
+Dexpace.Sdk.Conformance.DisposableUnderTest.DisposableUnderTest(string! Kind, System.Action! Dispose, System.Func<System.Threading.Tasks.ValueTask>! DisposeAsync) -> void
+Dexpace.Sdk.Conformance.DisposableUnderTest.Dispose.get -> System.Action!
+Dexpace.Sdk.Conformance.DisposableUnderTest.Dispose.init -> void
+Dexpace.Sdk.Conformance.DisposableUnderTest.DisposeAsync.get -> System.Func<System.Threading.Tasks.ValueTask>!
+Dexpace.Sdk.Conformance.DisposableUnderTest.DisposeAsync.init -> void
+Dexpace.Sdk.Conformance.DisposableUnderTest.Equals(Dexpace.Sdk.Conformance.DisposableUnderTest? other) -> bool
+Dexpace.Sdk.Conformance.DisposableUnderTest.Kind.get -> string!
+Dexpace.Sdk.Conformance.DisposableUnderTest.Kind.init -> void
 Dexpace.Sdk.Conformance.InternalCancellation
 Dexpace.Sdk.Conformance.InternalCancellation.CancelInFlight.get -> System.Action!
 Dexpace.Sdk.Conformance.InternalCancellation.InternalCancellation(Dexpace.Sdk.Core.Client.IAsyncHttpClient! transport, System.Action! cancelInFlight) -> void
@@ -104,6 +115,8 @@ Dexpace.Sdk.Conformance.InvariantSubject.CreateBoundedMap.get -> System.Func<int
 Dexpace.Sdk.Conformance.InvariantSubject.CreateBoundedMap.init -> void
 Dexpace.Sdk.Conformance.InvariantSubject.CreateCyclicException.get -> System.Func<System.Exception!>?
 Dexpace.Sdk.Conformance.InvariantSubject.CreateCyclicException.init -> void
+Dexpace.Sdk.Conformance.InvariantSubject.CreateDisposables.get -> System.Func<Dexpace.Sdk.Core.Http.Response.ResponseBody!, System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.DisposableUnderTest!>!>!
+Dexpace.Sdk.Conformance.InvariantSubject.CreateDisposables.init -> void
 Dexpace.Sdk.Conformance.InvariantSubject.CreatePipeline.get -> System.Func<Dexpace.Sdk.Core.Client.IAsyncHttpClient!, Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!, System.TimeProvider!, Microsoft.Extensions.Logging.ILogger!, Dexpace.Sdk.Core.Pipeline.HttpPipeline!>!
 Dexpace.Sdk.Conformance.InvariantSubject.CreatePipeline.init -> void
 Dexpace.Sdk.Conformance.InvariantSubject.CreateResponseException.get -> System.Func<Dexpace.Sdk.Core.Http.Response.Response!, Dexpace.Sdk.Core.Errors.SdkException!>!
@@ -138,6 +151,8 @@ Dexpace.Sdk.Conformance.ModelFactories.BytesBody.init -> void
 Dexpace.Sdk.Conformance.ModelFactories.ChallengeParameters.get -> System.Func<System.Collections.Generic.Dictionary<string!, string!>!, System.Collections.Generic.IReadOnlyDictionary<string!, string!>!>!
 Dexpace.Sdk.Conformance.ModelFactories.ChallengeParameters.init -> void
 Dexpace.Sdk.Conformance.ModelFactories.Equals(Dexpace.Sdk.Conformance.ModelFactories? other) -> bool
+Dexpace.Sdk.Conformance.ModelFactories.HeadersAfterBuilderMutation.get -> System.Func<Dexpace.Sdk.Core.Http.Common.Headers!>!
+Dexpace.Sdk.Conformance.ModelFactories.HeadersAfterBuilderMutation.init -> void
 Dexpace.Sdk.Conformance.ModelFactories.InboundHeader.get -> System.Func<string!, string!, Dexpace.Sdk.Core.Http.Common.Headers!>!
 Dexpace.Sdk.Conformance.ModelFactories.InboundHeader.init -> void
 Dexpace.Sdk.Conformance.ModelFactories.MediaTypeParameters.get -> System.Func<System.Collections.Generic.Dictionary<string!, string!>!, System.Collections.Generic.IReadOnlyDictionary<string!, string!>!>!
@@ -258,6 +273,9 @@ override Dexpace.Sdk.Conformance.ConformanceWaiver.ToString() -> string!
 override Dexpace.Sdk.Conformance.CredentialSample.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.CredentialSample.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.CredentialSample.ToString() -> string!
+override Dexpace.Sdk.Conformance.DisposableUnderTest.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.DisposableUnderTest.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.DisposableUnderTest.ToString() -> string!
 override Dexpace.Sdk.Conformance.InvariantSubject.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.InvariantSubject.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.InvariantSubject.ToString() -> string!
@@ -284,6 +302,8 @@ static Dexpace.Sdk.Conformance.ConformanceWaiver.operator !=(Dexpace.Sdk.Conform
 static Dexpace.Sdk.Conformance.ConformanceWaiver.operator ==(Dexpace.Sdk.Conformance.ConformanceWaiver? left, Dexpace.Sdk.Conformance.ConformanceWaiver? right) -> bool
 static Dexpace.Sdk.Conformance.CredentialSample.operator !=(Dexpace.Sdk.Conformance.CredentialSample? left, Dexpace.Sdk.Conformance.CredentialSample? right) -> bool
 static Dexpace.Sdk.Conformance.CredentialSample.operator ==(Dexpace.Sdk.Conformance.CredentialSample? left, Dexpace.Sdk.Conformance.CredentialSample? right) -> bool
+static Dexpace.Sdk.Conformance.DisposableUnderTest.operator !=(Dexpace.Sdk.Conformance.DisposableUnderTest? left, Dexpace.Sdk.Conformance.DisposableUnderTest? right) -> bool
+static Dexpace.Sdk.Conformance.DisposableUnderTest.operator ==(Dexpace.Sdk.Conformance.DisposableUnderTest? left, Dexpace.Sdk.Conformance.DisposableUnderTest? right) -> bool
 static Dexpace.Sdk.Conformance.InvariantSubject.operator !=(Dexpace.Sdk.Conformance.InvariantSubject? left, Dexpace.Sdk.Conformance.InvariantSubject? right) -> bool
 static Dexpace.Sdk.Conformance.InvariantSubject.operator ==(Dexpace.Sdk.Conformance.InvariantSubject? left, Dexpace.Sdk.Conformance.InvariantSubject? right) -> bool
 static Dexpace.Sdk.Conformance.InvariantSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!

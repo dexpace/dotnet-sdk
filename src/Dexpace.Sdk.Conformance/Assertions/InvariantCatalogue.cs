@@ -15,5 +15,6 @@ internal static class InvariantCatalogue
         .. CancellationInvariants.Assertions(),
         .. TaxonomyInvariants.Assertions(),
         .. ResilienceInvariants.Assertions(),
+        .. LifecycleInvariants.Assertions(),
     ];
 }
