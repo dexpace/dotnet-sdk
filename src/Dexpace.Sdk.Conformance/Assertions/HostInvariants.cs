@@ -24,6 +24,7 @@ namespace Dexpace.Sdk.Conformance;
 internal static class HostInvariants
 {
     private const int Draws = 10_000;
+    private const int MinimumNonceBits = 128;
     private const long LargeBody = 10L * 1024 * 1024;
     private const int PreviewCap = 1024;
     private const int ReadAhead = 64 * 1024;
@@ -91,8 +92,8 @@ internal static class HostInvariants
         }
     }
 
-    // 128 bits of lower-case hex, never repeating over ten thousand draws. The source clause (the operating system's CSPRNG) is
-    // not an output property: it is cited by reference to DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator.
+    // At least 128 bits, in hex of either case or in base64 or base64url, and never repeating over ten thousand draws. The source clause (the
+    // operating system's CSPRNG) is not an output property: it is cited by reference to DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator.
     private static Task CnonceUnpredictableAsync(InvariantContext context, CancellationToken token)
     {
         var draw = context.Subject.DrawCnonce ?? DigestDraw();
@@ -100,11 +101,12 @@ internal static class HostInvariants
         for (var i = 0; i < Draws; i++)
         {
             var value = draw() ?? string.Empty;
+            var bits = NonceBits(value);
             Check.True(
-                value.Length == 32 && value.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f')),
-                "a nonce must carry at least 128 bits, drawn as 32 lower-case hex characters",
-                "32 hex characters (128 bits)",
-                $"{value.Length} characters");
+                bits >= MinimumNonceBits,
+                "a nonce must carry at least 128 bits (written as hex, base64 or base64url, so a longer draw or another case also counts)",
+                $"at least {MinimumNonceBits} bits",
+                bits == 0 ? $"{value.Length} characters that are neither hex nor base64" : $"{bits} bits in {value.Length} characters");
             if (!seen.Add(value))
             {
                 Check.Fail("a nonce must not repeat: a strong source does not repeat within ten thousand draws", "no repeat", $"a repeat at draw {i + 1}");
@@ -112,6 +114,21 @@ internal static class HostInvariants
         }
 
         return Task.CompletedTask;
+    }
+
+    // The whole bytes a nonce spells: 4 bits a hex digit, 6 bits a base64 or base64url character (padding is not a character). Anything else is
+    // not countable and reads as 0, so an encoding the suite cannot measure fails instead of passing.
+    private static int NonceBits(string value)
+    {
+        if (value.Length > 0 && value.All(Uri.IsHexDigit))
+        {
+            return value.Length * 4 / 8 * 8;
+        }
+
+        var characters = value.TrimEnd('=');
+        return characters.Length > 0 && characters.All(static c => c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '+' or '/' or '-' or '_')
+            ? characters.Length * 6 / 8 * 8
+            : 0;
     }
 
     private static Func<string> DigestDraw()

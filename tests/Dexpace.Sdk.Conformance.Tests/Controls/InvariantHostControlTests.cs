@@ -20,6 +20,8 @@ public sealed class InvariantHostControlTests
         .. Both("xcut-20.observability-never-throws", "throws on a malformed URL", "must not throw", () => new InvariantSubject { Name = "broken: renderer", RedactUrl = url => new Uri(url).Host }),
         .. Both("xcut-20.observability-never-throws", "writes to the sink without a guard", "must not fail the request", () => Logging(logger => new BrokenPipelines.LogsHeadersVerbatim(logger))),
         new("xcut-21.cnonce-unpredictable", TransportFace.None, "draws 64 bits", () => Drawing(() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))), Because: "128 bits"),
+        new("xcut-21.cnonce-unpredictable", TransportFace.None, "draws 120 bits as base64url", () => Drawing(() => Base64Url(15)), Because: "128 bits"),
+        new("xcut-21.cnonce-unpredictable", TransportFace.None, "draws a string the suite cannot count", () => Drawing(() => "nonce:" + RandomNumberGenerator.GetHexString(32, lowercase: true)), Because: "128 bits"),
         new("xcut-21.cnonce-unpredictable", TransportFace.None, "cycles through eight values", () => Drawing(new Cycle().Next), Because: "must not repeat"),
         .. Both("xcut-22.core-borrows", "closes the asynchronous bridge's client", "asynchronous bridge", () => new InvariantSubject { Name = "broken: async bridge", AsAsync = client => new BrokenPipelines.DisposingAsyncBridge(client) }),
         .. Both("xcut-22.core-borrows", "closes the blocking bridge's client", "blocking bridge", () => new InvariantSubject { Name = "broken: blocking bridge", AsBlocking = client => new BrokenPipelines.DisposingBlockingBridge(client) }),
@@ -83,6 +85,26 @@ public sealed class InvariantHostControlTests
     [Fact]
     public Task A_supplied_cryptographic_draw_passes() =>
         InvariantControlRow.RunPositiveAsync("xcut-21.cnonce-unpredictable", TransportFace.None, Drawing(() => RandomNumberGenerator.GetHexString(32, lowercase: true)));
+
+    // XCUT-21 asks for at least 128 bits, not for one encoding of them: a longer draw, upper-case hex and base64 / base64url all count.
+    [Fact]
+    public Task A_longer_hex_draw_passes() =>
+        InvariantControlRow.RunPositiveAsync("xcut-21.cnonce-unpredictable", TransportFace.None, Drawing(() => RandomNumberGenerator.GetHexString(64, lowercase: true)));
+
+    [Fact]
+    public Task An_upper_case_hex_draw_of_128_bits_passes() =>
+        InvariantControlRow.RunPositiveAsync("xcut-21.cnonce-unpredictable", TransportFace.None, Drawing(() => RandomNumberGenerator.GetHexString(32, lowercase: false)));
+
+    [Fact]
+    public Task A_base64url_draw_of_128_bits_passes() =>
+        InvariantControlRow.RunPositiveAsync("xcut-21.cnonce-unpredictable", TransportFace.None, Drawing(() => Base64Url(16)));
+
+    [Fact]
+    public Task A_padded_base64_draw_of_128_bits_passes() =>
+        InvariantControlRow.RunPositiveAsync("xcut-21.cnonce-unpredictable", TransportFace.None, Drawing(() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16))));
+
+    private static string Base64Url(int bytes) =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(bytes)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static void Throws() => throw new InvalidOperationException("no unambiguous candidate: install one explicitly");
 
