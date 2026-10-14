@@ -77,6 +77,74 @@ internal static class SuiteRunnerCore
     }
 
     /// <summary>
+    /// Runs one assertion whose body completes synchronously (the packaging suite's, which reads files) on one face and applies the waivers.
+    /// No bound is applied: the body is CPU and file work with nothing to wait on. A body that returns an incomplete task is a kit bug (Errored).
+    /// </summary>
+    /// <typeparam name="TContext">What one run owns.</typeparam>
+    /// <param name="assertion">The assertion.</param>
+    /// <param name="face">The face; the assertion must declare it.</param>
+    /// <param name="create">Builds the run's context. Called once, inside the guarded region.</param>
+    /// <param name="waivers">The waivers in force.</param>
+    /// <exception cref="ArgumentException"><paramref name="assertion"/> does not declare <paramref name="face"/>.</exception>
+    internal static ConformanceResult RunSync<TContext>(
+        ConformanceAssertion assertion,
+        TransportFace face,
+        Func<TContext> create,
+        IReadOnlyList<ConformanceWaiver> waivers)
+        where TContext : class
+    {
+        if (!assertion.Faces.Contains(face))
+        {
+            throw new ArgumentException($"Assertion '{assertion.Name}' does not declare the {face} face.", nameof(face));
+        }
+
+        ConformanceResult outcome;
+        try
+        {
+            var body = assertion.Body(create(), CancellationToken.None);
+            outcome = body.IsCompletedSuccessfully
+                ? Result(assertion, face, ConformanceStatus.Passed, "passed")
+                : body.IsFaulted
+                    ? Classify(assertion, face, body.Exception!.InnerExceptions[0])
+                    : Result(assertion, face, ConformanceStatus.Errored, "the body did not complete synchronously: a synchronous suite's assertion must");
+        }
+#pragma warning disable CA1031 // A subject crash or a kit bug is a result (Errored), never an unhandled exception that ends the run.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            outcome = Classify(assertion, face, ex);
+        }
+
+        return ApplyWaivers(outcome, waivers);
+    }
+
+    /// <summary>The synchronous form of <see cref="RunAllAsync"/>: runs every assertion on every face it declares, in order, and builds the report.</summary>
+    /// <param name="subjectName">The subject's name.</param>
+    /// <param name="suite">The suite that produced the report.</param>
+    /// <param name="assertions">The assertions, in order.</param>
+    /// <param name="runOne">Runs one assertion on one face.</param>
+    /// <param name="waivers">The waivers in force.</param>
+    internal static ConformanceReport RunAllSync(
+        string subjectName,
+        SuiteIdentity suite,
+        IReadOnlyList<ConformanceAssertion> assertions,
+        Func<ConformanceAssertion, TransportFace, ConformanceResult> runOne,
+        IReadOnlyList<ConformanceWaiver> waivers)
+    {
+        var results = new List<ConformanceResult>();
+        foreach (var assertion in assertions)
+        {
+            foreach (var face in assertion.Faces)
+            {
+                results.Add(runOne(assertion, face));
+            }
+        }
+
+        results.AddRange(UnknownWaiverTargets(assertions, waivers));
+        return ConformanceReport.Create(subjectName, results, waivers, suite);
+    }
+
+    /// <summary>
     /// A waiver turns Failed and Errored into Waived; it turns a Passed result it covers into a Failed "no longer needed"
     /// one (P8a-8: a fixed row must lose its waiver); it never touches Vacuous or NotExercised.
     /// </summary>
@@ -126,18 +194,6 @@ internal static class SuiteRunnerCore
             await Bounded.RunAsync(token => assertion.Body(context, token), assertionTimeout, assertion.Name, cancellationToken).ConfigureAwait(false);
             return Result(assertion, face, ConformanceStatus.Passed, "passed");
         }
-        catch (NotExercisedException ex)
-        {
-            return Result(assertion, face, ConformanceStatus.NotExercised, ex.Message);
-        }
-        catch (ConformanceVacuousException ex)
-        {
-            return Result(assertion, face, ConformanceStatus.Vacuous, ex.Message);
-        }
-        catch (ConformanceException ex)
-        {
-            return Result(assertion, face, ConformanceStatus.Failed, Describe(ex)) with { Exception = ex };
-        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -146,9 +202,19 @@ internal static class SuiteRunnerCore
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            return Result(assertion, face, ConformanceStatus.Errored, $"{ex.GetType().Name}: {ex.Message}") with { Exception = ex };
+            return Classify(assertion, face, ex);
         }
     }
+
+    /// <summary>The result an exception thrown by an assertion's body stands for: not exercised, vacuous, failed (a broken clause) or errored (anything else).</summary>
+    private static ConformanceResult Classify(ConformanceAssertion assertion, TransportFace face, Exception exception) =>
+        exception switch
+        {
+            NotExercisedException ex => Result(assertion, face, ConformanceStatus.NotExercised, ex.Message),
+            ConformanceVacuousException ex => Result(assertion, face, ConformanceStatus.Vacuous, ex.Message),
+            ConformanceException ex => Result(assertion, face, ConformanceStatus.Failed, Describe(ex)) with { Exception = ex },
+            _ => Result(assertion, face, ConformanceStatus.Errored, $"{exception.GetType().Name}: {exception.Message}") with { Exception = exception },
+        };
 
     // The context is disposed after the body, on every path. A failure to dispose is a result too, but never replaces a
     // result that is already a failure or an error: the first problem is the one the report shows.

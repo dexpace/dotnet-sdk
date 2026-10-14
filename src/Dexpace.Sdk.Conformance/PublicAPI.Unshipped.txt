@@ -228,6 +228,30 @@ Dexpace.Sdk.Conformance.ModelFactories.RequestWithHeader.get -> System.Func<Dexp
 Dexpace.Sdk.Conformance.ModelFactories.RequestWithHeader.init -> void
 Dexpace.Sdk.Conformance.ModelFactories.WithHeader.get -> System.Func<Dexpace.Sdk.Core.Http.Common.Headers!, string!, string!, Dexpace.Sdk.Core.Http.Common.Headers!>!
 Dexpace.Sdk.Conformance.ModelFactories.WithHeader.init -> void
+Dexpace.Sdk.Conformance.PackagePolicy
+Dexpace.Sdk.Conformance.PackagePolicy.<Clone>$() -> Dexpace.Sdk.Conformance.PackagePolicy!
+Dexpace.Sdk.Conformance.PackagePolicy.Deconstruct(out string? ThirdPartyRoot, out System.Collections.Generic.IReadOnlyList<string!>! FirstPartyIds) -> void
+Dexpace.Sdk.Conformance.PackagePolicy.Equals(Dexpace.Sdk.Conformance.PackagePolicy? other) -> bool
+Dexpace.Sdk.Conformance.PackagePolicy.FirstPartyIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.PackagePolicy.FirstPartyIds.init -> void
+Dexpace.Sdk.Conformance.PackagePolicy.PackagePolicy(string? ThirdPartyRoot, System.Collections.Generic.IReadOnlyList<string!>! FirstPartyIds) -> void
+Dexpace.Sdk.Conformance.PackagePolicy.ThirdPartyRoot.get -> string?
+Dexpace.Sdk.Conformance.PackagePolicy.ThirdPartyRoot.init -> void
+Dexpace.Sdk.Conformance.PackagingSubject
+Dexpace.Sdk.Conformance.PackagingSubject.<Clone>$() -> Dexpace.Sdk.Conformance.PackagingSubject!
+Dexpace.Sdk.Conformance.PackagingSubject.CoreId.get -> string!
+Dexpace.Sdk.Conformance.PackagingSubject.CoreId.init -> void
+Dexpace.Sdk.Conformance.PackagingSubject.DeclaredFloor.get -> string!
+Dexpace.Sdk.Conformance.PackagingSubject.DeclaredFloor.init -> void
+Dexpace.Sdk.Conformance.PackagingSubject.Equals(Dexpace.Sdk.Conformance.PackagingSubject? other) -> bool
+Dexpace.Sdk.Conformance.PackagingSubject.Name.get -> string!
+Dexpace.Sdk.Conformance.PackagingSubject.Name.init -> void
+Dexpace.Sdk.Conformance.PackagingSubject.PackagePaths.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Conformance.PackagingSubject.PackagePaths.init -> void
+Dexpace.Sdk.Conformance.PackagingSubject.PackagingSubject() -> void
+Dexpace.Sdk.Conformance.PackagingSubject.Policies.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Dexpace.Sdk.Conformance.PackagePolicy!>!
+Dexpace.Sdk.Conformance.PackagingSubject.Policies.init -> void
+Dexpace.Sdk.Conformance.PackagingSuite
 Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.May = 2 -> Dexpace.Sdk.Conformance.RequirementLevel
 Dexpace.Sdk.Conformance.RequirementLevel.Must = 0 -> Dexpace.Sdk.Conformance.RequirementLevel
@@ -364,6 +388,12 @@ override Dexpace.Sdk.Conformance.InvariantSubject.ToString() -> string!
 override Dexpace.Sdk.Conformance.ModelFactories.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.ModelFactories.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.ModelFactories.ToString() -> string!
+override Dexpace.Sdk.Conformance.PackagePolicy.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.PackagePolicy.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.PackagePolicy.ToString() -> string!
+override Dexpace.Sdk.Conformance.PackagingSubject.Equals(object? obj) -> bool
+override Dexpace.Sdk.Conformance.PackagingSubject.GetHashCode() -> int
+override Dexpace.Sdk.Conformance.PackagingSubject.ToString() -> string!
 override Dexpace.Sdk.Conformance.SeamResolution.Equals(object? obj) -> bool
 override Dexpace.Sdk.Conformance.SeamResolution.GetHashCode() -> int
 override Dexpace.Sdk.Conformance.SeamResolution.ToString() -> string!
@@ -411,6 +441,14 @@ static Dexpace.Sdk.Conformance.InvariantSuite.RunAllAsync(Dexpace.Sdk.Conformanc
 static Dexpace.Sdk.Conformance.InvariantSuite.RunAsync(Dexpace.Sdk.Conformance.InvariantSubject! subject, Dexpace.Sdk.Conformance.ConformanceAssertion! assertion, Dexpace.Sdk.Conformance.TransportFace face, Dexpace.Sdk.Conformance.SuiteOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Conformance.ConformanceResult!>!
 static Dexpace.Sdk.Conformance.ModelFactories.operator !=(Dexpace.Sdk.Conformance.ModelFactories? left, Dexpace.Sdk.Conformance.ModelFactories? right) -> bool
 static Dexpace.Sdk.Conformance.ModelFactories.operator ==(Dexpace.Sdk.Conformance.ModelFactories? left, Dexpace.Sdk.Conformance.ModelFactories? right) -> bool
+static Dexpace.Sdk.Conformance.PackagePolicy.operator !=(Dexpace.Sdk.Conformance.PackagePolicy? left, Dexpace.Sdk.Conformance.PackagePolicy? right) -> bool
+static Dexpace.Sdk.Conformance.PackagePolicy.operator ==(Dexpace.Sdk.Conformance.PackagePolicy? left, Dexpace.Sdk.Conformance.PackagePolicy? right) -> bool
+static Dexpace.Sdk.Conformance.PackagingSubject.operator !=(Dexpace.Sdk.Conformance.PackagingSubject? left, Dexpace.Sdk.Conformance.PackagingSubject? right) -> bool
+static Dexpace.Sdk.Conformance.PackagingSubject.operator ==(Dexpace.Sdk.Conformance.PackagingSubject? left, Dexpace.Sdk.Conformance.PackagingSubject? right) -> bool
+static Dexpace.Sdk.Conformance.PackagingSuite.Assertions.get -> System.Collections.Generic.IReadOnlyList<Dexpace.Sdk.Conformance.ConformanceAssertion!>!
+static Dexpace.Sdk.Conformance.PackagingSuite.Preamble.get -> string!
+static Dexpace.Sdk.Conformance.PackagingSuite.Run(Dexpace.Sdk.Conformance.PackagingSubject! subject, Dexpace.Sdk.Conformance.ConformanceAssertion! assertion, Dexpace.Sdk.Conformance.SuiteOptions? options = null) -> Dexpace.Sdk.Conformance.ConformanceResult!
+static Dexpace.Sdk.Conformance.PackagingSuite.RunAll(Dexpace.Sdk.Conformance.PackagingSubject! subject, Dexpace.Sdk.Conformance.SuiteOptions? options = null) -> Dexpace.Sdk.Conformance.ConformanceReport!
 static Dexpace.Sdk.Conformance.SeamResolution.operator !=(Dexpace.Sdk.Conformance.SeamResolution? left, Dexpace.Sdk.Conformance.SeamResolution? right) -> bool
 static Dexpace.Sdk.Conformance.SeamResolution.operator ==(Dexpace.Sdk.Conformance.SeamResolution? left, Dexpace.Sdk.Conformance.SeamResolution? right) -> bool
 static Dexpace.Sdk.Conformance.SuiteOptions.operator !=(Dexpace.Sdk.Conformance.SuiteOptions? left, Dexpace.Sdk.Conformance.SuiteOptions? right) -> bool
