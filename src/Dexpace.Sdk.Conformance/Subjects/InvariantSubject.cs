@@ -238,7 +238,7 @@ public sealed record InvariantSubject
     /// </summary>
     public SeamResolution? SeamResolution { get; init; }
 
-#pragma warning disable CA2000 // Ownership passes to the returned disposables, which the assertion closes.
+#pragma warning disable CA2000 // Ownership passes to the returned disposables: each XCUT-13 round closes the one it judges and then every other (LifecycleInvariants.CloseOthersAsync).
     private static DisposableUnderTest[] DefaultDisposables(ResponseBody body)
     {
         var request = Request.Get("https://example.test/");

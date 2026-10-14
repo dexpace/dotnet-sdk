@@ -12,6 +12,8 @@ namespace Dexpace.Sdk.Conformance.Tests.Controls;
 [Trait("Category", "Unit")]
 public sealed class InvariantLifecycleControlTests
 {
+    private static readonly string[] s_kinds = ["first", "second", "third"];
+
     internal static IReadOnlyList<InvariantControlRow> Rows { get; } =
     [
         .. Both("xcut-13.dispose-latched", "releases the resource on every close", "closed twice", () => WithDisposable(body => new DisposableUnderTest(
@@ -68,6 +70,71 @@ public sealed class InvariantLifecycleControlTests
     [InlineData("xcut-14.drains-after-insert")]
     public Task A_conforming_bounded_map_passes(string assertion) =>
         InvariantControlRow.RunPositiveAsync(assertion, TransportFace.None, new InvariantSubject { Name = "conforming map", CreateBoundedMap = BoundedProbes.Conforming });
+
+    // A subject that supplies nothing to close has exercised nothing: both XCUT-13 assertions fail it, never pass it.
+    [Theory]
+    [InlineData("xcut-13.dispose-latched", TransportFace.Async)]
+    [InlineData("xcut-13.dispose-latched", TransportFace.Blocking)]
+    [InlineData("xcut-13.dispose-non-blocking", TransportFace.Async)]
+    [InlineData("xcut-13.dispose-non-blocking", TransportFace.Blocking)]
+    public async Task A_subject_that_supplies_no_disposable_fails_the_assertion(string assertion, TransportFace face)
+    {
+        var result = await InvariantSuite.RunAsync(new InvariantSubject { Name = "broken: nothing to close", CreateDisposables = _ => [] }, InvariantControlRow.Find(assertion), face, InvariantControlRow.Options, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ConformanceStatus.Failed, result.Status);
+        Assert.Contains("no disposable component", result.Detail, StringComparison.Ordinal);
+    }
+
+    // The assertion builds a fresh set of components for each component it judges; every one it builds is closed, not only the one under test.
+    [Theory]
+    [InlineData("xcut-13.dispose-latched", TransportFace.Async)]
+    [InlineData("xcut-13.dispose-latched", TransportFace.Blocking)]
+    [InlineData("xcut-13.dispose-non-blocking", TransportFace.Async)]
+    [InlineData("xcut-13.dispose-non-blocking", TransportFace.Blocking)]
+    public async Task Every_component_the_assertion_builds_is_closed(string assertion, TransportFace face)
+    {
+        var built = new List<TrackedComponent>();
+        var subject = new InvariantSubject
+        {
+            Name = "conforming: tracked components",
+            CreateDisposables = body =>
+            {
+                var set = s_kinds.Select(kind => new TrackedComponent(kind, (ReleaseCountingBody)body)).ToArray();
+                built.AddRange(set);
+                return [.. set.Select(component => component.AsDisposable())];
+            },
+        };
+
+        await InvariantControlRow.RunPositiveAsync(assertion, face, subject);
+
+        Assert.Equal(12, built.Count);
+        Assert.All(built, component => Assert.True(component.Closes > 0, $"the {component.Kind} component built for {assertion} on {face} was never closed"));
+    }
+
+    private sealed class TrackedComponent(string kind, ReleaseCountingBody body)
+    {
+        private int _closes;
+        private int _released;
+
+        public string Kind { get; } = kind;
+
+        public int Closes => Volatile.Read(ref _closes);
+
+        public DisposableUnderTest AsDisposable() => new(Kind, Close, () =>
+        {
+            Close();
+            return ValueTask.CompletedTask;
+        });
+
+        private void Close()
+        {
+            Interlocked.Increment(ref _closes);
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                body.ReleaseResource();
+            }
+        }
+    }
 
     private static InvariantSubject WithDisposable(Func<ReleaseCountingBody, DisposableUnderTest> make) =>
         new() { Name = "broken: disposable", CreateDisposables = body => [make((ReleaseCountingBody)body)] };

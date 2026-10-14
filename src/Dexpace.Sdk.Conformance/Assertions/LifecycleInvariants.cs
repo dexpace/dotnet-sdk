@@ -34,22 +34,29 @@ internal static class LifecycleInvariants
         {
             using var body = new ReleaseCountingBody(parked: false);
             var disposables = context.Subject.CreateDisposables(body);
-            if (index >= disposables.Count)
+            try
             {
-                Check.True(index > 0, "the subject supplies no disposable component to close", "at least one", "none");
-                return;
+                if (index >= disposables.Count)
+                {
+                    Check.True(index > 0, "the subject supplies no disposable component to close", "at least one", "none");
+                    return;
+                }
+
+                var component = disposables[index];
+                await CloseAsync(context, component, token).ConfigureAwait(false);
+                await CloseAsync(context, component, token).ConfigureAwait(false);
+                await Bounded.WaitForAllAsync(
+                    [.. Enumerable.Range(0, InvariantOptions.Racers).Select(_ => CloseAsync(context, component, token).ContinueWith(static _ => 0, TaskScheduler.Default))],
+                    context.Bound,
+                    $"closing a {component.Kind} from {InvariantOptions.Racers} threads at once",
+                    token).ConfigureAwait(false);
+
+                Check.Equal(body.Releases, 1, $"the releases of the body behind a {component.Kind} closed twice and then from {InvariantOptions.Racers} threads at once (a close is latched)");
             }
-
-            var component = disposables[index];
-            await CloseAsync(context, component, token).ConfigureAwait(false);
-            await CloseAsync(context, component, token).ConfigureAwait(false);
-            await Bounded.WaitForAllAsync(
-                [.. Enumerable.Range(0, InvariantOptions.Racers).Select(_ => CloseAsync(context, component, token).ContinueWith(static _ => 0, TaskScheduler.Default))],
-                context.Bound,
-                $"closing a {component.Kind} from {InvariantOptions.Racers} threads at once",
-                token).ConfigureAwait(false);
-
-            Check.Equal(body.Releases, 1, $"the releases of the body behind a {component.Kind} closed twice and then from {InvariantOptions.Racers} threads at once (a close is latched)");
+            finally
+            {
+                await CloseOthersAsync(context, disposables, index).ConfigureAwait(false);
+            }
         }
     }
 
@@ -60,33 +67,75 @@ internal static class LifecycleInvariants
         {
             using var body = new ReleaseCountingBody(parked: true);
             var disposables = context.Subject.CreateDisposables(body);
-            if (index >= disposables.Count)
-            {
-                return;
-            }
-
-            var component = disposables[index];
-            var parked = body.Parked!;
-            var stream = await body.OpenReadAsync(token).ConfigureAwait(false);
-            await using var streamScope = stream.ConfigureAwait(false);
-            var read = stream.ReadAsync(new byte[16], token).AsTask();
             try
             {
-                await Bounded.WaitAsync(parked.ReadStarted, context.Bound, "a read to park on the body", token).ConfigureAwait(false);
+                if (index >= disposables.Count)
+                {
+                    Check.True(index > 0, "the subject supplies no disposable component to close", "at least one", "none");
+                    return;
+                }
 
-                await Bounded.WaitAsync(
-                    CloseAsync(context, component, token),
-                    context.Bound,
-                    $"closing a {component.Kind} while a read is parked on its body (a close must not wait for it)",
-                    token).ConfigureAwait(false);
+                await CloseWithReadParkedAsync(context, body, disposables[index], token).ConfigureAwait(false);
             }
             finally
             {
-                parked.Release();
-                await ObserveAsync(read).ConfigureAwait(false);
+                await CloseOthersAsync(context, disposables, index).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task CloseWithReadParkedAsync(InvariantContext context, ReleaseCountingBody body, DisposableUnderTest component, CancellationToken token)
+    {
+        var parked = body.Parked!;
+        var stream = await body.OpenReadAsync(token).ConfigureAwait(false);
+        await using var streamScope = stream.ConfigureAwait(false);
+        var read = stream.ReadAsync(new byte[16], token).AsTask();
+        try
+        {
+            await Bounded.WaitAsync(parked.ReadStarted, context.Bound, "a read to park on the body", token).ConfigureAwait(false);
+
+            await Bounded.WaitAsync(
+                CloseAsync(context, component, token),
+                context.Bound,
+                $"closing a {component.Kind} while a read is parked on its body (a close must not wait for it)",
+                token).ConfigureAwait(false);
+        }
+        finally
+        {
+            parked.Release();
+            await ObserveAsync(read).ConfigureAwait(false);
+        }
+
+        Check.Equal(body.Releases, 1, $"the releases of the body behind a {component.Kind} closed with a read parked on it");
+    }
+
+    // Each round builds a whole set over its own body and judges one member; the rest are closed when the round's counts have been read, so
+    // none outlives its round (they share the body, which is why they are not closed while the member under test is being counted).
+    private static async Task CloseOthersAsync(InvariantContext context, IReadOnlyList<DisposableUnderTest> components, int underTest)
+    {
+        for (var i = 0; i < components.Count; i++)
+        {
+            if (i == underTest)
+            {
+                continue;
             }
 
-            Check.Equal(body.Releases, 1, $"the releases of the body behind a {component.Kind} closed with a read parked on it");
+            try
+            {
+                if (context.Face == TransportFace.Blocking)
+                {
+                    components[i].Dispose();
+                }
+                else
+                {
+                    await components[i].DisposeAsync().ConfigureAwait(false);
+                }
+            }
+#pragma warning disable CA1031 // A member not under test this round is closed only so it outlives nothing; how it closes is judged in its own round.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+            }
         }
     }
 
