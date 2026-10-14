@@ -47,3 +47,5 @@ Written 2026-10-07 from what was built, against the [design](2026-10-05-phase4a-
 - **Dated correction, 2026-10-07 (phase 5a, P5a-24):** the hand-off "5a may make `ContextStore.DefaultCapacity` configurable" is closed as declined. The store is process-wide, so a per-client option cannot size it coherently, and a process-wide setter is the global slot `CFG-13` declines; `CTX-11` to `CTX-13` require a bound, not a knob.
 - **Dated correction, 2026-10-08 (phase 6c):** the hand-off "6c's `AUTH-19` nonce store and token cache build on `BoundedMap`" is closed: `AccessTokenCache` keeps a `BoundedMap<string, CacheEntry>` of
   1024 keys and `DigestChallengeHandler` a `BoundedMap<string, NonceCounter>` of 1024 nonces, both through the new internal `BoundedMapExtensions.GetOrAdd` (`BoundedMap` has no get-or-add).
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-14` ("phase 10, not a 4a row") is taken: the phase 10 checklist's `XCUT-14` row (the `xcut-14.*` invariants over a `BoundedMap` probe and the `ConcurrentDictionary` constructor ban). See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

@@ -26,7 +26,7 @@ release.
 | `Dexpace.Sdk.Core` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 0–7, 10 |
 | `Dexpace.Sdk.Http.SystemNet` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 1, 8b |
 | `Dexpace.Sdk.Serialization.SystemTextJson` | yes | `net8.0;net10.0` | no — `0.0.1-alpha.1` | phase 7a |
-| `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.0.1-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` proposed (a release that adds an assertion is at least a minor version) | phase 10 completes it (the invariant, packaging and codec suites); phase 12 publishes it and decides the number |
+| `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.0.1-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` proposed (a release that adds an assertion is at least a minor version) | phase 10 completed it on 2026-10-14 (the invariant, codec and packaging suites beside the transport suite: four suites); phase 12 publishes it and decides the number |
 | `Dexpace.Sdk.Extensions.DependencyInjection` | yes (phase 9) | `net10.0` | no — `0.0.1-alpha.1`; it references `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` and `Microsoft.Extensions.Http` (the hosting family's one root), at the lockstep version | phase 12 (the release path) |
 
 The target frameworks changed in phase 0. The lead approved the roadmap's decision D1 on 2026-09-28: every package
@@ -35,20 +35,29 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
 ## Blockers before first publish
 
 - [ ] **CI green on every matrix row.** The green build, format check, locked restore, coverage floor, `PublicAPI`
-      files, package validation, dependency audit and 3-OS matrix are phase 0's; the complete gate set is phase 10's.
+      files, package validation, dependency audit and 3-OS matrix are phase 0's; the complete gate set is phase 10's
+      (built and dispositioned on 2026-10-14: the gate table in the [phase 10 checklist](./work/mvp/phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md);
+      `CiWorkflowTests` pins that every gate is a step and none is advisory). This line is ticked when the first CI run on `main` after phase 10 is green on every row.
+- [ ] **The `main` ruleset requires the CI jobs (`NFR-17`'s merge half).** A `required_status_checks` rule naming `build & test (ubuntu-latest)`, `build & test (windows-latest)`,
+      `build & test (macos-latest)`, `reproducible packages` and `NativeAOT smoke`; design V9 found none (no classic protection either), so a red job does not block a merge.
+      An admin-only repository setting that phase 10 did not apply (request text in the phase 10 checklist's *Open items*). Read it back with `gh api repos/dexpace/dotnet-sdk/rulesets` and tick this line.
 - [ ] **The nine P0 defects closed, with permanent `Security` regression tests.** The defects are header CR/LF
       injection, a caller-set `Host`, transport auto-redirect with cross-origin credential forwarding, credentials
       over `http`, deny-list URL redaction, the attempt-leaking `PipelineContext`, the `Retry-After` overflow, the
       throw on 304, and the leak on a malformed `Content-Type`. Phase 1.
 - [ ] **Every MUST dispositioned.** Every one of the 532 MUSTs has a checklist row: ✅ with a named test; N/A or
       vacuous with a design §10 or §11 citation; or listed below under *Unsatisfied MUSTs*. Phases 2–10 own the
-      rows, and phase 10's row-count gate proves the total.
+      rows, and phase 10's row-count gate proves the total. **Phase 10 (2026-10-14) built the gate and it is green:** `dotnet run scripts/ci/requirement-coverage.cs -- --check` reports all 645 IDs of appendix C owned by a checklist row, each with its level and a legend mark,
+      and no finding in a MUST row; it is a blocking Linux step of `ci.yml`. **The line stays open** because the script's tally still reads 16 MUST rows as ⏳ in the row that owns them: `NFR-17` (the ruleset line above), and hand-offs whose closing evidence sits in a later phase's checklist in a table
+      the script does not read as owning (the `RECOV` rows closed in 6a's table, `HTTP-44` and `HTTP-45` closed by a dated correction in the same cell). Phase 11 gives those rows their dated corrections and ticks this line; it also decides whether `NFR-17` is the only MUST left open.
 - [ ] **Conformance green.** `Dexpace.Sdk.Conformance` passes against every shipped transport on every CI row, with
-      waivers listed by requirement ID. It is written by phase 8a and completed by phase 10.
+      waivers listed by requirement ID. It is written by phase 8a and completed by phase 10 (2026-10-14: the invariant, codec and packaging suites, with three first-party drivers that each pin their `NotExercised` list).
 - [ ] **Deviations audited.** `docs/deviations.md` exists and every row reads `as-built: …`. Phase 11.
 - [ ] **One-time public-surface choices decided before the first `PublicAPI.Shipped.txt`.** Adding a public member
       later is compatible; removing or narrowing one after the tag is a break. Phase 11 lists the choices here, and
-      phase 12 decides them.
+      phase 12 decides them. Candidates found so far (phase 10, 2026-10-14): whether `HttpResponseException(Response)` should refuse a non-error status (`XCUT-8`, P10-24;
+      today every core mapping path goes through a guarded internal factory and the public constructor accepts a 200), and whether `ServiceResponseException`, public and never
+      thrown (`XCUT-4`, P10-25), is deleted or argued into design §3.2.
 - [ ] **A reachable `SECURITY.md` contact.** Phase 0 creates the file; this line is ticked only when the contact is
       confirmed to be monitored.
 - [ ] **NuGet ownership settled.**
@@ -117,6 +126,9 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`TRANSPORT-28` (SHOULD), the zero-copy file path.** A `FileRequestBody` is replayable and each write copies exactly its range (the MUST half is met), but
   `HttpClient` writes content to its own connection stream, possibly an `SslStream`, so no sendfile path is reachable through it and the transport does not
   special-case file bodies. Phase 8b (2026-10-11); P8b-15.
+
+- **`XCUT-24` (SHOULD), the non-consuming clause for an error-body snapshot above 1 MiB.** A body-log preview is byte-capped and does not pull the body ahead of its reader (the embedded MUST and the clause are met there, `invariant:xcut-24.preview-capped-non-consuming`),
+  but `ErrorBodyBuffer.Capture` drains at most `Response.MaxBufferedErrorBytes` (1 MiB), truncates without a marker and replaces the original body, so the original stream is consumed. A repair candidate for phase 11 (retain the stream, or mark the truncation). Phase 10 (2026-10-14); P10-23.
 
 - **Authentication features outside the requirements (phase 6c, P6c-13, P6c-19, P6c-35, P6c-40).** Not built, and not planned for v1: **claims challenges**
   (`WWW-Authenticate: Bearer … claims="…"`, continuous access evaluation; the bearer hook re-fetches with the same `TokenRequestContext`), an **`apiKey` in a query
@@ -211,6 +223,9 @@ Not yet wired. Phase 12 owns this path:
 
 Each entry names an event that no v1 phase can produce, and the one job to do when the event fires.
 
+- **Stryker.NET supports Microsoft.Testing.Platform** (stryker-net#3094). Version 5.0.0 refuses every test project here, and a VSTest shadow of each would be a second harness for an optional, non-blocking report (design §9.3; styleguide 11.8). The job is to schedule a non-blocking
+  mutation run over the core tests (phase 10, P10-21, 2026-10-14).
+- **The first performance-motivated change.** Design §9.3 makes BenchmarkDotNet results a requirement of such a change; there has been none, and the allocation guarantees that matter are blocking tests already. The job is to create `benchmarks/` with that change (phase 10, P10-22, 2026-10-14).
 - **The first external adapter author.** The job is to confirm that `Dexpace.Sdk.Conformance` runs under a test
   framework other than xUnit, which is the claim design §9.3 makes and nothing in this repository exercises.
 - **The first consumer that needs a call's context below the transport.** The `CallKey` carrier on `RequestOptions`, the stamp from `SystemNetHttpClient` and a reader (a DI-registered `DelegatingHandler`, say) are not built: phase 9 registered no handler

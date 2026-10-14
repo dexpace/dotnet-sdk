@@ -129,3 +129,5 @@ The exact allowed diff of `tests/Dexpace.Sdk.Core.Tests/Security` and `tests/Dex
 
 The lead had not ruled, so each landed as the design argued it: P6b-2, P6b-3 (the names `FollowSeeOther` and `AllowedMethods`), P6b-4, P6b-7, P6b-8, P6b-10 (two `Location`
 values), P6b-16, P6b-19 (the hop at `Information`), P6b-21, P6b-25 (the `Security` tag).
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-17` (10) is taken: the phase 10 checklist's `XCUT-17` row (`xcut-17.redirect-hygiene` through the subject pipeline, both faces). See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

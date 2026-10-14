@@ -23,7 +23,8 @@ dotnet format  Dexpace.Sdk.sln --verify-no-changes            # formatting gate 
 dotnet test    --solution Dexpace.Sdk.sln --configuration Release
 dotnet test    --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-trait "Category=Security"
 dotnet test    --project tests/Dexpace.Sdk.Http.SystemNet.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the reference transport
-dotnet test    --project tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the DI-built named-client transport
+dotnet test    --project tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests --configuration Release --filter-trait "Category=Conformance"   # the kit against the DI-built named-client transport (and the invariant suite's resolution driver)
+dotnet test    --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-trait "Category=Conformance"   # the invariant suite against core's own composition
 dotnet pack    Dexpace.Sdk.sln --configuration Release --output artifacts/packages
 ```
 
@@ -37,7 +38,10 @@ The rest of CI (`.github/workflows/ci.yml`) is runnable locally, and should be b
 dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80     # after a clean `dotnet test … --coverlet --coverlet-output-format cobertura --results-directory artifacts/test-results`
 scripts/ci/coverage-gate-selftest.sh artifacts/test-results            # the gate fails closed on a missing report (#33)
 dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages  # constraint 2, over deps.json and nuspecs
-scripts/ci/reproducible-pack.sh                                        # pack twice, byte-compare (NFR-12)
+dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages  # the kit's packaging suite over the packed .nupkg files (NFR-1, -2, -3, -8, -10, -13 to -15)
+dotnet run scripts/ci/requirement-coverage.cs -- --check               # every appendix-C ID owned by a checklist row, with its level and a mark (--report prints the tallies)
+scripts/ci/requirement-coverage-selftest.sh                            # the coverage gate fails on each kind of finding
+scripts/ci/reproducible-pack.sh                                        # pack HEAD from two git checkouts at different paths, byte-compare (NFR-12)
 dotnet publish tests/Dexpace.Sdk.AotSmoke --configuration Release --output artifacts/aot-smoke && ./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke
 dotnet build tools/Dexpace.Tools.sln --configuration Release && dotnet test --solution tools/Dexpace.Tools.sln --configuration Release
 scripts/knowledge verify-structure
@@ -87,7 +91,7 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   `libs.versions.toml` analog), with transitive pinning on. `PackageReference`s carry no `Version` attribute.
 - **Tests** carry `[Trait("Category", …)]`: `Unit`, `Integration`, `Conformance`, `AotSmoke`, or `Security`
   (the permanent phase-1 regression tests — never delete or loosen one). Each suite's `TestCategoryTests`
-  enforces it. `Dexpace.Sdk.Core.Tests` references core and in-memory fakes only, never a transport (SEAM-2,
+  enforces it. `Dexpace.Sdk.Core.Tests` references core, the core-only conformance kit and in-memory fakes, never a transport or a codec (SEAM-2,
   an architecture test).
 - **MIT license header on every `.cs` file** — the two-line block, src and tests alike:
 
@@ -146,17 +150,17 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient; SystemNetHttpClientOptions, HeaderDropLogging
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 │   ├── Dexpace.Sdk.Extensions.DependencyInjection/ # host integration: AddDexpaceClient, DexpaceClientBuilder, the configuration reader and its grammars, validation, the named client over IHttpClientFactory
-│   └── Dexpace.Sdk.Conformance/                 # the transport conformance kit (core only): TransportSuite, TransportSubject, the report and waivers, Wire/ (the loopback fixture)
+│   └── Dexpace.Sdk.Conformance/                 # the conformance kit (core only), four suites: TransportSuite, InvariantSuite, CodecSuite, PackagingSuite, their subjects, the one report and waivers, Wire/ (the loopback fixture)
 ├── tests/
-│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37 and SSE-38
+│   ├── Dexpace.Sdk.Core.Tests/                  # core + fakes only; Architecture/ holds SEAM-1, SEAM-2, SEAM-22, SSE-37, SSE-38, NFR-4 and NFR-11; Conformance/ is the invariant suite's core driver
 │   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. wire tests over the kit's Wire/ server and SystemNetConformanceTests (the kit's driver over both constructions, with its two permanent waivers)
-│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, a negative control per assertion (Controls/), the raw-socket client (RawSocket/) and its driver (Drivers/)
+│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, a negative control per assertion (Controls/), the raw-socket client (RawSocket/) and its driver (Drivers/), APPENDIX_B.md and its gate (Requirements/), the repository gates (Gates/)
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
-│   ├── Dexpace.Sdk.Extensions.DependencyInjection.Tests/ # the reader, registration, the named client, the third conformance driver (Conformance/) and NamedClientRedirectWireTests (Security/)
+│   ├── Dexpace.Sdk.Extensions.DependencyInjection.Tests/ # the reader, registration, the named client, the third transport driver and the invariant suite's resolution driver (Conformance/) and NamedClientRedirectWireTests (Security/)
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
 ├── scripts/
-│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs (one policy record per library), reproducible-pack.sh
+│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs (one policy record per library), packaging-conformance.cs, requirement-coverage{.cs,-selftest.sh}, reproducible-pack.sh
 │   └── knowledge                    # the knowledge-lookup CLI
 ├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/{housekeeping,knowledge-harvest}/{src,tests}
 ├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates
@@ -228,6 +232,10 @@ Layered, bottom-up:
   `tests/Dexpace.Sdk.Conformance.Tests/Controls/` that it must fail (`AssertionCatalogueTests` fails an assertion with none); a leaked-socket control must root what it leaks, because a finalizer
   closes it otherwise. A `ConformanceWaiver` whose assertion now passes fails the run, so fixing a requirement means deleting its waiver in the same change. The kit never calls `Task.Delay`, and a release check
   needs a keep-alive reply, never a `Connection: close` one.
+- **An invariant hook left `null` is `NotExercised`, and a driver pins the list it expects.** The invariant suite reads each subject through a hook that defaults to core; four have no default (`MapStrict`, `CreateCyclicException`, `CreateBoundedMap`,
+  `SeamResolution`) and an assertion whose hook is absent reports `NotExercised`, which is not a pass. Each first-party driver (`InvariantConformanceTests` in the core tests, `InvariantResolutionConformanceTests` in the DI tests, `CheckPhase10Async` in the AOT smoke) asserts the exact
+  list it leaves unexercised and fails on any other, so supplying a hook means deleting its name from the pin. A new `ConcurrentDictionary` constructor or `Exception.GetBaseException` in `src/` fails `RS0030` (`BoundedMap` is the one construction site, under one scoped pragma). A suite
+  must walk a cyclic exception chain and never throw one (Windows hangs), and the repository gates under `tests/Dexpace.Sdk.Conformance.Tests/Gates/` (license header on every `.cs`, a re-enable condition on every analyzer relaxation, every CI gate a blocking step) fail in the pull request that breaks them (`docs/sdk-documentation/cross-cutting-invariants.md`).
 - **Host integration is configured by a reader, not the binder, and fails at start naming the key.** `Dexpace.Sdk.Extensions.DependencyInjection` reads the `IConfigurationSection` the caller hands `AddDexpaceClient` with its own grammars
   (`ConfigurationBinder` is banned in `src/`: the generator binds no `init` accessor, the reflection mode is not AOT-safe); every bad value, rejected setting and unknown key fails `ValidateOnStart` at once as `"<path>: <rule>"`, never quoting a configured
   value (a numeric accessor message may echo the number), and with no host `IStartupValidator.Validate()` or the first resolution fails the same way. An empty value is absent (it silently shadows a lower provider); there is no reload; a codec is required
@@ -312,5 +320,6 @@ the six result statuses and the by-ID waivers that must stay needed, the loopbac
 catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`; and phase 8b's hardening of the reference transport — the options record and four constructors, the handler check, the
 installed proxy, the per-call deadline with its one failure classification, the real synchronous send, the header partition and drop policy, the bounded re-send capture and the `ObjectDisposedException` latch, with the kit green against both constructions and two permanent assertion-scoped
 waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33) — see `docs/sdk-documentation/transport.md`; and phase 9's host integration — the DI package `Dexpace.Sdk.Extensions.DependencyInjection`: `AddDexpaceClient` and the builder, the hand-written configuration reader and its grammars, the validator with `ValidateOnStart`, the named client over
-`IHttpClientFactory` with its redirect-off primary and container-owned lease, the single-registration check, `DexpaceConfigurationKeys`, the audit's policy record, the third conformance driver — see `docs/sdk-documentation/dependency-injection.md`): only the cross-cutting invariant and
-conformance suites (10), the deviation audit (11) and the release path (12).
+`IHttpClientFactory` with its redirect-off primary and container-owned lease, the single-registration check, `DexpaceConfigurationKeys`, the audit's policy record, the third conformance driver — see `docs/sdk-documentation/dependency-injection.md`; and phase 10's cross-cutting invariants — the kit's invariant (28), codec (11) and packaging (8) suites with a negative control per assertion and three first-party drivers, `TransportFace.None`, the one combined report, the packaging and
+requirement-coverage scripts, the appendix-B map and its gate, the cross-path reproducible pack, the `NFR-11`, `NFR-4`, license-header, analyzer-waiver and CI-completeness tests, the `GetBaseException` and `ConcurrentDictionary` constructor bans and `CheckPhase10Async`, with `NFR-17`'s repository ruleset the one open action — see
+`docs/sdk-documentation/cross-cutting-invariants.md`): only the deviation audit (11) and the release path (12).
