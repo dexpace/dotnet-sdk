@@ -181,6 +181,28 @@ public sealed record InvariantSubject
         }
     } = DefaultDisposables;
 
+    /// <summary>Wraps a blocking client as an asynchronous one (<c>XCUT-22</c>: the bridge owns nothing). Default: <c>HttpClientExtensions.AsAsync</c> on the default scheduler.</summary>
+    public Func<IHttpClient, IAsyncHttpClient> AsAsync
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = static client => client.AsAsync(TaskScheduler.Default);
+
+    /// <summary>Wraps an asynchronous client as a blocking one (<c>XCUT-22</c>: the bridge owns nothing). Default: <c>HttpClientExtensions.AsBlocking</c>.</summary>
+    public Func<IAsyncHttpClient, IHttpClient> AsBlocking
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = static client => client.AsBlocking();
+
     /// <summary>
     /// <b>No default.</b> The strict status-to-exception factory (<c>XCUT-8</c>): must throw <see cref="ArgumentException"/> for a
     /// non-error status. <see langword="null"/> makes <c>xcut-8.strict-factory-rejects</c> <see cref="ConformanceStatus.NotExercised"/>.

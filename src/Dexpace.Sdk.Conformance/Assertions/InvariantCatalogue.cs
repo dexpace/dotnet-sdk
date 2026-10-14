@@ -17,5 +17,6 @@ internal static class InvariantCatalogue
         .. ResilienceInvariants.Assertions(),
         .. LifecycleInvariants.Assertions(),
         .. SecurityInvariants.Assertions(),
+        .. HostInvariants.Assertions(),
     ];
 }

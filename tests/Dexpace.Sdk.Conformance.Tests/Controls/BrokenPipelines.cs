@@ -419,4 +419,76 @@ internal static class BrokenPipelines
             return response.WithBody(ResponseBody.FromBytes(bytes));
         }
     }
+
+    /// <summary>A bridge that closes the blocking client it wraps when it is disposed (XCUT-22).</summary>
+    internal sealed class DisposingAsyncBridge(Dexpace.Sdk.Core.Client.IHttpClient inner) : Dexpace.Sdk.Core.Client.IAsyncHttpClient
+    {
+        public Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            Task.Run(() => inner.Execute(request, options, cancellationToken), CancellationToken.None);
+
+        public ValueTask DisposeAsync()
+        {
+            inner.Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>A bridge that closes the asynchronous client it wraps when it is disposed (XCUT-22).</summary>
+    internal sealed class DisposingBlockingBridge(Dexpace.Sdk.Core.Client.IAsyncHttpClient inner) : Dexpace.Sdk.Core.Client.IHttpClient
+    {
+        public Response Execute(Request request, RequestOptions options, CancellationToken cancellationToken) =>
+            Task.Run(() => inner.ExecuteAsync(request, options, cancellationToken), CancellationToken.None).GetAwaiter().GetResult();
+
+        public void Dispose() => inner.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>A pipeline layer that closes the caller's transport after every call (XCUT-22).</summary>
+    internal sealed class DisposesTransportAfterCall(Dexpace.Sdk.Core.Client.IAsyncHttpClient transport) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerCall;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var response = await continuation.RunAsync(request, context);
+            await transport.DisposeAsync();
+            return response;
+        }
+    }
+
+    /// <summary>A diagnostics step that reads the whole response body so it can preview it (XCUT-24).</summary>
+    /// <param name="onlyErrors">Whether it buffers only error responses.</param>
+    internal sealed class ReadsWholeBody(bool onlyErrors) : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            var response = await continuation.RunAsync(request, context);
+            if (onlyErrors && !response.Status.IsError)
+            {
+                return response;
+            }
+
+            var bytes = await response.Body.ReadAsBytesAsync(context.CancellationToken);
+            return response.WithBody(ResponseBody.FromBytes(bytes, response.Body.ContentType));
+        }
+    }
+
+    /// <summary>A step that waits for work posted to the caller's synchronization context, which a single-threaded caller cannot run while it waits (NFR-11).</summary>
+    internal sealed class BlocksOnTheCallersContext : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerAttempt;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            if (SynchronizationContext.Current is { } caller)
+            {
+                using var done = new ManualResetEventSlim();
+                caller.Post(_ => done.Set(), null);
+                done.Wait(TimeSpan.FromSeconds(30));
+            }
+
+            return await continuation.RunAsync(request, context);
+        }
+    }
 }

@@ -109,6 +109,10 @@ Dexpace.Sdk.Conformance.InternalCancellation.InternalCancellation(Dexpace.Sdk.Co
 Dexpace.Sdk.Conformance.InternalCancellation.Transport.get -> Dexpace.Sdk.Core.Client.IAsyncHttpClient!
 Dexpace.Sdk.Conformance.InvariantSubject
 Dexpace.Sdk.Conformance.InvariantSubject.<Clone>$() -> Dexpace.Sdk.Conformance.InvariantSubject!
+Dexpace.Sdk.Conformance.InvariantSubject.AsAsync.get -> System.Func<Dexpace.Sdk.Core.Client.IHttpClient!, Dexpace.Sdk.Core.Client.IAsyncHttpClient!>!
+Dexpace.Sdk.Conformance.InvariantSubject.AsAsync.init -> void
+Dexpace.Sdk.Conformance.InvariantSubject.AsBlocking.get -> System.Func<Dexpace.Sdk.Core.Client.IAsyncHttpClient!, Dexpace.Sdk.Core.Client.IHttpClient!>!
+Dexpace.Sdk.Conformance.InvariantSubject.AsBlocking.init -> void
 Dexpace.Sdk.Conformance.InvariantSubject.Auth.get -> Dexpace.Sdk.Conformance.AuthPolicyFactories!
 Dexpace.Sdk.Conformance.InvariantSubject.Auth.init -> void
 Dexpace.Sdk.Conformance.InvariantSubject.CreateBoundedMap.get -> System.Func<int, Dexpace.Sdk.Conformance.BoundedMapProbe!>?

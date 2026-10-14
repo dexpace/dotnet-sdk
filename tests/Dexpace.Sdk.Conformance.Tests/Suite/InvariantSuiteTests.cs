@@ -76,4 +76,23 @@ public sealed class InvariantSuiteTests
         Assert.Equal(TimeSpan.FromSeconds(3), shortRun.Bound);
         Assert.Equal(TimeSpan.FromSeconds(10), longRun.Bound);
     }
+
+    [Fact]
+    public async Task The_whole_suite_over_the_defaults_is_green_and_exactly_the_five_hookless_assertions_are_not_exercised()
+    {
+        // The pinned list of every driver that supplies no internal hook, the AOT smoke among them (P10-28, plan reading R13).
+        var report = await InvariantSuite.RunAllAsync(new InvariantSubject(), new SuiteOptions { AssertionTimeout = TimeSpan.FromSeconds(20) }, Ct);
+
+        Assert.True(report.IsGreen, report.ToString());
+        Assert.Equal(
+            [
+                "xcut-14.bounded-under-burst",
+                "xcut-14.drains-after-insert",
+                "xcut-23.resolution-deterministic",
+                "xcut-8.strict-factory-rejects",
+                "xcut-9.cycle-safe-walk",
+            ],
+            report.Results.Where(r => r.Status == ConformanceStatus.NotExercised).Select(r => r.Assertion.Name).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(report.Results, r => r.Status is ConformanceStatus.Vacuous or ConformanceStatus.Waived or ConformanceStatus.Failed or ConformanceStatus.Errored);
+    }
 }

@@ -58,26 +58,33 @@ public sealed partial class InvariantCatalogueTests
 
     private static IReadOnlyList<ConformanceAssertion> All => InvariantSuite.Assertions;
 
-    /// <summary>The expected rows the catalogue has registered so far: the full 28 once task 1.9 lands (the one deliberate staged pin).</summary>
-    private static (string Name, string[] Ids, RequirementLevel Level, TransportFace[] Faces)[] Registered => [.. Expected.Take(All.Count)];
-
     [Fact]
-    public void The_registered_assertions_are_the_design_order_prefix_of_the_28_names()
+    public void The_catalogue_is_the_28_named_assertions_in_the_design_order()
     {
         Assert.Equal(28, Expected.Length);
-        Assert.Equal(Registered.Select(e => e.Name), All.Select(a => a.Name));
+        Assert.Equal(28, All.Count);
+        Assert.Equal(Expected.Select(e => e.Name), All.Select(a => a.Name));
+        Assert.Equal(All.Count, All.Select(a => a.Name).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
-    public void Each_registered_assertion_has_the_ids_level_and_faces_of_the_design_table()
+    public void Each_assertion_has_the_ids_level_and_faces_of_the_design_table()
     {
-        var expected = Registered;
-        for (var i = 0; i < expected.Length; i++)
+        for (var i = 0; i < Expected.Length; i++)
         {
-            Assert.Equal(expected[i].Ids, All[i].RequirementIds);
-            Assert.Equal(expected[i].Level, All[i].Level);
-            Assert.Equal(expected[i].Faces, All[i].Faces);
+            Assert.Equal(Expected[i].Ids, All[i].RequirementIds);
+            Assert.Equal(Expected[i].Level, All[i].Level);
+            Assert.Equal(Expected[i].Faces, All[i].Faces);
         }
+    }
+
+    [Fact]
+    public void Every_xcut_requirement_and_the_nfr_11_clause_is_cited_by_the_invariant_suite()
+    {
+        var cited = All.SelectMany(a => a.RequirementIds).ToHashSet(StringComparer.Ordinal);
+
+        Assert.All(Enumerable.Range(1, 24), n => Assert.Contains($"XCUT-{n}", cited));
+        Assert.Contains("NFR-11", cited);
     }
 
     [Fact]
