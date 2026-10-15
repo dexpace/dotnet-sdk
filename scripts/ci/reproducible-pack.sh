@@ -69,6 +69,7 @@ explain() {
   fi
   if [[ "$(unzip -Zv "$1" | grep -E 'file last modified|minimum software' | sort | uniq -c)" != "$(unzip -Zv "$2" | grep -E 'file last modified|minimum software' | sort | uniq -c)" ]]; then
     echo "reproducible-pack:   the zip metadata (timestamps or versions) differ"
+    diff <(unzip -Zv "$1") <(unzip -Zv "$2") | grep '^[<>]' | head -n 12 | sed 's/^/reproducible-pack:     /' || true
   fi
 }
 
