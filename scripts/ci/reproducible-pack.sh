@@ -15,6 +15,8 @@ set -euo pipefail
 shopt -s nullglob
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 out="${1:-$repo/artifacts/reproducible}"
+# Each pack runs from inside its checkout, so a relative output directory is anchored to the caller's directory first.
+[[ "$out" = /* ]] || out="$PWD/$out"
 dotnet="${DOTNET:-dotnet}"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$repo" log -1 --format=%ct)}"
 echo "reproducible-pack: SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
