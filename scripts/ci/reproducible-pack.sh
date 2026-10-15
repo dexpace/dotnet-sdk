@@ -51,6 +51,27 @@ for checkout in "${checkouts[@]}"; do
   )
 done
 
+# On a mismatch, name the package entries that differ and, for each, the printable strings found in only one of the two (a leaked path shows here).
+explain() {
+  local a="$out/explain/a" b="$out/explain/b" entry
+  rm -rf "$out/explain"
+  mkdir -p "$a" "$b"
+  unzip -q -o "$1" -d "$a"
+  unzip -q -o "$2" -d "$b"
+  (cd "$a" && find . -type f | sort) | while read -r entry; do
+    if ! cmp -s "$a/$entry" "$b/$entry"; then
+      echo "reproducible-pack:   entry $entry differs"
+      diff <(strings -n 8 "$a/$entry" | sort -u) <(strings -n 8 "$b/$entry" | sort -u) | grep '^[<>]' | head -n 10 | sed 's/^/reproducible-pack:     /' || true
+    fi
+  done
+  if [[ "$(unzip -Z1 "$1" | sort)" != "$(unzip -Z1 "$2" | sort)" ]]; then
+    echo "reproducible-pack:   the entry lists differ"
+  fi
+  if [[ "$(unzip -Zv "$1" | grep -E 'file last modified|minimum software' | sort | uniq -c)" != "$(unzip -Zv "$2" | grep -E 'file last modified|minimum software' | sort | uniq -c)" ]]; then
+    echo "reproducible-pack:   the zip metadata (timestamps or versions) differ"
+  fi
+}
+
 status=0
 count=0
 for first in "$out"/1/*.nupkg "$out"/1/*.snupkg; do
@@ -62,6 +83,7 @@ for first in "$out"/1/*.nupkg "$out"/1/*.snupkg; do
     status=1
   elif ! cmp -s "$first" "$second"; then
     echo "reproducible-pack: $name differs between the two packs"
+    explain "$first" "$second"
     status=1
   else
     echo "reproducible-pack: $name identical ($(sha256sum "$first" | cut -d' ' -f1))"
