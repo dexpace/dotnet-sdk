@@ -383,9 +383,12 @@ public sealed class RetryEngineTests
         var syncTask = Task.Run(
             () => SyncResult(Engine(syncClock).RunAsync(syncRun, async: false, TestContext.Current.CancellationToken)),
             TestContext.Current.CancellationToken);
-        await DriveAsync(syncTask, syncClock, TimeSpan.FromSeconds(10));
+        // The sync run blocks a pool thread: advance only once its timer exists, or a slow runner sees the clock move past a wait not yet armed.
+        Assert.True(SpinWait.SpinUntil(() => syncClock.Timers.Count > 0, TimeSpan.FromSeconds(30)), "The sync wait never armed its timer.");
+        syncClock.Advance(TimeSpan.FromSeconds(30));
+        var syncOutcome = await syncTask.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal([TimeSpan.FromSeconds(30)], syncClock.Timers);
-        Assert.IsType<Outcome.Success>(await syncTask);
+        Assert.IsType<Outcome.Success>(syncOutcome);
     }
 
     private static Outcome SyncResult(ValueTask<Outcome> task)
