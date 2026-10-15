@@ -4,8 +4,10 @@
        CI's aot-smoke job. The analyzer proves the libraries are annotated; this binary proves the annotations
        are true. Phase 0 exercises the current surface over an in-process transport; phase 7 extends it to the
        Tristate, paging and SSE round trip, phase 8a adds a slice of the conformance kit, phase 9 exercises the DI package
-       (registration, the configuration reader, validation and the named client's transport), and phase 10 completes it
-       (roadmap constraint 1). -->
+       (registration, the configuration reader, validation and the named client's transport), and phase 10 completed it
+       (roadmap constraint 1): the invariant suite with core's defaults, the codec suite over the System.Text.Json adapter and the run-time version.
+       It keeps project references, not the packed .nupkg files: consuming packages would need a local feed and a restore that cannot be locked
+       across operating systems, and the packaging suite proves the packed assemblies carry the same declarations (P10-17). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Dexpace.Sdk.AotSmoke</RootNamespace>

@@ -188,3 +188,5 @@ filled to 113 with `http.transport.header_dropped` (110), `framing_header_droppe
 
 `OBS-35` is **✅** (a split, §10 entry 26 now touching it): `Logging:Level` is read by name only, case-insensitive and trimmed, from the section the caller passes (no baked key); a number or an unknown name fails the boot naming the key and listing the names (`LogLevelBindingTests`, `Unit`). **V4 was run** (phase 9 V1): both binder modes admit a numeric level and an
 undefined one, so the binder alone cannot satisfy the row; the DI package's hand-written reader does.
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-19`(c), (e), `XCUT-20` and `XCUT-24` (phase 10) are taken: the phase 10 checklist's rows of those IDs. `XCUT-24`'s non-consuming clause is declined for an error-body snapshot above 1 MiB (P10-23, `docs/first-release.md` *SHOULD declined*); body-log previews are asserted capped and non-consuming. See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

@@ -161,3 +161,5 @@ plus the new wire test `Without_a_runtime_listener_the_sdk_stamp_survives_even_a
 The `RETRY-*` row's "`IsExhausted` is the one method 6a replaces" is closed: `RetryPolicy.IsExhausted` is gone, the engine's observer calls
 `OperationTelemetry.RetriesExhausted` under the final predicate (the cap was spent while the condition and the re-send gate held and the effective retry count was
 above zero), and the three calls stay at the same decisions (`RetryTraceEventsTests.The_exhausted_event_follows_the_final_predicate`). The rows above stand as written at 5c's exit.
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-19` and `XCUT-20` (phase 10) are taken: the phase 10 checklist's rows of those IDs (`xcut-19.redaction-default-deny`, `xcut-20.observability-never-throws`; §11 item 37's reading stands). See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

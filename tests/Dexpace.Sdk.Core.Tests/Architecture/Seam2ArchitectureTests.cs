@@ -17,9 +17,13 @@ namespace Dexpace.Sdk.Core.Tests.Architecture;
 [Trait("Category", "Unit")]
 public sealed class Seam2ArchitectureTests
 {
-    // The only Dexpace assemblies core's suite may see: core, the in-memory fakes, and the suite itself.
+    // The only Dexpace assemblies core's suite may see: core, the in-memory fakes, the conformance kit and the suite itself. The kit
+    // joined in phase 10 (P10-5): SEAM-2's conformance clause is that core's suite runs "without any adapter", and the kit references
+    // core alone (KitDependencyArchitectureTests), so it brings no transport and no codec; The_kit_brings_no_transport_or_codec and the
+    // build-graph test below keep failing on any Dexpace.Sdk.Http.* or Dexpace.Sdk.Serialization.* arrival.
     private static readonly HashSet<string> s_allowed = new(StringComparer.Ordinal)
     {
+        "Dexpace.Sdk.Conformance",
         "Dexpace.Sdk.Core",
         "Dexpace.Sdk.TestSupport",
         "Dexpace.Sdk.Core.Tests",
@@ -57,6 +61,20 @@ public sealed class Seam2ArchitectureTests
         Assert.Contains("Dexpace.Sdk.Core", libraries);
         var adapters = libraries.Where(name => IsDexpace(name) && !s_allowed.Contains(name));
         Assert.Empty(adapters);
+    }
+
+    [Fact]
+    public void The_kit_brings_no_transport_or_codec()
+    {
+        // The argument for admitting the kit: nothing it reaches is an adapter. Named explicitly, so the allow-list edit above can
+        // never quietly widen into an adapter.
+        var reached = DexpaceClosure(typeof(Seam2ArchitectureTests).Assembly);
+
+        Assert.Contains("Dexpace.Sdk.Conformance", reached);
+        Assert.DoesNotContain(reached, static name => name.StartsWith("Dexpace.Sdk.Http.", StringComparison.Ordinal));
+        Assert.DoesNotContain(reached, static name => name.StartsWith("Dexpace.Sdk.Serialization.", StringComparison.Ordinal));
+        Assert.DoesNotContain(reached, static name => name.StartsWith("Dexpace.Sdk.Extensions.", StringComparison.Ordinal));
+        Assert.DoesNotContain(DepsJsonLibraries(), static name => name.StartsWith("Dexpace.Sdk.Http.", StringComparison.Ordinal) || name.StartsWith("Dexpace.Sdk.Serialization.", StringComparison.Ordinal));
     }
 
     [Fact]

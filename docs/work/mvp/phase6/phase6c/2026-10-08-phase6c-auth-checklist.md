@@ -208,3 +208,5 @@ Run on the branch head after rebasing onto `main` at `29a7754` (6b merged), .NET
 | `tools/Dexpace.Tools.sln` build and test | 0 warnings; 438 tests passed |
 | `scripts/knowledge verify-structure` | OK (12 notes) |
 | `housekeeping probe` (full, then `--only links,citations`) | no drift found |
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-12`, `-14`, `-16`, `-18`, `-19`(d) and `-21` (10) are taken: the phase 10 checklist's rows of those IDs. `XCUT-21`'s CSPRNG-source clause stays cited by reference to `DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator` (an output test cannot tell it from `System.Random`). See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

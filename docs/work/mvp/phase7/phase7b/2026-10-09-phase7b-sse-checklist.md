@@ -182,3 +182,4 @@ The lead had not ruled, so each landed as the design argued it: **P7b-5** (no ag
 > The regression is `Security/ServerSentEventLineCapTests` (an unterminated 8 MiB line, a line of exactly the cap, a custom cap), permanent. The line layer under it is the byte-level reader the issue's `StreamReader.ReadLineAsync` sketch lacked: a CR ends a line at once
 > and a CRLF split across reads is one terminator (row `SSE-2`, proven on a real socket), and a leading BOM is consumed once (row `SSE-12`). One residual is documented and left open: the cap bounds a line, not an event (`sse.md`, P7b-5).
 
+*Dated correction, 2026-10-14 (phase 10): `XCUT-1` (10) is taken: the phase 10 checklist's `XCUT-1` row cites `ServerSentEventStreamFailureTests` beside `xcut-1.cancel-is-terminal`. See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

@@ -205,3 +205,5 @@ The rulings below are the design's, taken as designed because the lead has not r
 | P6a-26 | both stacks stamp from ordinal 1 | built |
 | P6a-27 | the internal random seam | built as designed (open for the lead) |
 | P6a-33 | the interfaces assumed of 6b and 6c | unchanged by 6a; to be confirmed when 6b and 6c land |
+
+*Dated correction, 2026-10-14 (phase 10): `XCUT-1` to `XCUT-7`, `XCUT-9` and `XCUT-10` (phase 10) are taken: the phase 10 checklist's rows of those IDs each cite the 6a test they rest on and add the portable `xcut-*` assertions; `XCUT-9` also gains the `Exception.GetBaseException` ban in `src/`. See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

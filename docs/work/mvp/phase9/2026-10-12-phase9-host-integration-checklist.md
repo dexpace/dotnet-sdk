@@ -54,7 +54,7 @@ clauses are §10 entry 26 and `CFG-2`'s fall-through is entry 25's judged mechan
 |---|---|---|
 | `SEAM-7` (2b) | N/A stays; each client's transport, codec, pipeline and options are keyed singletons created once ("an unresolved state stays re-evaluable" has nothing to apply to) | `KeyedSingletonTests` (`Unit`): 64 concurrent first resolutions run each factory once |
 | `TRANSPORT-1` (8b) | ✅; the named-client clause added | `PrimaryHandlerTests` (SystemNet suite, `Unit`), `NamedClientTests` (`Unit`), `NamedClientRedirectWireTests` (`Security`), `transport-1.redirect-not-followed` on the third driver (`Conformance`) |
-| `XCUT-10` (10) | ⏳ 10; phase 9's clause ✅ | `NoRetryingHandlerTests` (`Unit`), `ResilienceCompositionTests` (`Integration`) |
+| `XCUT-10` (10) | ✅ taken by phase 10 (dated correction, 2026-10-14; it was ⏳ 10): the phase 10 checklist's `XCUT-10` row, with `xcut-10.safety-gate-uniform` passing over the DI-built pipeline; phase 9's clause ✅ | `NoRetryingHandlerTests` (`Unit`), `ResilienceCompositionTests` (`Integration`) |
 | 5a: bind the records | taken by a hand-written reader (a third route: neither binder mode serves, V1) | the reader's tests (`RecordBindingTests`, the grammar tests) |
 | 5a (P5a-4): `IValidateOptions` | the reader's failures plus the wiring checks in one validator; no cross-property failure (P9-10) | `ValidationTests` (`Unit`) |
 | 5a (P5a-16), 8b (P8b-4): `FromEnvironment` | code-only `UseProxyFromEnvironment()` and `(lookup)`; no configuration switch (P9-15) | `ProxyRegistrationTests`, `NoImplicitEnvironmentReadArchitectureTests` (`Unit`) |

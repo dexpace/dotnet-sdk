@@ -159,8 +159,17 @@ public sealed partial class AssertionCatalogueTests
     [Fact]
     public void Every_control_names_an_assertion_that_exists()
     {
-        var unknown = ControlClasses.Covered.Except(All.Select(a => a.Name), StringComparer.Ordinal).ToArray();
+        // Phase 10 (validation F2): a control may name an assertion of any kit suite, so this compares against the union.
+        var unknown = ControlClasses.Covered.Except(KitCatalogues.All.Select(a => a.Name), StringComparer.Ordinal).ToArray();
 
         Assert.Empty(unknown);
+    }
+
+    [Fact]
+    public void Assertion_names_are_unique_across_the_kit_catalogues()
+    {
+        var names = KitCatalogues.All.Select(a => a.Name).ToArray();
+
+        Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
     }
 }

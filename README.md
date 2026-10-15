@@ -21,9 +21,9 @@ Pre-release: nothing is published yet, and every package is at `0.0.1-alpha.1`. 
 | [`Dexpace.Sdk.Http.SystemNet`](src/Dexpace.Sdk.Http.SystemNet/README.md) | The reference transport over `System.Net.Http.HttpClient` |
 | [`Dexpace.Sdk.Serialization.SystemTextJson`](src/Dexpace.Sdk.Serialization.SystemTextJson/README.md) | The `ISerde` codec over source-generated `System.Text.Json` |
 | [`Dexpace.Sdk.Extensions.DependencyInjection`](src/Dexpace.Sdk.Extensions.DependencyInjection/README.md) | Host integration: named clients as keyed services over `Microsoft.Extensions.DependencyInjection`, configured from an `IConfigurationSection` with strict grammars and fail-at-start validation ([guide](docs/sdk-documentation/dependency-injection.md)) |
-| [`Dexpace.Sdk.Conformance`](src/Dexpace.Sdk.Conformance/README.md) | The transport conformance kit: framework-free assertions for the `TRANSPORT` and `ASYNC` requirements, a loopback HTTP/1.1 wire fixture, and per-requirement reporting with waivers; for adapter authors' test projects ([guide](docs/sdk-documentation/conformance.md)) |
+| [`Dexpace.Sdk.Conformance`](src/Dexpace.Sdk.Conformance/README.md) | The conformance kit: framework-free suites for the `TRANSPORT` and `ASYNC` requirements, the cross-cutting invariants, codecs and package metadata, a loopback HTTP/1.1 wire fixture, and per-requirement reporting with waivers; for adapter authors' test projects ([guide](docs/sdk-documentation/conformance.md), [invariants](docs/sdk-documentation/cross-cutting-invariants.md)) |
 
-What is not built yet — the cross-cutting invariant and conformance suites (roadmap phase 10), the deviation audit (phase 11) and the release path (phase 12) — is
+What is not built yet — the deviation audit (roadmap phase 11) and the release path (phase 12) — is
 scheduled by the [v1 roadmap](docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md), and what the first release needs is
 in [docs/first-release.md](docs/first-release.md). The normative specification is
 [docs/product-spec/](docs/product-spec.md) and the .NET design is [docs/sdk-design-dotnet/](docs/sdk-design-dotnet.md);
@@ -56,11 +56,11 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.Http.SystemNet/              # reference transport over System.Net.Http.HttpClient
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson/ # ISerde over source-generated System.Text.Json
 │   ├── Dexpace.Sdk.Extensions.DependencyInjection/ # named clients as keyed services, configuration reader, validation
-│   └── Dexpace.Sdk.Conformance/                 # transport conformance kit + Wire/ loopback fixture
+│   └── Dexpace.Sdk.Conformance/                 # conformance kit (transport, invariant, codec, packaging suites) + Wire/ loopback fixture
 ├── tests/
 │   ├── Dexpace.Sdk.Core.Tests/                  # core against in-memory fakes only
 │   ├── Dexpace.Sdk.Http.SystemNet.Tests/        # the transport, incl. loopback wire tests and its conformance driver
-│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, the negative controls and the raw-socket driver
+│   ├── Dexpace.Sdk.Conformance.Tests/           # the kit's own tests, the negative controls, the raw-socket driver, APPENDIX_B.md and the repository gates
 │   ├── Dexpace.Sdk.Serialization.SystemTextJson.Tests/
 │   ├── Dexpace.Sdk.Extensions.DependencyInjection.Tests/
 │   ├── Dexpace.Sdk.TestSupport/                 # shared fakes (not packed)

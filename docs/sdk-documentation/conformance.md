@@ -1,6 +1,7 @@
 # The transport conformance kit
 
-**As built by phase 8a, written against source on 2026-10-09** (branch `88-phase-8a-conformance-kit`). This page describes how an
+**As built by phase 8a, written against source on 2026-10-09** (branch `88-phase-8a-conformance-kit`); **extended by phase 10 on 2026-10-14**
+with three more suites in the same package, described from [The invariant suite](#the-invariant-suite-phase-10) on. This page describes how an
 adapter author drives `Dexpace.Sdk.Conformance` against a transport: the suite and its runner, the subject and its capability
 hooks, the six result statuses and the waivers that accept a gap, the loopback wire fixture the assertions run over, and the
 catalogue of named assertions. The requirement IDs it cites are the normative text
@@ -281,8 +282,9 @@ version: `0.1.0` is proposed, and `docs/first-release.md` makes the number phase
   `ASYNC-15` through `transport-16`); the rest are properties of the two bridges, pinned by `Dexpace.Sdk.Core.Tests/Client`. No
   reactive adapter ships, so `ASYNC-21` is not applicable (design §11 item 21) and `ASYNC-4` is vacuous (thread interruption is
   banned, §10 entry 8).
-- **Codec and pagination vectors.** The `SERDE` lift of phase 7a and the pagination vectors of phase 7c are phase 10's invariant and
-  codec suites, in this same package.
+- **Codec and pagination vectors.** Phase 10 lifted the `SERDE` rows a codec seam can be asked into [the codec suite](#the-codec-suite-phase-10).
+  The pagination vectors of phase 7c are **not** lifted (P10-9): the paging engine has one implementation and is not a seam, so appendix B's
+  `PAGE` rows are `by reference` to its own tests.
 
 ## The third driver (phase 9, P9-22)
 
@@ -290,3 +292,173 @@ version: `0.1.0` is proposed, and `docs/first-release.md` makes the number phase
 single-logger factory, the hooks added as handlers of the named client (the faulting, re-sending and cancel-on-demand handlers are the SystemNet suite's, shared by linked source) and the proxy hook through the `Transport:Proxy:*` keys. It is green on both
 faces with the two permanent assertion-scoped waivers of the SystemNet drivers (design §10 entries 32 and 33); `transport-15.borrowed-survives` is `NotExercised` because the package never borrows a client. `transport-1.redirect-not-followed` passing on both
 faces is the proof the 8a hand-off named, and `transport-15.owned-released` is what the container-owned primary-handler lease earns: it failed on the first build of the driver, because the factory never releases a handler whose lifetime is infinite.
+
+## The invariant suite (phase 10)
+
+*Added 2026-10-14 (phase 10, P10-3 to P10-7).* `InvariantSuite` runs 28 assertions over the cross-cutting rows `XCUT-1` to `XCUT-24` and the
+scheduler-agnostic clause of `NFR-11`, against an `InvariantSubject`: a set of **hooks**, each defaulting to core's own public component, so the same
+assertions run over a composition you built (your own policies, credentials, redactor or codec) and so every assertion can have a negative control (a broken
+member in place of the default). The transport-level clause of `XCUT-1`, `-2`, `-4` and `-22` stays an assertion of `TransportSuite` (`transport-3`, `-4`, `-20`, `-15`),
+and `ConformanceReport.Combine` merges the two reports by requirement, so no clause has two owners (P10-6).
+
+> Invariant conformance report. A green run does not prove: any clause whose hook the driver did not supply (such an assertion is NotExercised, never passed, and a driver pins the list it expects); anything about core's internals except through the hooks; behaviour over a real socket (the transport suite's); or any requirement no assertion cites. It proves that every assertion that ran met its clause over the composition it was given, or is waived below, and nothing more. Run against the defaults it judges core, and nothing about a third party's composition until they supply theirs.
+
+**The subject.** `InvariantSubject` is a sealed record; every member is optional.
+
+- `CreatePipeline(transport, options, time, logger)` builds the `HttpPipeline` under test over the in-memory transport an assertion hands it, capturing the call-level
+  options, on the run's recording clock and logger. The default is the idempotency, client-identity and set-date policies plus `AddStandardResilience`.
+- `CreateResponseException`, `EnumerateCauses`, `CreateTokenCache`, `RedactUrl`, `RedactHeaderValue`, `Models` (a `ModelFactories` of delegates), `Auth` (an `AuthPolicyFactories`),
+  `Credentials`, `CreateDisposables`, `AsAsync` and `AsBlocking` each default to the public core component they stand for.
+- **Four hooks have no default**, because the thing they reach is internal to core or lives in another package: `MapStrict` (`XCUT-8`'s strict factory), `CreateCyclicException`
+  (`XCUT-9`; the suite only **walks** the exception and never throws it, because a thrown cyclic chain hangs the test host on Windows), `CreateBoundedMap` (`XCUT-14`, a
+  `BoundedMapProbe` of insert, count and capacity) and `SeamResolution` (`XCUT-23`). An assertion whose hook is `null` is `NotExercised` with a reason naming the hook, never passed.
+- `DrawCnonce` is optional and is not one of the four: `null` means the suite draws through the public `DigestChallengeHandler.Authorize`, so `xcut-21` is always exercised. It judges the
+  draw's width (at least 128 bits, written as hex of either case, base64 or base64url; core draws 32 lower-case hex characters) and that ten thousand draws do not repeat; the operating-system CSPRNG source clause is cited by reference to
+  `DigestComputationTests.The_cnonce_source_is_RandomNumberGenerator`, because no output test can tell a CSPRNG from `System.Random`.
+
+**The catalogue.** `Faces` is `both` for the asynchronous and blocking surface of `HttpPipeline`, or `none` (`TransportFace.None`) for an assertion that judges a value and drives no call.
+`Level` is the strength of the clause, never above the strongest of its IDs.
+
+| Assertion | Requirements | Level | Faces | Reads |
+|---|---|---|---|---|
+| `xcut-1.cancel-is-terminal` | XCUT-1 | MUST | both | `CreatePipeline` |
+| `xcut-2.timeout-is-retryable` | XCUT-2 | MUST | both | `CreatePipeline` |
+| `xcut-3.wait-promptly-cancellable` | XCUT-3 | MUST | both | `CreatePipeline`, the recording clock |
+| `xcut-4.two-branches` | XCUT-4 | MUST | both | `CreatePipeline` |
+| `xcut-5.one-classifier` | XCUT-5 | MUST | none | `CreateResponseException` |
+| `xcut-6.capability-queried` | XCUT-6 | MUST | both | `CreatePipeline` |
+| `xcut-7.configured-set-authoritative` | XCUT-7 | MUST | both | `CreatePipeline` |
+| `xcut-8.strict-factory-rejects` | XCUT-8 | MUST | none | `MapStrict` (**no default**) |
+| `xcut-8.convenience-returns-response` | XCUT-8 | MUST | both | `CreatePipeline` (error mapping on) |
+| `xcut-9.cycle-safe-walk` | XCUT-9 | MUST | none | `CreateCyclicException` (**no default**), `EnumerateCauses` |
+| `xcut-10.safety-gate-uniform` | XCUT-10 | MUST | both | `CreatePipeline` |
+| `xcut-11.shared-no-crosstalk` | XCUT-11 | MUST | both | `CreatePipeline` |
+| `xcut-12.single-flight-scoped` | XCUT-12 | SHOULD | both | `CreateTokenCache` |
+| `xcut-13.dispose-latched` | XCUT-13 | MUST | both | `CreateDisposables` |
+| `xcut-13.dispose-non-blocking` | XCUT-13 | MUST | both | `CreateDisposables` |
+| `xcut-14.bounded-under-burst` | XCUT-14 | MUST | none | `CreateBoundedMap` (**no default**) |
+| `xcut-14.drains-after-insert` | XCUT-14 | MUST | none | `CreateBoundedMap` (**no default**) |
+| `xcut-15.no-external-alias` | XCUT-15 | MUST | none | `Models` |
+| `xcut-16.no-credential-over-http` | XCUT-16 | MUST | both | `Auth`, `CreatePipeline` |
+| `xcut-17.redirect-hygiene` | XCUT-17 | MUST | both | `CreatePipeline` |
+| `xcut-18.model-validation` | XCUT-18 | MUST | none | `Models` |
+| `xcut-19.redaction-default-deny` | XCUT-19 | MUST | both | `RedactUrl`, `RedactHeaderValue`, `Credentials`, `CreatePipeline` |
+| `xcut-20.observability-never-throws` | XCUT-20 | MUST | both | `RedactUrl`, `CreatePipeline` |
+| `xcut-21.cnonce-unpredictable` | XCUT-21 | MUST | none | `DrawCnonce` (optional) |
+| `xcut-22.core-borrows` | XCUT-22 | MUST | both | `CreatePipeline`, `AsAsync`, `AsBlocking` |
+| `xcut-23.resolution-deterministic` | XCUT-23 | MUST | none | `SeamResolution` (**no default**) |
+| `xcut-24.preview-capped-non-consuming` | XCUT-24 | SHOULD | both | `CreatePipeline` |
+| `nfr-11.scheduler-agnostic` | NFR-11 | SHOULD | both | `CreatePipeline` |
+
+**The first-party drivers pin what they leave `NotExercised`** (P10-28), so a hook not supplied never reads as conformance. The core driver
+(`Dexpace.Sdk.Core.Tests/Conformance/InvariantConformanceTests.cs`) supplies the three hooks that reach internals (`MapStrict`, `CreateCyclicException`, `CreateBoundedMap`) and leaves exactly
+`xcut-23.resolution-deterministic`; the dependency-injection driver supplies `SeamResolution` over `AddDexpaceClient` and the DI-built pipeline and leaves the four assertions that need core's
+internals; the NativeAOT smoke runs the defaults and leaves five. No assertion is waived. The core driver, kept identical to this page by `ConformancePageTests`:
+
+<!-- invariant driver -->
+```csharp
+public static TheoryData<string, TransportFace> Rows()
+{
+    var rows = new TheoryData<string, TransportFace>();
+    foreach (var assertion in InvariantSuite.Assertions)
+    {
+        foreach (var face in assertion.Faces)
+        {
+            rows.Add(assertion.Name, face);
+        }
+    }
+
+    return rows;
+}
+
+[Theory]
+[MemberData(nameof(Rows))]
+public async Task Assertion_holds(string name, TransportFace face)
+{
+    var assertion = InvariantSuite.Assertions.Single(a => a.Name == name);
+    var result = await InvariantSuite.RunAsync(InvariantCoreSubject.Create(), assertion, face, InvariantCoreSubject.Options, TestContext.Current.CancellationToken);
+
+    if (result.Status == ConformanceStatus.Passed)
+    {
+        return;
+    }
+
+    if (result.Status is ConformanceStatus.Failed or ConformanceStatus.Errored)
+    {
+        Assert.Fail(result.Detail);
+    }
+    else
+    {
+        Assert.Skip($"{result.Status}: {result.Detail}");
+    }
+}
+```
+
+**Running it over your own composition.** Build an `InvariantSubject` with the members you replace and run `InvariantSuite.RunAllAsync(subject)`; every member you leave alone judges core. A
+custom pipeline policy, a credential-stamping step, a redactor or a token cache goes in through `CreatePipeline`, `Auth`, `RedactUrl` and `CreateTokenCache`; a model that must not alias its input goes
+in through `Models`. A waiver by requirement ID accepts a gap the way it does for a transport, and a waived assertion that now passes fails the run.
+
+## The codec suite (phase 10)
+
+*Added 2026-10-14 (phase 10, P10-8).* `CodecSuite` runs 11 assertions over the `SERDE` rows a codec seam can be asked, on both faces of `ISerde` (the asynchronous stream pair and the synchronous buffer
+and span pair), against a `CodecSubject { Name, CreateSerde, ExpectedMediaType, MalformedPayload }`. `CreateSerde` builds the codec fresh for each run **exactly as a consumer builds it**, with no extra
+configuration: `SERDE-19` asks whether the defaults wire the PATCH semantics. The suite serializes only the **probe models** of `Dexpace.Sdk.Conformance.Codec` (`ProbeContact`, `ProbeAddress`,
+`ProbePatch`, `ProbeSequence`, `ProbeUnencodable`), so a codec that needs compile-time metadata registers them in its own context, one line each, in the default generation mode (not the fast-path-only
+mode, which cannot carry the tri-state wiring). The tri-state assertions judge what a codec preserves and refuses through its own round trip, not how it spells it on the wire: `Absent` must not
+encode like `Null` and must encode shorter (it omits the key), and each state must come back.
+
+> Codec conformance report. A green run does not prove: the codec's own metadata for models it was not given (the probe models are the only types the suite serializes); configuration it was not handed (the codec is built exactly as the driver's factory builds it); the wire format byte for byte (the suite judges what a codec preserves and refuses, not how it spells it); core's typed readers, SerdeExtensions and Tristate<T>'s own API (SERDE-4, SERDE-13, SERDE-14, SERDE-18, SERDE-30, which judge core code and are cited by reference); or any requirement no assertion cites. It proves that every assertion that ran met its clause over the codec it was given, or is waived below, and nothing more.
+
+| Assertion | Requirements | Level | Faces | Reads |
+|---|---|---|---|---|
+| `serde-1.round-trip` | SERDE-1 | MUST | both | `CreateSerde` |
+| `serde-2.declared-media-type` | SERDE-2 | MUST | none | `CreateSerde`, `ExpectedMediaType` |
+| `serde-3.target-not-closed` | SERDE-3, SEAM-20 | MUST | both | `CreateSerde` |
+| `serde-9.no-library-type-escapes` | SERDE-9 | MUST | both | `CreateSerde`, `MalformedPayload` |
+| `serde-10.directional-subtypes` | SERDE-10 | MUST | both | `CreateSerde`, `MalformedPayload` |
+| `serde-12.stream-error-unwrapped` | SERDE-12 | MUST | both | `CreateSerde` |
+| `serde-15.tristate-emission` | SERDE-15 | MUST | both | `CreateSerde` |
+| `serde-16.tristate-decode` | SERDE-16 | MUST | both | `CreateSerde` |
+| `serde-17.missing-key-absent` | SERDE-17 | MUST | both | `CreateSerde` |
+| `serde-19.default-wiring` | SERDE-19 | MUST | both | `CreateSerde` |
+| `serde-20.top-level-degrades` | SERDE-20 | SHOULD | both | `CreateSerde` |
+
+`SERDE-4` (the fixed-buffer encode is core's `SerdeExtensions.Serialize(ISerde, Span<byte>, T)`), `SERDE-13` (the typed readers reject a wire null after the codec has returned) and `SERDE-14`, `-18`, `-30`
+(`Tristate<T>`'s own factories and sentinel text) judge core code, so no codec can be broken to fail them: appendix B cites core's tests for them (validation F6). The first driver is
+`tests/Dexpace.Sdk.Serialization.SystemTextJson.Tests/Conformance/CodecConformanceTests.cs`, over `SystemTextJsonSerde` and a source-generated context of the probe models, with no waiver and nothing
+not exercised.
+
+## The packaging suite (phase 10)
+
+*Added 2026-10-14 (phase 10, P10-10).* `PackagingSuite` runs 8 assertions over the `NFR` rows that are properties of the **published packages**, against a
+`PackagingSubject { PackagePaths, CoreId, Policies, DeclaredFloor }`: `PackagePaths` are the `.nupkg` files a pack produced, `CoreId` names the core package (whose only dependency may be the logging
+facade, design §10 entry 1), `Policies` says what each other package may depend on, and `DeclaredFloor` is the one target framework every package declares (`net10.0`). It is synchronous (`PackagingSuite.RunAll(subject)` returns the report) and reads the `.nupkg` files with the framework's own
+zip, XML and metadata readers, adding no package, and never loads a packed assembly. `PackagePolicy(ThirdPartyRoot, FirstPartyIds)` mirrors the policy record of `scripts/ci/dependency-audit.cs`, and
+`PackagingPolicyParityTests` fails if the two tables disagree. CI runs it after `dotnet pack` on every operating system:
+
+```bash
+dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages
+```
+
+The dependency audit stays beside it: the audit reads the closure of the **build output**, the suite the **metadata that was published** (two checks, two subjects).
+
+> Packaging conformance report. A green run does not prove: anything about a package it was not given (it reads the packages it was given; a package built from another tree is a different subject); how the assemblies behave (it reads their metadata and never loads them); the build's reproducibility, repository signing or the release path (NFR-12, NFR-16: other gates); or any requirement no assertion cites. It proves that every assertion that ran met its clause over the packages it read, or is waived below, and nothing more.
+
+| Assertion | Requirements | Level | Faces | Reads |
+|---|---|---|---|---|
+| `nfr-1.core-dependencies` | NFR-1 | MUST | none | the core package's nuspec |
+| `nfr-2.adapter-budget` | NFR-2 | SHOULD | none | each other package's nuspec, `Policies` |
+| `nfr-3.no-internals-granted` | NFR-3 | SHOULD | none | each packed assembly |
+| `nfr-8.trim-and-aot-declared` | NFR-8, NFR-9 | MUST | none | each packed assembly |
+| `nfr-10.single-floor` | NFR-10 | MUST | none | `lib/`, the dependency groups, `DeclaredFloor` |
+| `nfr-13.license-declared` | NFR-13 | SHOULD | none | each nuspec |
+| `nfr-14.lockstep-version` | NFR-14 | SHOULD | none | each nuspec |
+| `nfr-15.version-resolvable` | NFR-15 | SHOULD | none | each packed assembly and nuspec |
+
+## One report across suites
+
+`ConformanceReport.Combine(subjectName, reports)` merges the reports of several suites run against one subject: the results are concatenated, the worst status wins per requirement and per appendix-B
+item, and the waivers are the union. Each report records the suite that produced it (`Suite`: `transport`, `invariant`, `codec` or `packaging`, or `combined`) and its own preamble (`PreambleText`; the static
+`ConformanceReport.Preamble` is the transport suite's). `SuiteOptions { AssertionTimeout, Waivers }` bounds and waives a run of the three newer suites; `TransportSuiteOptions` keeps the release bound only a
+socket-driving suite needs. `AppendixBMap` maps all 61 items of appendix B, and `tests/Dexpace.Sdk.Conformance.Tests/APPENDIX_B.md` says where each is evidenced; a five-rule test keeps the two honest
+(see [cross-cutting invariants](./cross-cutting-invariants.md)).

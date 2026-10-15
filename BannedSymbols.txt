@@ -38,9 +38,23 @@ M:System.Uri.ToString;Uri.ToString() unescapes; use OriginalString or GetCompone
 # Context-store and lifetime discipline in core (design §5.4).
 T:System.Threading.AsyncLocal`1;The SDK holds no ambient per-call state; correlate through CallKey and the context chain (design §5.4 P13)
 M:System.Collections.Concurrent.ConcurrentDictionary`2.TryRemove(System.Collections.Generic.KeyValuePair{`0,`1});The value-comparing TryRemove belongs only in BoundedMap's slot (design §5.4, P4a-12)
+# Every map keyed by callers or servers is a BoundedMap (XCUT-14, P10-18): all seven public ConcurrentDictionary constructors are banned, and the one
+# sanctioned construction, BoundedMap's own, is a scoped pragma with a why-comment. The type is not banned: that would flag every use of BoundedMap's field
+# and its cref, and the value-comparing TryRemove pair above would re-enable the rule inside any file-scoped exemption (design P10-18, validation F1).
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor;A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Int32,System.Int32);A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{`0,`1}});A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Collections.Generic.IEqualityComparer{`0});A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{`0,`1}},System.Collections.Generic.IEqualityComparer{`0});A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Int32,System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{`0,`1}},System.Collections.Generic.IEqualityComparer{`0});A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
+M:System.Collections.Concurrent.ConcurrentDictionary`2.#ctor(System.Int32,System.Int32,System.Collections.Generic.IEqualityComparer{`0});A process- or instance-lived concurrent map is a BoundedMap, or it does not land (XCUT-14, design §5.4, P10-18)
 T:System.Runtime.CompilerServices.ConditionalWeakTable`2;Weak tables are not used in core (design §5.4)
 T:System.WeakReference`1;Weak references are not used in core (design §5.4)
 T:System.WeakReference;Weak references are not used in core (design §5.4)
+
+# Cause walks are cycle-safe (XCUT-9, P10-18): Exception.GetBaseException walks the inner-exception chain to its end with no cycle check, which is the walk
+# behind the Windows test-host hang CyclicExceptions documents. Every cause walk goes through ExceptionFacts.EnumerateCauses.
+M:System.Exception.GetBaseException;Walks the inner-exception chain to its end with no cycle check; use ExceptionFacts.EnumerateCauses (XCUT-9, P10-18)
 
 # Unsafe deserialization (design §3.4). The Newtonsoft entries are inert while no project references it; they
 # keep the ban in force if one ever does.

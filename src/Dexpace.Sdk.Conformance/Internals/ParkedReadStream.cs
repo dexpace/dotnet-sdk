@@ -14,6 +14,7 @@ internal sealed class ParkedReadStream : Stream
 {
     private readonly TaskCompletionSource _readStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _readFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _observedCancellation;
     private int _disposed;
 
@@ -21,6 +22,9 @@ internal sealed class ParkedReadStream : Stream
     internal Task ReadStarted => _readStarted.Task;
 
     /// <summary>Whether a parked read ended because its cancellation token fired.</summary>
+    /// <summary>Completed when the parked read has ended, by release, cancellation or disposal.</summary>
+    internal Task ReadFinished => _readFinished.Task;
+
     internal bool ObservedCancellation => Volatile.Read(ref _observedCancellation) == 1;
 
     /// <summary>Whether the stream was disposed.</summary>
@@ -60,6 +64,10 @@ internal sealed class ParkedReadStream : Stream
         {
             Interlocked.Exchange(ref _observedCancellation, 1);
             throw;
+        }
+        finally
+        {
+            _readFinished.TrySetResult();
         }
 
         return 0;

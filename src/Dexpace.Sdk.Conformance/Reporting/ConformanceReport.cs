@@ -15,9 +15,11 @@ public sealed class ConformanceReport
 {
     private readonly IReadOnlyList<ConformanceWaiver> _waivers;
 
-    private ConformanceReport(string subjectName, IReadOnlyList<ConformanceResult> results, IReadOnlyList<ConformanceWaiver> waivers)
+    private ConformanceReport(string subjectName, IReadOnlyList<ConformanceResult> results, IReadOnlyList<ConformanceWaiver> waivers, SuiteIdentity suite)
     {
         SubjectName = subjectName;
+        Suite = suite.Name;
+        PreambleText = suite.Preamble;
         Results = results;
         _waivers = waivers;
         IsGreen = results.All(result => result.Status is not (ConformanceStatus.Failed or ConformanceStatus.Errored));
@@ -37,6 +39,18 @@ public sealed class ConformanceReport
 
     /// <summary>The name of the subject the run exercised.</summary>
     public string SubjectName { get; }
+
+    /// <summary>
+    /// The suite that produced the report: <c>transport</c>, <c>invariant</c>, <c>codec</c> or <c>packaging</c>, or
+    /// <c>combined</c> for a report merged by <see cref="Combine"/>.
+    /// </summary>
+    public string Suite { get; }
+
+    /// <summary>
+    /// What a green run of <see cref="Suite"/> does not prove, as the report renders it. The static <see cref="Preamble"/> is the
+    /// transport suite's text; each other suite carries its own, and a combined report carries each of its inputs'.
+    /// </summary>
+    public string PreambleText { get; }
 
     /// <summary>Every result of the run, in the order the assertions ran.</summary>
     public IReadOnlyList<ConformanceResult> Results { get; }
@@ -62,19 +76,63 @@ public sealed class ConformanceReport
         ArgumentNullException.ThrowIfNull(subjectName);
         ArgumentNullException.ThrowIfNull(results);
         var copy = results.ToArray();
-        return new(subjectName, copy, [.. copy.Select(result => result.Waiver).OfType<ConformanceWaiver>().Distinct()]);
+        return new(subjectName, copy, [.. copy.Select(result => result.Waiver).OfType<ConformanceWaiver>().Distinct()], SuiteIdentity.Transport);
+    }
+
+    /// <summary>
+    /// Merges the reports of several suites run against one subject into one, so the per-requirement and appendix B views read
+    /// across suites (P10-6, P10-7): the results are concatenated, the worst status wins per requirement and per appendix B
+    /// item (8a's rule), and the waivers are the union.
+    /// </summary>
+    /// <param name="subjectName">The name of the combined subject.</param>
+    /// <param name="reports">The reports to merge; at least one.</param>
+    /// <returns>The merged report; its <see cref="Suite"/> is <c>combined</c> and its <see cref="PreambleText"/> carries each input's.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="subjectName"/>, <paramref name="reports"/> or an element is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="reports"/> is empty.</exception>
+    public static ConformanceReport Combine(string subjectName, IEnumerable<ConformanceReport> reports)
+    {
+        ArgumentNullException.ThrowIfNull(subjectName);
+        ArgumentNullException.ThrowIfNull(reports);
+        var all = reports.ToArray();
+        if (all.Length == 0)
+        {
+            throw new ArgumentException("Combine needs at least one report.", nameof(reports));
+        }
+
+        foreach (var report in all)
+        {
+            ArgumentNullException.ThrowIfNull(report, nameof(reports));
+        }
+
+        var preamble = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            all.Select(report => report.PreambleText).Distinct(StringComparer.Ordinal));
+        return new(
+            subjectName,
+            [.. all.SelectMany(report => report.Results)],
+            [.. all.SelectMany(report => report._waivers).Distinct()],
+            new SuiteIdentity("combined", preamble));
     }
 
     /// <summary>Builds the report of a run that was configured with <paramref name="waivers"/>, listing every one of them.</summary>
     /// <param name="subjectName">The subject's name.</param>
     /// <param name="results">The results; copied.</param>
     /// <param name="waivers">Every waiver the run was configured with, applied or not.</param>
-    internal static ConformanceReport Create(string subjectName, IEnumerable<ConformanceResult> results, IEnumerable<ConformanceWaiver> waivers)
+    internal static ConformanceReport Create(string subjectName, IEnumerable<ConformanceResult> results, IEnumerable<ConformanceWaiver> waivers) =>
+        Create(subjectName, results, waivers, SuiteIdentity.Transport);
+
+    /// <summary>The overload every suite uses: it also records which suite produced the report and what its green run does not prove.</summary>
+    /// <param name="subjectName">The subject's name.</param>
+    /// <param name="results">The results; copied.</param>
+    /// <param name="waivers">Every waiver the run was configured with, applied or not.</param>
+    /// <param name="suite">The suite that ran.</param>
+    internal static ConformanceReport Create(string subjectName, IEnumerable<ConformanceResult> results, IEnumerable<ConformanceWaiver> waivers, SuiteIdentity suite)
     {
         ArgumentNullException.ThrowIfNull(subjectName);
         ArgumentNullException.ThrowIfNull(results);
         ArgumentNullException.ThrowIfNull(waivers);
-        return new(subjectName, results.ToArray(), [.. waivers]);
+        ArgumentNullException.ThrowIfNull(suite);
+        return new(subjectName, results.ToArray(), [.. waivers], suite);
     }
 
     /// <summary>
@@ -83,7 +141,7 @@ public sealed class ConformanceReport
     /// </summary>
     public override string ToString()
     {
-        var text = new StringBuilder(Preamble).AppendLine().AppendLine();
+        var text = new StringBuilder(PreambleText).AppendLine().AppendLine();
         text.AppendLine(CultureInfo.InvariantCulture, $"Subject: {SubjectName}");
         text.AppendLine(CultureInfo.InvariantCulture, $"Verdict: {(IsGreen ? "GREEN" : "RED")} ({Count(ConformanceStatus.Failed)} failed, {Count(ConformanceStatus.Errored)} errored, {Count(ConformanceStatus.Waived)} waived, {Count(ConformanceStatus.NotExercised)} not exercised, {Count(ConformanceStatus.Vacuous)} vacuous, {Count(ConformanceStatus.Passed)} passed)");
         AppendTable(text, "Requirements", ByRequirement, NaturalOrder);

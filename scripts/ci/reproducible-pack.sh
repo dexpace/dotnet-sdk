@@ -2,27 +2,76 @@
 # Copyright (c) 2026 dexpace and Omar Aljarrah.
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 #
-# NFR-12's build half (design §9.2): pack every library twice from a clean src/ tree, with SOURCE_DATE_EPOCH
-# pinned to the commit time, and require byte-identical packages (.nupkg, and .snupkg once symbols are packed). The compiler is already
-# deterministic (Deterministic + ContinuousIntegrationBuild); SOURCE_DATE_EPOCH fixes the zip-entry timestamps
-# of the package containers. Exit 0 when both packs match, 1 when any file differs.
+# NFR-12's build half (design §9.2; phase 10, P10-14): pack every library twice from two checkouts of HEAD at DIFFERENT paths, with
+# SOURCE_DATE_EPOCH pinned to the commit time, and require byte-identical packages (.nupkg, and .snupkg once symbols are packed). The compiler is
+# already deterministic (Deterministic + ContinuousIntegrationBuild); SOURCE_DATE_EPOCH fixes the zip-entry timestamps of the package containers; and
+# the two different paths prove that no absolute path leaks into an artefact (the assembly embeds a pdb path when nothing maps it), which packing
+# twice in one directory cannot see. Reproducibility across paths holds for a git checkout, which CI always is; a source tarball with no .git is not
+# a reproducible input. The checkouts are `git worktree`s of HEAD, so what is packed is HEAD, not uncommitted edits (a dirty tree is warned about).
+# The release half (a published artifact rebuilt from its tag) is phase 12's. Exit 0 when both packs match, 1 when any file differs.
 #
 #   scripts/ci/reproducible-pack.sh [output-dir]      (default: artifacts/reproducible)
 set -euo pipefail
 shopt -s nullglob
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 out="${1:-$repo/artifacts/reproducible}"
+# Each pack runs from inside its checkout, so a relative output directory is anchored to the caller's directory first.
+[[ "$out" = /* ]] || out="$PWD/$out"
 dotnet="${DOTNET:-dotnet}"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$repo" log -1 --format=%ct)}"
 echo "reproducible-pack: SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
 
+if [[ -n "$(git -C "$repo" status --porcelain)" ]]; then
+  echo "reproducible-pack: warning: the working tree has uncommitted changes; the packs are of HEAD, not of those changes"
+fi
+
+# Two different depths (V3): a path that leaks into an artefact differs between them.
+checkouts=("$out/wt1/repo" "$out/wt2/yy/zz/repo2")
+
+cleanup() {
+  for checkout in "${checkouts[@]}"; do
+    git -C "$repo" worktree remove --force "$checkout" 2>/dev/null || true
+  done
+  git -C "$repo" worktree prune
+}
+trap cleanup EXIT
+
 rm -rf "$out"
-for run in 1 2; do
-  rm -rf "$repo"/src/*/bin "$repo"/src/*/obj
-  "$dotnet" restore "$repo/Dexpace.Sdk.sln" --locked-mode
-  "$dotnet" pack "$repo/Dexpace.Sdk.sln" --configuration Release --no-restore \
-    -p:ContinuousIntegrationBuild=true --output "$out/$run"
+git -C "$repo" worktree prune
+run=0
+for checkout in "${checkouts[@]}"; do
+  run=$((run + 1))
+  mkdir -p "$(dirname "$checkout")"
+  git -C "$repo" worktree add --detach "$checkout" HEAD
+  (
+    cd "$checkout"
+    "$dotnet" restore Dexpace.Sdk.sln --locked-mode
+    "$dotnet" pack Dexpace.Sdk.sln --configuration Release --no-restore \
+      -p:ContinuousIntegrationBuild=true --output "$out/$run"
+  )
 done
+
+# On a mismatch, name the package entries that differ and, for each, the printable strings found in only one of the two (a leaked path shows here).
+explain() {
+  local a="$out/explain/a" b="$out/explain/b" entry
+  rm -rf "$out/explain"
+  mkdir -p "$a" "$b"
+  unzip -q -o "$1" -d "$a"
+  unzip -q -o "$2" -d "$b"
+  (cd "$a" && find . -type f | sort) | while read -r entry; do
+    if ! cmp -s "$a/$entry" "$b/$entry"; then
+      echo "reproducible-pack:   entry $entry differs"
+      diff <(strings -n 8 "$a/$entry" | sort -u) <(strings -n 8 "$b/$entry" | sort -u) | grep '^[<>]' | head -n 10 | sed 's/^/reproducible-pack:     /' || true
+    fi
+  done
+  if [[ "$(unzip -Z1 "$1" | sort)" != "$(unzip -Z1 "$2" | sort)" ]]; then
+    echo "reproducible-pack:   the entry lists differ"
+  fi
+  if [[ "$(unzip -Zv "$1" | grep -E 'file last modified|minimum software' | sort | uniq -c)" != "$(unzip -Zv "$2" | grep -E 'file last modified|minimum software' | sort | uniq -c)" ]]; then
+    echo "reproducible-pack:   the zip metadata (timestamps or versions) differ"
+    diff <(unzip -Zv "$1") <(unzip -Zv "$2") | grep '^[<>]' | head -n 12 | sed 's/^/reproducible-pack:     /' || true
+  fi
+}
 
 status=0
 count=0
@@ -35,6 +84,7 @@ for first in "$out"/1/*.nupkg "$out"/1/*.snupkg; do
     status=1
   elif ! cmp -s "$first" "$second"; then
     echo "reproducible-pack: $name differs between the two packs"
+    explain "$first" "$second"
     status=1
   else
     echo "reproducible-pack: $name identical ($(sha256sum "$first" | cut -d' ' -f1))"
@@ -52,6 +102,6 @@ if [[ $count -eq 0 ]]; then
 fi
 
 if [[ $status -eq 0 ]]; then
-  echo "reproducible-pack: $count file(s) byte-identical across both packs"
+  echo "reproducible-pack: $count file(s) byte-identical across both packs, built at different paths"
 fi
 exit $status

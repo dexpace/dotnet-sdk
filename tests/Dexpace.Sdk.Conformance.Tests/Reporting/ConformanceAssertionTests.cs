@@ -53,4 +53,33 @@ public sealed class ConformanceAssertionTests
     {
         Assert.Throws<ArgumentException>(() => new ConformanceAssertion("a.b", ["TRANSPORT-99"], RequirementLevel.Must, [TransportFace.Async], (_, _) => Task.CompletedTask));
     }
+
+    [Fact]
+    public async Task A_generic_assertion_hands_its_body_the_context_of_its_own_suite()
+    {
+        var seen = new List<string>();
+        var assertion = ConformanceAssertion.Create<List<string>>(
+            "xcut-1.generic",
+            ["XCUT-1"],
+            RequirementLevel.Must,
+            [TransportFace.None],
+            (context, _) =>
+            {
+                context.Add("ran");
+                return Task.CompletedTask;
+            });
+
+        await assertion.Body(seen, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["ran"], seen);
+        Assert.Equal([TransportFace.None], assertion.Faces);
+    }
+
+    [Fact]
+    public void A_generic_assertion_needs_a_body_and_applies_the_same_checks()
+    {
+        Assert.Throws<ArgumentNullException>(() => ConformanceAssertion.Create<object>("a.b", ["XCUT-1"], RequirementLevel.Must, [TransportFace.None], null!));
+        Assert.Throws<ArgumentException>(() => ConformanceAssertion.Create<object>("a.b", ["XCUT-99"], RequirementLevel.Must, [TransportFace.None], (_, _) => Task.CompletedTask));
+        Assert.Throws<ArgumentException>(() => ConformanceAssertion.Create<object>("a.b", ["XCUT-1"], RequirementLevel.Must, [], (_, _) => Task.CompletedTask));
+    }
 }
