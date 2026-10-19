@@ -1,7 +1,7 @@
 # Phase 11 — Deviation Reconciliation: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-19 against `main` at `eb9b758` (phases 0 to 10 merged). Design:
-[phase 11 design](../specs/2026-10-19-phase11-deviation-reconciliation-design.md) (filed by task 6.8 to
+[phase 11 design](2026-10-19-phase11-deviation-reconciliation-design.md) (filed by task 6.8 to
 `docs/work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-design.md`), the authority for every decision below. The plan cites
 its facts (`V1`..`V18`), decisions (`P11-1`..`P11-27`), §10 entries, §11 items and negative scans (`N1`..`N20`) rather than restating them.
 Format precedent: the phase 10 plan (`docs/work/mvp/phase10/2026-10-13-phase10-cross-cutting-invariants.md`).
