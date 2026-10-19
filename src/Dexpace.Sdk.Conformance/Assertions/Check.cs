@@ -48,6 +48,33 @@ internal static class Check
             return true;
         }, what, cancellationToken).ConfigureAwait(false);
 
+    /// <summary>The synchronous form of <see cref="GuardAsync{T}"/>: a subject failure where success was required is a <see cref="ConformanceException"/>.</summary>
+    /// <param name="operation">The operation.</param>
+    /// <param name="what">What was being done, for the message.</param>
+    internal static T Guard<T>(Func<T> operation, string what)
+    {
+        try
+        {
+            return operation();
+        }
+        catch (Exception ex) when (ex is not ConformanceException)
+        {
+            throw new ConformanceException($"{what}: the subject failed with {ex.GetType().Name} where success was required", ex);
+        }
+    }
+
+    /// <summary>The non-generic form of <see cref="Guard{T}"/>.</summary>
+    /// <param name="operation">The operation.</param>
+    /// <param name="what">What was being done, for the message.</param>
+    internal static void Guard(Action operation, string what) =>
+        Guard(
+            () =>
+            {
+                operation();
+                return true;
+            },
+            what);
+
     /// <summary>Fails the assertion.</summary>
     /// <param name="message">The clause that was broken, one line.</param>
     /// <param name="expected">What the clause requires.</param>

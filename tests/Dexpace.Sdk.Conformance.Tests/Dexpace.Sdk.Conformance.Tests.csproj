@@ -26,10 +26,14 @@
          the directory tree looking for the repository root. -->
     <None Include="..\..\docs\product-spec\appendix-b-conformance-test-checklist.md" Link="spec\appendix-b.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\docs\product-spec\appendix-c-consolidated-normative-requirement-index.md" Link="spec\appendix-c.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The map of where each appendix-B item is evidenced (phase 10, P10-19), read by AppendixBCoverageTests beside the specification's own appendix B. -->
+    <None Include="APPENDIX_B.md" Link="spec\APPENDIX_B.md" CopyToOutputDirectory="PreserveNewest" />
     <!-- The user page and the driver it quotes, so ConformancePageTests can keep the documented sample, the catalogue table and
          the preamble identical to the code. -->
     <None Include="..\..\docs\sdk-documentation\conformance.md" Link="spec\conformance.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Drivers\RawSocketConformanceTests.cs" Link="spec\RawSocketConformanceTests.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The invariant suite's core driver, quoted by the page's second sample (phase 10, P10-27). -->
+    <None Include="..\Dexpace.Sdk.Core.Tests\Conformance\InvariantConformanceTests.cs" Link="spec\InvariantConformanceTests.cs.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

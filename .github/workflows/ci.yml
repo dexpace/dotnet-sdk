@@ -28,10 +28,14 @@ name: CI
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in
 #     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
 #     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
-#   - NativeAOT smoke consumer: runs below over today's surface, with the Tristate, paging and SSE round trip of phase 7
-#     and a conformance slice from phase 8a; phase 10 completes it.
 #   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
-#   - NFR-11's public-signature type scan: phase 10. Strong naming and author signing (NFR-16): phase 12.
+#   - Strong naming and author signing (NFR-16): phase 12.
+#
+# Phase 10 completed what was inert: the NativeAOT smoke consumer below runs the invariant suite with core's defaults and the codec suite over the
+# System.Text.Json adapter (tests/Dexpace.Sdk.AotSmoke/SmokeChecks.Phase10.cs); NFR-11's public-signature type scan is
+# tests/Dexpace.Sdk.Core.Tests/Architecture/Nfr11PublicSurfaceArchitectureTests.cs; the packaging suite runs after Pack (below); and
+# tests/Dexpace.Sdk.Conformance.Tests/Gates/CiWorkflowTests.cs fails if a gate here is dropped or made advisory (NFR-17).
+# The requirement-coverage check (scripts/ci/requirement-coverage.cs --check, with its self-test) blocks every pull request on the Linux row.
 
 on:
   push:
@@ -118,6 +122,12 @@ jobs:
       - name: Dependency audit
         run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages
 
+      # NFR-1/-2/-3/-8/-9/-10/-13/-14/-15 (phase 10, P10-10): the kit's PackagingSuite over the packed .nupkg files: the published metadata (nuspec
+      # dependencies, license, versions) and each packed assembly's attributes (IsTrimmable, IsAotCompatible, InternalsVisibleTo, the version),
+      # read without loading them. The audit above reads the build output's closure; this reads what was published (two checks, two subjects).
+      - name: Packaging conformance
+        run: dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages
+
       - name: Tools - restore (locked)
         run: dotnet restore tools/Dexpace.Tools.sln --locked-mode
 
@@ -135,6 +145,16 @@ jobs:
       - name: Knowledge corpus structure
         if: runner.os == 'Linux'
         run: scripts/knowledge verify-structure
+
+      # Blocking. Every ID of appendix C is owned by a checklist row under docs/work/ with its level and a legend mark (roadmap phase 10 exit); a
+      # structural check over committed files, so one row suffices. The self-test first proves the check fails on each kind of finding.
+      - name: Requirement coverage self-test
+        if: runner.os == 'Linux'
+        run: scripts/ci/requirement-coverage-selftest.sh
+
+      - name: Requirement coverage
+        if: runner.os == 'Linux'
+        run: dotnet run scripts/ci/requirement-coverage.cs -- --check
 
       - name: Upload test results
         if: always()
@@ -154,8 +174,9 @@ jobs:
         with:
           global-json-file: global.json
 
-      # NFR-12's build half: two packs from a clean src/ tree with SOURCE_DATE_EPOCH at the commit time must be
-      # byte-identical. The release half (a published artifact rebuilt from its tag) is phase 12's.
+      # NFR-12's build half: two packs of HEAD from two checkouts at different paths (git worktrees, phase 10, P10-14), with
+      # SOURCE_DATE_EPOCH at the commit time, must be byte-identical, so a path leaking into an artefact fails the job. The release
+      # half (a published artifact rebuilt from its tag) is phase 12's.
       - name: Pack twice and compare
         run: scripts/ci/reproducible-pack.sh artifacts/reproducible
 

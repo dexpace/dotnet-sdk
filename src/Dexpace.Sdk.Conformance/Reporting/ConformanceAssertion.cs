@@ -4,18 +4,30 @@
 namespace Dexpace.Sdk.Conformance;
 
 /// <summary>
-/// One named conformance check of a transport (design "The assertion catalogue"). A value, not a callable: it is run by
-/// <c>TransportSuite.RunAsync</c>, and its body stays internal so a later release can repair an assertion without a
-/// public-surface change. Names are stable public identifiers; a consumer's waiver list refers to them.
+/// One named conformance check of a subject (design "The assertion catalogue"). A value, not a callable: it is run by a suite
+/// (<c>TransportSuite</c>, <c>InvariantSuite</c>, <c>CodecSuite</c> or <c>PackagingSuite</c>), and its body stays internal so a
+/// later release can repair an assertion without a public-surface change. Names are stable public identifiers; a consumer's
+/// waiver list refers to them.
 /// </summary>
 public sealed class ConformanceAssertion
 {
+    /// <summary>A transport assertion: its body takes the transport suite's <see cref="SuiteContext"/>.</summary>
     internal ConformanceAssertion(
         string name,
         IReadOnlyList<string> requirementIds,
         RequirementLevel level,
         IReadOnlyList<TransportFace> faces,
         Func<SuiteContext, CancellationToken, Task> body)
+        : this(name, requirementIds, level, faces, Erase(body))
+    {
+    }
+
+    private ConformanceAssertion(
+        string name,
+        IReadOnlyList<string> requirementIds,
+        RequirementLevel level,
+        IReadOnlyList<TransportFace> faces,
+        Func<object, CancellationToken, Task> body)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(requirementIds);
@@ -43,8 +55,11 @@ public sealed class ConformanceAssertion
         Body = body;
     }
 
-    /// <summary>The assertion's check: throws <see cref="ConformanceException"/> when the transport breaks the clause.</summary>
-    internal Func<SuiteContext, CancellationToken, Task> Body { get; }
+    /// <summary>
+    /// The assertion's check, type-erased so every suite shares one runner (P10-7, plan reading R1): throws
+    /// <see cref="ConformanceException"/> when the subject breaks the clause. The runner passes the context of its own suite.
+    /// </summary>
+    internal Func<object, CancellationToken, Task> Body { get; }
 
     /// <summary>The stable name, for example <c>transport-24.vendor-status-readable</c>.</summary>
     public string Name { get; }
@@ -64,4 +79,29 @@ public sealed class ConformanceAssertion
 
     /// <summary>The assertion's <see cref="Name"/>.</summary>
     public override string ToString() => Name;
+
+    /// <summary>Declares an assertion whose body takes the context of another suite (the invariant, codec or packaging suite).</summary>
+    /// <typeparam name="TContext">The suite's context type.</typeparam>
+    /// <param name="name">The stable name.</param>
+    /// <param name="requirementIds">The requirements it is evidence for.</param>
+    /// <param name="level">The strength of the clause.</param>
+    /// <param name="faces">The faces it runs on.</param>
+    /// <param name="body">The check, given the suite's context.</param>
+    internal static ConformanceAssertion Create<TContext>(
+        string name,
+        IReadOnlyList<string> requirementIds,
+        RequirementLevel level,
+        IReadOnlyList<TransportFace> faces,
+        Func<TContext, CancellationToken, Task> body)
+        where TContext : class
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return new(name, requirementIds, level, faces, (context, token) => body((TContext)context, token));
+    }
+
+    private static Func<object, CancellationToken, Task> Erase(Func<SuiteContext, CancellationToken, Task> body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return (context, token) => body((SuiteContext)context, token);
+    }
 }

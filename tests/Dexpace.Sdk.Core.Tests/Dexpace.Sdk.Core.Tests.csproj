@@ -28,6 +28,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dexpace.Sdk.Core\Dexpace.Sdk.Core.csproj" />
     <ProjectReference Include="..\Dexpace.Sdk.TestSupport\Dexpace.Sdk.TestSupport.csproj" />
+    <!-- The conformance kit, for the invariant suite's core driver (phase 10, P10-5). It references core alone, so it brings no transport and no
+         codec; SEAM-2's allow-list admits it by name, and the build-graph test keeps failing on any Dexpace.Sdk.Http.* or Dexpace.Sdk.Serialization.*. -->
+    <ProjectReference Include="..\..\src\Dexpace.Sdk.Conformance\Dexpace.Sdk.Conformance.csproj" />
   </ItemGroup>
 
 </Project>

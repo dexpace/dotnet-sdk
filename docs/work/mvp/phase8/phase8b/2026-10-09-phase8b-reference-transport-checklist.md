@@ -155,3 +155,5 @@ and the roadmap's Phase Status Notes and Phase List row.
 
 `TRANSPORT-1` stays **✅**, with the named-client clause added: the DI package's primary handler is `SystemNetHttpClient.CreatePrimaryHandler` (`AllowAutoRedirect = false`) and the handler constructor's check refuses a caller-substituted redirect-following primary at first resolution (`NamedClientTests`, `NamedClientRedirectWireTests` (`Security`),
 `transport-1.redirect-not-followed` on the third driver). **P8b-18's disposition:** the `CallKey` stamp is **not built** in phase 9 either (P9-20): phase 9 registers no `DelegatingHandler` and reads no call context below the transport, so there is still no reader; it is a post-release trigger in `docs/first-release.md`.
+
+*Dated correction, 2026-10-14 (phase 10): The hand-off to 10 (audit `XCUT-2`, `XCUT-18` and `XCUT-22` against this checklist) is taken: the phase 10 checklist's rows of those IDs cite `SendFailuresTests`, `HeaderPartitionTests`, `HeaderDropLogTests` and `SystemNetHttpClientOwnershipTests`. See the [phase 10 checklist](../../phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md).*

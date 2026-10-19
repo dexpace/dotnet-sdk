@@ -382,4 +382,15 @@ public sealed class SuiteRunnerTests
         internal static Task<LoopbackServerProbe> UseAsync(SuiteContext ctx, string text) =>
             Task.FromResult(new LoopbackServerProbe(ctx.StartServer(Dexpace.Sdk.Conformance.Wire.LoopbackResponse.Ok(text)).BaseUri.Port));
     }
+
+    [Fact]
+    public async Task The_transport_runner_rejects_the_None_face()
+    {
+        // Phase 10 (P10-7, plan 1.1): None is the face of an assertion that judges a value; every transport assertion drives a call surface.
+        var assertion = Asserting((_, _) => Task.CompletedTask, faces: [TransportFace.None]);
+
+        var failure = await Assert.ThrowsAsync<ArgumentException>(() => RunAsync(new FakeSubject().Subject(), assertion, face: TransportFace.None));
+
+        Assert.Contains("None face", failure.Message, StringComparison.Ordinal);
+    }
 }
