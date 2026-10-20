@@ -10,9 +10,9 @@ namespace Dexpace.Sdk.Core.Tests.Support;
 [Trait("Category", "Unit")]
 public sealed class RecordingTaskSchedulerTests
 {
-    private static Task<(int ThreadId, bool IsPool)> Run(TaskScheduler scheduler) =>
+    private static Task<(int ThreadId, Thread Thread, bool IsPool)> Run(TaskScheduler scheduler) =>
         Task.Factory.StartNew(
-            () => (Environment.CurrentManagedThreadId, Thread.CurrentThread.IsThreadPoolThread),
+            () => (Environment.CurrentManagedThreadId, Thread.CurrentThread, Thread.CurrentThread.IsThreadPoolThread),
             CancellationToken.None,
             TaskCreationOptions.None,
             scheduler);
@@ -27,7 +27,9 @@ public sealed class RecordingTaskSchedulerTests
 
         Assert.False(first.IsPool);
         Assert.False(second.IsPool);
-        Assert.NotEqual(first.ThreadId, second.ThreadId);
+        // Two distinct threads, compared by identity: a managed thread id is recycled once its thread has exited, so the first task's thread (finished before
+        // the second is queued) can hand its id to the second ("Expected: Not 52, Actual: 52" in 3 of 60 runs under load).
+        Assert.NotSame(first.Thread, second.Thread);
         Assert.Equal([first.ThreadId, second.ThreadId], scheduler.ThreadIds);
     }
 
