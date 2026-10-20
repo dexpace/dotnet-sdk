@@ -777,5 +777,8 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   transport; a failure with no response is a `ServiceRequestException`. The reference transport's message now follows the native error kind: "The request
   could not be sent to the server." for a name-resolution, connect, TLS or proxy-tunnel failure, and "The request failed and no response was received."
   for the rest (a response that ended after the request arrived is no longer called unsent).
+- **Breaking (behaviour, phase 11):** the `ExecuteAsync` of an `AsAsync(IHttpClient, TaskScheduler)` bridge no longer throws a `TaskSchedulerException`
+  from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
+  task without touching the scheduler.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

@@ -82,7 +82,8 @@ public static class HttpClientExtensions
     /// </para>
     /// <para>
     /// <b>Lifecycle (SEAM-14, SEAM-25).</b> The bridge owns neither the scheduler nor the wrapped client, so disposing it
-    /// disposes neither. Argument errors reach the caller through the returned task (ASYNC-2).
+    /// disposes neither. Argument errors reach the caller through the returned task (ASYNC-2), and so does a scheduler that rejects the
+    /// work (<see cref="TaskSchedulerException"/>); a token already signalled returns a cancelled task without touching the scheduler.
     /// </para>
     /// <para>
     /// <b>Breaking:</b> was <c>AsAsync(this IHttpClient)</c>, which offloaded to the thread pool; it takes the caller's
@@ -146,11 +147,26 @@ public static class HttpClientExtensions
                 return Task.FromException<Response>(new ArgumentNullException(nameof(options)));
             }
 
-            return Task.Factory.StartNew(
-                () => Run(inner, request, options, cancellationToken),
-                cancellationToken,
-                TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach,
-                scheduler);
+            // A token already signalled never reaches the scheduler: the task is cancelled here (SEAM-30), so a scheduler that would reject the work is not asked.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled<Response>(cancellationToken);
+            }
+
+            // StartNew throws a TaskSchedulerException from the call that queued the task when the scheduler rejects it (a host shutting down, a saturated
+            // custom scheduler). It is a failure detectable while constructing the operation, so it is delivered through the task (ASYNC-2, phase 11 task 2.3).
+            try
+            {
+                return Task.Factory.StartNew(
+                    () => Run(inner, request, options, cancellationToken),
+                    cancellationToken,
+                    TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach,
+                    scheduler);
+            }
+            catch (TaskSchedulerException rejected)
+            {
+                return Task.FromException<Response>(rejected);
+            }
         }
 
         // SEAM-25, XCUT-22: the bridge owns neither the scheduler nor the wrapped client, so it releases nothing.
