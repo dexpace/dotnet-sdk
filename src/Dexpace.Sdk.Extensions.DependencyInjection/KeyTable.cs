@@ -35,6 +35,7 @@ internal static class KeyTable
         new("Retry:Jitter", typeof(RetryOptions), nameof(RetryOptions.Jitter)),
         new("Retry:HonorRetryAfter", typeof(RetryOptions), nameof(RetryOptions.HonorRetryAfter)),
         new("Retry:RetryableStatusCodes", typeof(RetryOptions), nameof(RetryOptions.RetryableStatusCodes), IsList: true),
+        new("Retry:PacingHeaders", typeof(RetryOptions), nameof(RetryOptions.PacingHeaders), IsList: true),
         new("Retry:AttemptHeaderName", typeof(RetryOptions), nameof(RetryOptions.AttemptHeaderName)),
         new("Redirect:MaxRedirects", typeof(RedirectOptions), nameof(RedirectOptions.MaxRedirects)),
         new("Redirect:AllowHttpsToHttpDowngrade", typeof(RedirectOptions), nameof(RedirectOptions.AllowHttpsToHttpDowngrade)),

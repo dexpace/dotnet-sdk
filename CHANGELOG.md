@@ -828,4 +828,38 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `Response` when the call completed at the instant the token was signalled (44 of 20 000 runs of the design's probe); through this method every caller gets
   a live response or an `OperationCanceledException`, and a response the task delivers after the caller stopped waiting is disposed exactly once and quietly.
 
+#### Observability, configuration, retry, SSE and auth (PR 5)
+
+- **`TraceIdGeneration`** (`OBS-27`, design §10 entry 24, P11-18). New public static class `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` with `W3C()` and
+  `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
+  do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
+  never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
+- **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
+  keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
+  null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
+- **Breaking (behaviour): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
+  `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
+  highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
+  way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
+  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
+- **`RetryOptions.PacingHeaders`: the stage stack's pacing headers are an ordered list** (`RETRY-21`, design §11 item 54). New `IReadOnlyList<string> PacingHeaders { get; init; }`,
+  defaulting to `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` (the fixed order, so nothing changes by default). `RetryPolicy` reads the headers it
+  lists, in that order, each by its own semantics; a header left out is not read, which is how a service that sends a delta-seconds `X-RateLimit-Reset` (read as an epoch
+  time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
+  no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
+  fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
+- **Breaking (behaviour): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
+  end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
+  each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
+  `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
+  `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
+  parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
+- **Breaking: the retry attempt header is set, not appended, and `AttemptHeaderName` may not be `Idempotency-Key`** (`RETRY-38`, design §11 item 10). The stamp
+  `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
+  value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
+  and one that replaced it would send the attempt number as the key.
+- **An unexpected MD5 probe failure declines MD5 instead of failing construction** (`AUTH-15`, design §10 entry 16). The once-per-process probe that decides whether this host computes MD5
+  treated only `CryptographicException` and `PlatformNotSupportedException` as a refusal; any other exception escaped and the `Lazy` cached it, so every `DigestChallengeHandler` would have
+  thrown. Any non-fatal failure now means "refused" and drops the MD5 algorithms from the handler's preference; a fatal one still propagates.
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

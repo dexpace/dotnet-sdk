@@ -69,7 +69,7 @@ public sealed partial class ServerSentEventStream
         {
             var stream = _response.Body.OpenRead(_closing.Token);
             RegisterOpened(stream);
-            return new ServerSentEventReader(stream, _maxLineBytes);
+            return new ServerSentEventReader(stream, _maxLineBytes, _maxEventBytes);
         }
         catch (Exception ex) when (IsClosedInFlight(ex, default))
         {

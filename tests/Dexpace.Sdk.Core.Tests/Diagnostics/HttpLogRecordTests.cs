@@ -40,12 +40,21 @@ public sealed class HttpLogRecordTests
     }
 
     [Fact]
-    public void A_null_value_is_carried_as_null()
+    public void A_null_value_is_emitted_as_the_literal_null()
     {
-        var record = Make(("n", null));
+        var record = Make(("n", null), ("m", "x"), ("z", 0));
 
         Assert.Equal("n", record[0].Key);
-        Assert.Null(record[0].Value);
+        Assert.IsType<string>(record[0].Value);
+        Assert.Equal("null", record[0].Value);
+        Assert.Equal("x", record[1].Value);
+        Assert.Equal(0, record[2].Value);
+        Assert.DoesNotContain(record, p => p.Value is null);
+
+        // A sink that renders the state pair by pair sees `null`, never the framework's `(null)` and never an empty string.
+        var rendered = string.Join(' ', record.Select(p => $"{p.Key}={p.Value}"));
+        Assert.Contains("n=null", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("(null)", rendered, StringComparison.Ordinal);
     }
 
     [Fact]

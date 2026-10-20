@@ -650,6 +650,73 @@ public sealed class RetryPolicyTests
     }
 
     // -------------------------------------------------------------------------
+    // The configured pacing-header order (RETRY-21; design section 11 item 54)
+    // -------------------------------------------------------------------------
+
+    private static async Task<IReadOnlyList<TimeSpan>> WaitsFor(IReadOnlyList<string>? pacingHeaders, params (string Name, string Value)[] headers)
+    {
+        var due = new List<TimeSpan>();
+        foreach (var async in new[] { true, false })
+        {
+            var clock = new RecordingClock(s_dateNow);
+            var builder = new Headers.Builder();
+            foreach (var (name, value) in headers)
+            {
+                builder.Set(name, value);
+            }
+
+            var transport = new ScriptedTransport(
+                TestResponses.Create(Status.ServiceUnavailable, MakeGetRequest(), builder.Build()),
+                TestResponses.Create(Status.Ok, MakeGetRequest()));
+            var pipeline = new PipelineBuilder().Add(new RetryPolicy(clock)).Build(transport);
+            var options = new DexpaceClientOptions
+            {
+                Retry = new RetryOptions
+                {
+                    MaxRetryAttempts = 1,
+
+                    // Whole milliseconds with room for the jitter: Task.Delay truncates a sub-millisecond wait to none and arms no timer.
+                    BaseDelay = TimeSpan.FromMilliseconds(4),
+                    MaxDelay = TimeSpan.FromMilliseconds(10),
+                    PacingHeaders = pacingHeaders ?? new RetryOptions().PacingHeaders,
+                },
+            };
+            var token = TestContext.Current.CancellationToken;
+
+            using var response = async
+                ? await pipeline.SendAsync(MakeGetRequest(), options, token)
+                : pipeline.Send(MakeGetRequest(), options, token);
+
+            Assert.Equal(Status.Ok, response.Status);
+            due.AddRange(clock.DueTimes);
+        }
+
+        return due;
+    }
+
+    [Fact]
+    public async Task The_stage_stack_walks_the_configured_pacing_header_order()
+    {
+        // The plan's case: a delta-seconds X-RateLimit-Reset (epoch 60, long past) beside Retry-After: 2, with only Retry-After listed.
+        Assert.Equal([TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)], await WaitsFor(["Retry-After"], ("X-RateLimit-Reset", "60"), ("Retry-After", "2")));
+
+        // The list is an order, not a set: the millisecond header listed first wins over Retry-After, and the default order is unchanged.
+        var both = new[] { ("Retry-After", "2"), ("retry-after-ms", "500") };
+        Assert.Equal([TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500)], await WaitsFor(["retry-after-ms", "Retry-After"], both));
+        Assert.Equal([TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)], await WaitsFor(null, both));
+    }
+
+    [Fact]
+    public async Task A_pacing_header_left_out_of_the_list_is_ignored_and_the_computed_backoff_is_used()
+    {
+        var waits = await WaitsFor(["Retry-After"], ("retry-after-ms", "500"));
+
+        // No hint: the first retry's jittered back-off, 4 ms +/- 10 % (the async wait is armed in whole milliseconds, so 3 ms is the floor), never the 500 ms the header named.
+        Assert.Equal(2, waits.Count);
+        Assert.All(waits, wait => Assert.InRange(wait, TimeSpan.FromMilliseconds(3), TimeSpan.FromMilliseconds(4.5)));
+    }
+
+    // -------------------------------------------------------------------------
     // HTTP-date Retry-After through HttpDate (CFG-30, RETRY-15; P5a-12) — Breaking (behaviour)
     // -------------------------------------------------------------------------
 

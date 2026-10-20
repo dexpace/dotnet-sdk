@@ -81,23 +81,24 @@ public class ServerSentEventReaderTests
     public void The_reader_holds_exactly_the_reviewed_instance_fields()
     {
         // SSE-16 and plan reading R1: only _bomChecked is cross-call event state; _lines is the line reader,
-        // _accumulator is reset at every dispatch and _maxLineBytes only names the cap in the failure. A new field is
-        // a reviewed decision, so it fails here until it is added to this list.
+        // _accumulator is reset at every dispatch and _maxLineBytes and _maxEventBytes only name the caps in the failures
+        // (the event cap's running cost lives in the accumulator, not here). A new field is a reviewed decision, so it
+        // fails here until it is added to this list.
         var fields = typeof(ServerSentEventReader)
             .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(f => f.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(["_accumulator", "_bomChecked", "_lines", "_maxLineBytes"], fields);
+        Assert.Equal(["_accumulator", "_bomChecked", "_lines", "_maxEventBytes", "_maxLineBytes"], fields);
     }
 
     [Fact]
-    public void A_hostile_stream_of_many_capped_lines_with_no_blank_line_is_the_documented_residual_R1()
+    public void Many_capped_lines_with_no_blank_line_make_one_event_while_they_stay_under_the_event_cap()
     {
-        // P7b-5, open for the lead: the cap bounds one line, not a block, so this accumulates without limit. This test
-        // DOCUMENTS that, in the Unit category on purpose: a ruling still open must not be pinned in the Security
-        // class, which is never loosened.
+        // Residual R1 (P7b-5) is closed by the per-event data cap (P11-19): the lines of one event accumulate only up to
+        // maxEventBytes, 8 MiB by default. Under it nothing changes, so 100 capped lines are still one event; past it the
+        // reader fails, which the permanent Security test ServerSentEventLineCapTests pins.
         const int Cap = 64;
         var line = "data: " + new string('x', Cap - 6) + "\n";
         var reader = ReaderOver(string.Concat(Enumerable.Repeat(line, 100)), Cap);

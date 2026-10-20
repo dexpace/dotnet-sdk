@@ -25,9 +25,25 @@ public sealed class Md5AvailabilityTests
     }
 
     [Fact]
-    public void Probe_does_not_swallow_other_exceptions()
+    public void An_unexpected_probe_failure_means_refused()
     {
-        Assert.Throws<InvalidOperationException>(() => Md5Availability.Probe(() => throw new InvalidOperationException("defect")));
+        // Design §10 entry 16: the mapping has never run on a real FIPS host, so a provider that fails in some other way must not turn a refusal into a
+        // construction failure (the Lazy would cache it and every DigestChallengeHandler would then throw). Any non-fatal failure is "this host will not compute MD5".
+        var available = Md5Availability.Probe(() => throw new InvalidOperationException("unexpected"));
+
+        Assert.False(available);
+        var handler = new DigestChallengeHandler(new DigestCredential("u", "p"), DigestChallengeHandler.DefaultPreference, available, () => "cn");
+        Assert.False(handler.Md5Available);
+    }
+
+    [Fact]
+    public void A_fatal_probe_failure_still_propagates()
+    {
+#pragma warning disable CA2201 // A fatal exception is the point: the probe's filter must let it through (design §5.2).
+        var fatal = new OutOfMemoryException();
+#pragma warning restore CA2201
+
+        Assert.Same(fatal, Assert.Throws<OutOfMemoryException>(() => Md5Availability.Probe(() => throw fatal)));
     }
 
     [Fact]

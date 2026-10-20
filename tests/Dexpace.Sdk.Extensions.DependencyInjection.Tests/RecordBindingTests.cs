@@ -112,8 +112,12 @@ public sealed class RecordBindingTests
     [InlineData("Retry:BaseDelay", "abc")]
     [InlineData("Retry:HonorRetryAfter", "yes")]
     [InlineData("Retry:AttemptHeaderName", "bad name")]
+    [InlineData("Retry:AttemptHeaderName", "Idempotency-Key")]
     [InlineData("Retry:RetryableStatusCodes", "99")]
     [InlineData("Retry:RetryableStatusCodes", "600")]
+    [InlineData("Retry:PacingHeaders", "Retry-After, X-Not-A-Pacing-Header")]
+    [InlineData("Retry:PacingHeaders", "Retry-After, retry-after")]
+    [InlineData("Retry:PacingHeaders", "none")]
     public void A_bad_retry_value_fails_under_its_key(string key, string value)
     {
         var failure = Fail((key, value));
@@ -129,6 +133,26 @@ public sealed class RecordBindingTests
             new HashSet<int> { 502 },
             Ok(("Retry:RetryableStatusCodes:0", "502")).Options.Retry.RetryableStatusCodes);
         Assert.Empty(Ok(("Retry:RetryableStatusCodes", "none")).Options.Retry.RetryableStatusCodes);
+    }
+
+    [Fact]
+    public void Pacing_headers_replace_the_default_order_in_both_list_forms()
+    {
+        Assert.Equal(["Retry-After", "retry-after-ms", "x-ms-retry-after-ms", "X-RateLimit-Reset"], Ok().Options.Retry.PacingHeaders);
+        Assert.Equal(["retry-after-ms", "Retry-After"], Ok(("Retry:PacingHeaders", "retry-after-ms, retry-after")).Options.Retry.PacingHeaders);
+        Assert.Equal(
+            ["X-RateLimit-Reset", "Retry-After"],
+            Ok(("Retry:PacingHeaders:0", "x-ratelimit-reset"), ("Retry:PacingHeaders:1", "Retry-After")).Options.Retry.PacingHeaders);
+        Assert.Equal(DexpaceConfigurationKeys.PacingHeaders, "Retry:PacingHeaders");
+    }
+
+    [Fact]
+    public void A_rejected_pacing_header_does_not_quote_the_configured_value()
+    {
+        var failure = Fail(("Retry:PacingHeaders", "Retry-After, S3cr3t-Header"));
+
+        Assert.StartsWith(Config.SectionPath + ":Retry:PacingHeaders: ", failure, StringComparison.Ordinal);
+        Assert.DoesNotContain("S3cr3t", failure, StringComparison.Ordinal);
     }
 
     [Fact]

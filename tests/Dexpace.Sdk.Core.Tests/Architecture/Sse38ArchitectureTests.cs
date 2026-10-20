@@ -44,6 +44,7 @@ public sealed class Sse38ArchitectureTests
         Assert.Contains("ServerSentEventStream", names);
         Assert.Contains("SseMapResult", names);
         Assert.Contains("ServerSentEventLineTooLongException", names);
+        Assert.Contains("ServerSentEventTooLargeException", names);
     }
 
     [Fact]

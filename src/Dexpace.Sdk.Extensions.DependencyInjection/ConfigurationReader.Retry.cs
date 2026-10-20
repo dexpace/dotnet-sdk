@@ -18,6 +18,7 @@ internal static partial class ConfigurationReader
         binder.Number("Retry:Jitter", static (r, v) => r with { Jitter = v });
         binder.Bool("Retry:HonorRetryAfter", static (r, v) => r with { HonorRetryAfter = v });
         binder.Items<int>("Retry:RetryableStatusCodes", ScalarGrammar.TryParseInt32, static (r, v) => r with { RetryableStatusCodes = new HashSet<int>(v) });
+        binder.Items<string>("Retry:PacingHeaders", ScalarGrammar.TryParseString, static (r, v) => r with { PacingHeaders = v });
         binder.Str("Retry:AttemptHeaderName", static (r, v) => r with { AttemptHeaderName = v });
         return binder.Value;
     }

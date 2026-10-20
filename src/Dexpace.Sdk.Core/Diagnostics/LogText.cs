@@ -3,9 +3,12 @@
 
 namespace Dexpace.Sdk.Core.Diagnostics;
 
-/// <summary>Bounds the strings the SDK logs (OBS-7, P5b-15).</summary>
+/// <summary>Bounds the strings the SDK logs (OBS-7, P5b-15) and names the literal a null field value is emitted as (OBS-3).</summary>
 internal static class LogText
 {
+    /// <summary>The text a null field value is emitted as: never dropped, never the framework's <c>(null)</c> (OBS-3).</summary>
+    internal const string NullLiteral = "null";
+
     /// <summary>The most UTF-16 chars kept of a logged URL or header value.</summary>
     internal const int Limit = 8192;
 

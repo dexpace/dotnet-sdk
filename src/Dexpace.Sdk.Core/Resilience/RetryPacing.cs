@@ -11,12 +11,14 @@ namespace Dexpace.Sdk.Core.Resilience;
 /// <remarks>
 /// Total by construction: it never throws, uses no <c>Parse</c> and no culture, and maps a malformed value to "no hint"
 /// (<see langword="null"/>), never to zero. A valid past instant is a zero delay, which is not "no hint" (RETRY-17). The
-/// precedence is fixed: <c>Retry-After</c> (seconds, then an HTTP-date), <c>retry-after-ms</c>,
-/// <c>x-ms-retry-after-ms</c>, <c>X-RateLimit-Reset</c> (RETRY-21). A well-formed numeral of any size saturates and is
-/// clamped to 365 days (P6a-18).
+/// default precedence is <c>Retry-After</c> (seconds, then an HTTP-date), <c>retry-after-ms</c>,
+/// <c>x-ms-retry-after-ms</c>, <c>X-RateLimit-Reset</c> (<see cref="DefaultOrder"/>); the recovery stack always uses it,
+/// and the stage stack walks the caller's ordered subset of it (<c>RetryOptions.PacingHeaders</c>), parsing each header
+/// by its own name's semantics (RETRY-21). A well-formed numeral of any size saturates and is clamped to 365 days (P6a-18).
 /// </remarks>
 internal static class RetryPacing
 {
+    private const string RetryAfter = "Retry-After";
     private const string RetryAfterMs = "retry-after-ms";
     private const string MsRetryAfterMs = "x-ms-retry-after-ms";
     private const string RateLimitReset = "X-RateLimit-Reset";
@@ -30,25 +32,61 @@ internal static class RetryPacing
     private const int FractionDigits = 7;
     private const double ResetJitter = 0.2;
 
-    /// <summary>Reads the server's pacing hint from the response headers.</summary>
+    /// <summary>The four headers the parser knows, in the fixed precedence and in their canonical spelling; read-only.</summary>
+    internal static IReadOnlyList<string> DefaultOrder { get; } = Array.AsReadOnly([RetryAfter, RetryAfterMs, MsRetryAfterMs, RateLimitReset]);
+
+    /// <summary>Reads the server's pacing hint from the response headers in the fixed precedence (<see cref="DefaultOrder"/>).</summary>
     /// <param name="headers">The response headers.</param>
     /// <param name="now">The current UTC instant, for an HTTP-date or an epoch.</param>
     /// <param name="random">A source of samples in <c>[0, 1)</c>, used only by <c>X-RateLimit-Reset</c>.</param>
     /// <returns>The delay to wait (zero for an instant already past), or <see langword="null"/> for no usable hint.</returns>
-    internal static TimeSpan? TryGetHint(Headers headers, DateTimeOffset now, Func<double> random)
+    internal static TimeSpan? TryGetHint(Headers headers, DateTimeOffset now, Func<double> random) =>
+        TryGetHint(headers, now, random, DefaultOrder);
+
+    /// <summary>Reads the server's pacing hint from the first of <paramref name="order"/> that holds a parseable value (RETRY-21).</summary>
+    /// <param name="headers">The response headers.</param>
+    /// <param name="now">The current UTC instant, for an HTTP-date or an epoch.</param>
+    /// <param name="random">A source of samples in <c>[0, 1)</c>, used only by <c>X-RateLimit-Reset</c>.</param>
+    /// <param name="order">The pacing header names to try, in order, compared ignoring case; a name that is not one of the four is skipped.</param>
+    /// <returns>The delay to wait (zero for an instant already past), or <see langword="null"/> for no usable hint.</returns>
+    internal static TimeSpan? TryGetHint(Headers headers, DateTimeOffset now, Func<double> random, IReadOnlyList<string> order)
     {
         ArgumentNullException.ThrowIfNull(headers);
         ArgumentNullException.ThrowIfNull(random);
+        ArgumentNullException.ThrowIfNull(order);
 
-        if (TryRetryAfter(Trimmed(headers.Get(HttpHeaderName.WellKnown.RetryAfter)), now, out var ticks)
-            || TryMilliseconds(headers.Get(RetryAfterMs), out ticks)
-            || TryMilliseconds(headers.Get(MsRetryAfterMs), out ticks)
-            || TryRateLimitReset(Trimmed(headers.Get(RateLimitReset)), now, random, out ticks))
+        foreach (var name in order)
         {
-            return TimeSpan.FromTicks(RetryBackoff.ClampTicks(ticks));
+            if (TryHeader(name, headers, now, random, out var ticks))
+            {
+                return TimeSpan.FromTicks(RetryBackoff.ClampTicks(ticks));
+            }
         }
 
         return null;
+    }
+
+    // Each name is parsed by its own semantics: seconds or an HTTP-date, milliseconds, or an epoch reset.
+    private static bool TryHeader(string name, Headers headers, DateTimeOffset now, Func<double> random, out double ticks)
+    {
+        ticks = 0;
+        if (string.Equals(name, RetryAfter, StringComparison.OrdinalIgnoreCase))
+        {
+            return TryRetryAfter(Trimmed(headers.Get(HttpHeaderName.WellKnown.RetryAfter)), now, out ticks);
+        }
+
+        if (string.Equals(name, RetryAfterMs, StringComparison.OrdinalIgnoreCase))
+        {
+            return TryMilliseconds(headers.Get(RetryAfterMs), out ticks);
+        }
+
+        if (string.Equals(name, MsRetryAfterMs, StringComparison.OrdinalIgnoreCase))
+        {
+            return TryMilliseconds(headers.Get(MsRetryAfterMs), out ticks);
+        }
+
+        return string.Equals(name, RateLimitReset, StringComparison.OrdinalIgnoreCase)
+            && TryRateLimitReset(Trimmed(headers.Get(RateLimitReset)), now, random, out ticks);
     }
 
     private static ReadOnlySpan<char> Trimmed(string? value) =>
