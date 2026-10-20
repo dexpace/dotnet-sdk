@@ -14,8 +14,9 @@ namespace Dexpace.Sdk.Core.Http.Response;
 /// <remarks>
 /// The body is not pre-buffered. <see cref="OpenReadAsync"/> exposes the raw stream;
 /// <see cref="ReadAsBytesAsync"/> and <see cref="ReadAsStringAsync"/> fully drain and then close
-/// it. Reads are single-use: a second read after the stream is consumed raises
-/// <see cref="StreamConsumedException"/>. The one exception is the buffered error body an
+/// it. Reads are single-use (BODY-14): the body hands out one stream, and opening it again returns that same stream, so
+/// the bytes already read are gone and a second reader continues where the first stopped. To read the payload more than
+/// once, buffer it. The one exception is the buffered error body an
 /// <see cref="HttpResponseException"/> raised by <see cref="Response.EnsureSuccessAsync"/> carries, which can be read
 /// any number of times.
 /// <para>
@@ -29,18 +30,22 @@ namespace Dexpace.Sdk.Core.Http.Response;
 /// </para>
 /// <para><b>Breaking:</b> <c>Dispose()</c> and <c>DisposeAsync()</c> were <c>public virtual</c> and are now not virtual;
 /// a subclass overrides <see cref="Dispose(bool)"/> and <see cref="DisposeAsyncCore"/> instead. A release now happens at
-/// most once. A stream-backed body opened after it was disposed throws <see cref="StreamClosedException"/> (a body that
-/// was already opened still reports <see cref="StreamConsumedException"/> first).</para>
+/// most once. A stream-backed body opened after it was disposed throws <see cref="StreamClosedException"/>, whether or not
+/// it was opened before (it used to report <see cref="StreamConsumedException"/> first, phase 11, P11-8).</para>
 /// <para>
 /// Every async member has a synchronous twin with the same name minus <c>Async</c> (<see cref="OpenRead"/>,
 /// <see cref="ReadAsBytes"/>, <see cref="ReadAsString"/>). The twins are virtual: the base <see cref="OpenRead"/> throws
 /// <see cref="NotSupportedException"/> naming the subclass, and every SDK variant overrides it (design position D).
 /// </para>
 /// <para>
-/// <b>Single open, in both forms (position B, P3a-3).</b> A body is opened once: the first of <see cref="OpenRead"/> and
-/// <see cref="OpenReadAsync"/> to run claims it, and a second open in either form throws
-/// <see cref="StreamConsumedException"/>. The buffered error body of an <see cref="HttpResponseException"/> is
-/// replayable and opens a fresh view each time.
+/// <b>One handle, in both forms (position B, P3a-3; BODY-14, HTTP-41).</b> The first of <see cref="OpenRead"/> and
+/// <see cref="OpenReadAsync"/> to run obtains the body's stream, and every later open in either form returns that same
+/// stream, not a replay and not a failure. <b>Breaking:</b> a second open used to throw
+/// <see cref="StreamConsumedException"/>; the convenience readers after an open now read the remaining bytes of the same
+/// handle. Once the body is disposed, an open that follows an earlier open throws <see cref="StreamClosedException"/>: the
+/// handle is gone with the body. The buffered error body of an <see cref="HttpResponseException"/> is replayable and opens a
+/// fresh view each time. The response-logging wrapper, past its capture cap, is governed by its own rule (BODY-24): its
+/// tail stream is handed out once and a second open throws <see cref="StreamConsumedException"/>.
 /// </para>
 /// <para>
 /// <b>Materialisation cap (IO-9, P3a-12).</b> <see cref="ReadAsBytesAsync"/>, <see cref="ReadAsStringAsync"/> and their
@@ -64,32 +69,35 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
     // nothing to drain (BODY-30, P4c-18).
     internal virtual bool IsEmptyReplayable => false;
 
-    // The one message every second open throws (BODY-14): it names the buffering route. SystemNet repeats it verbatim.
+    // The message the over-cap logging wrapper's second open throws (BODY-24): it names the buffering route. The plain bodies no
+    // longer refuse a second open (BODY-14, phase 11), so this is the one remaining user.
     internal const string ConsumedMessage =
         "This response body has already been read. A response body can be opened once; to read it more than once, "
         + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or keep the bytes and wrap them in a new ResponseBody.FromBytes for each read).";
+
+    // What an open on a disposed body reports (P3b-11, BODY-14): the handle left with the body. SystemNet repeats it verbatim.
+    internal const string ClosedMessage = "This response body was disposed, so its stream is no longer available.";
 
     /// <summary>The cap the convenience readers apply: 64 MiB (IO-9, P3a-12).</summary>
     public const long DefaultMaxMaterializedBytes = 64L * 1024 * 1024;
 
     /// <summary>Opens the underlying payload stream for reading.</summary>
     /// <param name="cancellationToken">A token to cancel opening the stream.</param>
-    /// <returns>The payload stream; the caller must not dispose it independently of this body.</returns>
-    /// <exception cref="StreamConsumedException">The body has already been opened, in either form.</exception>
+    /// <returns>The payload stream, the same instance on every call (BODY-14); the caller must not dispose it independently of this body.</returns>
+    /// <exception cref="StreamClosedException">The body was disposed.</exception>
     public abstract Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Opens the underlying payload stream for reading, synchronously.</summary>
     /// <remarks>
-    /// The synchronous twin of <see cref="OpenReadAsync"/> (P3a-5). It shares the open latch with it: a second open in
-    /// either form throws <see cref="StreamConsumedException"/> (<b>Breaking</b> in the sense of a new interaction: it is a
-    /// new member, and it makes the existing single-open rule hold across forms). The base implementation throws
+    /// The synchronous twin of <see cref="OpenReadAsync"/> (P3a-5). It shares the one handle with it: an open in either form
+    /// after the first returns the same stream (BODY-14). The base implementation throws
     /// <see cref="NotSupportedException"/> naming the subclass; override it to support the sync path. A transport's own
     /// body inherits that default until the transport implements it.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel opening the stream.</param>
-    /// <returns>The payload stream; the caller must not dispose it independently of this body.</returns>
+    /// <returns>The payload stream, the same instance on every call (BODY-14); the caller must not dispose it independently of this body.</returns>
     /// <exception cref="NotSupportedException">The subclass does not override this member.</exception>
-    /// <exception cref="StreamConsumedException">The body has already been opened, in either form.</exception>
+    /// <exception cref="StreamClosedException">The body was disposed.</exception>
     public virtual Stream OpenRead(CancellationToken cancellationToken = default) =>
         throw new NotSupportedException($"{GetType().Name} does not support synchronous reads; override OpenRead.");
 
@@ -263,31 +271,45 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
 
     private sealed class BytesResponseBody(byte[] bytes, MediaType? contentType) : ResponseBody
     {
-        private int _consumed;
+        private Stream? _stream;
+        private int _closed;
 
         public override MediaType? ContentType { get; } = contentType;
 
         public override long ContentLength => bytes.LongLength;
 
-        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
-        {
-            ClaimOnce();
-            return Task.FromResult<Stream>(new MemoryStream(bytes, writable: false));
-        }
+        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Open());
 
-        public override Stream OpenRead(CancellationToken cancellationToken = default)
-        {
-            ClaimOnce();
-            return new MemoryStream(bytes, writable: false);
-        }
+        public override Stream OpenRead(CancellationToken cancellationToken = default) => Open();
 
-        // One latch for both forms (position B): whichever open runs first claims the body.
-        private void ClaimOnce()
+        // One handle for both forms (position B, BODY-14): the first open creates it, a later open returns it. An in-memory body
+        // holds no resource, so a body disposed before it was ever opened still serves; one disposed after it was opened has handed
+        // its handle out, so the handle is gone with it (the same rule as the stream-backed variant).
+        private Stream Open()
         {
-            if (Interlocked.Exchange(ref _consumed, 1) != 0)
+            if (Volatile.Read(ref _closed) != 0)
             {
-                throw new StreamConsumedException(ConsumedMessage);
+                throw new StreamClosedException(ClosedMessage);
             }
+
+            return Volatile.Read(ref _stream) ?? Publish();
+        }
+
+        // Two first opens racing both build a stream over the same bytes; one wins and both callers get the winner.
+        private Stream Publish()
+        {
+            var created = new MemoryStream(bytes, writable: false);
+            return Interlocked.CompareExchange(ref _stream, created, null) ?? created;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (Volatile.Read(ref _stream) is not null)
+            {
+                Volatile.Write(ref _closed, 1);
+            }
+
+            base.Dispose(disposing);
         }
     }
 
@@ -308,7 +330,6 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
 
     private sealed class StreamResponseBody(Stream source, MediaType? contentType, long contentLength) : ResponseBody
     {
-        private int _consumed;
         private int _closed;
         private int _sourceReleased;
 
@@ -316,36 +337,20 @@ public abstract class ResponseBody : IAsyncDisposable, IDisposable
 
         public override long ContentLength => contentLength;
 
-        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
-        {
-            Claim();
-            return Task.FromResult(source);
-        }
+        public override Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Open());
 
-        public override Stream OpenRead(CancellationToken cancellationToken = default)
-        {
-            Claim();
-            return source;
-        }
+        public override Stream OpenRead(CancellationToken cancellationToken = default) => Open();
 
-        // One latch for both forms (position B). The consumed check runs first, so a body that was read and then
-        // disposed still reports "consumed" (P3b-11); a body disposed before any open reports "closed".
-        private void Claim()
+        // One handle for both forms (position B, BODY-14): the source itself, on every open until the body is disposed, after
+        // which the handle is gone and the open reports "closed" whether or not it was opened before.
+        private Stream Open()
         {
-            if (Volatile.Read(ref _consumed) != 0)
-            {
-                throw new StreamConsumedException(ConsumedMessage);
-            }
-
             if (Volatile.Read(ref _closed) != 0)
             {
-                throw new StreamClosedException("This response body was disposed before it was opened.");
+                throw new StreamClosedException(ClosedMessage);
             }
 
-            if (Interlocked.Exchange(ref _consumed, 1) != 0)
-            {
-                throw new StreamConsumedException(ConsumedMessage);
-            }
+            return source;
         }
 
         protected override void Dispose(bool disposing)

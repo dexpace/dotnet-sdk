@@ -15,9 +15,9 @@ using SystemHttpClient = System.Net.Http.HttpClient;
 namespace Dexpace.Sdk.Http.SystemNet.Tests;
 
 /// <summary>
-/// The transport's response body: BODY-15 (the message is released once however the body is disposed), BODY-14 (the
-/// second-open message names the buffering route) and design P3b-11 (a read after dispose throws
-/// <see cref="StreamClosedException"/>). In-process handler, no socket.
+/// The transport's response body: BODY-15 (the message is released once however the body is disposed), BODY-14 (a second
+/// open returns the same stream) and design P3b-11 (a read after dispose throws <see cref="StreamClosedException"/>,
+/// whether or not the body was opened before). In-process handler, no socket.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed class HttpResponseMessageBodyTests
@@ -97,30 +97,38 @@ public sealed class HttpResponseMessageBodyTests
     }
 
     [Fact]
-    public async Task A_read_then_dispose_then_read_reports_consumed()
+    public async Task A_read_then_dispose_then_read_reports_closed()
     {
+        // BODY-14 (phase 11): the handle left with the body, whether or not it was opened first (it used to report "consumed").
         var (response, _) = await SendAsync();
         _ = await response.Body.ReadAsBytesAsync(Token);
         response.Dispose();
 
-        var ex = await Assert.ThrowsAsync<StreamConsumedException>(() => response.Body.OpenReadAsync(Token));
-        Assert.Contains("buffer", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task A_second_open_throws_and_names_the_buffering_route()
-    {
-        var (response, _) = await SendAsync();
-        _ = await response.Body.OpenReadAsync(Token);
-
-        var ex = await Assert.ThrowsAsync<StreamConsumedException>(() => response.Body.OpenReadAsync(Token));
+        var ex = await Assert.ThrowsAsync<StreamClosedException>(() => response.Body.OpenReadAsync(Token));
 
         // The transport repeats the core body's message verbatim; Core owns the text.
         var core = ResponseBody.FromBytes(new byte[] { 1 });
         _ = await core.OpenReadAsync(Token);
-        var coreEx = await Assert.ThrowsAsync<StreamConsumedException>(() => core.OpenReadAsync(Token));
+        core.Dispose();
+        var coreEx = await Assert.ThrowsAsync<StreamClosedException>(() => core.OpenReadAsync(Token));
         Assert.Equal(coreEx.Message, ex.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_second_open_returns_the_same_stream(bool syncFirst)
+    {
+        // BODY-14, HTTP-41: the read handle is obtained once and requested again as the same handle, in either order of the forms.
+        var (response, content) = await SendAsync();
+
+        var first = syncFirst ? response.Body.OpenRead(Token) : await response.Body.OpenReadAsync(Token);
+        var second = syncFirst ? await response.Body.OpenReadAsync(Token) : response.Body.OpenRead(Token);
+
+        Assert.Same(first, second);
+        Assert.Equal(0, content.Disposals);
         response.Dispose();
+        Assert.Equal(1, content.Disposals);
     }
 
     [Fact]
@@ -149,24 +157,21 @@ public sealed class HttpResponseMessageBodyTests
     }
 
     [Fact]
-    public async Task OpenRead_and_OpenReadAsync_share_one_latch_in_either_order()
+    public async Task OpenRead_and_OpenReadAsync_share_one_handle_in_either_order()
     {
         var (first, _) = await SendAsync();
-        using var opened = first.Body.OpenRead(Token);
-        var asyncAfterSync = await Assert.ThrowsAsync<StreamConsumedException>(() => first.Body.OpenReadAsync(Token));
+        var opened = first.Body.OpenRead(Token);
+        Assert.Same(opened, await first.Body.OpenReadAsync(Token));
         first.Dispose();
 
         var (second, _) = await SendAsync();
-        _ = await second.Body.OpenReadAsync(Token);
-        var syncAfterAsync = Assert.Throws<StreamConsumedException>(() => second.Body.OpenRead(Token));
+        var openedAsync = await second.Body.OpenReadAsync(Token);
+        Assert.Same(openedAsync, second.Body.OpenRead(Token));
         second.Dispose();
-
-        Assert.Contains("buffer", asyncAfterSync.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(asyncAfterSync.Message, syncAfterAsync.Message);
     }
 
     [Fact]
-    public async Task OpenRead_after_dispose_throws_StreamClosedException_and_after_a_read_reports_consumed()
+    public async Task OpenRead_after_dispose_throws_StreamClosedException_before_and_after_a_read()
     {
         var (disposed, _) = await SendAsync();
         await disposed.Body.DisposeAsync();
@@ -175,7 +180,7 @@ public sealed class HttpResponseMessageBodyTests
         var (read, _) = await SendAsync();
         _ = read.Body.ReadAsBytes(Token);
         read.Dispose();
-        Assert.Throws<StreamConsumedException>(() => read.Body.OpenRead(Token));
+        Assert.Throws<StreamClosedException>(() => read.Body.OpenRead(Token));
     }
 
     [Fact]
@@ -190,6 +195,6 @@ public sealed class HttpResponseMessageBodyTests
 
         Assert.Equal("widget", value);
         Assert.Equal(1, serde.StreamReads);
-        Assert.Throws<StreamConsumedException>(() => response.Body.OpenRead(Token));
+        Assert.Throws<StreamClosedException>(() => response.Body.OpenRead(Token));
     }
 }

@@ -10,19 +10,18 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <summary>
 /// A <see cref="ResponseBody"/> backed by an <see cref="HttpResponseMessage"/>'s content stream.
 /// Disposing the body (at most once, by the base class's latch) disposes the underlying <see cref="HttpResponseMessage"/>,
-/// releasing the connection back to the pool. A body opened after it was disposed throws
-/// <see cref="StreamClosedException"/> (P3b-11); a body already opened reports <see cref="StreamConsumedException"/> first.
+/// releasing the connection back to the pool. The first open obtains the content stream and every later open, in either
+/// form, returns that same stream (BODY-14, HTTP-41); a body opened after it was disposed throws
+/// <see cref="StreamClosedException"/> (P3b-11), whether or not it was opened before.
 /// </summary>
 internal sealed class HttpResponseMessageBody : ResponseBody
 {
     private readonly HttpResponseMessage _message;
-    private int _consumed;
+    private Stream? _stream;
     private int _closed;
 
-    // Repeats ResponseBody's second-open message verbatim (BODY-14); a test asserts the two stay equal.
-    private const string ConsumedMessage =
-        "This response body has already been read. A response body can be opened once; to read it more than once, "
-        + "buffer it first (read it with ReadAsBytesAsync and keep the bytes, or keep the bytes and wrap them in a new ResponseBody.FromBytes for each read).";
+    // Repeats ResponseBody.ClosedMessage verbatim (Core's constant is internal); a test asserts the two stay equal.
+    private const string ClosedMessage = "This response body was disposed, so its stream is no longer available.";
 
     public HttpResponseMessageBody(HttpResponseMessage message)
     {
@@ -41,36 +40,33 @@ internal sealed class HttpResponseMessageBody : ResponseBody
 
     public override async Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
     {
-        Claim();
-        return await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        ThrowIfClosed();
+        if (Volatile.Read(ref _stream) is { } opened)
+        {
+            return opened;
+        }
+
+        return Publish(await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false));
     }
 
-    // The synchronous twin (P3a-5): it shares the one open latch with OpenReadAsync, so a second open in either form is a
-    // StreamConsumedException, and it reads the live content stream without a thread-pool hop. Phase 7b needed it for the
-    // blocking server-sent-events views over this transport.
+    // The synchronous twin (P3a-5): it shares the one handle with OpenReadAsync, so an open in either order returns the same
+    // stream, and it reads the live content stream without a thread-pool hop. Phase 7b needed it for the blocking
+    // server-sent-events views over this transport.
     public override Stream OpenRead(CancellationToken cancellationToken = default)
     {
-        Claim();
-        return _message.Content.ReadAsStream(cancellationToken);
+        ThrowIfClosed();
+        return Volatile.Read(ref _stream) ?? Publish(_message.Content.ReadAsStream(cancellationToken));
     }
 
-    // One latch for both forms. The consumed check runs first, so a body that was read and then disposed still reports
-    // "consumed" (P3b-11); a body disposed before any open reports "closed".
-    private void Claim()
-    {
-        if (Volatile.Read(ref _consumed) != 0)
-        {
-            throw new StreamConsumedException(ConsumedMessage);
-        }
+    // The content hands out one stream per message however often it is asked, so two first opens racing agree already; the
+    // compare-and-set keeps the handle this body returns single even over a content type that does not.
+    private Stream Publish(Stream obtained) => Interlocked.CompareExchange(ref _stream, obtained, null) ?? obtained;
 
+    private void ThrowIfClosed()
+    {
         if (Volatile.Read(ref _closed) != 0)
         {
-            throw new StreamClosedException("This response body was disposed before it was opened.");
-        }
-
-        if (Interlocked.Exchange(ref _consumed, 1) != 0)
-        {
-            throw new StreamConsumedException(ConsumedMessage);
+            throw new StreamClosedException(ClosedMessage);
         }
     }
 

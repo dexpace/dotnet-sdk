@@ -695,6 +695,18 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `CheckPhase8bAsync`.
 - `docs/sdk-documentation/transport.md`.
 
+### Phase 11 — bodies, headers, URLs, pages and the transport's native retry
+
+#### Changed
+
+- **Breaking (phase 11):** a response body returns the same stream on a second open (`BODY-14`, `HTTP-41`). `ResponseBody.OpenRead` and
+  `OpenReadAsync`, in either order, hand back the one stream the first open obtained (the stream-backed, in-memory and `SystemNetHttpClient`
+  bodies); the second open used to throw `StreamConsumedException`. The convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual
+  open now read the remaining bytes of that same stream. A body disposed after it was opened now reports `StreamClosedException` on a later open (it
+  reported `StreamConsumedException` first), so a second typed read after a first one throws `StreamClosedException`, and `HttpResponseException.GetError`
+  twice over a plain, non-buffered body still throws `ResponseNotReadException`, now over an `ObjectDisposedException`. The response-logging wrapper past its
+  capture cap keeps `BODY-24`'s rule: its tail is single-use and a second open throws `StreamConsumedException`. The buffered error body is unchanged.
+
 ### Phase 7a — serde
 
 Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP-45` carried from 3b); design and plan under
