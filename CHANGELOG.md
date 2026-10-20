@@ -793,5 +793,8 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
   value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
   and one that replaced it would send the attempt number as the key.
+- **An unexpected MD5 probe failure declines MD5 instead of failing construction** (`AUTH-15`, design §10 entry 16). The once-per-process probe that decides whether this host computes MD5
+  treated only `CryptographicException` and `PlatformNotSupportedException` as a refusal; any other exception escaped and the `Lazy` cached it, so every `DigestChallengeHandler` would have
+  thrown. Any non-fatal failure now means "refused" and drops the MD5 algorithms from the handler's preference; a fatal one still propagates.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
