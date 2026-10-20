@@ -15,6 +15,7 @@ internal static partial class SmokeChecks
 {
     private static readonly string[] s_conformanceSlice =
     [
+        "transport-2.bodyless-not-resent", // phase 11: the SDK-built handler's stop filter, unwaived, under NativeAOT
         "transport-21.pre-dispatch-failure-via-task",
         "transport-24.vendor-status-readable",
         "transport-25.large-round-trip",

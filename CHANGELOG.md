@@ -723,6 +723,12 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   no longer true.
 - **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
   cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
+- **Breaking (phase 11):** the owned `SystemNetHttpClient` and the dependency-injection named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`,
+  `DELETE` or `TRACE` natively (`TRANSPORT-2`; design §10 entry 33). `SystemNetHttpClient.CreatePrimaryHandler` installs a pass-through `PlaintextStreamFilter` (HTTP/1.x only) that
+  turns an end of stream arriving after a request was written and before any response byte into the `HttpIOException` (`ResponseEnded`) the runtime raises itself, so the request
+  reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. A handler or `HttpClient` you
+  supply is your native client and keeps its own retry (design §11 item 71); a caller who replaces the filter on a handler from `CreatePrimaryHandler` removes the guarantee. The
+  conformance drivers' `transport-2.bodyless-not-resent` waiver is deleted for the owned and DI subjects and kept, rescoped, for the handler-taking subject.
 
 ### Phase 7a — serde
 
