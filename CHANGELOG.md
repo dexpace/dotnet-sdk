@@ -781,4 +781,11 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
   task without touching the scheduler.
 
+#### Added
+
+- **`ResponseTaskExtensions.WaitOrDisposeAsync(this Task<Response>, CancellationToken)`** (phase 11; `SEAM-30`, `ASYNC-3`; design §11 item 43): the
+  cancel-without-interruption mode of an `AsAsync` bridge's task. A caller that stops waiting through `Task.WaitAsync(token)` could orphan an undisposed
+  `Response` when the call completed at the instant the token was signalled (44 of 20 000 runs of the design's probe); through this method every caller gets
+  a live response or an `OperationCanceledException`, and a response the task delivers after the caller stopped waiting is disposed exactly once and quietly.
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

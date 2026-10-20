@@ -86,6 +86,11 @@ public static class HttpClientExtensions
     /// work (<see cref="TaskSchedulerException"/>); a token already signalled returns a cancelled task without touching the scheduler.
     /// </para>
     /// <para>
+    /// <b>Cancelling without interrupting.</b> To stop awaiting while the blocking call runs on, with the late response still closed, await the
+    /// returned task through <see cref="ResponseTaskExtensions.WaitOrDisposeAsync"/> (SEAM-30, ASYNC-3); a plain <c>WaitAsync(token)</c> can orphan a
+    /// response in the window where the call completes just as the token is signalled.
+    /// </para>
+    /// <para>
     /// <b>Breaking:</b> was <c>AsAsync(this IHttpClient)</c>, which offloaded to the thread pool; it takes the caller's
     /// scheduler now, and no longer disposes the wrapped client.
     /// </para>

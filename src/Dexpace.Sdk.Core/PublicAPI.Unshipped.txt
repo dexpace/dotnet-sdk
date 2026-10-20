@@ -169,6 +169,7 @@ Dexpace.Sdk.Core.Client.IAsyncHttpClient
 Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Core.Client.IHttpClient
 Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Client.ResponseTaskExtensions
 Dexpace.Sdk.Core.Configuration.BuildInfo
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
@@ -824,6 +825,7 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Cor
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsBlocking(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.Execute(this Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+static Dexpace.Sdk.Core.Client.ResponseTaskExtensions.WaitOrDisposeAsync(this System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>! task, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
