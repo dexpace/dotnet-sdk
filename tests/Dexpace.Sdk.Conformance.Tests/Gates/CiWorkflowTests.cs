@@ -40,6 +40,7 @@ public sealed partial class CiWorkflowTests
         ("Knowledge corpus structure", "scripts/knowledge verify-structure"),
         ("Requirement coverage self-test", "scripts/ci/requirement-coverage-selftest.sh"),
         ("Requirement coverage", "dotnet run scripts/ci/requirement-coverage.cs -- --check"),
+        ("Section 12", "dotnet run scripts/ci/requirement-coverage.cs -- --check-section12"),
         ("Pack twice and compare", "scripts/ci/reproducible-pack.sh"),
         ("Pack twice and compare - self-test", "scripts/ci/reproducible-pack.sh --self-test"),
         ("Publish", "dotnet publish tests/Dexpace.Sdk.AotSmoke/Dexpace.Sdk.AotSmoke.csproj"),
@@ -52,6 +53,7 @@ public sealed partial class CiWorkflowTests
         ["Knowledge corpus structure"] = "runner.os == 'Linux'",
         ["Requirement coverage self-test"] = "runner.os == 'Linux'",
         ["Requirement coverage"] = "runner.os == 'Linux'",
+        ["Section 12"] = "runner.os == 'Linux'",
         ["Upload test results"] = "always()",
     };
 

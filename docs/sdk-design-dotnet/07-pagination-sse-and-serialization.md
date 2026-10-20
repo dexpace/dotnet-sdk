@@ -180,6 +180,8 @@ six *dated corrections*:
 - **The splice no longer uses `UriBuilder` (P7c-9)**: it rebuilds from `GetComponents`, so no explicit default port is written, matches names ordinally on the decoded
   name and drops later duplicates (§10 entry 18's amendment).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 17, 18 and 19: `Page` copies its values (task 3.5) and the splice copies an empty segment (task 3.6).
+
 ### 7.2 Server-Sent Events
 
 .NET *does* ship an SSE parser, which makes this section the reverse of Ruby's: the work is arguing against the
@@ -303,6 +305,8 @@ one-poll-per-demand property from the pull-based reader (§11 item 21).
 - **The facade's logger is a `FromResponse` parameter (P7b-19),** because a `Response` carries none; the "swallow and log" of the clean terminal path is `Disposal`'s single out-of-band channel (an activity event and event 130). `FromResponse` owns the response from the call, success or failure (P7b-9).
 - **`SseMapResult<T>` is a `readonly record struct` with a non-generic `SseMapResult` carrying `Skip`, `Done` and `Value<T>` (P7b-16),** not a struct with three factories on the generic type (`CA1000`); `default` is a mapper failure.
 - **The "net8.0 floor" remarks predate roadmap decision D1** (`net10.0` only); `SseParser` is in the shared framework and the strict-mode argument is unchanged. The reconnect loop is documented as a caller recipe in `docs/sdk-documentation/sse.md`.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 20: residual R1 is repaired, an event whose data passes `maxEventBytes` fails with `ServerSentEventTooLargeException` (task 5.6).
 
 ### 7.3 Serialization: the reified type as witness
 
@@ -457,6 +461,8 @@ corrections* to the text above:
   is a `DeserializationException` naming `T`, found by a one-byte peek (P7a-10). A fast-path-only (`GenerationMode = Serialization`) source-generated context carries
   no property metadata and cannot be used with the serde's private copy of the options; use the default or `Metadata` mode (phase 7a, task 0.1).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 21.
+
 ### 7.4 Webhooks, outside the reference contract
 
 The webhooks design that came with PR #3 (Standard Webhooks HMAC-SHA256 verification behind an `IWebhookVerifier`
@@ -468,5 +474,7 @@ neither overturns nor adopts it beyond three .NET facts its design already respe
 `Unwrap<T>` convenience, so it must stay outside the SSE and paging engines' serde boundary (**SSE-37**).
 
 **As built (d45e64b):** not built.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** not built: webhook verification is post-v1, owner `docs/first-release.md` *Post-v1 packages* (roadmap decision D3).
 
 ---

@@ -222,6 +222,8 @@ operation span and the metrics rework remain 5c's. The `AttemptScope` described 
 `ref`, not a `readonly struct` (a lazily filled cache cannot live in a readonly struct without allocating); the disposal event's
 `dexpace.dispose.resource_type` key is internal to core (P5b-3 plan readings R8 and R9).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 22 and 23; the 9.0.5 closure sentence is superseded by the `net10.0` measurement of §2.4. `dexpace.redirect.hop` is emitted; `OBS-28`'s byte-count milestones are declined; `OBS-27` is repaired (task 5.1); a null log field is the literal `null` (task 5.2); `Disposal` writes only to a recording activity (task 1.5).
+
 ### 8.2 Configuration
 
 **CFG-1** fixes four tiers: explicit override, environment by exact key, a system-property source by normalised key,
@@ -359,6 +361,8 @@ enums, two sets and a list default (V1), so an internal reader walks the section
 shadowed lower provider is not consulted (P9-7, §10 entry 25). (4) **Tier 1 is a `with` transform**: the records are immutable (`CFG-8`), so `Configure(Func<DexpaceClientOptions, DexpaceClientOptions>)` replaces `Action<DexpaceClientOptions>`, applied after the configuration values in call order (P9-6).
 (5) **No reload**: the snapshot is taken at first resolution. (6) **The proxy has two sources**, the explicit `Transport:Proxy:*` keys or code-only `UseProxyFromEnvironment`, never a configuration switch (P9-15). (7) **`OBS-35`'s key is the caller's section**: the package bakes in none; `DexpaceConfigurationKeys` publishes the names (P9-23).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 25 and 26: the `CFG-2` fall-through is repaired (task 5.4), the unparseable-value boot failure is a stricter host rule (reclassified), and `Retry:PacingHeaders` is a configuration key.
+
 ### 8.3 The clock, the wait, and the prohibition
 
 **CFG-15** requires the time seam to expose a wall clock, a monotonic elapsed counter and a blocking interruptible
@@ -431,3 +435,5 @@ listener case. (5) `exception.stacktrace` is `Exception.StackTrace`, not `ToStri
 **As built** line gains the 5c verdict: **as built by 5c:** operation span, attempt spans through the bundle, the `dexpace.attempt.failed`,
 `dexpace.retry.exhausted` and `exception` events, the two instruments with the stable attribute sets and bucket advice, and the adapter's strip;
 `dexpace.redirect.hop` is defined and unwired until 6b; byte-count milestones are not emitted (`OBS-28`).
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 8.

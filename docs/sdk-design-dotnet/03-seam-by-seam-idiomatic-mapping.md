@@ -290,6 +290,8 @@ text above stands as written. *Dated correction*.
   computes its framing once at construction and guards each part's length with an internal non-disposing `BoundedWriteStream`; the over-cap response stream reads at most
   one byte past the cap, so the overflow is one staged byte.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built. A second open of a response body returns the same stream in either form and an open after dispose throws `StreamClosedException` (task 3.1; §10 entry 6 retired); `BODY-12` and `BODY-36` are declined (`docs/first-release.md`); `FromFile` rejects a Unix FIFO, device or socket at construction (task 3.3; §10 entry 31 retired).
+
 ### 3.2 The synchronous transport seam → kept, as `IHttpClient`, with a real synchronous path
 
 **SEAM-11** specifies a single-operation contract whose response body "MUST NOT be pre-buffered by the transport — the
@@ -474,6 +476,8 @@ extension method is sent with a zero-length content, which is byte for byte what
 for, server credentials unset), composes it with `IHttpClientFactory`'s chain (`RemoveAllLoggers()`, an infinite handler lifetime and a `PooledConnectionLifetime`, a container-owned lease that releases the primary) and builds the transport with the 8b handler constructor, whose
 redirect check walks the chain to the primary: a caller who swaps in a redirect-following primary fails at first resolution (phase 9 V3, V8, P9-12, P9-13). `NamedClientRedirectWireTests` (`Security`) is phase 1 S3's row 9.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 32 (the malformed header-name clause stays unmet, with a corrected reason). Entry 33 is retired: the handler the SDK builds no longer re-sends a body-less request natively (task 4.1; a caller's handler keeps its retry, §11 item 71). `ServiceRequestException` is an `IOException` (task 2.1; entry 7 retired).
+
 ### 3.3 The asynchronous transport seam and the canonical pivot
 
 **What the reference requires and why.** **SEAM-16** requires the async transport's future to "complete either with a
@@ -634,6 +638,8 @@ The transport abandons no `Task<Response>`, so the `SEAM-30` race has no occasio
 *Review correction, 2026-10-11:* the 100 second default applies to every construction, so it also cuts a call over a *borrowed* `HttpClient` whose own `Timeout` is longer (the shorter of the two bounds a call that sets none);
 before 8b only that client's `Timeout` bounded it. The owned bound is unchanged. This is a breaking change for the borrowed construction, migrated by `SystemNetHttpClientOptions { Timeout = null }`, not an unchanged bound; the paragraph above is not otherwise altered.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built. `AsAsync` delivers a rejecting scheduler's failure through the returned task and a signalled token as a cancelled task (task 2.3); the public `WaitOrDisposeAsync` is the cancel-without-interruption mode (task 2.4; §11 item 43).
+
 ### 3.4 The wire-codec (serde) seam → kept separate, even though embedding is free
 
 **SEAM-19** requires the codec seam to bundle a serializer, a deserializer and the media type its serializer
@@ -743,6 +749,8 @@ source that declares more before any read, and calls the span decode; `SystemTex
 which streams (P7a-13). There is no synchronous stream *encode*. The adapter's private copy of `JsonSerializerOptions` is built (**SERDE-26**): both constructors copy,
 wire `Tristate<T>` on the copy and freeze the copy, and the caller's instance is never frozen. *Dated correction*.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built.
+
 ### 3.5 The operation-input projection seam
 
 **SEAM-26** requires a per-operation declaration of method, path template with named placeholders, and typed
@@ -811,6 +819,8 @@ text at construction and in a rendered segment at `BuildRequest`, not only as a 
 `OperationId` is carried and never reaches the request; attaching it to the context chain is phase 4a's. *Dated
 correction*.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built; `SEAM-28`'s operation id is carried by the descriptor and never attached to the context chain (a MAY, declined in `docs/first-release.md`).
+
 ### 3.6 Discovery and the zero-dependency boundary, restated
 
 After §3.1 retires the byte-stream provider, the seams that would need a resolution story are the two transports and
@@ -864,6 +874,8 @@ package and its single-registration validation are not built.
 descriptor; `SEAM-6`'s "different provider" failure is thrown **at the `Use*` call**, naming the client and both implementations, earlier than this section's validator timing (P9-16); the validator scans the captured `IServiceCollection` for keyed `IAsyncHttpClient` and `ISerde`
 descriptors under the client's key (more than one fails listing each, none fails with the install hint), because `GetRequiredKeyedService` silently resolves the last (§11 item 8, measured, V4). `SEAM-7` is the keyed singleton, created once under 64 concurrent first resolutions (`KeyedSingletonTests`);
 `SEAM-7` stays N/A. `SEAM-8` to `SEAM-10` are unchanged.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 9: `ServiceSlot` and the validator, not `TryAdd`, give `SEAM-5` and `SEAM-6`.
 
 ### 3.7 Lifecycle and ownership
 
@@ -954,6 +966,8 @@ longer reports. `LoggingResponseBody`'s two filters use `ExceptionFacts.IsFatal`
 asynchronous face through a faulted task (**TRANSPORT-21**); the borrowed `HttpClient` itself is never touched. The transport's dispose-on-throw for a live native response (**TRANSPORT-22**) uses a local
 `NativeDisposal` over the public `ExceptionFacts.IsFatal` and `ExceptionTrail.AddSuppressed`, so core's `Disposal` stays internal. *Dated correction*; the text above stands as written.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built; `Disposal` writes only to a recording activity (task 1.5); the quiet-dispose reporting gap of P3b-3 remains for a pipeline without `InstrumentationPolicy` (design-only; `CFG-21` allows it).
+
 ### 3.8 The observability, time and configuration seams
 
 The reference routes logging, tracing, metrics, time and configuration through SDK-owned facades so that core stays
@@ -983,5 +997,7 @@ designs live in §8.
 
 **As built (d45e64b):** built — `ILogger`, `ActivitySource`, `Meter`, `TimeProvider` and plain options types are all
 in use as tabulated; the DI-side configuration binding is not built.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built: the DI reader (§8.2), with §10 entries 25 (the `CFG-2` fall-through is repaired, task 5.4) and 26 (reclassified).
 
 ---

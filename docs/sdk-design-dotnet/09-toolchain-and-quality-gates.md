@@ -47,6 +47,34 @@ designs and two plans) are replaced by the specification, this design and the ro
 citation was edited in place: it now names the section that owns the decision, or states the decision inline with
 the pull request (#3–#9) that built it. No decision recorded here changed.
 
+**Gate table at phase 11 (2026-10-20, `eb3facc`).** The table above records each gate's state at `d45e64b`; this one records the same gates after phases 0 to 11, and the gates later phases added. "Blocking" means the gate fails its CI job; `CiWorkflowTests`
+pins that each gate with a command is a named step of `.github/workflows/ci.yml` and that none is advisory. That a merge requires the checks (`NFR-17`'s second half) is a repository setting this repository cannot make; it is the one open action.
+
+| Reference gate | State at phase 11 |
+|---|---|
+| Warnings as errors (**NFR-6**) | blocking; the build is green with no warning (the `NU1902` break was phase 0's) |
+| Style/static analysis (**NFR-7**) | blocking: analyzers, `EnforceCodeStyleInBuild`, `dotnet format --verify-no-changes` as a CI step; every relaxation carries a rationale and a re-enable line (`AnalyzerWaiverTests`); `CA1062` is an error for `src/` (phase 11) |
+| Explicit public API (**NFR-3**) | blocking: `CS1591` as error, `internal` by default, `PublicApiAnalyzers` referenced by every library |
+| API-surface snapshot (**NFR-4**) | blocking: `RS0016`/`RS0017` over five libraries, `NFR4ArchitectureTests`; package validation runs in pack, the baseline waits for the first publish (phase 12) |
+| Aggregate line-coverage floor (**NFR-5**) | blocking: `scripts/ci/coverage-gate.cs` at 80% with a self-test, kit included |
+| Zero-dependency audit (**SEAM-1**, **NFR-1**, **NFR-2**) | blocking: `scripts/ci/dependency-audit.cs` with a fixed-set allowance for core (phase 11) and a self-test; the packaging suite runs beside it |
+| Shrink-survival (**NFR-8**, **NFR-9**) | blocking: `IsTrimmable`/`IsAotCompatible` on every library and the NativeAOT smoke job (phases 3 to 11 each add a `Check…Async`) |
+| Runtime floor (**NFR-10**) | `net10.0` only (roadmap decision D1); the 3-OS matrix is blocking per job |
+| Concurrency-model agnosticism (**NFR-11**) | blocking: `Nfr11PublicSurfaceArchitectureTests` |
+| Version single source (**NFR-14**) | blocking: central package management, lock files restored with `--locked-mode` |
+| Reproducible artifacts (**NFR-12**) | blocking: two packs of `HEAD` from two worktrees at different paths must be byte-identical, with a toolchain check and a self-test (phase 11); the release half waits for the first publish |
+| License headers (**NFR-13**) | blocking: `IDE0073` and `LicenseHeaderTests` |
+| Runtime version metadata (**NFR-15**) | blocking: `packaging:nfr-15.version-resolvable` |
+| Signed publications (**NFR-16**) | not wired; phase 12 |
+| Dependency CVE scanning | blocking: NuGet audit under warnings-as-errors |
+| Formatting and lock files | blocking: both are CI steps |
+| Banned APIs (§8.1, §8.3) | blocking: `RS0030` with `BannedSymbols.txt`, now also `Thread.Abort`, `ModuleInitializerAttribute`, the `GetBaseException` and `ConcurrentDictionary` constructor bans |
+| Serde independence of streaming and paging (**SSE-37**) | blocking: `Sse37ArchitectureTests`, and `Sse38ArchitectureTests` for **SSE-38** |
+| Core names no concrete seam implementation (**SEAM-2**) | blocking: `Seam2ArchitectureTests`, `SeamImplementationArchitectureTests` |
+| Conformance kit | blocking: the transport, invariant and codec suites through the first-party drivers, the packaging suite through `scripts/ci/packaging-conformance.cs`; waivers by requirement ID that must stay needed |
+| Appendix-C coverage and design §12 | blocking, Linux row: `requirement-coverage.cs --check` and `--check-section12`, each with a self-test |
+| Ledger audit (phase 11) | blocking: `LedgerAuditTests` holds `docs/deviations.md` to design §10 and §11, the release register, appendix C, the sources, the drivers' waivers and the negative scans |
+
 ### 9.1 API-surface lock, and what the analyzers can and cannot see
 
 **NFR-4** is the one gate .NET provides twice, and both halves are needed. `PublicApiAnalyzers` makes the source-level
@@ -92,6 +120,8 @@ names `BoundedMap`'s slot.
 the specification's bypass dialect (§8.2), so no `src/` code reads or sets it. The transport installs a `ProxyOptions`-backed `IWebProxy` or goes direct.
 
 **Correction (2026-10-13, phase 9): the banned list gains `ConfigurationBinder`** (`T:Microsoft.Extensions.Configuration.ConfigurationBinder`): bind through the DI package's reader (P9-4, V1). The type arrives transitively with `Microsoft.Extensions.Http` and is banned, not removed.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built; `CA1062` is an error for `src/` (task 1.6; §10 entry 28 retired), and `BannedSymbols.txt` also bans `Thread.Abort` and `ModuleInitializerAttribute`.
 
 ### 9.2 The zero-dependency gate, and NFR-8 applying literally
 
@@ -206,6 +236,8 @@ recommends.
 **Correction (2026-10-13, phase 9): the audit's policy record and the AOT smoke.** `scripts/ci/dependency-audit.cs` holds each library to `Policy(ThirdParty, Projects)`: the allowed packages are the closure of the facade and of the one third-party root, the allowed projects the closure of core and of the
 first-party projects the policy names, and every listed Dexpace project must carry the library's lockstep version (P9-3). "At most one third-party library" counts a root package whose closure is one publisher's lock-stepped family as one library (§10 entry 2). The AOT smoke gains `CheckPhase9Async` over the DI package (P9-21, V7).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built; the audit's allowance for core is a fixed set with a self-test (task 1.3).
+
 ### 9.3 Tests, and why a local server rather than only a stubbing library
 
 **xUnit is the framework, and the conformance kit is framework-free.** The house guide wants xUnit v3 on
@@ -296,6 +328,8 @@ suppressed in this repository's build by a named waiver listing the requirement 
 
 **Correction (2026-10-13, phase 9): a third conformance driver.** `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/` runs the kit over the DI-built transport on both faces, with the two permanent assertion-scoped waivers of the SystemNet drivers (§10 entries 32 and 33) (P9-22).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built; the conformance kit is measured by the coverage gate (`scripts/ci/coverage-gate.cs`). Not built: the package-validation baseline, strong naming and `NFR-16` (phase 12).
+
 ### 9.4 The vendored styleguide as quality gates
 
 The styleguide under `docs/styleguide/` is binding for every `.cs` file here, and it is only as real as its
@@ -385,5 +419,7 @@ central package management, deterministic compilation and NuGet audit wired; bui
 missing: public-API files, package validation baseline, coverage threshold, `dotnet format` and locked restore in CI,
 trim/AOT properties on `Core` and `Http.SystemNet`, AOT smoke consumer, nuspec and architecture tests, `IDE0073`,
 banned-API list, strong naming, signing, conformance kit, cross-OS matrix.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built. The overlay is updated: xUnit v3 on Microsoft.Testing.Platform is conformed (Shouldly is not adopted), the 70-line cap has no waiver, `CA1062` is conformed and the `LoggerMessage` departure is narrowed to the dotted keys.
 
 ---

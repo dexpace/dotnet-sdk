@@ -216,6 +216,8 @@ above stands as written, with six *dated corrections*:
 re-sent a `POST` body (the server was reached four times for one SDK attempt). The "set the SDK's own `MaxRetryAttempts` to 0" option is therefore **withdrawn** (it leaves a handler retry behind the SDK's re-send gate, which is this section's hazard); the "handler without its retry" option stands and its spelling is
 `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, which keeps the circuit breaker, rate limiter and timeouts. This replaces "cited from its documentation, not verified here". `ResilienceCompositionTests` pins it.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built; `RETRY-21` and `RETRY-38` are repaired: `RetryOptions.PacingHeaders` is the stage stack's ordered list, and the attempt header is set and may not be `Idempotency-Key` (tasks 5.5 and 5.7). Transport failures are `IOException`s that the classifier reads through `IRetryableError` and the cause chain (task 2.1).
+
 ### 6.2 Redirect
 
 **P13 — the transport follows redirects by default, and does it wrong.** `HttpClientHandler.AllowAutoRedirect` and
@@ -325,6 +327,8 @@ browser-style POST→GET and 303 handling; no allowed-method set, loop detection
 - **The malformed `Location` is logged redacted, not raw (P6b-20),** through `UrlRedactor.RedactHeaderValue`, which is total over unparseable text.
 
 `AuthorizationPolicy.GetOrigin`'s comment that `Uri.Port` returns -1 for an absent port is wrong on .NET (it returns the scheme's default), as 6b's `HttpOrigin` relies on; 6c may move the policy onto `HttpOrigin`.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 14 and 15.
 
 ### 6.3 Authentication
 
@@ -447,5 +451,7 @@ non-blank validation.
 - **Digest is built (P6c-29 to P6c-35)** with the default preference SHA-256 first, a once-per-process MD5 probe, `-sess` without `qop` declined (new §11 item 62),
   `username*` for a non-ASCII user name, and the escaped request-target as `digest-uri` (verified against the wire).
 - **Hex.** "on the `net8.0` target the port lower-cases" reads: `Convert.ToHexStringLower`, since the port targets `net10.0` only (roadmap D1, P6c-38).
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 16: the MD5 probe treats any non-fatal failure as a refusal (task 5.8).
 
 ---

@@ -255,7 +255,7 @@ item says how the port read it.
 | 15 | `CFG-34`, `SERDE-11` | narrowed | doc-corrected | The deep-equality helper compares zero sign explicitly (`src/Dexpace.Sdk.Core/Internal/DeepValue.cs:29`) and has no production caller |
 | 16 | `PIPE-32` | confirmed | retain | Reversed; as entry 14 (`src/Dexpace.Sdk.Core/Pipeline/PipelineBuilder.cs:222`) |
 | 17 | — | confirmed | retain | The SSE preamble's deviations are replicated; scan N13 finds no `SseParser` in `src/` |
-| 18 | `SERDE-26`, `TRANSPORT-18` | confirmed | retain | Options are copied; the bounded re-send capture is `src/Dexpace.Sdk.Http.SystemNet/ResendCapture.cs:40` with its limit `src/Dexpace.Sdk.Http.SystemNet/SystemNetHttpClientOptions.cs:116` |
+| 18 | `SERDE-26`, `TRANSPORT-18` | confirmed | retain (+doc: two wordings corrected in §11) | Options are copied; the bounded re-send capture is `src/Dexpace.Sdk.Http.SystemNet/ResendCapture.cs:40` with its limit `src/Dexpace.Sdk.Http.SystemNet/SystemNetHttpClientOptions.cs:116` |
 | 19 | `RETRY-28` | confirmed | retain | Two stacks, neither unification sanction invoked (`src/Dexpace.Sdk.Core/Pipeline/Policies/RetryPolicy.cs:121`, `src/Dexpace.Sdk.Core/Recovery/RetryRecovery.cs:35`) |
 | 20 | `RECOV-31`, `RETRY-38` | contradicted | doc-corrected | One feature under two IDs, built; as item 10 |
 | 21 | `ASYNC-21` | confirmed | retain | No reactive adapter; the property is on the pull path (`src/Dexpace.Sdk.Core/ServerSentEvents/ServerSentEventReader.cs:109`); scan N12 |

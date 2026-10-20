@@ -161,6 +161,13 @@ jobs:
         if: runner.os == 'Linux'
         run: dotnet run scripts/ci/requirement-coverage.cs -- --check
 
+      # Blocking. Design section 12's coverage table (the satisfied, vacuous, not-satisfied and deferred IDs of every prefix) is generated from the
+      # checklists' resolved marks, not typed (roadmap phase 11, P11-21): a checklist change that moves an ID between the sets fails here until
+      # section 12's last generated table is regenerated with `--section12`.
+      - name: Section 12
+        if: runner.os == 'Linux'
+        run: dotnet run scripts/ci/requirement-coverage.cs -- --check-section12
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
