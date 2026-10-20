@@ -706,6 +706,10 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   reported `StreamConsumedException` first), so a second typed read after a first one throws `StreamClosedException`, and `HttpResponseException.GetError`
   twice over a plain, non-buffered body still throws `ResponseNotReadException`, now over an `ObjectDisposedException`. The response-logging wrapper past its
   capture cap keeps `BODY-24`'s rule: its tail is single-use and a second open throws `StreamConsumedException`. The buffered error body is unchanged.
+- **Breaking (phase 11):** `Headers.Builder.AddInbound` no longer trims a received header name (`HTTP-19`, `XCUT-18`; design §11 item 70). A name with SP or HTAB at either
+  end is not a token and throws `ArgumentException` (it used to be stored under the trimmed name); the outbound path (`Add`, `Set`, `With`, `HttpHeaderName.Of`) still trims
+  (`HTTP-17`). `SystemNetHttpClient` already drops a header that fails the inbound path, and the runtime never hands it such a name. The conformance kit's `xcut-18.model-validation`
+  requires an inbound refusal where it used to accept a refusal or a trim, with a negative control for a model that trims.
 
 ### Phase 7a — serde
 

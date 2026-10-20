@@ -166,6 +166,22 @@ public sealed class HeaderInjectionValidationTests
     public void The_inbound_path_keeps_names_strict(string name) =>
         Assert.Throws<ArgumentException>(() => new Headers.Builder().AddInbound(name, "v"));
 
+    // HTTP-19, XCUT-18 (phase 11, P11-14, design §11 item 70): HTTP-17's surrounding-whitespace trim is outbound only. A received
+    // name with SP or HTAB at either end is not a token, so the inbound path refuses it rather than storing `X-A` for ` X-A`
+    // (a request-smuggling-adjacent normalisation: a server that echoes such a name has not sent the header `X-A`).
+    [Theory]
+    [InlineData("\tX-A")]
+    [InlineData("X-A\t")]
+    [InlineData(" X-A")]
+    [InlineData("X-A ")]
+    public void The_inbound_path_does_not_trim_a_name(string name)
+    {
+        var error = Assert.Throws<ArgumentException>(() => new Headers.Builder().AddInbound(name, "v"));
+
+        Assert.Equal("name", error.ParamName);
+        Assert.DoesNotContain(name, error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Request_WithHeader_goes_through_the_same_validation() =>
         Assert.Throws<ArgumentException>(

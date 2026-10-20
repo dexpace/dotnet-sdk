@@ -25,7 +25,7 @@ namespace Dexpace.Sdk.Core.Http.Common;
 /// any transport sees it: surrounding SP/HTAB is trimmed from the name, which must then be an RFC 9110 token; an
 /// outbound value may hold only HTAB and printable ASCII (0x20–0x7E), so CR, LF, NUL, other controls, DEL and non-ASCII
 /// are rejected. Received headers go through <see cref="Builder.AddInbound(string,string)"/>, which also admits
-/// obs-text (HTTP-19). A rejection is an <see cref="ArgumentException"/> naming the offending character by code point
+/// obs-text (HTTP-19) but never trims a name: an inbound name must already be a token. A rejection is an <see cref="ArgumentException"/> naming the offending character by code point
 /// (<c>U+000D</c>); it never echoes the value. Lookups trim the name the same way but do not validate it.
 /// </para>
 /// <para>
@@ -311,6 +311,13 @@ public sealed class Headers : IEnumerable<KeyValuePair<string, IReadOnlyList<str
         return (trimmed, AsciiFold.ToLower(trimmed));
     }
 
+    // The pair an inbound write stores: the name exactly as received, token-validated, never trimmed (HTTP-19, XCUT-18).
+    private static (string Original, string Folded) WriteInboundKey(string name)
+    {
+        var validated = HeaderSyntax.ValidateInboundName(name, nameof(name));
+        return (validated, AsciiFold.ToLower(validated));
+    }
+
     private int FindIndex(string? folded) => folded is not null && _index.TryGetValue(folded, out var i) ? i : -1;
 
     private string? FirstValue(int index) => index >= 0 ? _entries[index].Items[0] : null;
@@ -404,19 +411,22 @@ public sealed class Headers : IEnumerable<KeyValuePair<string, IReadOnlyList<str
 
         /// <summary>
         /// Appends a <em>received</em> header — one a transport read off a response — under the lenient inbound rule
-        /// (HTTP-19): the name is validated exactly as <see cref="Add(string,string)"/> validates it and keeps the
-        /// sender's casing, and the value may carry obs-text (0x80 and above) but still no control character other than
-        /// HTAB, and no DEL. Use <see cref="Add(string,string)"/> for anything a caller sets.
+        /// (HTTP-19): the name must be exactly an RFC 9110 token and keeps the sender's casing, and the value may carry
+        /// obs-text (0x80 and above) but still no control character other than HTAB, and no DEL. Unlike
+        /// <see cref="Add(string,string)"/> it does <b>not</b> trim the name: a received name with SP or HTAB at either end is
+        /// not a token and is refused, not stored under the trimmed name (HTTP-19, XCUT-18; the trim of HTTP-17 is outbound only,
+        /// design §11 item 70). Use <see cref="Add(string,string)"/> for anything a caller sets.
         /// </summary>
         /// <param name="name">The header name.</param>
         /// <param name="value">The value to append.</param>
         /// <returns>This builder, for chaining.</returns>
         /// <exception cref="ArgumentException">
-        /// <paramref name="name"/> is blank or not a token, or <paramref name="value"/> holds a control character.
+        /// <paramref name="name"/> is blank or not a token (surrounding whitespace included), or <paramref name="value"/> holds a
+        /// control character.
         /// </exception>
         public Builder AddInbound(string name, string value)
         {
-            var (original, folded) = WriteKey(name);
+            var (original, folded) = WriteInboundKey(name);
             HeaderSyntax.ValidateInboundValue(value, original, nameof(value));
             return Append(original, folded, value);
         }
