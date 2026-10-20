@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Internal;
 
+[Collection("NoDiagnosticListeners")]
 [Trait("Category", "Unit")]
 public sealed class DisposalTests : IDisposable
 {
@@ -132,6 +133,29 @@ public sealed class DisposalTests : IDisposable
             Assert.Equal(true, tags["dexpace.dispose.suppressed"]);
             Assert.Equal(typeof(InvalidOperationException).FullName, tags["exception.type"]);
         }
+    }
+
+    [Fact]
+    public async Task A_suppressed_dispose_failure_is_not_recorded_on_a_non_recording_activity()
+    {
+        // OBS-21 (phase 11, task 1.5; design §10 entry 23, V14): a span that is not recording has inert mutators, and an Activity that propagates its context
+        // without collecting data (IsAllDataRequested false) still records AddException and AddEvent, so Disposal must guard the write itself. The class
+        // joins NoDiagnosticListeners because this test installs a non-recording listener (5c convention).
+        using var source = new ActivitySource("Dexpace.Sdk.Core.Tests.Disposal.NonRecording");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == source.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.PropagationData,
+        };
+        ActivitySource.AddActivityListener(listener);
+        using var activity = source.StartActivity("scope");
+        Assert.NotNull(activity);
+        Assert.False(activity.IsAllDataRequested);
+
+        Disposal.DisposeQuietly(new Resource(new InvalidOperationException("boom")));
+        await Disposal.DisposeQuietlyAsync(new Resource(new InvalidOperationException("boom")));
+
+        Assert.Empty(activity.Events);
     }
 
     [Fact]

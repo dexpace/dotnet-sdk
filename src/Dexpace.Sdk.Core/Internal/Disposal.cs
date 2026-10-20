@@ -14,7 +14,7 @@ namespace Dexpace.Sdk.Core.Internal;
 /// <remarks>
 /// <para>
 /// A non-fatal exception from the dispose is reported and swallowed: it is recorded as an <c>exception</c> event on
-/// <see cref="Activity.Current"/> tagged <c>dexpace.dispose.suppressed</c> and, when a logger is supplied, logged at
+/// <see cref="Activity.Current"/> tagged <c>dexpace.dispose.suppressed</c> (only when that activity is recording, OBS-21) and, when a logger is supplied, logged at
 /// <see cref="LogLevel.Warning"/> with the resource and exception type names (never a message or a value). When a
 /// primary exception is in flight the failure is attached to the primary's trail instead
 /// (<see cref="ExceptionTrail.AddSuppressed"/>) and reported nowhere else: exactly one of the two ways, never a third
@@ -102,8 +102,8 @@ internal static class Disposal
 
     private static void Report(Exception ex, string resourceType, ILogger? logger)
     {
-        var activity = Activity.Current;
-        if (activity is not null)
+        // OBS-21: an Activity that is not recording (a sampler that only propagates context) still records AddException, so the write is guarded.
+        if (Activity.Current is { IsAllDataRequested: true } activity)
         {
             var tags = new TagList { { "dexpace.dispose.suppressed", true } };
             activity.AddException(ex, tags);
