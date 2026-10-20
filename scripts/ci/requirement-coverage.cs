@@ -12,11 +12,12 @@
 // Appendix C (docs/product-spec/appendix-c-consolidated-normative-requirement-index.md) is the canonical list of every normative requirement
 // with its level. Every docs/work/**/*-checklist.md is read for its OWNING rows: a row whose first cell is a requirement ID, in a table whose header
 // starts `| ID | Level |`. Tables with any other header (`| ID (owner) | ... |`, `| ID | As built | ... |`) hold contributed or carried evidence and own nothing.
-// Four findings, each tied to a row:
+// Five findings, each tied to a row:
 //   unowned  an appendix-C ID with no owning row;
 //   unknown  an owning row naming an ID appendix C does not hold;
 //   level    an owning row whose level cell disagrees with appendix C (`MUST NOT` folds into MUST);
 //   mark     an owning row whose first three cells carry no legend mark (a tick, a no-entry sign, an hourglass, N/A or "vacuous");
+//   owner    a MUST whose resolved row is an hourglass and names no owner: a docs/first-release.md entry, or a docs/work plan path with a task number (phase 11);
 // and one for carried IDs: an ID with owning rows in several checklists is resolved by phase order (the checklist's phaseN[x] directory); the latest row's
 // mark is the ID's mark, and every earlier row must carry an hourglass (deferred to the later phase), or the pair is reported. A later row that says
 // "supersedes" replaces an earlier row of any mark instead (phase 11: a repair turns an earlier checkmark-with-a-no-entry-sign row into a plain checkmark, and a closed
@@ -114,6 +115,12 @@ foreach (var (id, rows) in owners)
         {
             findings.Add(new Finding("mark", id, level, $"{Relative(row.File)} carries no legend mark in its first three cells"));
         }
+    }
+
+    // An hourglass is a promise, so the row an ID resolves to must say who keeps it: a first-release.md entry or a plan task (phase 11, P11-24).
+    if (level == "MUST" && Mark(rows[^1].MarkText) == "⏳" && !NamesAnOwner(rows[^1].RowText))
+    {
+        findings.Add(new Finding("owner", id, level, $"{Relative(rows[^1].File)} defers it but names no owner (a docs/first-release.md entry, or a docs/work plan path with a task number)"));
     }
 
     var supersedes = rows[^1].RowText.Contains("supersedes", StringComparison.OrdinalIgnoreCase);
@@ -269,6 +276,11 @@ static string Fold(string level)
     var word = Regex.Match(level.Trim(), @"^(MUST NOT|MUST|SHOULD|MAY)", RegexOptions.CultureInvariant);
     return !word.Success ? level.Trim() : word.Value == "MUST NOT" ? "MUST" : word.Value;
 }
+
+// Who keeps a deferred MUST: the release register, or a plan path followed by its task ("docs/work/mvp/phase6/phase6a/…-retry.md task 6.2").
+static bool NamesAnOwner(string row) =>
+    row.Contains("first-release.md", StringComparison.Ordinal)
+    || Regex.IsMatch(row, @"docs/work/\S+\.md[^|]{0,120}?[Tt]ask\s+\d+\.\d+", RegexOptions.CultureInvariant);
 
 // The first legend mark in the text, in order of appearance, or null.
 static string? Mark(string text)

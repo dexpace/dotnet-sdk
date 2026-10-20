@@ -3,7 +3,7 @@
 The as-built audit of design §10 (the deviation ledger) and §11 (the reference-ambiguity resolutions), and the collection point for deviations found outside a phase. It is the second of this
 repository's two registers: [`first-release.md`](./first-release.md) holds what the release must know, this file holds whether the design's claims are true of the code. Roadmap phase 11 created it
 ([design](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-design.md), [plan](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation.md),
-checklist, `2026-10-19-phase11-deviation-reconciliation-checklist.md` beside them). A judgment, not a mechanical append: a row changes only with a verdict a human has read against the source.
+[checklist](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-checklist.md)). A judgment, not a mechanical append: a row changes only with a verdict a human has read against the source.
 
 **The numbering belongs to design §10.** Entries keep their numbers (a repaired entry is marked *retired*, never renumbered), and this file is renumbered with §10 in the same commit if §10 ever is.
 `LedgerAuditTests` (`tests/Dexpace.Sdk.Conformance.Tests/Gates/`) fails a missing or extra number.

@@ -9,6 +9,7 @@
 #   - an owning row naming an unknown ID: exit 1; a row whose level disagrees: exit 1; a split level ("MUST (+SHOULD log)") that agrees: exit 0;
 #   - an owning row with no legend mark: exit 1;
 #   - a carried ID whose earlier row has no hourglass: exit 1; with one: exit 0; with a later row that says "supersedes": exit 0 (phase 11);
+#   - a MUST whose resolved row is an hourglass with no owner: exit 1; naming first-release.md or a plan task: exit 0 (phase 11);
 #   - section 12 (phase 11, P11-21): --section12 prints one row per prefix with its four sets; --check-section12 exits 0 on a current table, 1 on a stale one and 1 on a missing one;
 #   - a row in a contributed-evidence table (header "ID (owner)") owns nothing;
 #   - a missing appendix, no checklist, or a bad flag: exit 2; --report over a broken fixture: exit 0.
@@ -86,6 +87,12 @@ expect "a carried ID whose earlier row defers" 0 "4 of 4 IDs owned" "$(fixture c
 expect "a carried ID whose later row supersedes the earlier row" 0 "4 of 4 IDs owned" "$(fixture supersedes '' '| `AAA-1` | MUST | ✅ supersedes the phase 2a row | repaired |
 | `BBB-1` | SHOULD | ✅ | built |
 | `BBB-2` | MUST | ✅ | built |')" --check
+expect "a MUST hourglass that names no owner" 1 "owner +AAA-1" "$(fixture owner-none '| `AAA-1` | MUST | ⏳ 3a | later |
+| `AAA-2` | MUST | ✅ | built |')" --check
+expect "a MUST hourglass that names a first-release.md entry" 0 "4 of 4 IDs owned" "$(fixture owner-register '| `AAA-1` | MUST | ⏳ declined, docs/first-release.md | later |
+| `AAA-2` | MUST | ✅ | built |')" --check
+expect "a MUST hourglass that names a plan task" 0 "4 of 4 IDs owned" "$(fixture owner-task '| `AAA-1` | MUST | ⏳ docs/work/mvp/phase3/phase3a/x-plan.md task 3.2 | later |
+| `AAA-2` | MUST | ✅ | built |')" --check
 expect "section 12 prints one row per prefix with its sets" 0 "\| AAA \| AAA-1, AAA-2 \| — \| — \| — \|" "$(fixture s12-print)" --section12
 expect "section 12 puts a deferred ID and its owner in the last column" 0 "BBB-2 \(owner phase 4c\)" "$(fixture s12-defer '' '| `BBB-1` | SHOULD | ✅ | built |
 | `BBB-2` | MUST | ⏳ 4c | later |')" --section12
