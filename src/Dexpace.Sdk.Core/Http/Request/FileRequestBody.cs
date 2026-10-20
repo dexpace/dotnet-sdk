@@ -28,11 +28,13 @@ namespace Dexpace.Sdk.Core.Http.Request;
 /// from an unbuffered <c>FileStream</c> (<c>bufferSize: 0</c>).
 /// </para>
 /// <para>
-/// <b>Domain limit (design P3b-5, §10).</b> "Regular file" is enforced where the platform can see it: a missing path
-/// throws <see cref="FileNotFoundException"/>, a directory throws <see cref="ArgumentException"/>, a symbolic link is
-/// resolved to its target before the size is taken. On Unix the shared framework cannot tell a FIFO or a character device
-/// from a regular file, and opening a FIFO blocks; such files report a size of 0, so their range is empty and <b>a count
-/// of 0 never opens the file</b>. A special file therefore uploads as an empty body instead of failing at construction.
+/// <b>Regular files only (BODY-11, HTTP-40; design P3b-5, P11-13).</b> A missing path throws
+/// <see cref="FileNotFoundException"/>, a directory throws <see cref="ArgumentException"/>, a symbolic link is resolved to
+/// its target before the size is taken. A device throws <see cref="ArgumentException"/> on Windows (by its attribute) and on
+/// Unix, where a FIFO, a character or block device and a socket also throw: the shared framework reports such a file as
+/// length 0, so a path of length 0 is classified by its file type through <c>System.Formats.Tar</c>, which opens nothing (a
+/// FIFO opened for read blocks). <b>Breaking:</b> a special file used to upload as an empty body. An empty regular file is
+/// accepted, and <b>a count of 0 never opens the file</b>.
 /// </para>
 /// <para>Equality is identity.</para>
 /// </remarks>

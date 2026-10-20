@@ -710,6 +710,10 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   end is not a token and throws `ArgumentException` (it used to be stored under the trimmed name); the outbound path (`Add`, `Set`, `With`, `HttpHeaderName.Of`) still trims
   (`HTTP-17`). `SystemNetHttpClient` already drops a header that fails the inbound path, and the runtime never hands it such a name. The conformance kit's `xcut-18.model-validation`
   requires an inbound refusal where it used to accept a refusal or a trim, with a negative control for a model that trims.
+- **Breaking (phase 11):** `RequestBody.FromFile` refuses a Unix special file at construction (`BODY-11`, `HTTP-40`; design §10 entry 31). A FIFO, a character or block
+  device or a socket reports a length of 0, so it used to upload as an empty body; a size-0 path is now classified by its file type through `System.Formats.Tar` (in the shared framework,
+  which opens nothing, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file and a symbolic link to a regular file are unchanged;
+  a link to a special file is refused as its target. Windows keeps its device-attribute check. The NativeAOT smoke refuses `/dev/null`.
 
 ### Phase 7a — serde
 
