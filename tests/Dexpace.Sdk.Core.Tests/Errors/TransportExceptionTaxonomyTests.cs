@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Reflection;
 using Dexpace.Sdk.Core.Errors;
 using Xunit;
 
@@ -54,6 +55,26 @@ public sealed class TransportExceptionTaxonomyTests
 
         Assert.Contains("(cycle)", transport.ToString(), StringComparison.Ordinal);
         Assert.Contains("(cycle)", sdk.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Core_exports_one_transport_failure_family()
+    {
+        // XCUT-4 (phase 11, task 2.2): two branches. A type that decides its own retryability (declares or overrides IsRetryable) is the base SdkException (never),
+        // the response branch HttpResponseException (by status) or the transport branch ServiceRequestException (always). The never-thrown ServiceResponseException
+        // was a third; it is gone, and the transport branch has exactly one leaf, the timeout.
+        var exceptions = typeof(SdkException).Assembly.GetExportedTypes().Where(static type => typeof(Exception).IsAssignableFrom(type)).ToList();
+
+        var deciders = exceptions
+            .Where(static type => typeof(IRetryableError).IsAssignableFrom(type)
+                && type.GetProperty(nameof(IRetryableError.IsRetryable), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly) is not null)
+            .Select(static type => type.Name)
+            .Order(StringComparer.Ordinal);
+        var transport = exceptions.Where(static type => typeof(ServiceRequestException).IsAssignableFrom(type)).Select(static type => type.Name).Order(StringComparer.Ordinal);
+
+        Assert.Equal(["HttpResponseException", "SdkException", "ServiceRequestException"], deciders);
+        Assert.Equal(["ServiceRequestException", "ServiceRequestTimeoutException"], transport);
+        Assert.DoesNotContain(exceptions, static type => type.Name == "ServiceResponseException");
     }
 
     [Fact]

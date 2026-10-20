@@ -773,5 +773,9 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `ServiceRequestException` or `IOException`. A transport failure has no `Suppressed` property; read its suppressed trail with
   `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads `IRetryableError` and the cause chain, so
   retry behaviour is unchanged. The conformance kit's transport assertions now require an `IOException` that reports itself retryable.
+- **Breaking (phase 11):** `ServiceResponseException` is removed. It was public, documented as part of `XCUT-4`'s taxonomy and never thrown by any
+  transport; a failure with no response is a `ServiceRequestException`. The reference transport's message now follows the native error kind: "The request
+  could not be sent to the server." for a name-resolution, connect, TLS or proxy-tunnel failure, and "The request failed and no response was received."
+  for the rest (a response that ended after the request arrived is no longer called unsent).
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

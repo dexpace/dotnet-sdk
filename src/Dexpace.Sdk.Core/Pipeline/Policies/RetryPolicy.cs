@@ -91,8 +91,8 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// phase 5a); RFC 850 and asctime are still ignored (a rejected date is "no hint", never a wrong wait; design §11 item 27).
 /// </para>
 /// <para>
-/// <b>Breaking (behaviour):</b> classification is no longer limited to <see cref="ServiceRequestException"/> and
-/// <see cref="ServiceResponseException"/>: a raw I/O-family exception, or any exception reporting
+/// <b>Breaking (behaviour):</b> classification is no longer limited to <see cref="ServiceRequestException"/>
+/// (the never-thrown <c>ServiceResponseException</c> was removed in phase 11): a raw I/O-family exception, or any exception reporting
 /// <see cref="IRetryableError.IsRetryable"/>, is retried, and the configured status set decides for a wrapped
 /// <see cref="HttpResponseException"/> (RETRY-2, RETRY-37).
 /// </para>

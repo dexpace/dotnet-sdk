@@ -425,7 +425,7 @@ public sealed class RetryPolicyEngineTests
     [Fact]
     public async Task A_wrapped_HttpResponseException_is_decided_by_the_configured_status_set()
     {
-        var wrapped = new ServiceResponseException("w", new HttpResponseException(TestResponses.Create(Status.FromCode(501))));
+        var wrapped = new ServiceRequestException("w", new HttpResponseException(TestResponses.Create(Status.FromCode(501))));
         var plain = new ScriptedTransport(wrapped, TestResponses.Create(Status.Ok));
         var options = new DexpaceClientOptions
         {

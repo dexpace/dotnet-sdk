@@ -107,7 +107,7 @@ public sealed class OperationEventTests
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var (operation, context) = TracingFixtures.TracedContext();
         OperationTelemetry.RetriesExhausted(context, 3);
-        var failure = new ServiceResponseException("unreadable");
+        var failure = new ServiceRequestException("unreadable");
 
         OperationTelemetry.Fail(operation, failure, context.State);
 
@@ -124,7 +124,7 @@ public sealed class OperationEventTests
         using var recorder = ActivityRecorder.Scoped("Dexpace.Sdk");
         var (operation, context) = TracingFixtures.TracedContext();
 
-        OperationTelemetry.Fail(operation, new ServiceResponseException("unreadable"), context.State);
+        OperationTelemetry.Fail(operation, new ServiceRequestException("unreadable"), context.State);
 
         Assert.Equal(["exception"], TracingFixtures.EventNames(operation));
     }
@@ -137,7 +137,7 @@ public sealed class OperationEventTests
 
         OperationTelemetry.RetriesExhausted(context, 3);
         OperationTelemetry.RetrySequenceStarted(context);
-        OperationTelemetry.Fail(operation, new ServiceResponseException("unreadable"), context.State);
+        OperationTelemetry.Fail(operation, new ServiceRequestException("unreadable"), context.State);
 
         Assert.Equal(["exception"], TracingFixtures.EventNames(operation));
     }

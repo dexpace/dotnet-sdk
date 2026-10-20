@@ -338,10 +338,6 @@ Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException() -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException(string! message) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException(string! message, System.Exception? innerException) -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException() -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException(string! message) -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.StreamClosedException
 Dexpace.Sdk.Core.Errors.StreamClosedException.StreamClosedException() -> void
 Dexpace.Sdk.Core.Errors.StreamClosedException.StreamClosedException(string! message) -> void
@@ -805,7 +801,6 @@ override Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(object? obj) -> 
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.GetHashCode() -> int
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
-override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>

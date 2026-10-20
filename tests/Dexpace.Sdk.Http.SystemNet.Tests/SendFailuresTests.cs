@@ -40,6 +40,42 @@ public sealed class SendFailuresTests
     }
 
     [Fact]
+    public void A_response_that_ended_after_the_request_arrived_is_not_called_unsent()
+    {
+        // XCUT-4 (phase 11, task 2.2): a connection that ended before a complete response is a failure with no response, but the request did arrive, so the
+        // message must not say it could not be sent.
+        var native = new HttpRequestException(HttpRequestError.ResponseEnded, "The response ended prematurely.");
+
+        var mapped = SendFailures.Map(native, deadlineFired: false, CancellationToken.None);
+
+        var failure = Assert.IsType<ServiceRequestException>(mapped);
+        Assert.DoesNotContain("could not be sent", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("no response was received", failure.Message, StringComparison.Ordinal);
+        Assert.Same(native, failure.InnerException);
+    }
+
+    [Theory]
+    [InlineData(HttpRequestError.NameResolutionError, true)]
+    [InlineData(HttpRequestError.ConnectionError, true)]
+    [InlineData(HttpRequestError.SecureConnectionError, true)]
+    [InlineData(HttpRequestError.ProxyTunnelError, true)]
+    [InlineData(HttpRequestError.ResponseEnded, false)]
+    [InlineData(HttpRequestError.InvalidResponse, false)]
+    [InlineData(HttpRequestError.Unknown, false)]
+    [InlineData(HttpRequestError.HttpProtocolError, false)]
+    public void The_message_follows_the_native_error_kind_and_carries_no_url(HttpRequestError error, bool unsent)
+    {
+        var native = new HttpRequestException(error, "https://user:secret@host.example/path?token=abc failed");
+
+        var failure = Assert.IsType<ServiceRequestException>(SendFailures.Map(native, deadlineFired: false, CancellationToken.None));
+
+        Assert.Equal(unsent, failure.Message.Contains("could not be sent", StringComparison.Ordinal));
+        Assert.Equal(!unsent, failure.Message.Contains("no response was received", StringComparison.Ordinal));
+        Assert.DoesNotContain("secret", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("host.example", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Row_1_a_cancellation_that_already_carries_the_callers_token_is_returned_as_it_is()
     {
         var caller = Signalled();

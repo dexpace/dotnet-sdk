@@ -336,12 +336,14 @@ public sealed class RawSocketHttpClientTests
     }
 
     [Fact]
-    public async Task An_invalid_status_line_is_a_service_response_failure()
+    public async Task An_invalid_status_line_is_a_transport_failure()
     {
         await using var server = LoopbackServer.Start(LoopbackResponse.Raw("NOT HTTP\r\n\r\n"));
         await using var client = NewClient();
 
-        await Assert.ThrowsAsync<ServiceResponseException>(() => client.ExecuteAsync(Request.Get(Url(server)), Ct));
+        var failure = await Assert.ThrowsAsync<ServiceRequestException>(() => client.ExecuteAsync(Request.Get(Url(server)), Ct));
+
+        Assert.Contains("unparseable", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

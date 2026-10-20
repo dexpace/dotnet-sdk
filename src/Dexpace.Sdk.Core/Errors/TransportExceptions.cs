@@ -77,36 +77,6 @@ public sealed class ServiceRequestTimeoutException : ServiceRequestException
 }
 
 /// <summary>
-/// The request was sent but the response could not be read (connection dropped mid-response,
-/// decode failure on a chunked stream).
-/// </summary>
-public class ServiceResponseException : SdkException
-{
-    /// <summary>Gets <see langword="true"/>: a failure to read a received response is always retryable (XCUT-4, RETRY-4).</summary>
-    public sealed override bool IsRetryable => true;
-
-    /// <summary>Initializes a new instance.</summary>
-    public ServiceResponseException()
-    {
-    }
-
-    /// <summary>Initializes a new instance with a message.</summary>
-    /// <param name="message">The error message.</param>
-    public ServiceResponseException(string message)
-        : base(message)
-    {
-    }
-
-    /// <summary>Initializes a new instance with a message and inner exception.</summary>
-    /// <param name="message">The error message.</param>
-    /// <param name="innerException">The cause.</param>
-    public ServiceResponseException(string message, Exception? innerException)
-        : base(message, innerException)
-    {
-    }
-}
-
-/// <summary>
 /// An intact 4xx or 5xx response was received. Carries the <see cref="Response"/> so callers can
 /// inspect status, headers, and body.
 /// </summary>

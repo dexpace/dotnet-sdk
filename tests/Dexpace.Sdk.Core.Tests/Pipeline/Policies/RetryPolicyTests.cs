@@ -256,9 +256,9 @@ public sealed class RetryPolicyTests
     }
 
     [Fact]
-    public async Task ProcessAsync_ServiceResponseException_IsRetried()
+    public async Task ProcessAsync_ServiceRequestException_ConnectionDropped_IsRetried()
     {
-        var ex = new ServiceResponseException("connection dropped");
+        var ex = new ServiceRequestException("connection dropped");
         var transport = new ScriptedTransport(
             new object[] { ex, TestResponses.Create(Status.Ok) });
         var pipeline = new PipelineBuilder().Add(new RetryPolicy(new InstantTimeProvider())).Build(transport);
