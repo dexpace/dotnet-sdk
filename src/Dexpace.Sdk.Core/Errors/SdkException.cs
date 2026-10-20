@@ -1,30 +1,25 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-using System.Text;
-
 namespace Dexpace.Sdk.Core.Errors;
 
 /// <summary>
 /// The base type for every exception the SDK raises.
 /// </summary>
 /// <remarks>
-/// The hierarchy distinguishes three transport failure shapes —
-/// <see cref="ServiceRequestException"/> (request never reached the server, safe to retry on
-/// idempotent methods), <see cref="ServiceResponseException"/> (request sent but the response
-/// could not be read), and <see cref="HttpResponseException"/> (a 4xx/5xx received intact) —
-/// alongside body/stream lifecycle, serialization, and pipeline failures.
+/// <para>
+/// The hierarchy has two branches (XCUT-4): a failure with a response, <see cref="HttpResponseException"/> (a 4xx/5xx received intact), which is an
+/// <see cref="SdkException"/>, and a transport failure with none, <see cref="ServiceRequestException"/>, which is an <see cref="IOException"/> and not an
+/// <see cref="SdkException"/> (TRANSPORT-20 requires the platform I/O type; design §10 entry 7, phase 11). Both report <see cref="IRetryableError"/>.
+/// Body/stream lifecycle, serialization and pipeline failures are <see cref="SdkException"/>s too.
+/// </para>
+/// <para>
+/// <b>Breaking (phase 11):</b> <c>catch (SdkException)</c> no longer catches a transport failure; catch <see cref="ServiceRequestException"/> or
+/// <see cref="IOException"/>.
+/// </para>
 /// </remarks>
 public class SdkException : Exception, IRetryableError
 {
-    private const int MaxTrailRenderDepth = 8;
-
-    [ThreadStatic]
-    private static HashSet<Exception>? s_rendering;
-
-    [ThreadStatic]
-    private static int s_renderDepth;
-
     private SuppressedTrail? _trail;
 
     /// <summary>Initializes a new instance.</summary>
@@ -82,39 +77,5 @@ public class SdkException : Exception, IRetryableError
     /// </para>
     /// </remarks>
     /// <returns>The text.</returns>
-    public override string ToString()
-    {
-        var text = base.ToString();
-        var trail = Volatile.Read(ref _trail)?.Snapshot();
-        if (trail is null || trail.Count == 0 || s_renderDepth >= MaxTrailRenderDepth)
-        {
-            return text;
-        }
-
-        var rendering = s_rendering ??= new HashSet<Exception>(ReferenceEqualityComparer.Instance);
-        if (!rendering.Add(this))
-        {
-            return text;
-        }
-
-        s_renderDepth++;
-        try
-        {
-            var builder = new StringBuilder(text);
-            for (var i = 0; i < trail.Count; i++)
-            {
-                var inner = trail[i];
-                builder.Append(Environment.NewLine).Append("---> (Suppressed Exception #").Append(i).Append(") ");
-                builder.Append(rendering.Contains(inner) ? "(cycle)" : inner.ToString());
-                builder.Append("<---");
-            }
-
-            return builder.ToString();
-        }
-        finally
-        {
-            s_renderDepth--;
-            rendering.Remove(this);
-        }
-    }
+    public override string ToString() => SuppressedTrailRenderer.Render(this, base.ToString());
 }

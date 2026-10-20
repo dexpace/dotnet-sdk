@@ -330,6 +330,7 @@ Dexpace.Sdk.Core.Errors.SerializationException.SerializationException() -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message) -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException
+Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException() -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException(string! message) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException(string! message, System.Exception? innerException) -> void
@@ -804,7 +805,6 @@ override Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(object? obj) -> 
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.GetHashCode() -> int
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
-override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
@@ -1165,6 +1165,7 @@ Dexpace.Sdk.Core.Pipeline.Policies.BearerTokenAuthPolicy.BearerTokenAuthPolicy(D
 Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy.ChallengeAuthPolicy(Dexpace.Sdk.Core.Auth.IChallengeHandler! handler) -> void
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
+override Dexpace.Sdk.Core.Errors.ServiceRequestException.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.IsFatal(System.Exception! exception) -> bool

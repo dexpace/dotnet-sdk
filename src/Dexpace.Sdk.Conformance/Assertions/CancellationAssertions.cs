@@ -77,7 +77,7 @@ internal static class CancellationAssertions
             "a cancellation whose CancellationToken is the caller's token",
             failure is OperationCanceledException { CancellationToken.CanBeCanceled: true } ? "a cancellation carrying some other token" : "a cancellation carrying no token");
         Check.True(cancelled.Token.IsCancellationRequested, "the caller's cancellation flag must still be set after the call ended (XCUT-1)");
-        Check.True(failure is not SdkException { IsRetryable: true }, "a cancellation must never be a retryable failure (XCUT-1)", "a non-retryable cancellation", Outcome.Name(failure));
+        Check.True(failure is not IRetryableError { IsRetryable: true }, "a cancellation must never be a retryable failure (XCUT-1)", "a non-retryable cancellation", Outcome.Name(failure));
     }
 
     // TRANSPORT-7: the cancel reaches the exchange, which the client releases: the server sees the connection go.
@@ -107,7 +107,7 @@ internal static class CancellationAssertions
         var call = pipeline.SendAsync(Request.Get(server.Url("/hang").AbsoluteUri), options, cancellationToken).AsTask();
         var failure = await Outcome.OfAsync(call, context.ReleaseTimeout, "the attempt to end after its 300 ms deadline", cancellationToken).ConfigureAwait(false);
 
-        Check.True(failure is SdkException, "an attempt that outlives its deadline must fail with an SDK exception, not hang or surface a bare cancellation", "an SdkException", Outcome.Name(failure));
+        Check.True(failure is SdkException or IOException, "an attempt that outlives its deadline must fail with an SDK exception or an I/O-family transport failure, not hang or surface a bare cancellation", "an SdkException or an IOException", Outcome.Name(failure));
         Check.True(
             Outcome.FindTimeout(failure) is not null,
             "the transport must honour the attempt-linked token as a timeout: the failure, its cause chain or its trail must hold a timeout, not an unrelated SDK failure (the phase 6a hand-off, XCUT-2)",

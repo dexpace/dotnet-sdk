@@ -25,7 +25,7 @@ internal static class FailureAssertions
         yield return Define("transport-22.adaptation-failure-releases", ["TRANSPORT-22"], RequirementLevel.Must, AsyncOnly, AdaptationFailureReleasesAsync);
     }
 
-    // TRANSPORT-20: a refused connection and a reset before any response byte are each a retryable SDK exception whose
+    // TRANSPORT-20: a refused connection and a reset before any response byte are each a retryable IOException whose
     // cause is an I/O-family error (design section 10 entry 7), never a cancellation.
     private static async Task NoResponseIsRetryableAsync(SuiteContext context, CancellationToken cancellationToken)
     {
@@ -41,8 +41,8 @@ internal static class FailureAssertions
         {
             var failure = await Outcome.OfAsync(transport.SendAsync(Request.Get(url.AbsoluteUri), cancellationToken), context.AssertionBound, $"the call over {name} to end", cancellationToken).ConfigureAwait(false);
 
-            Check.True(failure is SdkException, $"{name} must fail with an SdkException", "an SdkException", Outcome.Name(failure));
-            Check.True(failure is SdkException { IsRetryable: true }, $"{name} must be retryable: no response means nothing was processed (TRANSPORT-20, XCUT-4)", "IsRetryable == true", "false");
+            Check.True(failure is IOException, $"{name} must fail with an IOException, the platform I/O type (TRANSPORT-20, XCUT-4)", "an IOException", Outcome.Name(failure));
+            Check.True(failure is IRetryableError { IsRetryable: true }, $"{name} must be retryable: no response means nothing was processed (TRANSPORT-20, XCUT-4)", "IsRetryable == true", "false");
             Check.True(
                 Outcome.Find<IOException>(failure) is not null || Outcome.Find<HttpRequestException>(failure) is not null || Outcome.Find<SocketException>(failure) is not null || Outcome.Find<TimeoutException>(failure) is not null,
                 $"the cause of {name} must be an I/O-family error (design section 10 entry 7)",

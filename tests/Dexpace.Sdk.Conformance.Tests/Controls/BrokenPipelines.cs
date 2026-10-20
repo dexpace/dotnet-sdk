@@ -134,8 +134,26 @@ internal static class BrokenPipelines
         }
     }
 
-    /// <summary>A mapping that turns a refused connection into an error that is not retryable (XCUT-4).</summary>
+    /// <summary>A mapping that turns a refused connection into an I/O error that does not report itself retryable (XCUT-4).</summary>
     internal sealed class RefusalNotRetryable : HttpPipelinePolicy
+    {
+        public override PipelineStage Stage => PipelineStage.PerCall;
+
+        public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
+        {
+            try
+            {
+                return await continuation.RunAsync(request, context);
+            }
+            catch (ServiceRequestException refused)
+            {
+                throw new NonRetryableIoError("refused: " + refused.Message);
+            }
+        }
+    }
+
+    /// <summary>A mapping that turns a refused connection into a bare SDK exception, which is not the platform I/O type (XCUT-4, TRANSPORT-20).</summary>
+    internal sealed class RefusalNotAnIoError : HttpPipelinePolicy
     {
         public override PipelineStage Stage => PipelineStage.PerCall;
 
@@ -151,6 +169,9 @@ internal static class BrokenPipelines
             }
         }
     }
+
+    /// <summary>An I/O error that implements nothing: in particular it does not report itself retryable.</summary>
+    private sealed class NonRetryableIoError(string message) : IOException(message);
 
     /// <summary>A mapping that surfaces an error status as a bare SDK error carrying no response (XCUT-4).</summary>
     internal sealed class StatusAsBareError : HttpPipelinePolicy

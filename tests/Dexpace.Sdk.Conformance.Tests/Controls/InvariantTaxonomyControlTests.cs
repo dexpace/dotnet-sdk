@@ -17,6 +17,7 @@ public sealed class InvariantTaxonomyControlTests
     internal static IReadOnlyList<InvariantControlRow> Rows { get; } =
     [
         .. Both("xcut-4.two-branches", "turns a refused connection into a non-retryable error", "always retryable", () => BrokenPipelines.OverDefault("refusal not retryable", _ => new BrokenPipelines.RefusalNotRetryable())),
+        .. Both("xcut-4.two-branches", "turns a refused connection into a bare SDK exception", "IOException", () => BrokenPipelines.OverDefault("refusal not an IOException", _ => new BrokenPipelines.RefusalNotAnIoError())),
         .. Both("xcut-4.two-branches", "surfaces an error status as a bare error", "response-carrying error", () => BrokenPipelines.OverDefault("status as a bare error", _ => new BrokenPipelines.StatusAsBareError())),
         new("xcut-5.one-classifier", TransportFace.None, "bakes false for 507", () => new InvariantSubject { Name = "broken: 507", CreateResponseException = r => new BrokenPipelines.BakedException(r.Status.Code != 507 && Classified(r.Status.Code)) }, Because: "507"),
         new("xcut-5.one-classifier", TransportFace.None, "bakes true for 501", () => new InvariantSubject { Name = "broken: 501", CreateResponseException = r => new BrokenPipelines.BakedException(r.Status.Code == 501 || Classified(r.Status.Code)) }, Because: "501"),

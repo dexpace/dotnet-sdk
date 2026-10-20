@@ -10,7 +10,8 @@ namespace Dexpace.Sdk.Core.Errors;
 /// <remarks>
 /// An <see cref="SdkException"/> keeps its trail on <see cref="SdkException.Suppressed"/>. A foreign exception keeps
 /// it under the <see cref="Exception.Data"/> key <c>"Dexpace.Sdk.Core.Suppressed"</c>, readable only through
-/// <see cref="GetSuppressed"/>; its <c>ToString()</c> does not render the trail. If a foreign exception's
+/// <see cref="GetSuppressed"/>; its <c>ToString()</c> does not render the trail, except a <see cref="ServiceRequestException"/> (an
+/// <see cref="IOException"/>, so stored this way), which renders it as an <see cref="SdkException"/> does. If a foreign exception's
 /// <see cref="Exception.Data"/> is read-only, the secondary is dropped rather than thrown, because throwing here would
 /// replace the primary. Nothing is attached to or from a fatal exception, to the primary itself, or twice.
 /// </remarks>

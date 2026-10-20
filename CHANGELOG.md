@@ -768,5 +768,10 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 - **Breaking (phase 11):** `HttpResponseException(Response, string?)` throws an `ArgumentNullException` for a `null` response (was: a
   `NullReferenceException`) and an `ArgumentException` for a response whose status is not 400 to 599 (was: it built "The server returned an error
   response: OK(200)."), so no successful "error" can be constructed through the one public mapping route (`XCUT-8`, `NFR-7`; design §10 entry 28).
+- **Breaking (phase 11):** `ServiceRequestException` (and so `ServiceRequestTimeoutException`) derives from `IOException` and implements `IRetryableError`;
+  it is no longer an `SdkException` (`TRANSPORT-20`, `XCUT-4`; design §10 entry 7). `catch (SdkException)` no longer catches a transport failure: catch
+  `ServiceRequestException` or `IOException`. A transport failure has no `Suppressed` property; read its suppressed trail with
+  `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads `IRetryableError` and the cause chain, so
+  retry behaviour is unchanged. The conformance kit's transport assertions now require an `IOException` that reports itself retryable.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

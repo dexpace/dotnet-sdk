@@ -418,7 +418,9 @@ public sealed class RetryRecoveryTests
         object Failure() => transportFailure ? new ServiceRequestException("never sent") : Unavailable();
         var transport = new ScriptedTransport(Failure(), Failure(), Failure());
 
-        await Assert.ThrowsAnyAsync<SdkException>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async: true, request));
+        // The exhausted failure is the last transport failure (an IOException since phase 11, not an SdkException) or the last error response; both are retryable errors.
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async: true, request));
+        Assert.IsAssignableFrom<IRetryableError>(failure);
 
         Assert.Equal(expectedSends, transport.CallCount);
     }

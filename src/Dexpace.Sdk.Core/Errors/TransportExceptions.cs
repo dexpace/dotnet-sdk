@@ -8,13 +8,22 @@ using Dexpace.Sdk.Core.Serialization;
 namespace Dexpace.Sdk.Core.Errors;
 
 /// <summary>
-/// The request never reached the server (DNS failure, connection refused, TLS handshake failure).
+/// The request was not sent or no response was received (DNS failure, connection refused, TLS handshake failure, a connection that ended before any
+/// response byte).
 /// </summary>
-/// <remarks>Safe to retry on idempotent methods.</remarks>
-public class ServiceRequestException : SdkException
+/// <remarks>
+/// <para>
+/// Safe to retry on idempotent methods. It derives from <see cref="IOException"/>, the platform's I/O type (TRANSPORT-20, XCUT-4: a transport error is
+/// catchable as a generic I/O error), and chains the native exception as its <see cref="Exception.InnerException"/>. It is not an
+/// <see cref="SdkException"/>: a suppressed secondary is attached through <see cref="ExceptionTrail.AddSuppressed"/>, read through
+/// <see cref="ExceptionTrail.GetSuppressed"/> and rendered by <see cref="ToString"/> as an <see cref="SdkException"/>'s is.
+/// </para>
+/// <para><b>Breaking (phase 11):</b> was an <see cref="SdkException"/>; <c>catch (SdkException)</c> no longer catches it.</para>
+/// </remarks>
+public class ServiceRequestException : IOException, IRetryableError
 {
     /// <summary>Gets <see langword="true"/>: a failure before a response was received is always retryable (XCUT-4, RETRY-4).</summary>
-    public sealed override bool IsRetryable => true;
+    public bool IsRetryable => true;
 
     /// <summary>Initializes a new instance.</summary>
     public ServiceRequestException()
@@ -35,6 +44,10 @@ public class ServiceRequestException : SdkException
         : base(message, innerException)
     {
     }
+
+    /// <summary>Renders the exception, followed by one block per suppressed exception, as <see cref="SdkException.ToString"/> does.</summary>
+    /// <returns>The text.</returns>
+    public override string ToString() => SuppressedTrailRenderer.Render(this, base.ToString());
 }
 
 /// <summary>
