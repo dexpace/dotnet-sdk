@@ -37,7 +37,7 @@ public sealed class TransportSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Name));
             field = string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("A subject needs a name.", nameof(value)) : value;
         }
     }

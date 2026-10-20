@@ -67,7 +67,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(UserAgent));
             field = value;
         }
     } = s_defaultUserAgent;
@@ -126,7 +126,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Retry));
             field = value;
         }
     } = new();
@@ -140,7 +140,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Redirect));
             field = value;
         }
     } = new();
@@ -155,7 +155,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Logging));
             field = value;
         }
     } = HttpLoggingOptions.Default;

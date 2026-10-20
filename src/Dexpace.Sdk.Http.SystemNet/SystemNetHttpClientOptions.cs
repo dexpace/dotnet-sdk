@@ -39,7 +39,7 @@ public sealed record SystemNetHttpClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Logger));
             field = value;
         }
     } = NullLogger.Instance;
@@ -133,7 +133,7 @@ public sealed record SystemNetHttpClientOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(TimeProvider));
             field = value;
         }
     } = TimeProvider.System;

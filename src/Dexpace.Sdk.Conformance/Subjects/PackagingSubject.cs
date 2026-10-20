@@ -27,7 +27,7 @@ public sealed record PackagingSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(PackagePaths));
             field = [.. value];
         }
     } = [];
@@ -49,7 +49,7 @@ public sealed record PackagingSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Policies));
             field = new Dictionary<string, PackagePolicy>(value, StringComparer.Ordinal);
         }
     } = new Dictionary<string, PackagePolicy>(StringComparer.Ordinal);

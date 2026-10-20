@@ -57,7 +57,7 @@ public sealed record RequestOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Tags));
             field = ReferenceEquals(value.KeyComparer, StringComparer.Ordinal)
                 ? value
                 : value.WithComparers(StringComparer.Ordinal);

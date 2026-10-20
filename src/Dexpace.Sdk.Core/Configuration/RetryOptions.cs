@@ -166,7 +166,7 @@ public sealed record RetryOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(RetryableStatusCodes));
             foreach (var code in value)
             {
                 if (code is < 400 or > 599)

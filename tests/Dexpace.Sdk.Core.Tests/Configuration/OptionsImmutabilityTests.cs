@@ -71,8 +71,8 @@ public class OptionsImmutabilityTests
         var retry = Assert.Throws<ArgumentNullException>(() => new DexpaceClientOptions { Retry = null! });
         var redirect = Assert.Throws<ArgumentNullException>(() => new DexpaceClientOptions { Redirect = null! });
 
-        Assert.Equal("value", retry.ParamName);
-        Assert.Equal("value", redirect.ParamName);
+        Assert.Equal("Retry", retry.ParamName);
+        Assert.Equal("Redirect", redirect.ParamName);
     }
 
     [Theory]

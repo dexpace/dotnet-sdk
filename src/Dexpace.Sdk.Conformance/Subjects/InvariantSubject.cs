@@ -61,7 +61,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(CreatePipeline));
             field = value;
         }
     } = static (transport, options, time, logger) => new PipelineBuilder()
@@ -77,7 +77,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(CreateResponseException));
             field = value;
         }
     } = static response => new HttpResponseException(response);
@@ -88,7 +88,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(EnumerateCauses));
             field = value;
         }
     } = ExceptionFacts.EnumerateCauses;
@@ -102,7 +102,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(CreateTokenCache));
             field = value;
         }
     } = static (credential, time) =>
@@ -117,7 +117,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(RedactUrl));
             field = value;
         }
     } = static url => s_redactor.Redact(url);
@@ -128,7 +128,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(RedactHeaderValue));
             field = value;
         }
     } = static value => s_redactor.RedactHeaderValue(value);
@@ -139,7 +139,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Models));
             field = value;
         }
     } = new();
@@ -154,7 +154,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Auth));
             field = value;
         }
     } = new();
@@ -165,7 +165,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Credentials));
             field = [.. value];
         }
     } = DefaultCredentials();
@@ -180,7 +180,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(CreateDisposables));
             field = value;
         }
     } = DefaultDisposables;
@@ -191,7 +191,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(AsAsync));
             field = value;
         }
     } = static client => client.AsAsync(TaskScheduler.Default);
@@ -202,7 +202,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(AsBlocking));
             field = value;
         }
     } = static client => client.AsBlocking();

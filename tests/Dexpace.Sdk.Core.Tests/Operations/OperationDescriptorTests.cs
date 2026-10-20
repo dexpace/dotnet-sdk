@@ -46,8 +46,8 @@ public sealed class OperationDescriptorTests
     [Fact]
     public void A_null_Method_or_PathTemplate_throws_ArgumentNullException()
     {
-        Assert.Equal("value", Assert.Throws<ArgumentNullException>(() => new OperationDescriptor { Method = null!, PathTemplate = "/p" }).ParamName);
-        Assert.Equal("value", Assert.Throws<ArgumentNullException>(() => new OperationDescriptor { Method = Method.Get, PathTemplate = null! }).ParamName);
+        Assert.Equal("Method", Assert.Throws<ArgumentNullException>(() => new OperationDescriptor { Method = null!, PathTemplate = "/p" }).ParamName);
+        Assert.Equal("PathTemplate", Assert.Throws<ArgumentNullException>(() => new OperationDescriptor { Method = Method.Get, PathTemplate = null! }).ParamName);
     }
 
     [Fact]

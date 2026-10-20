@@ -48,7 +48,7 @@ public sealed record AuthRequirement
         get => _scopes.IsDefault ? [] : _scopes;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Scopes));
             var builder = ImmutableArray.CreateBuilder<string>();
             foreach (var scope in value)
             {
@@ -70,7 +70,7 @@ public sealed record AuthRequirement
         get => _parameters;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Parameters));
             _parameters = s_noParameters.AddRange(value);
         }
     }

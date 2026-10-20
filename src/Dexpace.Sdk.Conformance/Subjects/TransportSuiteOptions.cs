@@ -15,7 +15,7 @@ public sealed class TransportSuiteOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Waivers));
             field = [.. value];
         }
     } = [];

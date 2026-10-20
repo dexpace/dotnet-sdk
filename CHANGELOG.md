@@ -780,6 +780,11 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 - **Breaking (behaviour, phase 11):** the `ExecuteAsync` of an `AsAsync(IHttpClient, TaskScheduler)` bridge no longer throws a `TaskSchedulerException`
   from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
   task without touching the scheduler.
+- **Breaking (behaviour, phase 11):** an `ArgumentNullException` from a validating `init` accessor now carries the property's name as its `ParamName`
+  (`"Retry"`, `"Methods"`, `"Headers"`, ...) instead of the accessor's implicit `"value"`, which named nothing (`SEAM-29`, `HTTP-2` to `HTTP-4`; design §10
+  entry 10). It covers `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `ProxyOptions`, `RequestOptions`, `OperationDescriptor`, `AuthRequirement`,
+  `FetchedPage<T>`, `IdempotencyKeyStep`, `SystemNetHttpClientOptions` and the conformance kit's subjects and options, including a null element of
+  `RedirectOptions.AllowedMethods` and `ProxyOptions.NonProxyHosts`.
 
 #### Added
 
