@@ -182,6 +182,35 @@ public sealed class HeaderInjectionValidationTests
         Assert.DoesNotContain(name, error.Message, StringComparison.Ordinal);
     }
 
+    // Design section 10 entry 18, V9 (phase 11, P11-15): the one way to keep a URL's path and query byte for byte is a Uri built with
+    // DangerousDisablePathAndQueryCanonicalization, and a Uri built that way sends a CR or LF in its query raw into the request line (and
+    // the fragment with it). The model refuses such a Uri at construction instead of trusting the wire to catch it. A string URL cannot
+    // be the carrier (Request.Create parses it with the default canonicalization), so the Uri-taking entry points are the doors.
+    [Fact]
+    public void A_uri_created_without_canonicalization_is_rejected()
+    {
+        var verbatim = new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true };
+        var uris = new List<Uri> { new("https://h/p?a=%0D%0AX: 1", verbatim), new("https://h/p~%41", verbatim) };
+        if (Uri.TryCreate("https://h/p?a=\r\nX-Injected: yes", in verbatim, out var rawControls))
+        {
+            uris.Add(rawControls);
+        }
+
+        foreach (var uri in uris)
+        {
+            var viaConstructor = Assert.Throws<ArgumentException>(() => new Request(Method.Get, uri));
+            var viaWithUrl = Assert.Throws<ArgumentException>(() => Request.Get("https://h/").WithUrl(uri));
+
+            Assert.Equal("url", viaConstructor.ParamName);
+            Assert.Equal("url", viaWithUrl.ParamName);
+            Assert.DoesNotContain('\r', viaConstructor.Message);
+            Assert.DoesNotContain('\n', viaConstructor.Message);
+            Assert.DoesNotContain("X-Injected", viaConstructor.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("%0D", viaConstructor.Message, StringComparison.Ordinal);
+            Assert.Contains("canonicalization", viaConstructor.Message, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void Request_WithHeader_goes_through_the_same_validation() =>
         Assert.Throws<ArgumentException>(

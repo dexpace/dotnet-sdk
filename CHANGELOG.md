@@ -714,6 +714,10 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   device or a socket reports a length of 0, so it used to upload as an empty body; a size-0 path is now classified by its file type through `System.Formats.Tar` (in the shared framework,
   which opens nothing, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file and a symbolic link to a regular file are unchanged;
   a link to a special file is refused as its target. Windows keeps its device-attribute check. The NativeAOT smoke refuses `/dev/null`.
+- **Breaking (phase 11):** `Request` (the constructor and so `WithUrl`, `WithMethod`, `WithHeaders`, `WithBody`) rejects a `Uri` created with
+  `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` with an `ArgumentException` (`ParamName` `url`; the message names the cause and not the input). Such a `Uri` keeps
+  its path and query exactly as written and `HttpClient` writes a CR or LF in the query raw into the request line (design §10 entry 18). A `Uri` the default parser made, from a
+  string or `new Uri(string)`, is unaffected, and `Request.Create` takes a string.
 
 ### Phase 7a — serde
 
