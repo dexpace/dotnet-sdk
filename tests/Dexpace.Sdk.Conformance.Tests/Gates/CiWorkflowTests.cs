@@ -31,6 +31,7 @@ public sealed partial class CiWorkflowTests
         ("Coverage floor - self-test", "scripts/ci/coverage-gate-selftest.sh artifacts/test-results"),
         ("Pack", "dotnet pack Dexpace.Sdk.sln --configuration Release"),
         ("Dependency audit", "dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages"),
+        ("Dependency audit - self-test", "scripts/ci/dependency-audit-selftest.sh artifacts/packages"),
         ("Packaging conformance", "dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages"),
         ("Tools - restore (locked)", "dotnet restore tools/Dexpace.Tools.sln --locked-mode"),
         ("Tools - build", "dotnet build tools/Dexpace.Tools.sln --configuration Release"),

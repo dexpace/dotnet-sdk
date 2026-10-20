@@ -122,6 +122,11 @@ jobs:
       - name: Dependency audit
         run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages
 
+      # The audit's own regression check (phase 11, task 1.3): core's allowance is the fixed set {facade, DependencyInjection.Abstractions}, so a
+      # package injected under the facade, under its dependency, or with no edge at all must fail it, naming the package.
+      - name: Dependency audit - self-test
+        run: scripts/ci/dependency-audit-selftest.sh artifacts/packages
+
       # NFR-1/-2/-3/-8/-9/-10/-13/-14/-15 (phase 10, P10-10): the kit's PackagingSuite over the packed .nupkg files: the published metadata (nuspec
       # dependencies, license, versions) and each packed assembly's attributes (IsTrimmable, IsAotCompatible, InternalsVisibleTo, the version),
       # read without loading them. The audit above reads the build output's closure; this reads what was published (two checks, two subjects).

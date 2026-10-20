@@ -9,9 +9,11 @@
 //   (1) the compiled <Library>.deps.json: the runtime package closure the library actually carries, and
 //   (2) the .nuspec inside the packed .nupkg: the dependency groups a consumer's restore will see,
 // and holds both to the rule:
-//   - Dexpace.Sdk.Core may reference only the framework, Microsoft.Extensions.Logging.Abstractions (with the
-//     closure its own nuspec requires) and build-only PrivateAssets="all" packages, which never reach either
-//     file;
+//   - Dexpace.Sdk.Core may reference only the framework, Microsoft.Extensions.Logging.Abstractions and the one package
+//     its closure carries today, Microsoft.Extensions.DependencyInjection.Abstractions (a FIXED SET, phase 11 task 1.3:
+//     a dependency the facade grows later fails the audit instead of riding in on "whatever the facade pulls in"; the set
+//     moves only in a reviewed edit of this file, with scripts/ci/dependency-audit-selftest.sh holding it), and
+//     build-only PrivateAssets="all" packages, which never reach either file;
 //   - an adapter may reference the same, plus Dexpace.Sdk.Core, plus at most one third-party library, plus the
 //     first-party Dexpace projects its policy names;
 //     "at most one third-party library" counts a root package whose closure is one publisher's lock-stepped family
@@ -33,6 +35,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 
 const string Facade = "Microsoft.Extensions.Logging.Abstractions";
+const string FacadeDependency = "Microsoft.Extensions.DependencyInjection.Abstractions";
 const string Core = "Dexpace.Sdk.Core";
 const string TargetFramework = "net10.0";
 const int FrameworkMajor = 10;
@@ -116,7 +119,9 @@ void AuditDepsJson(string library, Policy policy, string path, List<string> foun
         entry => (Type: entry.Value.GetProperty("type").GetString(), Version: entry.Name.Split('/')[1]),
         StringComparer.Ordinal);
 
-    var allowedPackages = Closure(graph, Facade);
+    // The fixed set (design §10 entry 1; V18): the facade and the one package its closure carries (both band-matched below), never the facade's
+    // closure as it happens to be, so a new facade dependency is a violation until a reviewer adds it here.
+    var allowedPackages = new HashSet<string>(StringComparer.Ordinal) { Facade, FacadeDependency };
     if (policy.ThirdParty is not null)
     {
         allowedPackages.UnionWith(Closure(graph, policy.ThirdParty));
