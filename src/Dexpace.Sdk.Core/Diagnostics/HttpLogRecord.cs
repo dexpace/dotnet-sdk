@@ -13,7 +13,9 @@ namespace Dexpace.Sdk.Core.Diagnostics;
 /// <remarks>
 /// The last pair is <c>{OriginalFormat}</c>, the convention that lets template-grouping sinks group the event. The message
 /// the formatter returns is precomputed from non-sensitive fields only (method, redacted URL, status or error type); it
-/// never contains a header value or a body preview.
+/// never contains a header value or a body preview. A pair whose value is <see langword="null"/> is kept, not dropped, and
+/// its value becomes the literal string <c>null</c> (OBS-3, design §10 entry 22), so a sink sees the same text whatever it
+/// does with a null (the framework's own message formatting would render <c>(null)</c>).
 /// </remarks>
 internal sealed class HttpLogRecord : IReadOnlyList<KeyValuePair<string, object?>>
 {
@@ -27,7 +29,12 @@ internal sealed class HttpLogRecord : IReadOnlyList<KeyValuePair<string, object?
     internal HttpLogRecord(List<KeyValuePair<string, object?>> pairs, string template, string message)
     {
         _pairs = new KeyValuePair<string, object?>[pairs.Count + 1];
-        pairs.CopyTo(_pairs);
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            var pair = pairs[i];
+            _pairs[i] = pair.Value is null ? new KeyValuePair<string, object?>(pair.Key, LogText.NullLiteral) : pair;
+        }
+
         _pairs[^1] = new KeyValuePair<string, object?>(OriginalFormatKey, template);
         _message = message;
     }

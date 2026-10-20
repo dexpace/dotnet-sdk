@@ -769,5 +769,8 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
   do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
   never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
+- **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
+  keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
+  null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
