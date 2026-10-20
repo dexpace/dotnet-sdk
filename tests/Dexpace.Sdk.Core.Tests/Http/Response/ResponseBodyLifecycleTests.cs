@@ -228,14 +228,73 @@ public class ResponseBodyLifecycleTests
     }
 
     [Fact]
-    public async Task A_stream_body_that_was_read_and_then_disposed_reports_consumed_not_closed()
+    public async Task A_stream_body_that_was_read_and_then_disposed_reports_closed()
     {
+        // BODY-14 (P11-8): an open after the first returns the same stream while the body is live; once the body is disposed the stream
+        // is gone with it, so the open reports "closed" (the BCL's HttpContent does the same). It used to report "consumed" first.
         var body = ResponseBody.FromStream(new MemoryStream([1, 2, 3]));
         _ = await body.OpenReadAsync(Token);
         body.Dispose();
 
-        await Assert.ThrowsAsync<StreamConsumedException>(() => body.OpenReadAsync(Token));
-        Assert.Throws<StreamConsumedException>(() => body.OpenRead(Token));
+        await Assert.ThrowsAsync<StreamClosedException>(() => body.OpenReadAsync(Token));
+        Assert.Throws<StreamClosedException>(() => body.OpenRead(Token));
+    }
+
+    // The first row is a pin (a body disposed before it was opened was already "closed"); the other two fail until BODY-14 lands.
+    [Theory]
+    [InlineData("stream", false)]
+    [InlineData("stream", true)]
+    [InlineData("bytes", true)]
+    public async Task An_open_after_dispose_still_throws_StreamClosedException(string variant, bool openedFirst)
+    {
+        var body = variant == "stream"
+            ? ResponseBody.FromStream(new MemoryStream([1, 2, 3]))
+            : ResponseBody.FromBytes(new byte[] { 1, 2, 3 });
+        if (openedFirst)
+        {
+            _ = await body.OpenReadAsync(Token);
+        }
+
+        await body.DisposeAsync();
+
+        await Assert.ThrowsAsync<StreamClosedException>(() => body.OpenReadAsync(Token));
+        Assert.Throws<StreamClosedException>(() => body.OpenRead(Token));
+    }
+
+    [Theory]
+    [InlineData("stream", false)]
+    [InlineData("stream", true)]
+    [InlineData("bytes", false)]
+    [InlineData("bytes", true)]
+    public async Task A_second_open_returns_the_same_stream(string variant, bool syncFirst)
+    {
+        // BODY-14, HTTP-41: requesting the read handle repeatedly returns the same underlying handle, not a replay and not a failure,
+        // whichever form asks first (position B: the two forms share the one handle).
+        var body = variant == "stream"
+            ? ResponseBody.FromStream(new MemoryStream([1, 2, 3]))
+            : ResponseBody.FromBytes(new byte[] { 1, 2, 3 });
+
+        var first = syncFirst ? body.OpenRead(Token) : await body.OpenReadAsync(Token);
+        var second = syncFirst ? await body.OpenReadAsync(Token) : body.OpenRead(Token);
+        var third = body.OpenRead(Token);
+
+        Assert.Same(first, second);
+        Assert.Same(first, third);
+        body.Dispose();
+    }
+
+    [Fact]
+    public async Task A_typed_reader_after_a_manual_open_reads_the_remaining_bytes_of_the_same_handle()
+    {
+        // BODY-14: the convenience readers no longer refuse a body that was opened; they continue the one handle.
+        var body = ResponseBody.FromBytes(new byte[] { 1, 2, 3, 4, 5 });
+        var handle = await body.OpenReadAsync(Token);
+        Assert.Equal(1, handle.ReadByte());
+        Assert.Equal(2, handle.ReadByte());
+
+        var rest = await body.ReadAsBytesAsync(Token);
+
+        Assert.Equal(new byte[] { 3, 4, 5 }, rest);
     }
 
     [Fact]
@@ -253,25 +312,6 @@ public class ResponseBodyLifecycleTests
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, Token);
         return buffer.ToArray();
-    }
-
-    [Theory]
-    [InlineData("stream")]
-    [InlineData("bytes")]
-    public async Task A_second_open_throws_and_names_the_buffering_route(string variant)
-    {
-        var body = variant == "stream"
-            ? ResponseBody.FromStream(new MemoryStream([1]))
-            : ResponseBody.FromBytes(new byte[] { 1 });
-        _ = await body.OpenReadAsync(Token);
-
-        var async = await Assert.ThrowsAsync<StreamConsumedException>(() => body.OpenReadAsync(Token));
-        var sync = Assert.Throws<StreamConsumedException>(() => body.OpenRead(Token));
-
-        Assert.Equal(ResponseBody.ConsumedMessage, async.Message);
-        Assert.Equal(ResponseBody.ConsumedMessage, sync.Message);
-        Assert.Contains("buffer", async.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("FromBytes", async.Message, StringComparison.Ordinal);
     }
 
     [Fact]

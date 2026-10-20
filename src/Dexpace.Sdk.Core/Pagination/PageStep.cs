@@ -104,9 +104,9 @@ internal static class PageStep
                     $"The page strategy {walk.Strategy.GetType().Name} returned null; return a PageInfo whose NextRequest is " +
                     "null to end the stream (PAGE-4).");
 
-            // The items are copied so a strategy that hands back a live view of its envelope cannot change a page
+            // The page copies the items, so a strategy that hands back a live view of its envelope cannot change a page
             // after it was yielded (PAGE-2, PAGE-11).
-            var page = new Page<T>(Array.AsReadOnly(info.Items.ToArray()), response.Status, response.Headers, current);
+            var page = new Page<T>(info.Items, response.Status, response.Headers, current);
             return new FetchedStep<T>(page, info.NextRequest);
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))

@@ -14,15 +14,18 @@ using Xunit;
 namespace Dexpace.Sdk.Http.SystemNet.Tests;
 
 /// <summary>
-/// TRANSPORT-2 (phase 8b, ruling P8b-T2; design §10 entry 33): <c>SocketsHttpHandler</c> has no switch for its own connection-failure
-/// retry, and re-sends a request with no content whose connection ends before any response byte up to three more times (runtime
-/// 10.0, <c>HttpConnection.SendAsync</c>: <c>_canRetry</c> is set only when the first response read returns zero bytes and the
-/// request has no content, or an Expect: 100-continue). The transport therefore gives a body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c>
-/// or extension method a zero-length content, which the native client already writes as <c>Content-Length: 0</c>, so the retry
-/// cannot fire; <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> and <c>TRACE</c> are idempotent, and attaching content to them
-/// would break TRANSPORT-26 or RFC 9110 section 8.6, so they are still re-sent, which this class pins so a future runtime change is
-/// noticed. The server reads each request and then closes in order (an end of stream, never <c>Abort</c>, whose FIN and reset the
-/// platforms read differently).
+/// TRANSPORT-2 (phase 8b, ruling P8b-T2; phase 11, P11-12, design section 10 entry 33): <c>SocketsHttpHandler</c> has no switch for its
+/// own connection-failure retry, and re-sends a request with no content whose connection ends before any response byte up to three more
+/// times (runtime 10.0, <c>HttpConnection.SendAsync</c>: <c>_canRetry</c> is set only when the first response read returns zero bytes and the
+/// request has no content, or an Expect: 100-continue). Two measures close it on a handler the SDK builds
+/// (<see cref="SystemNetHttpClient.CreatePrimaryHandler"/>, which the owned construction and the DI named client both use). A body-less
+/// <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or extension method is given a zero-length content, which the native client already writes as
+/// <c>Content-Length: 0</c>, so the retry cannot fire. <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> and <c>TRACE</c> are idempotent,
+/// and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6, so the handler's plaintext stream filter turns an end of
+/// stream that arrives while a request awaits its first response byte into the <see cref="IOException"/> the runtime raises otherwise; the
+/// retry is never offered. A caller's own handler or <c>HttpClient</c> keeps its native client's retry: it is the caller's
+/// (design section 11 item 71), which this class pins so the scope is a decision and not an accident. The server reads each request and then
+/// closes in order (an end of stream, never <c>Abort</c>, whose FIN and reset the platforms read differently).
 /// </summary>
 [Trait("Category", "Integration")]
 public sealed class BodylessRetryWireTests
@@ -35,7 +38,25 @@ public sealed class BodylessRetryWireTests
         ? LoopbackResponse.Ok("warm", keepAlive: true)
         : LoopbackResponse.Raw(ReadOnlySpan<byte>.Empty, closeConnection: true));
 
-    public static TheoryData<string, string> Resent() =>
+    // The five methods that carry no content in the SDK's model and that the transport cannot give a zero-length content.
+    public static TheoryData<string, string, string> SdkBuilt()
+    {
+        var rows = new TheoryData<string, string, string>();
+        foreach (var construction in new[] { "owned", "primary-handler" })
+        {
+            foreach (var method in new[] { "GET", "HEAD", "OPTIONS", "DELETE", "TRACE" })
+            {
+                foreach (var face in new[] { "async", "sync" })
+                {
+                    rows.Add(method, face, construction);
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    public static TheoryData<string, string> CallerBuilt() =>
         new() { { "GET", "async" }, { "GET", "sync" }, { "HEAD", "async" }, { "OPTIONS", "async" }, { "DELETE", "async" }, { "DELETE", "sync" }, { "TRACE", "async" } };
 
     public static TheoryData<string, string> NotResent() =>
@@ -45,23 +66,44 @@ public sealed class BodylessRetryWireTests
             { "XYZ", "async" }, { "XYZ", "sync" },
         };
 
-    private static async Task<int> ArrivalsAsync(string method, string face, string path)
+    // "owned" is the SDK-managed construction; "primary-handler" is a handler-taking construction over the handler the SDK builds for it
+    // (what the DI package does); "caller-handler" is a handler the caller built, which the transport only borrows.
+    private static async Task<int> ArrivalsAsync(string method, string face, string path, string construction = "owned")
     {
         await using var server = StartClosingServer();
-        await using var transport = new SystemNetHttpClient();
-        var request = Request.Create(Method.Of(method), server.Url(path).AbsoluteUri);
-
-        // A warmed keep-alive connection first: the retry fires on a pooled connection and on a new one alike.
-        using (var warm = await transport.ExecuteAsync(Request.Get(server.Url(Warm).AbsoluteUri), RequestOptions.Empty, Ct))
+        SocketsHttpHandler? handler = construction switch
         {
-            _ = await warm.Body.ReadAsBytesAsync(Ct);
-        }
+            "owned" => null,
+            "primary-handler" => SystemNetHttpClient.CreatePrimaryHandler(new SystemNetHttpClientOptions()),
+            _ => new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false },
+        };
+        try
+        {
+            await using var transport = handler is null ? new SystemNetHttpClient() : new SystemNetHttpClient(handler, new SystemNetHttpClientOptions());
+            var request = Request.Create(Method.Of(method), server.Url(path).AbsoluteUri);
 
-        var failure = face == "async"
-            ? await Assert.ThrowsAsync<ServiceRequestException>(() => transport.ExecuteAsync(request, RequestOptions.Empty, Ct))
-            : await Assert.ThrowsAsync<ServiceRequestException>(() => Task.Run(() => transport.Execute(request, RequestOptions.Empty, Ct), Ct));
-        Assert.True(failure.IsRetryable);
-        return server.Requests.Count(recorded => recorded.Target == path);
+            // A warmed keep-alive connection first: the retry fires on a pooled connection and on a new one alike.
+            using (var warm = await transport.ExecuteAsync(Request.Get(server.Url(Warm).AbsoluteUri), RequestOptions.Empty, Ct))
+            {
+                _ = await warm.Body.ReadAsBytesAsync(Ct);
+            }
+
+            var failure = face == "async"
+                ? await Assert.ThrowsAsync<ServiceRequestException>(() => transport.ExecuteAsync(request, RequestOptions.Empty, Ct))
+                : await Assert.ThrowsAsync<ServiceRequestException>(() => Task.Run(() => transport.Execute(request, RequestOptions.Empty, Ct), Ct));
+            Assert.True(failure.IsRetryable);
+
+            // On a handler the SDK built the failure keeps the error the runtime gave it before the filter: the response ended, unanswered.
+            Assert.Equal(
+                construction != "caller-handler",
+                failure.InnerException is HttpRequestException { HttpRequestError: HttpRequestError.ResponseEnded, InnerException: HttpIOException { Message: var message } }
+                    && message.Contains("before any byte", StringComparison.Ordinal));
+            return server.Requests.Count(recorded => recorded.Target == path);
+        }
+        finally
+        {
+            handler?.Dispose();
+        }
     }
 
     [Theory]
@@ -74,15 +116,104 @@ public sealed class BodylessRetryWireTests
     }
 
     [Theory]
-    [MemberData(nameof(Resent))]
-    public async Task The_residual_an_idempotent_body_less_request_is_still_re_sent_by_the_native_client(string method, string face)
+    [MemberData(nameof(SdkBuilt))]
+    public async Task A_bodyless_request_reaches_the_server_once_on_an_sdk_built_handler(string method, string face, string construction)
     {
-        var arrivals = await ArrivalsAsync(method, face, "/residual");
+        var arrivals = await ArrivalsAsync(method, face, "/once", construction);
+
+        Assert.Equal(1, arrivals);
+    }
+
+    [Theory]
+    [MemberData(nameof(CallerBuilt))]
+    public async Task A_caller_handler_keeps_its_native_retry(string method, string face)
+    {
+        var arrivals = await ArrivalsAsync(method, face, "/residual", "caller-handler");
 
         Assert.True(
             arrivals > 1,
-            $"A body-less {method} used to reach the server {arrivals} times after its connection ended unanswered; the native client's own retry is no longer observed here. "
-            + "If the runtime changed, TRANSPORT-2 (design section 10 entry 33) may be met outright: delete the permanent waiver.");
+            $"A body-less {method} used to reach the server {arrivals} times after its connection ended unanswered on a handler the caller built; the native client's own retry is no longer observed here. "
+            + "If the runtime changed, TRANSPORT-2 may be met for a caller's handler too: delete the handler subject's waiver (design section 11 item 71).");
+    }
+
+    // The filter must change nothing a working exchange sees. These rows are the paths on which a verdict could go wrong: a response that
+    // ends with its connection, a reused keep-alive connection across methods and a request body, and a body read to its end.
+    [Theory]
+    [InlineData("async")]
+    [InlineData("sync")]
+    public async Task A_response_delimited_by_the_end_of_the_connection_is_read_to_its_end(string face)
+    {
+        await using var server = LoopbackServer.Start(LoopbackResponse.Raw("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nhello, connection", closeConnection: true));
+        await using var transport = new SystemNetHttpClient();
+        var request = Request.Get(server.Url("/delimited").AbsoluteUri);
+
+        using var response = face == "async"
+            ? await transport.ExecuteAsync(request, RequestOptions.Empty, Ct)
+            : await Task.Run(() => transport.Execute(request, RequestOptions.Empty, Ct), Ct);
+
+        Assert.Equal("hello, connection", face == "async" ? await response.Body.ReadAsStringAsync(Ct) : response.Body.ReadAsString(Ct));
+    }
+
+    [Theory]
+    [InlineData("async")]
+    [InlineData("sync")]
+    public async Task One_keep_alive_connection_serves_every_method_and_a_request_body_in_turn(string face)
+    {
+        // A HEAD answer carries the length of the body it does not send: a body written after it would be left on the connection.
+        await using var server = LoopbackServer.Start(request => request.Method == "HEAD"
+            ? LoopbackResponse.Raw("HTTP/1.1 200 OK\r\nContent-Length: 7\r\n\r\n", closeConnection: false)
+            : LoopbackResponse.Ok("ok:" + request.Method, keepAlive: true));
+        await using var transport = new SystemNetHttpClient();
+        var url = server.Url("/reuse").AbsoluteUri;
+        var upload = RequestBody.FromString(new string('x', 200_000));
+        var requests = new[]
+        {
+            Request.Get(url), Request.Create(Method.Head, url), Request.Create(Method.Delete, url), Request.Post(url, upload),
+            Request.Create(Method.Post, url), Request.Get(url), Request.Create(Method.Options, url),
+        };
+
+        foreach (var request in requests)
+        {
+            using var response = face == "async"
+                ? await transport.ExecuteAsync(request, RequestOptions.Empty, Ct)
+                : await Task.Run(() => transport.Execute(request, RequestOptions.Empty, Ct), Ct);
+            var text = face == "async" ? await response.Body.ReadAsStringAsync(Ct) : response.Body.ReadAsString(Ct);
+
+            Assert.Equal(200, response.Status.Code);
+            Assert.Equal(request.Method == Method.Head ? string.Empty : "ok:" + request.Method.Name, text);
+        }
+
+        Assert.Equal(requests.Length, server.Requests.Count);
+        Assert.Equal(1, server.ConnectionCount);
+    }
+
+    [Fact]
+    public async Task Concurrent_exchanges_over_pooled_connections_never_see_a_false_end_of_stream()
+    {
+        // Many callers share the pool, so connections are reused and opened in every interleaving; none may be told its response ended early.
+        await using var server = LoopbackServer.Start(request => LoopbackResponse.Ok("ok:" + request.Method, keepAlive: true));
+        await using var transport = new SystemNetHttpClient();
+        var url = server.Url("/pool").AbsoluteUri;
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 24).Select(worker => Task.Run(
+            async () =>
+            {
+                for (var i = 0; i < 12; i++)
+                {
+                    var request = (worker + i) % 3 == 0 ? Request.Post(url, RequestBody.FromString("payload " + i)) : Request.Get(url);
+                    using var response = await transport.ExecuteAsync(request, RequestOptions.Empty, Ct);
+                    if (await response.Body.ReadAsStringAsync(Ct) != "ok:" + request.Method.Name)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+            Ct)));
+
+        Assert.All(results, Assert.True);
+        Assert.Equal(24 * 12, server.Requests.Count);
     }
 
     [Fact]

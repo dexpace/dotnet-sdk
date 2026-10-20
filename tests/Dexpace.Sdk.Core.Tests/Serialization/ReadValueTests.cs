@@ -322,23 +322,24 @@ public sealed class ReadValueTests
     // ---- single use, cancellation, arguments -----------------------------------------------------------------------
 
     [Fact]
-    public async Task A_second_read_surfaces_the_as_built_exception()
+    public async Task A_second_read_reports_the_disposed_body()
     {
-        // R4: the body is disposed after the first read; a second read still sees the single-use latch first.
+        // R4, BODY-14 (phase 11): the first read opened the body's one stream and disposed the body, so the second read finds the
+        // body closed (it used to meet the single-open latch first and throw StreamConsumedException).
         var body = ResponseBody.FromBytes("ok:abc"u8.ToArray());
         await body.ReadValueAsync<string>(new Utf8LiteralSerde(), Token);
 
-        await Assert.ThrowsAsync<StreamConsumedException>(
+        await Assert.ThrowsAsync<StreamClosedException>(
             async () => await body.ReadValueAsync<string>(new Utf8LiteralSerde(), Token));
     }
 
     [Fact]
-    public void A_second_read_surfaces_the_as_built_exception_sync()
+    public void A_second_read_reports_the_disposed_body_sync()
     {
         var body = ResponseBody.FromBytes("ok:abc"u8.ToArray());
         body.ReadValue<string>(new Utf8LiteralSerde(), Token);
 
-        Assert.Throws<StreamConsumedException>(() => body.ReadValue<string>(new Utf8LiteralSerde(), Token));
+        Assert.Throws<StreamClosedException>(() => body.ReadValue<string>(new Utf8LiteralSerde(), Token));
     }
 
     [Fact]

@@ -121,26 +121,43 @@ internal static class SystemNetSubject
 #pragma warning restore CA2000
 
     /// <summary>
-    /// The bounds of the driver and its two permanent waivers (phase 8b, P8b-14, P8b-T2). Phase 8b deleted every waiver that carried
-    /// <c>Owner = "8b"</c> in the change that closed its row; what remains is a decision, narrowed to the one assertion it covers:
-    /// <c>TRANSPORT-14</c>'s malformed-name clause (design section 10 entry 32) and <c>TRANSPORT-2</c>'s body-less clause for the
-    /// methods that carry no content (design section 10 entry 33). A waiver whose assertion starts to pass fails the run.
+    /// The bounds of the driver and its permanent waivers, per subject (phase 8b, P8b-14, P8b-T2; phase 11, P11-12). Phase 8b deleted every
+    /// waiver that carried <c>Owner = "8b"</c> in the change that closed its row; what remains is a decision, narrowed to the one assertion it
+    /// covers. <c>TRANSPORT-14</c>'s malformed-name clause (design section 10 entry 32) is waived for both subjects. <c>TRANSPORT-2</c>'s
+    /// body-less clause is met by the owned construction since phase 11, because the handler the SDK builds carries the stop filter, so
+    /// only the handler-taking subject keeps its waiver: it is given a <c>SocketsHttpHandler</c> the caller built, whose native retry is the
+    /// caller's (design section 11 item 71). A waiver whose assertion starts to pass fails the run.
     /// </summary>
-    internal static TransportSuiteOptions Options { get; } = new()
+    /// <param name="kind">One of <see cref="Kinds"/>.</param>
+    internal static TransportSuiteOptions OptionsFor(string kind) => kind switch
+    {
+        "owned" => s_ownedOptions,
+        "handler" => s_handlerOptions,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown subject kind."),
+    };
+
+    private static readonly ConformanceWaiver s_malformedName = new("TRANSPORT-14", "SocketsHttpHandler rejects the whole response on a malformed header name (a space, a control byte or a non-ASCII byte) before the adapter sees any header, and has no leniency switch; the only repair is a hand-written HTTP/1.1 head rewriter in the byte path of every response, a second parser ahead of the runtime's, which the transport declines. Unmet on that stated domain: design section 10 entry 32 (the value and obs-text clauses are met and unwaived)")
+    {
+        Assertion = "transport-14.name-malformed-dropped",
+    };
+
+    private static readonly ConformanceWaiver s_callersHandlerRetry = new("TRANSPORT-2", "A handler the caller built is the caller's native client: SocketsHttpHandler has no public switch for its own connection-failure retry, and re-sends a request with no content whose connection ends before any response byte up to three more times. The handler the SDK builds (SystemNetHttpClient.CreatePrimaryHandler, which the owned construction and the DI named client use) carries a pass-through stream filter that stops it, so the owned subject is unwaived; this subject borrows a SocketsHttpHandler it does not build and never changes, so the retry stays the caller's. Outside TRANSPORT-2's 'SDK-managed transport': design section 11 item 71")
+    {
+        Assertion = "transport-2.bodyless-not-resent",
+    };
+
+    private static readonly TransportSuiteOptions s_ownedOptions = new()
     {
         AssertionTimeout = TimeSpan.FromSeconds(20),
         ReleaseTimeout = TimeSpan.FromSeconds(5),
-        Waivers =
-        [
-            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a request with no content whose connection ends before any response byte is re-sent up to three more times. The transport closes the clause where it can: a body-less POST, PUT, PATCH or extension method is given a zero-length content (Content-Length: 0, byte for byte what the native client writes anyway), so the retry cannot fire. A body-less GET, HEAD, OPTIONS, DELETE and TRACE is still re-sent: all are idempotent (RFC 9110 section 9.2.2), which permits the retry, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6. Unmet on that stated domain: design section 10 entry 33")
-            {
-                Assertion = "transport-2.bodyless-not-resent",
-            },
-            new("TRANSPORT-14", "SocketsHttpHandler rejects the whole response on a malformed header name (a space, a control byte or a non-ASCII byte) before the adapter sees any header, and has no leniency switch; no handler-level workaround exists short of replacing its HTTP/1.1 parser. Unmet on that stated domain: design section 10 entry 32 (the value and obs-text clauses are met and unwaived)")
-            {
-                Assertion = "transport-14.name-malformed-dropped",
-            },
-        ],
+        Waivers = [s_malformedName],
+    };
+
+    private static readonly TransportSuiteOptions s_handlerOptions = new()
+    {
+        AssertionTimeout = TimeSpan.FromSeconds(20),
+        ReleaseTimeout = TimeSpan.FromSeconds(5),
+        Waivers = [s_callersHandlerRetry, s_malformedName],
     };
 
     /// <summary>A transport that disposes the native client it was built over together with itself, so a hook's client does not outlive its run.</summary>

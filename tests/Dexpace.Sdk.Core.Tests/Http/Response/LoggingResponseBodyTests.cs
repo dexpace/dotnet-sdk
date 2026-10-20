@@ -456,11 +456,19 @@ public sealed class LoggingResponseBodyTests : IDisposable
     [Fact]
     public async Task Over_cap_a_second_read_throws_StreamConsumedException()
     {
+        // BODY-24 (MUST): past the cap the tail is single-use and "a second read in this regime MUST fail". It stays a failure
+        // although the plain bodies now return their one stream on a second open (BODY-14, phase 11): the specific rule governs
+        // the wrapper. The message names the buffering route.
         var (wrapper, _, _) = Wrap(Bytes(500), 64);
         await using var first = await wrapper.OpenReadAsync(Token);
 
-        await Assert.ThrowsAsync<StreamConsumedException>(() => wrapper.OpenReadAsync(Token));
-        Assert.Throws<StreamConsumedException>(() => wrapper.OpenRead(Token));
+        var async = await Assert.ThrowsAsync<StreamConsumedException>(() => wrapper.OpenReadAsync(Token));
+        var sync = Assert.Throws<StreamConsumedException>(() => wrapper.OpenRead(Token));
+
+        Assert.Equal(ResponseBody.ConsumedMessage, async.Message);
+        Assert.Equal(ResponseBody.ConsumedMessage, sync.Message);
+        Assert.Contains("buffer", async.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FromBytes", async.Message, StringComparison.Ordinal);
     }
 
     [Fact]

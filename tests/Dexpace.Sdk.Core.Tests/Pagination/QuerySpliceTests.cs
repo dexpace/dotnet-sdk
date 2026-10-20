@@ -178,10 +178,22 @@ public sealed class QuerySpliceTests
         Assert.Equal("https://h/p??a=1", removed.AbsoluteUri);
     }
 
+    // PAGE-21 (phase 11, design section 10 entry 18): an untargeted segment is copied byte for byte, and an empty segment (a stray `&`) is an
+    // untargeted parameter. The splice used to drop them, which rewrote a query it had no reason to touch.
     [Fact]
-    public void Stray_empty_segments_are_skipped_matching_http_31_query_parsing()
+    public void Stray_empty_segments_are_copied_verbatim()
     {
-        Assert.Equal("a=1&b=2&page=2", Query(QuerySplice.Set(At("https://h/p?a=1&&b=2&page=1"), "page", "2")));
+        Assert.Equal("a=1&&b=2&&cursor=abc", Query(QuerySplice.Set(At("https://h/p?a=1&&b=2&"), "cursor", "abc")));
+        Assert.Equal("a=1&&b=2&page=2", Query(QuerySplice.Set(At("https://h/p?a=1&&b=2&page=1"), "page", "2")));
+        Assert.Equal("&a=1", Query(QuerySplice.Set(At("https://h/p?&a=1&page=1"), "page", null)));
+    }
+
+    [Fact]
+    public void An_empty_query_has_no_segments_so_a_set_appends_without_a_stray_separator()
+    {
+        Assert.Equal("cursor=abc", Query(QuerySplice.Set(At("https://h/p"), "cursor", "abc")));
+        Assert.Equal("cursor=abc", Query(QuerySplice.Set(At("https://h/p?"), "cursor", "abc")));
+        Assert.Null(QuerySplice.Get(At("https://h/p?&&"), "cursor"));
     }
 
     [Fact]

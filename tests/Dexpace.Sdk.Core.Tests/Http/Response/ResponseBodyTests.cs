@@ -12,8 +12,8 @@ using Xunit;
 namespace Dexpace.Sdk.Core.Tests.Http.Responses;
 
 /// <summary>
-/// The response body contract: the sync twins, the single-open rule across both forms, the materialisation cap and the
-/// shared decode (IO-2, IO-3, IO-9, IO-11, IO-13, IO-40; position B, P3a-3, P3a-12).
+/// The response body contract: the sync twins, the one-handle rule across both forms (BODY-14), the materialisation cap and
+/// the shared decode (IO-2, IO-3, IO-9, IO-11, IO-13, IO-40; position B, P3a-3, P3a-12).
 /// </summary>
 [Trait("Category", "Unit")]
 public class ResponseBodyTests
@@ -67,25 +67,26 @@ public class ResponseBodyTests
     [Theory]
     [InlineData("bytes")]
     [InlineData("stream")]
-    public async Task OpenRead_after_OpenReadAsync_throws_StreamConsumedException(string variant)
+    public async Task OpenRead_after_OpenReadAsync_returns_the_same_stream(string variant)
     {
+        // BODY-14 (phase 11): the two forms share one handle; a second open used to throw StreamConsumedException.
         var body = Variant(variant);
-        await using var stream = await body.OpenReadAsync(Token);
+        var stream = await body.OpenReadAsync(Token);
 
-        Assert.Throws<StreamConsumedException>(() => body.OpenRead(Token));
-        await Assert.ThrowsAsync<StreamConsumedException>(() => body.OpenReadAsync(Token));
+        Assert.Same(stream, body.OpenRead(Token));
+        Assert.Same(stream, await body.OpenReadAsync(Token));
     }
 
     [Theory]
     [InlineData("bytes")]
     [InlineData("stream")]
-    public async Task OpenReadAsync_after_OpenRead_throws_StreamConsumedException(string variant)
+    public async Task OpenReadAsync_after_OpenRead_returns_the_same_stream(string variant)
     {
         var body = Variant(variant);
-        using var stream = body.OpenRead(Token);
+        var stream = body.OpenRead(Token);
 
-        await Assert.ThrowsAsync<StreamConsumedException>(() => body.OpenReadAsync(Token));
-        Assert.Throws<StreamConsumedException>(() => body.OpenRead(Token));
+        Assert.Same(stream, await body.OpenReadAsync(Token));
+        Assert.Same(stream, body.OpenRead(Token));
     }
 
     private static ResponseBody Variant(string name) => name == "bytes"

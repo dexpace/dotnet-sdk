@@ -37,7 +37,7 @@ public static class ResponseBodySerdeExtensions
     /// <param name="cancellationToken">A token to cancel the read.</param>
     /// <returns>The deserialized value; never <see langword="null"/> for a reference type.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or <paramref name="serde"/> is <see langword="null"/>; the body is then not disposed.</exception>
-    /// <exception cref="Errors.StreamConsumedException">The body has already been read.</exception>
+    /// <exception cref="Errors.StreamClosedException">The body was disposed, which includes a body an earlier typed read already consumed.</exception>
     /// <exception cref="Errors.DeserializationException">
     /// The body has no payload, or is the JSON literal <c>null</c> for a non-nullable reference type, or the codec failed.
     /// </exception>
@@ -58,7 +58,7 @@ public static class ResponseBodySerdeExtensions
     /// <param name="cancellationToken">A token to cancel the read.</param>
     /// <returns>The deserialized value, or <see langword="null"/> when the body is the JSON literal <c>null</c>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or <paramref name="serde"/> is <see langword="null"/>; the body is then not disposed.</exception>
-    /// <exception cref="Errors.StreamConsumedException">The body has already been read.</exception>
+    /// <exception cref="Errors.StreamClosedException">The body was disposed, which includes a body an earlier typed read already consumed.</exception>
     /// <exception cref="Errors.DeserializationException">The body has no payload, or the codec failed.</exception>
     /// <exception cref="IOException">The body stream failed; it propagates unwrapped (SERDE-12).</exception>
     public static ValueTask<T?> ReadValueOrDefaultAsync<T>(
@@ -77,7 +77,7 @@ public static class ResponseBodySerdeExtensions
     /// the synchronous open (phase 7b).
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or <paramref name="serde"/> is <see langword="null"/>; the body is then not disposed.</exception>
-    /// <exception cref="Errors.StreamConsumedException">The body has already been read.</exception>
+    /// <exception cref="Errors.StreamClosedException">The body was disposed, which includes a body an earlier typed read already consumed.</exception>
     /// <exception cref="Errors.DeserializationException">
     /// The body has no payload, or is the JSON literal <c>null</c> for a non-nullable reference type, or the codec failed.
     /// </exception>
@@ -98,7 +98,7 @@ public static class ResponseBodySerdeExtensions
     /// <param name="cancellationToken">A token passed to <see cref="ResponseBody.OpenRead"/>; the synchronous stream decode takes none.</param>
     /// <returns>The deserialized value, or <see langword="null"/> when the body is the JSON literal <c>null</c>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> or <paramref name="serde"/> is <see langword="null"/>; the body is then not disposed.</exception>
-    /// <exception cref="Errors.StreamConsumedException">The body has already been read.</exception>
+    /// <exception cref="Errors.StreamClosedException">The body was disposed, which includes a body an earlier typed read already consumed.</exception>
     /// <exception cref="Errors.DeserializationException">The body has no payload, or the codec failed.</exception>
     /// <exception cref="IOException">The body stream failed; it propagates unwrapped (SERDE-12).</exception>
     public static T? ReadValueOrDefault<T>(this ResponseBody body, ISerde serde, CancellationToken cancellationToken = default) =>

@@ -106,7 +106,7 @@ public sealed class ReadValueEndToEndTests
         var body = Body("""{"name":"gear","size":9}""");
         await body.ReadValueAsync<Widget>(Serde(), Token);
 
-        await Assert.ThrowsAsync<StreamConsumedException>(async () => await body.ReadValueAsync<Widget>(Serde(), Token));
+        await Assert.ThrowsAsync<StreamClosedException>(async () => await body.ReadValueAsync<Widget>(Serde(), Token));
     }
 
     // ---- the handlers and the lazy typed response, over the real adapter (SERDE-13, SERDE-27, SERDE-28, HTTP-44) ----

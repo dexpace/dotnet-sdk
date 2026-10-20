@@ -209,6 +209,30 @@ public class RequestTests
         Assert.Throws<ArgumentNullException>(() => request.WithUrl(null!));
     }
 
+    // The canonical-form check (phase 11, V9) must never refuse a Uri the default parser made: these are the shapes it escapes, normalises or
+    // keeps, each of which has to stay constructible. The refusal is for the Uri built without canonicalization (a Security test).
+    [Theory]
+    [InlineData("https://h/")]
+    [InlineData("https://h")]
+    [InlineData("https://h/a b?c d")]
+    [InlineData("https://h/%zz")]
+    [InlineData("https://h/%")]
+    [InlineData("https://h/{x}|y^z?q={1}")]
+    [InlineData("https://h/p~%41?a=%0D%0AX:%201&b=%7E")]
+    [InlineData("https://h/p?x=%0d%0a")]
+    [InlineData("http://h:80/a?b#frag")]
+    [InlineData("https://user:secret@h/p")]
+    [InlineData("https://[::1]:8443/x?y")]
+    [InlineData("https://h/\u00E9?\u00E9")]
+    public void A_url_the_default_parser_made_is_accepted(string input)
+    {
+        var request = Request.Get(input);
+
+        Assert.True(Uri.TryCreate(input, UriKind.Absolute, out var uri));
+        Assert.Equal(uri, request.Url);
+        Assert.Same(request.Url, request.WithMethod(Method.Delete).Url);
+    }
+
     [Fact]
     public void Every_With_routes_through_the_constructor()
     {

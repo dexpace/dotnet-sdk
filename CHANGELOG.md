@@ -695,6 +695,41 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `CheckPhase8bAsync`.
 - `docs/sdk-documentation/transport.md`.
 
+### Phase 11 — bodies, headers, URLs, pages and the transport's native retry
+
+#### Changed
+
+- **Breaking (phase 11):** a response body returns the same stream on a second open (`BODY-14`, `HTTP-41`). `ResponseBody.OpenRead` and
+  `OpenReadAsync`, in either order, hand back the one stream the first open obtained (the stream-backed, in-memory and `SystemNetHttpClient`
+  bodies); the second open used to throw `StreamConsumedException`. The convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual
+  open now read the remaining bytes of that same stream. A body disposed after it was opened now reports `StreamClosedException` on a later open (it
+  reported `StreamConsumedException` first), so a second typed read after a first one throws `StreamClosedException`, and `HttpResponseException.GetError`
+  twice over a plain, non-buffered body still throws `ResponseNotReadException`, now over an `ObjectDisposedException`. The response-logging wrapper past its
+  capture cap keeps `BODY-24`'s rule: its tail is single-use and a second open throws `StreamConsumedException`. The buffered error body is unchanged.
+- **Breaking (phase 11):** `Headers.Builder.AddInbound` no longer trims a received header name (`HTTP-19`, `XCUT-18`; design §11 item 70). A name with SP or HTAB at either
+  end is not a token and throws `ArgumentException` (it used to be stored under the trimmed name); the outbound path (`Add`, `Set`, `With`, `HttpHeaderName.Of`) still trims
+  (`HTTP-17`). `SystemNetHttpClient` already drops a header that fails the inbound path, and the runtime never hands it such a name. The conformance kit's `xcut-18.model-validation`
+  requires an inbound refusal where it used to accept a refusal or a trim, with a negative control for a model that trims.
+- **Breaking (phase 11):** `RequestBody.FromFile` refuses a Unix special file at construction (`BODY-11`, `HTTP-40`; design §10 entry 31). A FIFO, a character or block
+  device or a socket reports a length of 0, so it used to upload as an empty body; a size-0 path is now classified by its file type through `System.Formats.Tar` (in the shared framework,
+  which opens nothing, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file and a symbolic link to a regular file are unchanged;
+  a link to a special file is refused as its target. Windows keeps its device-attribute check. The NativeAOT smoke refuses `/dev/null`.
+- **Breaking (phase 11):** `Request` (the constructor and so `WithUrl`, `WithMethod`, `WithHeaders`, `WithBody`) rejects a `Uri` created with
+  `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` with an `ArgumentException` (`ParamName` `url`; the message names the cause and not the input). Such a `Uri` keeps
+  its path and query exactly as written and `HttpClient` writes a CR or LF in the query raw into the request line (design §10 entry 18). A `Uri` the default parser made, from a
+  string or `new Uri(string)`, is unaffected, and `Request.Create` takes a string.
+- **Breaking (phase 11):** the `Page<T>` constructor copies the list it is given (`PAGE-2`; design §10 entry 17). `Values` is a read-only snapshot, not the caller's list: a list a
+  `Pageable.FromFetchers` fetcher goes on to change (or a live view a strategy returned) no longer alters a page after it was yielded, and `ReferenceEquals(page.Values, list)` is
+  no longer true.
+- **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
+  cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
+- **Breaking (phase 11):** the owned `SystemNetHttpClient` and the dependency-injection named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`,
+  `DELETE` or `TRACE` natively (`TRANSPORT-2`; design §10 entry 33). `SystemNetHttpClient.CreatePrimaryHandler` installs a pass-through `PlaintextStreamFilter` (HTTP/1.x only) that
+  turns an end of stream arriving after a request was written and before any response byte into the `HttpIOException` (`ResponseEnded`) the runtime raises itself, so the request
+  reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. A handler or `HttpClient` you
+  supply is your native client and keeps its own retry (design §11 item 71); a caller who replaces the filter on a handler from `CreatePrimaryHandler` removes the guarantee. The
+  conformance drivers' `transport-2.bodyless-not-resent` waiver is deleted for the owned and DI subjects and kept, rescoped, for the handler-taking subject.
+
 ### Phase 7a — serde
 
 Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP-45` carried from 3b); design and plan under

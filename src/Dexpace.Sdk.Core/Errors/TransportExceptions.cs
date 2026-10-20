@@ -146,8 +146,9 @@ public class HttpResponseException : SdkException
             await using var streamScope = stream.ConfigureAwait(false);
             return await serde.DeserializeAsync<T>(stream, cancellationToken).ConfigureAwait(false);
         }
-        catch (StreamConsumedException ex)
+        catch (Exception ex) when (ex is StreamConsumedException or ObjectDisposedException)
         {
+            // The body hands out one stream (BODY-14): a second read finds the first read's stream already disposed.
             throw new ResponseNotReadException(
                 "The error response body has already been consumed and cannot be deserialized.", ex);
         }
@@ -173,8 +174,9 @@ public class HttpResponseException : SdkException
             using var stream = Response.Body.OpenRead();
             return serde.Deserialize<T>(stream);
         }
-        catch (StreamConsumedException ex)
+        catch (Exception ex) when (ex is StreamConsumedException or ObjectDisposedException)
         {
+            // The body hands out one stream (BODY-14): a second read finds the first read's stream already disposed.
             throw new ResponseNotReadException(
                 "The error response body has already been consumed and cannot be deserialized.", ex);
         }

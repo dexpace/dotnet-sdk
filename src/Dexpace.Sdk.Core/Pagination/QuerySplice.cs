@@ -18,7 +18,8 @@ namespace Dexpace.Sdk.Core.Pagination;
 /// <see cref="Uri.IdnHost"/> (PAGE-24).
 /// </para>
 /// <para>
-/// A segment is the text between two <c>&amp;</c>; empty segments are skipped (the HTTP-31 leniency). Its name is the
+/// A segment is the text between two <c>&amp;</c>; an empty one (a stray <c>&amp;</c>) is an untargeted parameter and is
+/// copied like any other (PAGE-21; phase 11 stopped skipping it). Its name is the
 /// text before the first <c>=</c>, decoded with <c>Rfc3986.DecodeComponent</c> and compared ordinally to the wanted
 /// name, so <c>?Page=1</c> is not <c>page</c> and <c>?my%20key=1</c> is <c>my key</c> (P7c-9). Untargeted segments are
 /// copied verbatim. The residual of "verbatim" is <see cref="Uri"/>'s own canonical form of the query, which decodes
@@ -106,10 +107,12 @@ internal static class QuerySplice
         return Rebuild(url, string.Join('&', kept));
     }
 
-    // The `&`-separated segments of the raw query, empty ones skipped. Only the one delimiting '?' is dropped: a parameter
-    // name may itself start with '?' (`p??a=1` has a parameter called "?a"), and stripping every leading one would rewrite it.
+    // The `&`-separated segments of the raw query, the empty ones included: a stray `&` makes an empty segment, which is an untargeted
+    // parameter and is copied like any other (PAGE-21). A query with no characters has no segments at all, not one empty one. Only the
+    // one delimiting '?' is dropped: a parameter name may itself start with '?' (`p??a=1` has a parameter called "?a"), and stripping
+    // every leading one would rewrite it.
     private static string[] Segments(Uri url) =>
-        (url.Query.Length > 0 ? url.Query[1..] : string.Empty).Split('&', StringSplitOptions.RemoveEmptyEntries);
+        url.Query.Length > 1 ? url.Query[1..].Split('&') : [];
 
     // Text before and after the first '='; a segment with no '=' is a value-less flag (null value).
     private static (string RawName, string? RawValue) SplitSegment(string segment)
