@@ -761,4 +761,13 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 
 - `SERDE-26`: constructing a serde no longer freezes the caller's `JsonSerializerOptions` (see the Breaking entry above).
 
+### Phase 11 — deviation reconciliation
+
+#### Observability, configuration, retry, SSE and auth (PR 5)
+
+- **`TraceIdGeneration`** (`OBS-27`, design §10 entry 24, P11-18). New public static class `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` with `W3C()` and
+  `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
+  do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
+  never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
