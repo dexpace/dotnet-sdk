@@ -721,6 +721,8 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 - **Breaking (phase 11):** the `Page<T>` constructor copies the list it is given (`PAGE-2`; design §10 entry 17). `Values` is a read-only snapshot, not the caller's list: a list a
   `Pageable.FromFetchers` fetcher goes on to change (or a live view a strategy returned) no longer alters a page after it was yielded, and `ReferenceEquals(page.Values, list)` is
   no longer true.
+- **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
+  cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
 
 ### Phase 7a — serde
 
