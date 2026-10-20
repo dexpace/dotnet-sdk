@@ -17,7 +17,7 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Shape.</b> Create it with <see cref="FromResponse"/> and enumerate it once, with <c>await foreach</c>
+/// <b>Shape.</b> Create it with <see cref="FromResponse(Response, int, int, ILogger?)"/> and enumerate it once, with <c>await foreach</c>
 /// (<see cref="GetAsyncEnumerator"/>), with a blocking <c>foreach</c> (<see cref="AsEnumerable"/>), or through the typed
 /// adapter (<see cref="MapAsync{T}"/>, <see cref="Map{T}"/>). The four views share one single-use latch: asking for a
 /// second one throws <see cref="InvalidOperationException"/> at the call, and asking for one after the stream is closed
@@ -43,7 +43,7 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// <para>
 /// "Reported out of band" is the SDK's single channel for a failure it must not throw: an <c>exception</c> event on
 /// <see cref="System.Diagnostics.Activity.Current"/> tagged <c>dexpace.dispose.suppressed</c> and, when
-/// <see cref="FromResponse"/> was given a logger, the <c>dexpace.dispose.suppressed</c> warning (event id 130). With no
+/// <see cref="FromResponse(Response, int, int, ILogger?)"/> was given a logger, the <c>dexpace.dispose.suppressed</c> warning (event id 130). With no
 /// logger and no activity listener the failure is reported to nobody (residual R3).
 /// </para>
 /// <para>
@@ -60,9 +60,11 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// one call the type is single-threaded, like the reader (SSE-18): two threads pulling one stream is undefined.
 /// </para>
 /// <para>
-/// <b>Bounding an untrusted stream.</b> The line cap bounds a line, not an event (residual R1, P7b-5): bound a stream from
-/// an untrusted server with the enumeration token or <c>OverallTimeout</c>. <c>AttemptTimeout</c> covers only the time to
-/// the response headers, so a long-lived stream is not cut by it.
+/// <b>Bounding an untrusted stream.</b> Two caps bound what one event can hold: a line over <c>maxLineBytes</c> (1 MiB by
+/// default) fails with <see cref="ServerSentEventLineTooLongException"/>, and an event whose <c>data</c> passes
+/// <c>maxEventBytes</c> (8 MiB by default; residual R1, closed by phase 11) fails with <see cref="ServerSentEventTooLargeException"/>.
+/// Neither bounds how long a stream runs: bound that with the enumeration token or <c>OverallTimeout</c>. <c>AttemptTimeout</c>
+/// covers only the time to the response headers, so a long-lived stream is not cut by it.
 /// </para>
 /// </remarks>
 [SuppressMessage("Naming", "CA1711", Justification = "Specification type name (design E): the facade is a stream of events and deliberately does not derive from System.IO.Stream.")]
@@ -70,6 +72,7 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
 {
     private readonly Response _response;
     private readonly int _maxLineBytes;
+    private readonly int _maxEventBytes;
     private readonly ILogger? _logger;
     private readonly CancellationTokenSource _closing = new();
     private Stream? _opened;
@@ -77,10 +80,11 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
     private int _released;
     private int _viewTaken;
 
-    private ServerSentEventStream(Response response, int maxLineBytes, ILogger? logger)
+    private ServerSentEventStream(Response response, int maxLineBytes, int maxEventBytes, ILogger? logger)
     {
         _response = response;
         _maxLineBytes = maxLineBytes;
+        _maxEventBytes = maxEventBytes;
         _logger = logger;
     }
 
@@ -106,8 +110,8 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
     /// <b>Ownership transfers on the call, success or failure.</b> The common shape is
     /// <c>await using var events = ServerSentEventStream.FromResponse(await pipeline.SendAsync(request, ct));</c>; if a
     /// failure here left the response with the caller, that line would leak it. So when the response is rejected (or
-    /// <paramref name="maxLineBytes"/> is invalid) the response is disposed before the exception is thrown, and a failure
-    /// of that dispose is attached to the exception rather than replacing it.
+    /// <paramref name="maxLineBytes"/> or <paramref name="maxEventBytes"/> is invalid) the response is disposed before the exception
+    /// is thrown, and a failure of that dispose is attached to the exception rather than replacing it.
     /// </para>
     /// <para>
     /// A response with no body to stream is rejected loudly: status 204, 205 or 304; a <c>HEAD</c> request; a
@@ -123,29 +127,81 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
     /// </remarks>
     /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
     /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <param name="maxEventBytes">The most bytes of <c>data</c> one event may hold, each line costing its UTF-8 value bytes plus one; positive (SSE-19).</param>
     /// <param name="logger">
     /// An optional logger for the <c>dexpace.dispose.suppressed</c> warning (event id 130) when a release failure is
     /// swallowed on a clean terminal path (SSE-30, P7b-19); a <see cref="Response"/> carries none.
     /// </param>
     /// <returns>The stream, owning <paramref name="response"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> is not positive; the response is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> or <paramref name="maxEventBytes"/> is not positive; the response is disposed.</exception>
     /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
-    public static ServerSentEventStream FromResponse(
-        Response response,
-        int maxLineBytes = ServerSentEventReader.DefaultMaxLineBytes,
-        ILogger? logger = null)
+    public static ServerSentEventStream FromResponse(Response response, int maxLineBytes, int maxEventBytes, ILogger? logger)
     {
         ArgumentNullException.ThrowIfNull(response);
-        var rejection = Reject(response, maxLineBytes);
+        var rejection = Reject(response, maxLineBytes, maxEventBytes);
         if (rejection is not null)
         {
             Disposal.DisposeQuietly(response, rejection, logger);
             throw rejection;
         }
 
-        return new ServerSentEventStream(response, maxLineBytes, logger);
+        return new ServerSentEventStream(response, maxLineBytes, maxEventBytes, logger);
     }
+
+    /// <summary>Binds a stream to <paramref name="response"/> with both caps and no logger, which it owns from this call on, even when this call throws (SSE-19, SSE-32).</summary>
+    /// <remarks>The same ownership rules as <see cref="FromResponse(Response, int, int, ILogger?)"/>.</remarks>
+    /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
+    /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <param name="maxEventBytes">The most bytes of <c>data</c> one event may hold; positive (SSE-19).</param>
+    /// <returns>The stream, owning <paramref name="response"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> or <paramref name="maxEventBytes"/> is not positive; the response is disposed.</exception>
+    /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
+    public static ServerSentEventStream FromResponse(Response response, int maxLineBytes, int maxEventBytes) =>
+        FromResponse(response, maxLineBytes, maxEventBytes, logger: null);
+
+    /// <summary>Binds a stream to <paramref name="response"/> with a line cap, the default event cap and a logger, which it owns from this call on, even when this call throws (SSE-32).</summary>
+    /// <remarks>The same ownership rules as <see cref="FromResponse(Response, int, int, ILogger?)"/>; the event cap is <see cref="ServerSentEventReader.DefaultMaxEventBytes"/>.</remarks>
+    /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
+    /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <param name="logger">An optional logger for the suppressed-dispose warning (SSE-30, P7b-19).</param>
+    /// <returns>The stream, owning <paramref name="response"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> is not positive; the response is disposed.</exception>
+    /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
+    public static ServerSentEventStream FromResponse(Response response, int maxLineBytes, ILogger? logger) =>
+        FromResponse(response, maxLineBytes, ServerSentEventReader.DefaultMaxEventBytes, logger);
+
+    /// <summary>Binds a stream to <paramref name="response"/> with a line cap and the default event cap, which it owns from this call on, even when this call throws (SSE-32).</summary>
+    /// <remarks>The same ownership rules as <see cref="FromResponse(Response, int, int, ILogger?)"/>; the event cap is <see cref="ServerSentEventReader.DefaultMaxEventBytes"/>.</remarks>
+    /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
+    /// <param name="maxLineBytes">The most content bytes one line may hold; positive (SSE-19).</param>
+    /// <returns>The stream, owning <paramref name="response"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLineBytes"/> is not positive; the response is disposed.</exception>
+    /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
+    public static ServerSentEventStream FromResponse(Response response, int maxLineBytes) =>
+        FromResponse(response, maxLineBytes, ServerSentEventReader.DefaultMaxEventBytes, logger: null);
+
+    /// <summary>Binds a stream to <paramref name="response"/> with the default caps and a logger, which it owns from this call on, even when this call throws (SSE-32).</summary>
+    /// <remarks>The same ownership rules as <see cref="FromResponse(Response, int, int, ILogger?)"/>.</remarks>
+    /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
+    /// <param name="logger">An optional logger for the suppressed-dispose warning (SSE-30, P7b-19).</param>
+    /// <returns>The stream, owning <paramref name="response"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
+    /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
+    public static ServerSentEventStream FromResponse(Response response, ILogger? logger) =>
+        FromResponse(response, ServerSentEventReader.DefaultMaxLineBytes, ServerSentEventReader.DefaultMaxEventBytes, logger);
+
+    /// <summary>Binds a stream to <paramref name="response"/> with the default caps, which it owns from this call on, even when this call throws (SSE-32).</summary>
+    /// <remarks>The same ownership rules as <see cref="FromResponse(Response, int, int, ILogger?)"/>; the caps are the defaults of <see cref="ServerSentEventReader"/>.</remarks>
+    /// <param name="response">The response whose body is an event stream; the stream takes ownership of it.</param>
+    /// <returns>The stream, owning <paramref name="response"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>; nothing is disposed.</exception>
+    /// <exception cref="ArgumentException">The response has no body to stream; the response is disposed.</exception>
+    public static ServerSentEventStream FromResponse(Response response) =>
+        FromResponse(response, ServerSentEventReader.DefaultMaxLineBytes, ServerSentEventReader.DefaultMaxEventBytes, logger: null);
 
     /// <summary>
     /// Releases the stream: cancels reads in flight, then disposes the opened body stream and the response, once
@@ -190,11 +246,16 @@ public sealed partial class ServerSentEventStream : IAsyncEnumerable<ServerSentE
         }
     }
 
-    private static Exception? Reject(Response response, int maxLineBytes)
+    private static Exception? Reject(Response response, int maxLineBytes, int maxEventBytes)
     {
         if (maxLineBytes <= 0)
         {
             return new ArgumentOutOfRangeException(nameof(maxLineBytes), maxLineBytes, "The line cap must be positive.");
+        }
+
+        if (maxEventBytes <= 0)
+        {
+            return new ArgumentOutOfRangeException(nameof(maxEventBytes), maxEventBytes, "The event cap must be positive.");
         }
 
         var reason = BodylessReason(response);

@@ -783,5 +783,11 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
   no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
   fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
+- **Breaking (behaviour): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
+  end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
+  each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
+  `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
+  `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
+  parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

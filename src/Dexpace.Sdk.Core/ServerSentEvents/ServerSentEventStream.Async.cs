@@ -74,7 +74,7 @@ public sealed partial class ServerSentEventStream
             linked = CancellationTokenSource.CreateLinkedTokenSource(callerToken, _closing.Token);
             var stream = await _response.Body.OpenReadAsync(linked.Token).ConfigureAwait(false);
             RegisterOpened(stream);
-            return (linked, new ServerSentEventReader(stream, _maxLineBytes));
+            return (linked, new ServerSentEventReader(stream, _maxLineBytes, _maxEventBytes));
         }
         catch (Exception ex) when (IsClosedInFlight(ex, callerToken))
         {

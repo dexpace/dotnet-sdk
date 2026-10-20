@@ -14,8 +14,10 @@ namespace Dexpace.Sdk.Core.Tests.Security;
 /// unterminated 8 MiB line was buffered whole before any consumer saw a thing. The reader now holds at most
 /// <c>maxLineBytes</c> content bytes of a line (1 MiB by default), throws <see cref="ServerSentEventLineTooLongException"/>
 /// after reading at most one cap plus two read buffers, and stays failed because the stream is mid-line. Permanent
-/// (roadmap constraint 5; precedent <c>RetryPacingOverflowTests</c>); the aggregate-per-block residual R1 (P7b-5) is a
-/// ruling still open for the lead and is deliberately not pinned here.
+/// (roadmap constraint 5; precedent <c>RetryPacingOverflowTests</c>). The aggregate-per-block residual R1 (P7b-5) was open
+/// when this class was written and is pinned below since phase 11 (P11-19): lines that each fit but never end the event fail
+/// once the event's accumulated data passes <c>maxEventBytes</c> (8 MiB by default), with
+/// <see cref="ServerSentEventTooLargeException"/>.
 /// </summary>
 [Trait("Category", "Security")]
 public sealed class ServerSentEventLineCapTests
@@ -156,6 +158,39 @@ public sealed class ServerSentEventLineCapTests
         Assert.Equal(5000, count);
     }
 
+    // Phase 11, P11-19 (SSE-19, design §10 entry 20 residual R1, V10): 8 000 000 lines of `data:x` with no blank line were retained as
+    // one 323 MB event, because the line cap bounds a line and nothing bounded the lines of one event.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Data_lines_that_each_fit_but_never_end_the_event_fail_once_the_event_cap_is_passed(bool useAsync)
+    {
+        const int EventCap = 1024;
+        using var source = new RepeatingStream("data:x\n"u8.ToArray(), 2_000);
+        var reader = new ServerSentEventReader(source, ServerSentEventReader.DefaultMaxLineBytes, EventCap);
+
+        var ex = useAsync
+            ? await Assert.ThrowsAsync<ServerSentEventTooLargeException>(() => reader.ReadNextAsync(Token).AsTask())
+            : Assert.Throws<ServerSentEventTooLargeException>(() => reader.ReadNext());
+
+        Assert.Equal(EventCap, ex.MaxEventBytes);
+        Assert.IsAssignableFrom<StreamingException>(ex);
+        Assert.Contains("1024", ex.Message, StringComparison.Ordinal);
+
+        // The read stops at the line that passed the cap, not at the end of the stream, and the reader stays failed.
+        var servedAtFailure = source.BytesServed;
+        Assert.True(servedAtFailure <= 2 * ReadBuffer, $"the reader pulled {servedAtFailure} bytes of a 14 000-byte stream before failing.");
+        for (var pull = 0; pull < 2; pull++)
+        {
+            var again = useAsync
+                ? await Assert.ThrowsAsync<ServerSentEventTooLargeException>(() => reader.ReadNextAsync(Token).AsTask())
+                : Assert.Throws<ServerSentEventTooLargeException>(() => reader.ReadNext());
+            Assert.Equal(EventCap, again.MaxEventBytes);
+        }
+
+        Assert.Equal(servedAtFailure, source.BytesServed);
+    }
+
     // Serves one repeated byte until a total is reached, counting what it served: an unterminated line of that length.
     private sealed class EndlessStream(byte value, int total) : Stream
     {
@@ -183,6 +218,56 @@ public sealed class ServerSentEventLineCapTests
         {
             var n = (int)Math.Min(buffer.Length, total - _served);
             buffer[..n].Fill(value);
+            Interlocked.Add(ref _served, n);
+            return n;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            new(Read(buffer.Span));
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    // Serves a byte pattern a number of times, counting what it served: many short lines that never end the event.
+    private sealed class RepeatingStream(byte[] unit, int times) : Stream
+    {
+        private readonly long _total = (long)unit.Length * times;
+        private long _served;
+
+        public long BytesServed => Interlocked.Read(ref _served);
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            var n = (int)Math.Min(buffer.Length, _total - _served);
+            for (var i = 0; i < n; i++)
+            {
+                buffer[i] = unit[(int)((_served + i) % unit.Length)];
+            }
+
             Interlocked.Add(ref _served, n);
             return n;
         }

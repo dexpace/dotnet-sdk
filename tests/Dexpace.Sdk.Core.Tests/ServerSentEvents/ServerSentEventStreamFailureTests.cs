@@ -137,6 +137,29 @@ public sealed class ServerSentEventStreamFailureTests : IDisposable
     }
 
     [Fact]
+    public async Task An_event_cap_failure_releases_and_rethrows_the_exception_unchanged()
+    {
+        var releaseFailure = new InvalidOperationException("close boom");
+        var body = BodyOver(() => new MemoryStream(System.Text.Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("data: xxxxxxxx\n", 100)) + "\n")), releaseFailure);
+        var stream = ServerSentEventStream.FromResponse(SseResponses.Respond(body), ServerSentEventReader.DefaultMaxLineBytes, 256, logger: null);
+
+        ServerSentEventTooLargeException? caught = null;
+        try
+        {
+            await DrainAsync(stream, Token);
+        }
+        catch (ServerSentEventTooLargeException ex)
+        {
+            Assert.Equal(1, body.DisposeCount);
+            caught = ex;
+        }
+
+        Assert.NotNull(caught);
+        Assert.Equal(256, caught.MaxEventBytes);
+        Assert.Same(releaseFailure, Assert.Single(caught.Suppressed));
+    }
+
+    [Fact]
     public async Task A_cancelled_caller_token_surfaces_OperationCanceledException_and_is_not_rewritten()
     {
         using var gated = new GatedStream("data: a\n\n"u8.ToArray());
