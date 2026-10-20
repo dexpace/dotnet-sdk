@@ -22,6 +22,7 @@ const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.HttpsP
 const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.LogLevel = "Logging:Level" -> string!
 const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.MaxRetryAttempts = "Retry:MaxRetryAttempts" -> string!
 const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.NoProxy = "NO_PROXY" -> string!
+const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.PacingHeaders = "Retry:PacingHeaders" -> string!
 const Dexpace.Sdk.Extensions.DependencyInjection.DexpaceConfigurationKeys.SectionName = "Dexpace" -> string!
 static Dexpace.Sdk.Extensions.DependencyInjection.DexpaceServiceCollectionExtensions.AddDexpaceClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!
 static Dexpace.Sdk.Extensions.DependencyInjection.DexpaceServiceCollectionExtensions.AddDexpaceClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name, Microsoft.Extensions.Configuration.IConfigurationSection! configuration) -> Dexpace.Sdk.Extensions.DependencyInjection.DexpaceClientBuilder!

@@ -777,5 +777,11 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
   way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
   and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
+- **`RetryOptions.PacingHeaders`: the stage stack's pacing headers are an ordered list** (`RETRY-21`, design §11 item 54). New `IReadOnlyList<string> PacingHeaders { get; init; }`,
+  defaulting to `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` (the fixed order, so nothing changes by default). `RetryPolicy` reads the headers it
+  lists, in that order, each by its own semantics; a header left out is not read, which is how a service that sends a delta-seconds `X-RateLimit-Reset` (read as an epoch
+  time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
+  no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
+  fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

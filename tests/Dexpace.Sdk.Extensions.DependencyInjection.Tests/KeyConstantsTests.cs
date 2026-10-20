@@ -18,12 +18,13 @@ public sealed class KeyConstantsTests
         Assert.Equal("Dexpace", DexpaceConfigurationKeys.SectionName);
         Assert.Equal("Retry:MaxRetryAttempts", DexpaceConfigurationKeys.MaxRetryAttempts);
         Assert.Equal("Logging:Level", DexpaceConfigurationKeys.LogLevel);
+        Assert.Equal("Retry:PacingHeaders", DexpaceConfigurationKeys.PacingHeaders);
         Assert.Equal("HTTP_PROXY", DexpaceConfigurationKeys.HttpProxy);
         Assert.Equal("HTTPS_PROXY", DexpaceConfigurationKeys.HttpsProxy);
         Assert.Equal("NO_PROXY", DexpaceConfigurationKeys.NoProxy);
 
         var constants = typeof(DexpaceConfigurationKeys).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
-        Assert.Equal(6, constants.Length);
+        Assert.Equal(7, constants.Length);
         Assert.All(constants, static f => Assert.True(f.IsLiteral));
     }
 

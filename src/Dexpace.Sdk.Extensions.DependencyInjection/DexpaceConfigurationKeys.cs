@@ -16,6 +16,9 @@ public static class DexpaceConfigurationKeys
     /// <summary>The key, relative to a client's section, of the retry budget (<c>RetryOptions.MaxRetryAttempts</c>).</summary>
     public const string MaxRetryAttempts = "Retry:MaxRetryAttempts";
 
+    /// <summary>The key, relative to a client's section, of the ordered list of pacing headers the retry policy reads (<c>RetryOptions.PacingHeaders</c>): child keys or one comma-separated value, replacing the default order (RETRY-21).</summary>
+    public const string PacingHeaders = "Retry:PacingHeaders";
+
     /// <summary>The key, relative to a client's section, of the HTTP log level (<c>HttpLoggingOptions.Level</c>), read by name: <c>None</c>, <c>Headers</c> or <c>Body</c> (OBS-35).</summary>
     public const string LogLevel = "Logging:Level";
 

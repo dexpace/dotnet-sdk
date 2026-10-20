@@ -139,6 +139,8 @@ public sealed class RecoveryDispatcher
                 MaxRetries = options.MaxRetries ?? retry.Options.MaxRetryAttempts,
                 Budget = RetryBudget.For(retry.TotalTimeout, retry.Clock),
                 HonorPacing = true,
+
+                // RETRY-21: the recovery stack scans the pacing headers in the fixed precedence; RetryOptions.PacingHeaders belongs to the stage stack.
             };
             terminal = await retry.Engine.RunAsync(run, async, cancellationToken).ConfigureAwait(false);
         }

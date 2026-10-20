@@ -41,7 +41,8 @@ namespace Dexpace.Sdk.Core.Pipeline.Policies;
 /// </para>
 /// <para>
 /// <b>Delay.</b> In order: <see cref="GetDelayOverride"/>, the server's pacing hint (when
-/// <see cref="RetryOptions.HonorRetryAfter"/> is on), <see cref="RetryOptions.FixedDelay"/>, then
+/// <see cref="RetryOptions.HonorRetryAfter"/> is on, read in the order of <see cref="RetryOptions.PacingHeaders"/>),
+/// <see cref="RetryOptions.FixedDelay"/>, then
 /// <c>BaseDelay × Multiplier^(n−1)</c> capped at <c>MaxDelay</c> with symmetric jitter (RETRY-39). Every delay is clamped
 /// to 365 days and waited through <see cref="TimeProvider"/>: the clock passed to the constructor, which the SDK never
 /// disposes (RETRY-45).
@@ -194,6 +195,7 @@ public class RetryPolicy : HttpPipelinePolicy
             MaxRetries = context.RequestOptions.MaxRetries ?? options.MaxRetryAttempts,
             Budget = RetryBudget.Unbounded,
             HonorPacing = options.HonorRetryAfter,
+            PacingOrder = options.PacingHeaders,
             Condition = attempt => ConsultShouldRetry(attempt, request, context),
             DelayOverride = attempt => GetDelayOverride(ToHookContext(attempt, request, context)),
             Observer = new RetryObserver(
