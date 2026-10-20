@@ -210,7 +210,10 @@ internal static class BrokenPipelines
         }
     }
 
-    /// <summary>A mapping step that raises for every status from 300 up, so a non-error response is not returned as it is (XCUT-8).</summary>
+    /// <summary>
+    /// A mapping step that raises for every status from 300 up, so a non-error response is not returned as it is (XCUT-8). It raises a bare
+    /// <see cref="SdkException"/>: since phase 11 <see cref="HttpResponseException"/> itself refuses a non-error status, so it can no longer be the control's weapon.
+    /// </summary>
     internal sealed class ThrowsForRedirects : HttpPipelinePolicy
     {
         public override PipelineStage Stage => PipelineStage.PerCall;
@@ -218,7 +221,7 @@ internal static class BrokenPipelines
         public override async ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation)
         {
             var response = await continuation.RunAsync(request, context);
-            return response.Status.Code >= 300 ? throw new HttpResponseException(response) : response;
+            return response.Status.Code >= 300 ? throw new SdkException("raised for a non-error status") : response;
         }
     }
 

@@ -102,15 +102,36 @@ public class HttpResponseException : SdkException
     private readonly bool _isRetryable;
 
     /// <summary>Initializes a new instance carrying the offending response.</summary>
-    /// <param name="response">The received error response.</param>
+    /// <param name="response">The received error response; its status must be 400 to 599.</param>
     /// <param name="message">An optional message; defaults to the status line.</param>
+    /// <remarks><b>Breaking (phase 11):</b> a <see langword="null"/> response and a non-error status used to be accepted, the first as a <see cref="NullReferenceException"/>.</remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="response"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The status of <paramref name="response"/> is not an error status (400 to 599), XCUT-8.</exception>
     public HttpResponseException(Response response, string? message = null)
-        : base(message ?? $"The server returned an error response: {response.Status}.")
+        : base(MessageFor(Validated(response), message))
     {
         Response = response;
         Status = response.Status;
         _isRetryable = RetryFacts.IsRetryableStatus(response.Status.Code);
     }
+
+    // XCUT-8: the one public mapping route refuses a response that is not an error, so no "successful exception" is built; the guard runs inside the base
+    // call's argument, before anything reads the response. The message is deliberately free of the URL (XCUT-19).
+    private static Response Validated(Response response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        if (!response.Status.IsError)
+        {
+            throw new ArgumentException(
+                $"The status {response.Status.Code} is not an error status (400..599); only an error response maps to an HttpResponseException.",
+                nameof(response));
+        }
+
+        return response;
+    }
+
+    private static string MessageFor(Response response, string? message) =>
+        message ?? $"The server returned an error response: {response.Status}.";
 
     /// <summary>
     /// Gets whether the status is retryable by the single classifier (408, 429, 500 to 599 except 501 and 505), computed

@@ -39,13 +39,23 @@ public sealed class RetryClassifierTests
         for (var code = 100; code <= 599; code++)
         {
             var expected = RetryFacts.IsRetryableStatus(code);
-            Assert.Equal(expected, Http(code).IsRetryable);
+            if (code >= 400)
+            {
+                Assert.Equal(expected, Http(code).IsRetryable);
+            }
+            else
+            {
+                // XCUT-8 (phase 11, P11-9): the exception is built for an error status only, and no status below 400 is retryable.
+                Assert.False(expected);
+                Assert.Throws<ArgumentException>(() => Http(code));
+            }
+
             trueCount += expected ? 1 : 0;
         }
 
         Assert.Equal(100, trueCount);
-        Assert.False(Http(301).IsRetryable);
-        Assert.False(Http(100).IsRetryable);
+        Assert.False(RetryFacts.IsRetryableStatus(301));
+        Assert.False(RetryFacts.IsRetryableStatus(100));
     }
 
     [Fact]

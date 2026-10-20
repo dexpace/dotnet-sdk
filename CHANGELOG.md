@@ -761,4 +761,12 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 
 - `SERDE-26`: constructing a serde no longer freezes the caller's `JsonSerializerOptions` (see the Breaking entry above).
 
+### Phase 11 — deviation reconciliation
+
+#### Changed
+
+- **Breaking (phase 11):** `HttpResponseException(Response, string?)` throws an `ArgumentNullException` for a `null` response (was: a
+  `NullReferenceException`) and an `ArgumentException` for a response whose status is not 400 to 599 (was: it built "The server returned an error
+  response: OK(200)."), so no successful "error" can be constructed through the one public mapping route (`XCUT-8`, `NFR-7`; design §10 entry 28).
+
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

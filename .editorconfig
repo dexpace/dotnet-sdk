@@ -135,10 +135,17 @@ dotnet_diagnostic.CA1054.severity = none
 dotnet_diagnostic.CA1055.severity = none
 dotnet_diagnostic.CA1056.severity = none
 
-# Argument null-checks are applied where they matter via ArgumentNullException.ThrowIfNull;
-# CA1062's blanket requirement on every public parameter is noise for this surface.
-# Re-enable when: nullable annotations are turned off for any library.
+# CA1062 (validate arguments of public methods) is off for tests, tools and scripts only: they are applications, and a test passes null on purpose to
+# prove a guard. For every library it is an error (the [src/**/*.cs] section below; phase 11, task 1.6; design section 10 entry 28 is retired): turning it on
+# found one real defect, a NullReferenceException from HttpResponseException's constructor, so the old "noise for this surface" rationale did not hold.
+# Re-enable when: a test, tool or script becomes a library.
 dotnet_diagnostic.CA1062.severity = none
+
+# --- Library code ----------------------------------------------------------------------------
+
+# Every public parameter of a library is validated at its boundary (styleguide 1.3, NFR-7); the global section above relaxes CA1062 for applications only.
+[src/**/*.cs]
+dotnet_diagnostic.CA1062.severity = error
 
 # --- Application-shaped code -----------------------------------------------------------------
 
