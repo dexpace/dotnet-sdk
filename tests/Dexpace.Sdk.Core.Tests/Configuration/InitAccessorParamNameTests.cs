@@ -41,6 +41,7 @@ public sealed class InitAccessorParamNameTests
         ["ProxyOptions.NonProxyHosts[]"] = () => _ = new ProxyOptions { Host = "proxy.example", Port = 8080, NonProxyHosts = ["a.example", null!] },
         ["RedirectOptions.AllowedMethods"] = () => _ = new RedirectOptions { AllowedMethods = null! },
         ["RedirectOptions.AllowedMethods[]"] = () => _ = new RedirectOptions { AllowedMethods = new HashSet<Method> { null! } },
+        ["RetryOptions.PacingHeaders"] = () => _ = new RetryOptions { PacingHeaders = null! },
         ["RetryOptions.RetryableStatusCodes"] = () => _ = new RetryOptions { RetryableStatusCodes = null! },
         ["RequestOptions.Tags"] = () => _ = new RequestOptions { Tags = null! },
         ["OperationDescriptor.Method"] = () => _ = new OperationDescriptor { Method = null!, PathTemplate = "/items" },
