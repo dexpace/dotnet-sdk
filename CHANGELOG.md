@@ -718,6 +718,9 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` with an `ArgumentException` (`ParamName` `url`; the message names the cause and not the input). Such a `Uri` keeps
   its path and query exactly as written and `HttpClient` writes a CR or LF in the query raw into the request line (design §10 entry 18). A `Uri` the default parser made, from a
   string or `new Uri(string)`, is unaffected, and `Request.Create` takes a string.
+- **Breaking (phase 11):** the `Page<T>` constructor copies the list it is given (`PAGE-2`; design §10 entry 17). `Values` is a read-only snapshot, not the caller's list: a list a
+  `Pageable.FromFetchers` fetcher goes on to change (or a live view a strategy returned) no longer alters a page after it was yielded, and `ReferenceEquals(page.Values, list)` is
+  no longer true.
 
 ### Phase 7a — serde
 

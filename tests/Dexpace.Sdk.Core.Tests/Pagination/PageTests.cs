@@ -23,10 +23,46 @@ public sealed class PageTests
 
         var page = new Page<int>(values, Status.Ok, headers, s_request);
 
-        Assert.Same(values, page.Values);
+        Assert.Equal(values, page.Values);
+        Assert.NotSame(values, page.Values);
         Assert.Equal(Status.Ok, page.Status);
         Assert.Same(headers, page.Headers);
         Assert.Same(s_request, page.Request);
+    }
+
+    // PAGE-2 (phase 11, design section 10 entry 17): the page stores its own copy, so it is a snapshot whoever built it. It used to keep
+    // the caller's list as given, which let a Pageable.FromFetchers page change after the engine had yielded it.
+    [Fact]
+    public void Values_is_a_snapshot_of_the_list_passed_in()
+    {
+        var source = new List<int> { 1, 2, 3 };
+        var page = new Page<int>(source, Status.Ok, Headers.Empty, s_request);
+
+        source[0] = 99;
+        source.Add(4);
+        source.Clear();
+
+        Assert.Equal([1, 2, 3], page.Values);
+        Assert.Equal(3, page.Values.Count);
+    }
+
+    [Fact]
+    public void Values_cannot_be_changed_through_a_cast()
+    {
+        var page = new Page<int>(new List<int> { 1, 2, 3 }, Status.Ok, Headers.Empty, s_request);
+
+        Assert.IsNotType<List<int>>(page.Values);
+        var asList = Assert.IsAssignableFrom<IList<int>>(page.Values);
+        Assert.True(asList.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => asList[0] = 99);
+    }
+
+    [Fact]
+    public void An_empty_list_gives_an_empty_page()
+    {
+        var page = new Page<int>([], Status.Ok, Headers.Empty, s_request);
+
+        Assert.Empty(page.Values);
     }
 
     [Fact]
