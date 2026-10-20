@@ -40,6 +40,7 @@ public sealed partial class CiWorkflowTests
         ("Requirement coverage self-test", "scripts/ci/requirement-coverage-selftest.sh"),
         ("Requirement coverage", "dotnet run scripts/ci/requirement-coverage.cs -- --check"),
         ("Pack twice and compare", "scripts/ci/reproducible-pack.sh"),
+        ("Pack twice and compare - self-test", "scripts/ci/reproducible-pack.sh --self-test"),
         ("Publish", "dotnet publish tests/Dexpace.Sdk.AotSmoke/Dexpace.Sdk.AotSmoke.csproj"),
         ("Run", "./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke"),
     ];
