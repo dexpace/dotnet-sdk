@@ -772,5 +772,10 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 - **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
   keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
   null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
+- **Breaking (behaviour): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
+  `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
+  highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
+  way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
+  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main
