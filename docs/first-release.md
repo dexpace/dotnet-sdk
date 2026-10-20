@@ -95,20 +95,32 @@ phases add the rest as they decline or defer something. Nothing below is a block
 Every candidate must first be argued in design §10 and then pass phase 11's audit. The roadmap's parity target is at most five clauses
 unsatisfied or unmet on a stated domain, each one argued.
 
-**Open item for the lead and phase 11 (phase 8b, 2026-10-11): the count is seven, over the target of five by two.** Design §10 records seven clauses unmet on a stated domain: entries
-16, 18, 24, 26 and 31 (earlier phases; their lines are not in this list yet) and, from phase 8b, 32 and 33 below. The P8b-14 and P8b-T2 rulings spent "one of the five" and "a second of the five" on
-a budget the earlier entries had already used up; the two lines below are therefore over the target, and phase 11 must either retire two clauses, re-rule the target, or argue the excess. 8b raised
-no other clause, and its `TRACE` question (checklist) would shrink entry 33's residual but not remove it.
+**Audited by phase 11 (2026-10-20): the count is three, inside the target.** [`deviations.md`](./deviations.md) re-derived every §10 entry from the source under the
+counting rule P11-2 (a clause counts when the outcome it protects is not delivered on a stated domain; a mechanism substitution that keeps the outcome is argued there and not
+counted). The three below are the only clauses that count, and `LedgerAuditTests` holds this list, the ledger's `unmet-clause` rows and its count line to one another. The seven
+that phase 8b counted are resolved: entries 24 (`OBS-27`), 31 (`BODY-11`) and 33 (`TRANSPORT-2`) were repaired, 26 (`CFG-5` to `CFG-7`) is a stricter host rule that meets the
+accessor letter, and 16, 18 and 32 stay. `TRANSPORT-2`'s line is struck through below; it is not unsatisfied.
 
+- **`AUTH-15` (MUST), Digest MD5 and MD5-sess where the host's crypto refuses MD5.** .NET bundles no MD5; on Linux it is OpenSSL's, which a FIPS-enabled provider refuses.
+  The handler probes once per process, treats any non-fatal failure as a refusal and drops the MD5 algorithms from its preference, so an MD5-only challenge is declined and a
+  server offering SHA-256 is answered with it. A vendored MD5 would silently take a FIPS deployment out of its compliance boundary. The mapping has never run on a real FIPS host. Phase 6c
+  (2026-10-08), re-audited by phase 11 (2026-10-20); design §10 entry 16.
+- **`PAGE-21` (MUST), a byte-for-byte query splice for percent-encoded unreserved characters.** `Request.Url` is a `System.Uri`, which decodes `%7E` to `~` before the splice sees the query;
+  the only byte-preserving API disables `Uri`'s validation, which puts CR/LF and the fragment on the wire. The residual is RFC 3986 section 6.2.2.2 equivalence of unreserved characters; reserved
+  characters, value-less flags, empty segments, order and `+` are preserved. Phase 7c (2026-10-09), re-audited by phase 11 (2026-10-20); design §10 entry 18.
 - **`TRANSPORT-14` (MUST), the malformed inbound header *name* clause.** `SocketsHttpHandler` rejects the whole response on a header name holding
-  a space, a control byte or a non-ASCII byte, before the adapter sees any header, and exposes no leniency switch; the value and obs-text clauses are met.
-  Phase 8b (2026-10-11); design §10 entry 32 and P8b-14. The conformance driver carries a permanent waiver for `transport-14.name-malformed-dropped` alone.
-- **`TRANSPORT-2` (MUST), the native retry for a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE`.** `SocketsHttpHandler` has no switch for its
-  own connection-failure retry, and re-sends a request with no content whose connection ends before any response byte up to three more times. The
-  transport keeps it off for a body-less `POST`, `PUT`, `PATCH` and extension methods (a zero-length content, the same bytes on the wire), and leaves
-  the idempotent methods, which RFC 9110 section 9.2.2 permits the retry for and to which attaching content would break `TRANSPORT-26`. There is no
-  consumer-side switch for those methods short of a different primary handler. Phase 8b (2026-10-11); design §10 entry 33 and P8b-T2. The driver carries a
-  permanent waiver for `transport-2.bodyless-not-resent`, which turns stale (and fails the run) if the runtime stops the retry.
+  a space, a control byte or a non-ASCII byte, before the adapter sees any header, and exposes no leniency switch; the value and obs-text clauses are met. Phase 11 corrected the reason: a
+  `PlaintextStreamFilter` could drop such a line, but only by parsing every response head ahead of the runtime's parser, which is a security and correctness risk out of proportion to
+  tolerating a non-compliant server (contrast the native-retry filter, which never inspects a byte). Phase 8b (2026-10-11), re-audited by phase 11 (2026-10-20); design §10 entry 32. The
+  conformance drivers carry a permanent waiver for `transport-14.name-malformed-dropped` alone.
+
+Superseded, kept for the record (struck through, never deleted):
+
+- ~~**Open item for the lead and phase 11 (phase 8b, 2026-10-11): the count is seven, over the target of five by two.** Design §10 records seven clauses unmet on a stated domain: entries 16, 18, 24, 26 and 31 (earlier phases; their lines are not in this list yet) and, from phase 8b, 32 and 33 below. The P8b-14 and P8b-T2 rulings spent "one of the five" and "a second of the five" on a budget the earlier entries had already used up; the two lines below are therefore over the target, and phase 11 must either retire two clauses, re-rule the target, or argue the excess. 8b raised no other clause, and its `TRACE` question (checklist) would shrink entry 33's residual but not remove it.~~ *Superseded 2026-10-20 by phase 11: the count is three, above.*
+- ~~- **`TRANSPORT-2` (MUST), the native retry for a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE`.** `SocketsHttpHandler` has no switch for its own connection-failure retry, and re-sends a request with no content whose connection ends before any response byte up to three more times. The transport keeps it off for a body-less `POST`, `PUT`, `PATCH` and extension methods (a zero-length content, the same bytes on the wire), and leaves the idempotent methods, which RFC 9110 section 9.2.2 permits the retry for and to which attaching content would break `TRANSPORT-26`. There is no consumer-side switch for those methods short of a different primary handler. Phase 8b (2026-10-11); design §10 entry 33 and P8b-T2. The driver carries a permanent waiver for `transport-2.bodyless-not-resent`, which turns stale (and fails the run) if the runtime stops the retry.~~ *Repaired by phase 11, task 4.1 (2026-10-20): the transport the SDK builds (`new SystemNetHttpClient()` and the DI named client) installs a pass-through `PlaintextStreamFilter` that
+  turns "the connection ended before any response byte" into an I/O failure, so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` arrives once. A handler or `HttpClient` the caller supplies keeps
+  `SocketsHttpHandler`'s native retry; that is the caller's own client and outside `TRANSPORT-2`'s scope (design §11 item 71, asymmetry `borrowed-handler-native-retry` below). The conformance
+  waiver for `transport-2.bodyless-not-resent` is kept for the caller-built-handler subject alone.*
 
 ### SHOULD- and MAY-level requirements declined for v1
 

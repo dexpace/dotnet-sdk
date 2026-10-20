@@ -8,7 +8,8 @@
 #   - an appendix-C MUST with no owning row: exit 1 naming it; a SHOULD with none: reported, exit 0;
 #   - an owning row naming an unknown ID: exit 1; a row whose level disagrees: exit 1; a split level ("MUST (+SHOULD log)") that agrees: exit 0;
 #   - an owning row with no legend mark: exit 1;
-#   - a carried ID whose earlier row has no hourglass: exit 1; with one: exit 0;
+#   - a carried ID whose earlier row has no hourglass: exit 1; with one: exit 0; with a later row that says "supersedes": exit 0 (phase 11);
+#   - section 12 (phase 11, P11-21): --section12 prints one row per prefix with its four sets; --check-section12 exits 0 on a current table, 1 on a stale one and 1 on a missing one;
 #   - a row in a contributed-evidence table (header "ID (owner)") owns nothing;
 #   - a missing appendix, no checklist, or a bad flag: exit 2; --report over a broken fixture: exit 0.
 # Run from anywhere. Exit 0 when every case holds, 1 otherwise.
@@ -82,6 +83,21 @@ expect "a carried ID whose earlier row defers" 0 "4 of 4 IDs owned" "$(fixture c
 | `AAA-2` | MUST | ✅ | built |' '| `AAA-1` | MUST | ✅ | carried |
 | `BBB-1` | SHOULD | ✅ | built |
 | `BBB-2` | MUST | ✅ | built |')" --check
+expect "a carried ID whose later row supersedes the earlier row" 0 "4 of 4 IDs owned" "$(fixture supersedes '' '| `AAA-1` | MUST | ✅ supersedes the phase 2a row | repaired |
+| `BBB-1` | SHOULD | ✅ | built |
+| `BBB-2` | MUST | ✅ | built |')" --check
+expect "section 12 prints one row per prefix with its sets" 0 "\| AAA \| AAA-1, AAA-2 \| — \| — \| — \|" "$(fixture s12-print)" --section12
+expect "section 12 puts a deferred ID and its owner in the last column" 0 "BBB-2 \(owner phase 4c\)" "$(fixture s12-defer '' '| `BBB-1` | SHOULD | ✅ | built |
+| `BBB-2` | MUST | ⏳ 4c | later |')" --section12
+s12="$(fixture s12)"
+mkdir -p "$s12/docs/sdk-design-dotnet"
+block="$("$dotnet" run scripts/ci/requirement-coverage.cs -- --section12 --root "$s12")"
+printf 'text\n<!-- section12:begin -->\n%s\n<!-- section12:end -->\ntext\n' "$block" >"$s12/docs/sdk-design-dotnet/12-appendix-requirement-coverage-index.md"
+expect "a current section 12 table" 0 "is current" "$s12" --check-section12
+sed -i 's/AAA-2/AAA-9/' "$s12/docs/sdk-design-dotnet/12-appendix-requirement-coverage-index.md"
+expect "a stale section 12 table" 1 "is stale" "$s12" --check-section12
+printf 'no table here\n' >"$s12/docs/sdk-design-dotnet/12-appendix-requirement-coverage-index.md"
+expect "a section 12 with no generated table" 1 "no generated table" "$s12" --check-section12
 contributed="$(fixture contributed '| `AAA-2` | MUST | ✅ | built |')"
 printf '\n%s\n%s\n%s\n' '| ID (owner) | Work | Evidence |' '|---|---|---|' '| `AAA-1` (a) | helped | x |' >>"$contributed/docs/work/mvp/phase2/phase2a/a-checklist.md"
 expect "a contributed-evidence table owns nothing" 1 "unowned +AAA-1" "$contributed" --check
