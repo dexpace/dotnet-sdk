@@ -211,9 +211,14 @@ public sealed record RetryOptions
 
     /// <summary>
     /// The name of a request header that carries the 1-based send number on every attempt, or <see langword="null"/> (the
-    /// default) for none (RETRY-38, RECOV-31).
+    /// default) for none (RETRY-38, RECOV-31). The stamp replaces any value the request already carries under the name, so a send
+    /// holds exactly one, and it is written on a copy of the request, never on the one the caller passed.
     /// </summary>
-    /// <exception cref="ArgumentException">The value is not an HTTP token.</exception>
+    /// <remarks>
+    /// The name may not be <c>Idempotency-Key</c>, in any case: the stamp preserves the idempotency key (RETRY-38), and a stamp that
+    /// replaced it would send the attempt number as the key.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The value is not an HTTP token, or it is the idempotency key's name.</exception>
     public string? AttemptHeaderName
     {
         get;
@@ -222,6 +227,11 @@ public sealed record RetryOptions
             if (value is not null && !HttpHeaderSyntax.IsValidName(value))
             {
                 throw new ArgumentException("The attempt header name must be a valid HTTP header name (an RFC 9110 token).", nameof(value));
+            }
+
+            if (value is not null && string.Equals(value, HttpHeaderName.WellKnown.IdempotencyKey.Original, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("The attempt header name may not be the idempotency key's name, which the attempt stamp must preserve.", nameof(value));
             }
 
             field = value;

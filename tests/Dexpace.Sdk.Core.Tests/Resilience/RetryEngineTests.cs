@@ -555,6 +555,26 @@ public sealed class RetryEngineTests
     }
 
     [Fact]
+    public async Task The_attempt_header_replaces_its_previous_value()
+    {
+        // RETRY-38 (design section 11 item 10): a request that already carries the header, from a caller or an outer layer, ends each send with exactly one value.
+        var seen = new List<string[]>();
+        var options = new RetryOptions { MaxRetryAttempts = 2, BaseDelay = TimeSpan.Zero, Jitter = 0, AttemptHeaderName = "X-Attempt" };
+        var run = new RetryRun(
+            s_get.WithHeader("X-Attempt", "outer").WithHeader("x-attempt", "stale").WithHeader("X-Key", "k"),
+            options,
+            (request, _, _, _) =>
+            {
+                seen.Add([.. request.Headers.GetAll("X-Attempt"), request.Headers.Get("X-Key")!]);
+                return ValueTask.FromResult<Outcome>(Fail());
+            });
+
+        await Engine().RunAsync(run, async: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal([["1", "k"], ["2", "k"], ["3", "k"]], seen);
+    }
+
+    [Fact]
     public async Task A_disabled_attempt_header_sends_the_same_request_instance()
     {
         Request? seen = null;

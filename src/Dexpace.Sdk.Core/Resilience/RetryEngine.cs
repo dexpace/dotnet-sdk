@@ -129,8 +129,9 @@ internal sealed class RetryEngine(TimeProvider timeProvider, Func<double> random
         return outcome;
     }
 
+    // RETRY-38: the stamp replaces any value the request already carries under the name, so a send holds exactly one.
     private static Request Stamp(Request request, string? headerName, int send) =>
-        headerName is null ? request : request.WithHeader(headerName, send.ToString(CultureInfo.InvariantCulture));
+        headerName is null ? request : request.WithHeaders(request.Headers.Set(headerName, send.ToString(CultureInfo.InvariantCulture)));
 
     // Returns the terminal outcome, or null to continue with the next send.
     private async ValueTask<Outcome?> DecideAsync(RetryCall call, Outcome outcome)

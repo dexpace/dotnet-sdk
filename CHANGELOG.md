@@ -789,5 +789,9 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
   `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
   `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
   parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
+- **Breaking: the retry attempt header is set, not appended, and `AttemptHeaderName` may not be `Idempotency-Key`** (`RETRY-38`, design §11 item 10). The stamp
+  `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
+  value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
+  and one that replaced it would send the attempt number as the key.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

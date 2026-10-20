@@ -112,6 +112,7 @@ public sealed class RecordBindingTests
     [InlineData("Retry:BaseDelay", "abc")]
     [InlineData("Retry:HonorRetryAfter", "yes")]
     [InlineData("Retry:AttemptHeaderName", "bad name")]
+    [InlineData("Retry:AttemptHeaderName", "Idempotency-Key")]
     [InlineData("Retry:RetryableStatusCodes", "99")]
     [InlineData("Retry:RetryableStatusCodes", "600")]
     [InlineData("Retry:PacingHeaders", "Retry-After, X-Not-A-Pacing-Header")]

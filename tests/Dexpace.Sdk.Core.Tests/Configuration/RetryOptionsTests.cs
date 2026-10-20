@@ -111,6 +111,19 @@ public sealed class RetryOptionsTests
         Assert.True(options.RetryableStatusCodes.SetEquals([503]));
     }
 
+    [Theory]
+    [InlineData("Idempotency-Key")]
+    [InlineData("idempotency-key")]
+    [InlineData("IDEMPOTENCY-KEY")]
+    public void AttemptHeaderName_rejects_the_idempotency_key_name(string name)
+    {
+        // RETRY-38: the stamp MUST preserve the idempotency key, and it replaces any previous value of its own name, so it may not be that name.
+        var ex = Assert.Throws<ArgumentException>(() => new RetryOptions { AttemptHeaderName = name });
+
+        Assert.DoesNotContain(name, ex.Message.Replace("Idempotency-Key", string.Empty, StringComparison.OrdinalIgnoreCase), StringComparison.Ordinal);
+        Assert.Equal("X-Idempotency-Attempt", new RetryOptions { AttemptHeaderName = "X-Idempotency-Attempt" }.AttemptHeaderName);
+    }
+
     [Fact]
     public void PacingHeaders_defaults_to_the_four_in_the_fixed_order()
     {
