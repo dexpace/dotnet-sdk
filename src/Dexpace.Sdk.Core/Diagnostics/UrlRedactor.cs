@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Text;
+using Dexpace.Sdk.Core.Errors;
 
 namespace Dexpace.Sdk.Core.Diagnostics;
 
@@ -96,7 +97,7 @@ public sealed class UrlRedactor
         {
             return RedactParsed(uri);
         }
-        catch (Exception)
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             return MalformedUrl;
         }
@@ -163,7 +164,7 @@ public sealed class UrlRedactor
 
             return RedactBySurgery(value);
         }
-        catch (Exception)
+        catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             return RelativeMarker;
         }
