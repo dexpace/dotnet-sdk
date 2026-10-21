@@ -34,6 +34,19 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// HTTP/1.x connections only: an HTTP/2 connection multiplexes, has no such retry on a plain end of stream, and is passed through untouched.
 /// </para>
 /// <para>
+/// <b>The window it does not close.</b> The state is set by the first write of a request, so a read that returns 0 before that write passes
+/// through; it has to, because an idle connection that the server closes is not a failed request. The runtime reuses a pooled connection
+/// after checking that the read it keeps outstanding on an idle connection has not completed (reasoned from the runtime's source, not
+/// reproduced here). A server close that lands after that check and before the transport's first write completes the outstanding read
+/// with 0 while the state is clear; the runtime then writes the request into the closed connection, takes that 0 as the first read of the
+/// response, and may re-send the request once on a new connection. That is the stale-pooled-connection retry every HTTP client has,
+/// and it is a request that, in the usual case, never reached the server's application because the server had already closed the
+/// connection (a server that half-closed and still reads could have acted on the first copy). So the request <i>reaches the server
+/// once</i> in this class's and the transport's documents means: not up to four times, and not again after a write to a connection that
+/// was open when the write began; it does not mean "never twice" under that race. Closing the window would take a verdict on an idle
+/// read, which is the read the pool relies on to discard a dead connection, and the filter does not change what the runtime sees there.
+/// </para>
+/// <para>
 /// A handler the caller builds does not get the filter; its retry is the caller's native client's (design §11 item 71). The wrapper owns the
 /// stream it wraps: disposing it disposes the inner stream once.
 /// </para>

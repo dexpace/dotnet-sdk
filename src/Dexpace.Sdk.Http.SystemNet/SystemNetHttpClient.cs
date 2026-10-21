@@ -117,7 +117,7 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> or <c>TRACE</c> cannot be given content (TRANSPORT-26, RFC 9110 section 8.6),
 /// so the handler the SDK builds (<see cref="CreatePrimaryHandler"/>, which the owned construction and the dependency-injection
 /// package use) carries a pass-through stream filter that turns an end of stream arriving before any response byte into the
-/// <c>ResponseEnded</c> failure the runtime raises itself; the request reaches the server once and the SDK's retry layer decides
+/// <c>ResponseEnded</c> failure the runtime raises itself; the request reaches the server once (bar the idle-connection window on FirstResponseByteStream) and the SDK's retry layer decides
 /// whether to send it again. <b>Breaking</b> (phase 11): they used to be re-sent natively, up to three more times. A handler or
 /// <c>HttpClient</c> you supply is your native client, and keeps its own retry (design §11 item 71).
 /// </para>

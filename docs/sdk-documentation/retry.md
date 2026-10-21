@@ -46,7 +46,7 @@ server answering `503`, a `POST` with a body reached it four times under the sta
 [`dependency-injection.md`](./dependency-injection.md).
 
 *Corrected 2026-10-20 (phase 11, design §10 entry 33, retired; §11 item 71): the next paragraph describes phase 8b. The transport the SDK builds (`new SystemNetHttpClient()` and the DI named client)
-now stops that re-send with a pass-through `PlaintextStreamFilter`, so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reaches the server once per SDK attempt; a handler or `HttpClient` you supply
+now stops that re-send with a pass-through `PlaintextStreamFilter`, so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reaches the server once per SDK attempt (bar the idle-connection window in `transport.md`); a handler or `HttpClient` you supply
 keeps the runtime's retry (see [`transport.md`](./transport.md)).*
 
 The reference transport's own `SocketsHttpHandler` was the one native retry the SDK could not turn off: it exposes no switch, and it re-sends

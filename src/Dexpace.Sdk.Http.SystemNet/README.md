@@ -64,7 +64,7 @@ unset, and a `PlaintextStreamFilter` that ends the native re-send), for a primar
   reported under `http.client.request.duration` by both.
 - **One known gap, and one scope.** `SocketsHttpHandler` rejects a response with a malformed header *name* outright, before this adapter sees it
   (`TRANSPORT-14`'s name clause). And the handler this package builds (the owned construction, and `CreatePrimaryHandler`) stops the runtime's own re-send of a request whose connection ends before any
-  response byte (`TRANSPORT-2`), so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE` reaches the server once; a handler or `HttpClient` you supply keeps the runtime's retry, which can send it up to four times.
+  response byte (`TRANSPORT-2`), so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE` reaches the server once (not up to four times; one idle-connection window is described in `docs/sdk-documentation/transport.md`); a handler or `HttpClient` you supply keeps the runtime's retry, which can send it up to four times.
   The [transport page](https://github.com/dexpace/dotnet-sdk/blob/main/docs/sdk-documentation/transport.md) says why.
 
 ## Usage

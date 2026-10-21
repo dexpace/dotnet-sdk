@@ -750,7 +750,9 @@ for free before the first release, and corrected what could not; the clauses sti
 - **Breaking (phase 11):** the owned `SystemNetHttpClient` and the dependency-injection named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`,
   `DELETE` or `TRACE` natively (`TRANSPORT-2`; design §10 entry 33). `SystemNetHttpClient.CreatePrimaryHandler` installs a pass-through `PlaintextStreamFilter` (HTTP/1.x only) that
   turns an end of stream arriving after a request was written and before any response byte into the `HttpIOException` (`ResponseEnded`) the runtime raises itself, so the request
-  reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. A handler or `HttpClient` you
+  reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. One window remains, reasoned from the runtime's source and not reproduced: a read of 0 before a request's first write passes through (an idle
+  close is not a failed request), so a server close that lands after the runtime's reuse check of a pooled connection and before that write can still make the runtime re-send once, a request whose first copy went to an already-closed connection;
+  "reaches the server once" means not up to four times, not never twice (`docs/sdk-documentation/transport.md`). A handler or `HttpClient` you
   supply is your native client and keeps its own retry (design §11 item 71); a caller who replaces the filter on a handler from `CreatePrimaryHandler` removes the guarantee. The
   conformance drivers' `transport-2.bodyless-not-resent` waiver is deleted for the owned and DI subjects and kept, rescoped, for the handler-taking subject.
 - **Breaking (behaviour, phase 11): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
