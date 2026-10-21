@@ -31,6 +31,7 @@ public sealed partial class CiWorkflowTests
         ("Coverage floor - self-test", "scripts/ci/coverage-gate-selftest.sh artifacts/test-results"),
         ("Pack", "dotnet pack Dexpace.Sdk.sln --configuration Release"),
         ("Dependency audit", "dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages"),
+        ("Dependency audit - self-test", "scripts/ci/dependency-audit-selftest.sh artifacts/packages"),
         ("Packaging conformance", "dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages"),
         ("Tools - restore (locked)", "dotnet restore tools/Dexpace.Tools.sln --locked-mode"),
         ("Tools - build", "dotnet build tools/Dexpace.Tools.sln --configuration Release"),
@@ -39,7 +40,9 @@ public sealed partial class CiWorkflowTests
         ("Knowledge corpus structure", "scripts/knowledge verify-structure"),
         ("Requirement coverage self-test", "scripts/ci/requirement-coverage-selftest.sh"),
         ("Requirement coverage", "dotnet run scripts/ci/requirement-coverage.cs -- --check"),
+        ("Section 12", "dotnet run scripts/ci/requirement-coverage.cs -- --check-section12"),
         ("Pack twice and compare", "scripts/ci/reproducible-pack.sh"),
+        ("Pack twice and compare - self-test", "scripts/ci/reproducible-pack.sh --self-test"),
         ("Publish", "dotnet publish tests/Dexpace.Sdk.AotSmoke/Dexpace.Sdk.AotSmoke.csproj"),
         ("Run", "./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke"),
     ];
@@ -50,6 +53,7 @@ public sealed partial class CiWorkflowTests
         ["Knowledge corpus structure"] = "runner.os == 'Linux'",
         ["Requirement coverage self-test"] = "runner.os == 'Linux'",
         ["Requirement coverage"] = "runner.os == 'Linux'",
+        ["Section 12"] = "runner.os == 'Linux'",
         ["Upload test results"] = "always()",
     };
 

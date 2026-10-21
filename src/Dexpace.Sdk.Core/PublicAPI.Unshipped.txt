@@ -169,6 +169,7 @@ Dexpace.Sdk.Core.Client.IAsyncHttpClient
 Dexpace.Sdk.Core.Client.IAsyncHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 Dexpace.Sdk.Core.Client.IHttpClient
 Dexpace.Sdk.Core.Client.IHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Core.Client.ResponseTaskExtensions
 Dexpace.Sdk.Core.Configuration.BuildInfo
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions
 Dexpace.Sdk.Core.Configuration.DexpaceClientOptions.<Clone>$() -> Dexpace.Sdk.Core.Configuration.DexpaceClientOptions!
@@ -266,6 +267,8 @@ Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.get -> int
 Dexpace.Sdk.Core.Configuration.RetryOptions.MaxRetryAttempts.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.get -> double
 Dexpace.Sdk.Core.Configuration.RetryOptions.Multiplier.init -> void
+Dexpace.Sdk.Core.Configuration.RetryOptions.PacingHeaders.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Dexpace.Sdk.Core.Configuration.RetryOptions.PacingHeaders.init -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryOptions() -> void
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.get -> System.Collections.Generic.IReadOnlySet<int>!
 Dexpace.Sdk.Core.Configuration.RetryOptions.RetryableStatusCodes.init -> void
@@ -273,6 +276,7 @@ Dexpace.Sdk.Core.Configuration.TimeProviderWaits
 Dexpace.Sdk.Core.Diagnostics.DexpaceDiagnostics
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogEvents
 Dexpace.Sdk.Core.Diagnostics.DexpaceLogKeys
+Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(System.Uri! uri) -> string!
 Dexpace.Sdk.Core.Diagnostics.UrlRedactor.Redact(string! url) -> string!
@@ -330,6 +334,7 @@ Dexpace.Sdk.Core.Errors.SerializationException.SerializationException() -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message) -> void
 Dexpace.Sdk.Core.Errors.SerializationException.SerializationException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException
+Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException() -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException(string! message) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestException.ServiceRequestException(string! message, System.Exception? innerException) -> void
@@ -337,10 +342,6 @@ Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException() -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException(string! message) -> void
 Dexpace.Sdk.Core.Errors.ServiceRequestTimeoutException.ServiceRequestTimeoutException(string! message, System.Exception? innerException) -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException() -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException(string! message) -> void
-Dexpace.Sdk.Core.Errors.ServiceResponseException.ServiceResponseException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.Errors.StreamClosedException
 Dexpace.Sdk.Core.Errors.StreamClosedException.StreamClosedException() -> void
 Dexpace.Sdk.Core.Errors.StreamClosedException.StreamClosedException(string! message) -> void
@@ -804,8 +805,6 @@ override Dexpace.Sdk.Core.Serialization.TristateSentinel.Equals(object? obj) -> 
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.GetHashCode() -> int
 override Dexpace.Sdk.Core.Serialization.TristateSentinel.ToString() -> string!
 override sealed Dexpace.Sdk.Core.Errors.HttpResponseException.IsRetryable.get -> bool
-override sealed Dexpace.Sdk.Core.Errors.ServiceRequestException.IsRetryable.get -> bool
-override sealed Dexpace.Sdk.Core.Errors.ServiceResponseException.IsRetryable.get -> bool
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Stage.get -> Dexpace.Sdk.Core.Pipeline.PipelineStage
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.Process(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> Dexpace.Sdk.Core.Http.Response.Response!
 override sealed Dexpace.Sdk.Core.Pipeline.Policies.AuthorizationPolicy.ProcessAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Pipeline.PipelineContext! context, Dexpace.Sdk.Core.Pipeline.PipelineRunner continuation) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.Http.Response.Response!>
@@ -829,6 +828,7 @@ static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsAsync(this Dexpace.Sdk.Cor
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.AsBlocking(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client) -> Dexpace.Sdk.Core.Client.IHttpClient!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.Execute(this Dexpace.Sdk.Core.Client.IHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Dexpace.Sdk.Core.Http.Response.Response!
 static Dexpace.Sdk.Core.Client.HttpClientExtensions.ExecuteAsync(this Dexpace.Sdk.Core.Client.IAsyncHttpClient! client, Dexpace.Sdk.Core.Http.Request.Request! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+static Dexpace.Sdk.Core.Client.ResponseTaskExtensions.WaitOrDisposeAsync(this System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>! task, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.Default.get -> Dexpace.Sdk.Core.Configuration.HttpLoggingOptions!
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator !=(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.HttpLoggingOptions.operator ==(Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? left, Dexpace.Sdk.Core.Configuration.HttpLoggingOptions? right) -> bool
@@ -850,6 +850,9 @@ static Dexpace.Sdk.Core.Configuration.RetryOptions.operator !=(Dexpace.Sdk.Core.
 static Dexpace.Sdk.Core.Configuration.RetryOptions.operator ==(Dexpace.Sdk.Core.Configuration.RetryOptions? left, Dexpace.Sdk.Core.Configuration.RetryOptions? right) -> bool
 static Dexpace.Sdk.Core.Configuration.TimeProviderWaits.DelayAsync(this System.TimeProvider! timeProvider, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 static Dexpace.Sdk.Core.Configuration.TimeProviderWaits.Sleep(this System.TimeProvider! timeProvider, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken) -> void
+static Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration.Datadog() -> System.Diagnostics.ActivityTraceId
+static Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration.FormatDatadog(System.Diagnostics.ActivityTraceId traceId) -> string!
+static Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration.W3C() -> System.Diagnostics.ActivityTraceId
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationFormUrlEncoded.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJson.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
 static Dexpace.Sdk.Core.Http.Common.CommonMediaTypes.ApplicationJsonLines.get -> Dexpace.Sdk.Core.Http.Common.MediaType!
@@ -1165,6 +1168,7 @@ Dexpace.Sdk.Core.Pipeline.Policies.BearerTokenAuthPolicy.BearerTokenAuthPolicy(D
 Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy
 Dexpace.Sdk.Core.Pipeline.Policies.ChallengeAuthPolicy.ChallengeAuthPolicy(Dexpace.Sdk.Core.Auth.IChallengeHandler! handler) -> void
 override Dexpace.Sdk.Core.Errors.SdkException.ToString() -> string!
+override Dexpace.Sdk.Core.Errors.ServiceRequestException.ToString() -> string!
 override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.GetHashCode() -> int
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.EnumerateCauses(System.Exception! exception) -> System.Collections.Generic.IEnumerable<System.Exception!>!
 static Dexpace.Sdk.Core.Errors.ExceptionFacts.IsFatal(System.Exception! exception) -> bool
@@ -1276,6 +1280,7 @@ Dexpace.Sdk.Core.Recovery.RetryRecovery.TotalTimeout.get -> System.TimeSpan
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.Equals(object obj) -> bool
 ~override Dexpace.Sdk.Core.Pipeline.Policies.RetryAttemptContext.ToString() -> string
 const Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.DefaultMaxLineBytes = 1048576 -> int
+const Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.DefaultMaxEventBytes = 8388608 -> int
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.<Clone>$() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.Comment.get -> string?
@@ -1298,10 +1303,19 @@ Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSent
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(int maxLineBytes, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventLineTooLongException.ServerSentEventLineTooLongException(string! message, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.MaxEventBytes.get -> int
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.ServerSentEventTooLargeException() -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.ServerSentEventTooLargeException(int maxEventBytes) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.ServerSentEventTooLargeException(int maxEventBytes, System.Exception? innerException) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.ServerSentEventTooLargeException(string! message) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventTooLargeException.ServerSentEventTooLargeException(string! message, System.Exception? innerException) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNext() -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadNextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent?>
-Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes = 1048576) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes) -> void
+Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ServerSentEventReader(System.IO.Stream! source, int maxLineBytes, int maxEventBytes) -> void
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.AsEnumerable() -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
 Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.Dispose() -> void
@@ -1330,9 +1344,18 @@ override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.GetHashCode() -> int
 override Dexpace.Sdk.Core.ServerSentEvents.SseMapResult<T>.GetHashCode() -> int
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator !=(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent.operator ==(Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? left, Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent? right) -> bool
-static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
-static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes = 1048576) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
-static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes = 1048576, Microsoft.Extensions.Logging.ILogger? logger = null) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAll(System.IO.Stream! source, int maxLineBytes, int maxEventBytes) -> System.Collections.Generic.IEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventReader.ReadAllAsync(System.IO.Stream! source, int maxLineBytes, int maxEventBytes) -> System.Collections.Generic.IAsyncEnumerable<Dexpace.Sdk.Core.ServerSentEvents.ServerSentEvent!>!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, Microsoft.Extensions.Logging.ILogger? logger) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes, Microsoft.Extensions.Logging.ILogger? logger) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes, int maxEventBytes) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
+static Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream.FromResponse(Dexpace.Sdk.Core.Http.Response.Response! response, int maxLineBytes, int maxEventBytes, Microsoft.Extensions.Logging.ILogger? logger) -> Dexpace.Sdk.Core.ServerSentEvents.ServerSentEventStream!
 static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.Done.get -> Dexpace.Sdk.Core.ServerSentEvents.SseMapResult
 static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator !=(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool
 static Dexpace.Sdk.Core.ServerSentEvents.SseMapResult.operator ==(Dexpace.Sdk.Core.ServerSentEvents.SseMapResult left, Dexpace.Sdk.Core.ServerSentEvents.SseMapResult right) -> bool

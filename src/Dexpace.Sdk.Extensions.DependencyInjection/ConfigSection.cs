@@ -9,7 +9,15 @@ namespace Dexpace.Sdk.Extensions.DependencyInjection;
 /// A client's configuration section as the reader sees it: a lookup that trims ASCII whitespace and treats an empty or whitespace-only value
 /// as absent (CFG-2, P9-7), a failure collector, and the list reader. The one place a key is turned into text (CFG-38).
 /// </summary>
-internal sealed class ConfigSection(IConfigurationSection? section, List<ConfigurationFailure> failures)
+/// <remarks>
+/// Given the <paramref name="providers"/> of the root the section was taken from, a blank value falls through to the next provider down that has a
+/// value, which is what "absent" means for a layered configuration (CFG-2, P11-17); without them the merged read stands, where a blank value in the
+/// highest provider hides the lower ones and the record default applies.
+/// </remarks>
+/// <param name="section">The client's section, or <see langword="null"/>.</param>
+/// <param name="failures">Where a rejected key records its rule.</param>
+/// <param name="providers">The providers of the root that holds <paramref name="section"/>, lowest first, or <see langword="null"/> to read the merged view.</param>
+internal sealed class ConfigSection(IConfigurationSection? section, List<ConfigurationFailure> failures, IReadOnlyList<IConfigurationProvider>? providers = null)
 {
     private readonly HashSet<string> _touched = new(StringComparer.OrdinalIgnoreCase);
 
@@ -25,13 +33,93 @@ internal sealed class ConfigSection(IConfigurationSection? section, List<Configu
     internal string? Text(string key)
     {
         _touched.Add(key);
-        if (section?[key] is not { } raw)
+        if (Raw(key) is not { } raw)
         {
             return null;
         }
 
         var trimmed = ScalarGrammar.AsciiTrim(raw);
         return trimmed.Length == 0 ? null : trimmed;
+    }
+
+    // The value of a key relative to the section: the merged read, or the first non-blank value walking the providers from the highest.
+    private string? Raw(string key) => providers is null ? section?[key] : FirstNonBlank(providers, FullPath(key));
+
+    // A list item's value, by the same rule as a scalar key (the item's path is the full path).
+    private string? RawChild(IConfigurationSection child) => providers is null ? child.Value : FirstNonBlank(providers, child.Path);
+
+    private static string? FirstNonBlank(IReadOnlyList<IConfigurationProvider> providers, string path)
+    {
+        for (var i = providers.Count - 1; i >= 0; i--)
+        {
+            var provider = providers[i];
+            if (provider is ChainedConfigurationProvider { Configuration: IConfigurationRoot inner })
+            {
+                // A chained configuration answers with its own merged read, so its blank top would hide its lower providers: walk them too.
+                if (FirstNonBlank([.. inner.Providers], path) is { } fromInner)
+                {
+                    return fromInner;
+                }
+
+                continue;
+            }
+
+            if (provider.TryGet(path, out var value) && value is not null && ScalarGrammar.AsciiTrim(value).Length > 0)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The providers to walk for <paramref name="section"/>, or <see langword="null"/> when the merged read stands: the registered configuration must be a
+    /// root whose slice at the section's path enumerates exactly the pairs the section does, so a section from some other configuration is never read through
+    /// providers it does not belong to (P11-17).
+    /// </summary>
+    /// <param name="section">The client's section.</param>
+    /// <param name="registered">The <c>IConfiguration</c> registered in the container, or <see langword="null"/>.</param>
+    /// <returns>The root's providers, lowest first, or <see langword="null"/>.</returns>
+    internal static IReadOnlyList<IConfigurationProvider>? ProvidersFor(IConfigurationSection section, IConfiguration? registered)
+    {
+        if (registered is not IConfigurationRoot root || section.Path.Length == 0)
+        {
+            return null;
+        }
+
+        return SamePairs(section, root.GetSection(section.Path)) ? [.. root.Providers] : null;
+    }
+
+    private static bool SamePairs(IConfigurationSection left, IConfigurationSection right)
+    {
+        var expected = Pairs(left);
+        var actual = Pairs(right);
+        if (expected.Count != actual.Count)
+        {
+            return false;
+        }
+
+        foreach (var (key, value) in expected)
+        {
+            if (!actual.TryGetValue(key, out var other) || !string.Equals(value, other, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Dictionary<string, string?> Pairs(IConfigurationSection section)
+    {
+        var pairs = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in section.AsEnumerable(makePathsRelative: false))
+        {
+            pairs[key] = value;
+        }
+
+        return pairs;
     }
 
     /// <summary>The children of a list key, in the configuration's order.</summary>
@@ -92,7 +180,7 @@ internal sealed class ConfigSection(IConfigurationSection? section, List<Configu
             raw = [];
             foreach (var child in children)
             {
-                var text = child.Value is null ? string.Empty : ScalarGrammar.AsciiTrim(child.Value);
+                var text = RawChild(child) is { } value ? ScalarGrammar.AsciiTrim(value) : string.Empty;
                 if (text.Length == 0)
                 {
                     Fail(key, "a list item is empty");

@@ -16,13 +16,8 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// Each message names a feature and the <see cref="ProxyOptions"/> member that causes it, taken from the closed set of literals
 /// below. Nothing from the options is formatted into it: not the host, not a user name, not a password (<c>XCUT-18</c>).
 /// </remarks>
-internal static class ProxyWarnings
+internal static partial class ProxyWarnings
 {
-    private static readonly Action<ILogger, string, string, Exception?> s_unsupported = LoggerMessage.Define<string, string>(
-        LogLevel.Warning,
-        new EventId(DexpaceLogEvents.TransportProxyFeatureUnsupportedId, DexpaceLogEvents.TransportProxyFeatureUnsupported),
-        "The transport cannot honour a proxy setting as written: {Feature} (ProxyOptions.{Member}) (TRANSPORT-30).");
-
     /// <summary>Logs one warning per unhonourable combination in <paramref name="options"/>; a clean configuration logs nothing.</summary>
     /// <param name="logger">Receives the warnings.</param>
     /// <param name="options">The proxy about to be installed.</param>
@@ -34,31 +29,38 @@ internal static class ProxyWarnings
         var hasHook = options.ChallengeCredentials is not null;
         if (hasHook && options.UserName is not null)
         {
-            Log(logger, "the credentials hook wins and the user name and password are ignored", nameof(ProxyOptions.UserName), null);
+            Log(logger, "the credentials hook wins and the user name and password are ignored", nameof(ProxyOptions.UserName));
         }
 
         if (hasHook && socks)
         {
-            Log(logger, "a SOCKS handshake has no challenge, so the hook is asked once per connection with the proxy scheme as the authentication type", nameof(ProxyOptions.ChallengeCredentials), null);
+            Log(logger, "a SOCKS handshake has no challenge, so the hook is asked once per connection with the proxy scheme as the authentication type", nameof(ProxyOptions.ChallengeCredentials));
         }
 
         if (!hasHook && options.Type == ProxyType.Socks4 && options.Password is not null)
         {
-            Log(logger, "SOCKS4 carries a user id only, so the password is ignored", nameof(ProxyOptions.Password), null);
+            Log(logger, "SOCKS4 carries a user id only, so the password is ignored", nameof(ProxyOptions.Password));
         }
     }
 
     // OBS-20: a logger that throws must not fail the operation, and here the operation is a constructor that has already built
     // an HttpClient it would leak.
-    private static void Log(ILogger logger, string feature, string member, Exception? exception)
+    private static void Log(ILogger logger, string feature, string member)
     {
         try
         {
-            s_unsupported(logger, feature, member, exception);
+            LogUnsupported(logger, feature, member);
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // Swallowed by design (OBS-20).
         }
     }
+
+    [LoggerMessage(
+        EventId = DexpaceLogEvents.TransportProxyFeatureUnsupportedId,
+        EventName = DexpaceLogEvents.TransportProxyFeatureUnsupported,
+        Level = LogLevel.Warning,
+        Message = "The transport cannot honour a proxy setting as written: {Feature} (ProxyOptions.{Member}) (TRANSPORT-30).")]
+    private static partial void LogUnsupported(ILogger logger, string feature, string member);
 }

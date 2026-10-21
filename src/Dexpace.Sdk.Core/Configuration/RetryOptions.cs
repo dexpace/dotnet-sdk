@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 using System.Collections.Frozen;
+using System.Collections.ObjectModel;
 using System.Text;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Resilience;
@@ -149,11 +150,40 @@ public sealed record RetryOptions
 
     /// <summary>
     /// When <see langword="true"/>, the retry policy honours the server's pacing headers (<c>Retry-After</c> as seconds or
-    /// an HTTP-date, <c>retry-after-ms</c>, <c>x-ms-retry-after-ms</c> and <c>X-RateLimit-Reset</c>) in that fixed order
-    /// (RETRY-21). Defaults to <see langword="true"/>. The recovery-stack retry always honours them (RECOV-22).
+    /// an HTTP-date, <c>retry-after-ms</c>, <c>x-ms-retry-after-ms</c> and <c>X-RateLimit-Reset</c>), in the order of
+    /// <see cref="PacingHeaders"/> (RETRY-21). Defaults to <see langword="true"/>; <see langword="false"/> reads none of them.
+    /// The recovery-stack retry always honours them, in the fixed order (RECOV-22).
     /// </summary>
     /// <remarks><b>Breaking:</b> this governed <c>Retry-After</c> alone; it now governs all four headers.</remarks>
     public bool HonorRetryAfter { get; init; } = true;
+
+    /// <summary>
+    /// The pacing headers the stage-stack retry policy reads, in the order it tries them: the first that holds a parseable value
+    /// sets the wait, and each header is parsed by its own name's semantics (RETRY-21). Defaults to <c>Retry-After</c>,
+    /// <c>retry-after-ms</c>, <c>x-ms-retry-after-ms</c>, <c>X-RateLimit-Reset</c>, the order the recovery stack always uses.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A subset in any order is accepted, which is how a header an API misuses is left out: a delta-seconds <c>X-RateLimit-Reset</c>
+    /// reads as an epoch time long past and retries at once, so a service that sends one lists the other three. Names are matched
+    /// ignoring case and stored in the spelling above. The list is copied when assigned and is read-only. <see cref="HonorRetryAfter"/>
+    /// remains the switch that turns pacing off; an empty list is rejected rather than read as "off".
+    /// </para>
+    /// <para>
+    /// The configuration key is <c>Retry:PacingHeaders</c>, a list that replaces the default.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">The list is empty, names something other than the four pacing headers, or names one twice.</exception>
+    public IReadOnlyList<string> PacingHeaders
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value, nameof(PacingHeaders));
+            field = CanonicalPacingHeaders(value, nameof(PacingHeaders));
+        }
+    } = RetryPacing.DefaultOrder;
 
     /// <summary>
     /// The response statuses that are retried. Defaults to <c>{408, 429, 500, 502, 503, 504}</c> (XCUT-7). The set is
@@ -166,7 +196,7 @@ public sealed record RetryOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(RetryableStatusCodes));
             foreach (var code in value)
             {
                 if (code is < 400 or > 599)
@@ -181,9 +211,17 @@ public sealed record RetryOptions
 
     /// <summary>
     /// The name of a request header that carries the 1-based send number on every attempt, or <see langword="null"/> (the
-    /// default) for none (RETRY-38, RECOV-31).
+    /// default) for none (RETRY-38, RECOV-31). The stamp replaces any value the request already carries under the name, so a send
+    /// holds exactly one, and it is written on a copy of the request, never on the one the caller passed.
     /// </summary>
-    /// <exception cref="ArgumentException">The value is not an HTTP token.</exception>
+    /// <remarks>
+    /// The name may not be <c>Idempotency-Key</c>, in any case: the stamp preserves the idempotency key (RETRY-38), and a stamp that
+    /// replaced it would send the attempt number as the key. An idempotency step can be configured to use another header
+    /// (<see cref="Recovery.IdempotencyKeyStep.HeaderName"/>), which this setter cannot see; the stack that holds both refuses the
+    /// pair where it is assembled: <see cref="Pipeline.PipelineBuilder.Build(Client.IAsyncHttpClient, DexpaceClientOptions)"/> and a
+    /// per-call <see cref="DexpaceClientOptions"/> override on the stage stack, <see cref="Recovery.RecoveryDispatcher"/> on the recovery stack.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The value is not an HTTP token, or it is the idempotency key's name.</exception>
     public string? AttemptHeaderName
     {
         get;
@@ -192,6 +230,11 @@ public sealed record RetryOptions
             if (value is not null && !HttpHeaderSyntax.IsValidName(value))
             {
                 throw new ArgumentException("The attempt header name must be a valid HTTP header name (an RFC 9110 token).", nameof(value));
+            }
+
+            if (value is not null && string.Equals(value, HttpHeaderName.WellKnown.IdempotencyKey.Original, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("The attempt header name may not be the idempotency key's name, which the attempt stamp must preserve.", nameof(value));
             }
 
             field = value;
@@ -211,6 +254,7 @@ public sealed record RetryOptions
         && FixedDelay == other.FixedDelay
         && HonorRetryAfter == other.HonorRetryAfter
         && string.Equals(AttemptHeaderName, other.AttemptHeaderName, StringComparison.Ordinal)
+        && PacingHeaders.SequenceEqual(other.PacingHeaders, StringComparer.Ordinal)
         && RetryableStatusCodes.SetEquals(other.RetryableStatusCodes);
 
     /// <summary>Returns a hash code consistent with <see cref="Equals(RetryOptions?)"/>.</summary>
@@ -226,6 +270,10 @@ public sealed record RetryOptions
         hash.Add(FixedDelay);
         hash.Add(HonorRetryAfter);
         hash.Add(AttemptHeaderName, StringComparer.Ordinal);
+        foreach (var header in PacingHeaders)
+        {
+            hash.Add(header, StringComparer.Ordinal);
+        }
 
         // An order-independent combination, so two sets with equal content hash alike whatever their insertion order.
         var statuses = 0;
@@ -246,6 +294,33 @@ public sealed record RetryOptions
         }
     }
 
+    // RETRY-21: a subset of the four known names, none twice and at least one; a copy the caller cannot reach. The messages name the rule and never
+    // the offending value, because the configuration reader shows them and a configured value must not be quoted.
+    private static ReadOnlyCollection<string> CanonicalPacingHeaders(IReadOnlyList<string> requested, string paramName)
+    {
+        if (requested.Count == 0)
+        {
+            throw new ArgumentException("At least one pacing header is required; set HonorRetryAfter to false to read none.", paramName);
+        }
+
+        var canonical = new List<string>(requested.Count);
+        foreach (var name in requested)
+        {
+            var known = RetryPacing.DefaultOrder.FirstOrDefault(candidate => string.Equals(candidate, name, StringComparison.OrdinalIgnoreCase))
+                ?? throw new ArgumentException(
+                    "A pacing header must be one of Retry-After, retry-after-ms, x-ms-retry-after-ms or X-RateLimit-Reset.",
+                    paramName);
+            if (canonical.Contains(known, StringComparer.Ordinal))
+            {
+                throw new ArgumentException("A pacing header may be listed only once.", paramName);
+            }
+
+            canonical.Add(known);
+        }
+
+        return canonical.AsReadOnly();
+    }
+
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append("MaxRetryAttempts = ").Append(MaxRetryAttempts);
@@ -257,6 +332,7 @@ public sealed record RetryOptions
         builder.Append(", HonorRetryAfter = ").Append(HonorRetryAfter);
         builder.Append(", RetryableStatusCodes = [").AppendJoin(", ", RetryableStatusCodes.Order()).Append(']');
         builder.Append(", AttemptHeaderName = ").Append(AttemptHeaderName);
+        builder.Append(", PacingHeaders = [").AppendJoin(", ", PacingHeaders).Append(']');
         return true;
     }
 }

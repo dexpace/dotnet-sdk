@@ -56,9 +56,11 @@ rewritten in place between two writes breaks byte-identity of the two. `FileRequ
 `FilePath`, `Offset` and `ContentLength` (`BODY-12`), but the transfer is a large-buffer copy from an unbuffered
 `FileStream`, **not** a kernel file-to-socket path: `SocketsHttpHandler` offers none for request content.
 
-> **Domain limit (design §10 entry 31).** On Unix the shared framework cannot tell a FIFO or a character device from a
-> regular file, and opening a FIFO blocks. Such a file reports a size of 0, and a count of 0 never opens the file, so it
-> uploads as an **empty body** instead of failing at construction. Windows rejects a `Device` path.
+> **Domain limit (design §10 entry 31), retired by phase 11 (corrected 2026-10-20).** On Unix `File.Exists` is true and `FileInfo.Attributes` is `Normal` for a FIFO, a device
+> and a regular file alike, and opening a FIFO blocks, so a special file used to report a size of 0 and upload as an **empty body**. `FromFile` now classifies a size-0 path by its
+> file type through `System.Formats.Tar`, which reads the type without opening a special file (it opens a regular file to attach its content, and a regular file the process may not read is still accepted when empty), and refuses a FIFO, a character or block device or a socket with an
+> `ArgumentException` naming the kind (never the path). An empty regular file and a symbolic link to a regular file are unchanged; a link to a special file is refused as its target.
+> Windows keeps its device-attribute check. Only a path whose size is 0 is classified, so a sized file costs nothing extra.
 
 ### Multipart
 
@@ -134,10 +136,14 @@ public sealed class MyBody : ResponseBody
 ### Read after dispose, and the second open
 
 A stream-backed body (`ResponseBody.FromStream`, and the transport's `HttpResponseMessageBody`) opened after it was disposed
-throws `StreamClosedException`; one that was already opened reports `StreamConsumedException` first, whatever the dispose
-order. An in-memory body (`FromBytes`) that was never opened still serves after dispose, because it holds memory and not a
-connection. A second open in either form throws `StreamConsumedException`, and its message now names the buffering route:
-read the body once and keep the bytes (`ReadAsBytesAsync`, then `ResponseBody.FromBytes`) (`BODY-14`). The buffered error
+throws `StreamClosedException`, whether or not it had been opened before (*corrected 2026-10-20, phase 11:* an open after an earlier open used to report `StreamConsumedException`
+first). An in-memory body (`FromBytes`) that was never opened still serves after dispose, because it holds memory and not a
+connection. **A second open in either form returns the first stream** (`BODY-14`, `HTTP-41`; design §10 entry 6, retired by phase 11): `OpenReadAsync` then `OpenRead`, or the reverse, hand
+back the one handle the first open obtained, not a replay and not a failure, and the convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual open read the
+remaining bytes of that same stream. This page said a second open throws `StreamConsumedException` and names the buffering route; that is now only the response-logging wrapper's
+rule past its capture cap, where the tail is single-use (`BODY-24`). A second *write* of a single-use request body still throws `StreamConsumedException`; a second convenience *read* of a stream-backed response body throws `StreamClosedException` (the first read disposed it), and one after a manual open and drain returns the empty remainder of the same handle (*corrected 2026-10-21, review:* the page and `CLAUDE.md` said a second read of a response body throws `StreamConsumedException`, which no response body does). The first open is serialized, so two opens racing (in either form, on any thread) are both handed the one stream. The stream a second open returns is the first one even after a consumer disposed it, and
+a read of a disposed stream throws `ObjectDisposedException` on every body, the transport's included (*corrected 2026-10-21, review:* the stream `SocketsHttpHandler` hands out reads 0 bytes after it is disposed, so the
+transport wraps it in a stream that reports its own disposal; before, a second `HttpResponseException.GetError*` over a transport response decoded an empty payload instead of throwing `ResponseNotReadException`). The buffered error
 body an `HttpResponseException` carries is replayable and opens a fresh view every time, before and after the response is
 disposed (`BODY-33`).
 

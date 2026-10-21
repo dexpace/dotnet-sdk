@@ -42,6 +42,11 @@ so `request with { Url = u }` no longer compiles; use `WithMethod`, `WithUrl`, `
 - the URL is absolute `http` or `https` (`HTTP-47`); anything else, including a relative string and the `file:` URL
   Linux gives `"/rel"`, is an `ArgumentException` with `ParamName` `url` whose message carries the input as
   `UrlRedactor` renders it, so a password or token in the URL never lands in the message;
+- the `Uri` was made with the default canonicalization (design §10 entry 18, phase 11, *added 2026-10-20*): a `Uri` created with
+  `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` keeps its path and query as written, a CR or LF included, and `HttpClient` writes them raw into the request line, so the
+  constructor (and so `WithUrl`, `WithMethod`, `WithHeaders`, `WithBody`) throws an `ArgumentException` with `ParamName` `url` whose message names the cause and not the input. A `Uri` the
+  default parser made, from a string or `new Uri(string)`, is unaffected, and `Request.Create` takes a string. The check is `Uri.GetComponents` on the path and query, which throws
+  `InvalidOperationException` for exactly the `Uri`s that option makes; it is `HeaderInjectionValidationTests.A_uri_created_without_canonicalization_is_rejected`, a permanent `Security` test;
 - no body on GET, HEAD, TRACE or CONNECT (`HTTP-7`): `ParamName` `body`, and the message says to clear the body first.
   A POST with a body therefore cannot become a GET with `WithMethod(Method.Get)`; call `WithoutBody()` first.
 
@@ -98,9 +103,12 @@ var headers = Headers.Empty
 - **Value equality.** Two sets are equal when their folded names, order and values match; casing is ignored. The hash
   agrees.
 - **Typed overloads** for `Contains`, `Get`, `GetAll`, `With`, `Set` and `Without` take an `HttpHeaderName`.
-- **Validation** (`HTTP-17`, `HTTP-18`, `HTTP-19`): names are trimmed of SP/HTAB and must be tokens; outbound values
+- **Validation** (`HTTP-17`, `HTTP-18`, `HTTP-19`): outbound names are trimmed of SP/HTAB and must be tokens; outbound values
   accept only HTAB and 0x20 to 0x7E. `Headers.Builder.AddInbound` is the lenient path for received headers: obs-text is
-  allowed, controls are not, and the sender's casing is kept.
+  allowed, controls are not, and the sender's casing is kept. *Corrected 2026-10-20 (phase 11, design §11 item 70, `HTTP-19`, `XCUT-18`):* the trim is **outbound-only**. An inbound name is
+  validated against the token grammar without trimming, so a name with a space or HTAB at either end throws `ArgumentException` (it used to be stored under the trimmed name). The
+  reference transport already drops a header that fails the inbound path, and the runtime never hands it such a name, so this changes no wire behaviour; it is
+  pinned by `HeaderInjectionValidationTests.The_inbound_path_does_not_trim_a_name` (a permanent `Security` test) and the kit's `xcut-18.model-validation`.
 - `ToString()` lists names only, never values.
 
 ### For transport authors: `HttpHeaderSyntax`

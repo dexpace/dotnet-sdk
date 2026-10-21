@@ -261,7 +261,9 @@ public abstract class RequestBody
     /// <param name="offset">The byte offset at which to start; at most the file size.</param>
     /// <param name="count">The number of bytes to send, or <c>-1</c> for the rest of the file.</param>
     /// <returns>A replayable <see cref="FileRequestBody"/>.</returns>
-    /// <exception cref="ArgumentException"><paramref name="path"/> is empty, or names a directory.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="path"/> is empty, or names a directory, a device or, on Unix, a FIFO or a socket (BODY-11).
+    /// </exception>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="offset"/> or <paramref name="count"/> lies outside the file.
@@ -304,7 +306,16 @@ public abstract class RequestBody
             throw new ArgumentException("The path names a device, not a regular file.");
         }
 
-        return file.Length;
+        // BODY-11, HTTP-40 (P11-13): a Unix FIFO or device reports a length of 0, so only a size-0 path needs the type check, which
+        // opens no special file (the tar writer opens a regular file, and an unreadable empty one is still accepted, as it was before the
+        // check). The message names the kind, never the path.
+        var length = file.Length;
+        if (length == 0 && !OperatingSystem.IsWindows() && UnixFileKind.SpecialKindOf(file.FullName) is { } kind)
+        {
+            throw new ArgumentException($"The path names a {kind}, not a regular file.");
+        }
+
+        return length;
     }
 
     /// <summary>

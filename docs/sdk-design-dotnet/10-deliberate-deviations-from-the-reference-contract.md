@@ -381,3 +381,64 @@ retry-exhausted operation, and `OBS-21`'s mutators are inert for the SDK's own w
 to a non-zero id; the runtime's generator is not shown to do so (no runtime source was available to verify, and its public contract does not say), so
 the clause is **admitted** (probability 2^-128 per draw), the SDK never sets the process-wide `Activity.TraceIdGenerator` (a library must not set a
 hook the application owns), and `BannedSymbols.txt` enforces that in `src/`. No new entry is opened.
+
+---
+
+**Correction 2026-10-20 (phase 11, P11-3, P11-21): the as-built audit of this chapter.** Phase 11 re-derived every entry above from the source, not from another document, and records the result in
+[`docs/deviations.md`](../deviations.md): one row per entry (status, disposition, reason class, `path:line` evidence), a block per retained entry, the negative scans that back every absence claim, and the
+specification amendment set. `LedgerAuditTests` holds that file to this chapter. Every entry keeps its number and its text; this block is the dated correction, appended and not substituted (P11-3). **Verdicts:** of the 33
+entries, 19 confirmed, 10 narrowed and 4 contradicted (12, 31, 32 and 33); six are retired by repair, entry 12 is a documentation correction and the rest are retained, several with a repair made on the way.
+
+- **The count (P11-2).** The paragraph at the head of this chapter counts four clauses unmet on a stated domain, and the phase 8b correction seven. By the counting rule a clause counts when the *observable outcome* it protects
+  is not delivered on some stated domain; a mechanism substitution that keeps the outcome, a clause the specification sanctions changing (`REDIR-25`, `BODY-8`, `SSE-19`) and one it makes unsatisfiable (`AUTH-16`, `AUTH-17`,
+  `AUTH-22`, §11 item 62) do not count. The count is **three**, inside the parity target of five: **AUTH-15** on a host whose crypto refuses MD5 (entry 16), **PAGE-21** for percent-encoded unreserved characters (entry 18) and
+  **TRANSPORT-14**'s malformed header *name* (entry 32). Entries 24, 31 and 33 were repaired, 26 meets the accessor letter and is reclassified, and the "meet a MUST clause in structured form only" pair
+  (entries 22 and 8) are mechanism substitutions that deliver the outcome. The paragraph's "four" and the 8b correction's "seven" and "over the parity target" stand as history.
+  *Corrected 2026-10-21 (phase 11 review):* the count is **four**. **CFG-2** (entry 25) is the fourth: the fall-through needs the providers of the root a section was taken from, no public API reaches it from an `IConfigurationSection`, and the outcome is not delivered for a section of any configuration other than the container's registered root, which P11-2 counts.
+- **Retired by repair:** entries **6** (task 3.1), **7** (2.1), **24** (5.1), **28** (1.6), **31** (3.3) and **33** (4.1). Their text above describes a departure that no longer exists; the audit row is their record.
+- **Entry 1** (narrowed, retained). Measured on `net10.0`: the facade 10.0.12 brings `DependencyInjection.Abstractions` 10.0.12 and nothing else, with no `DiagnosticSource` package; the `net8.0` 9.0.5 closure the entry measured is superseded
+  (`net8.0` is gone). The audit is the CI script `scripts/ci/dependency-audit.cs`, not a `deps.json` test, and allows exactly those two packages (task 1.3), proved by `dependency-audit-selftest.sh`.
+- **Entry 2** (confirmed, retained). One root, `Microsoft.Extensions.Http`, and a 13-package band-matched closure.
+- **Entry 3** (confirmed, retained). Every `IO/` type is `internal`; scan N1 finds no `Source`, `Sink` or `Buffer` vocabulary. "The `net8.0` floor" reads `net10.0` (decision D1).
+- **Entry 4** (confirmed, retained). Core issues no zero-count read, and a known length is checked.
+- **Entry 5** (confirmed, retained). `BODY-8` sanctions the choice.
+- **Entry 6** (**retired**, task 3.1). A second `OpenRead`/`OpenReadAsync` returns the first handle in both forms (`BODY-14`, `HTTP-41`); an open after dispose throws `StreamClosedException`. The response-logging wrapper keeps its single-use
+  throw past its capture cap, because `BODY-24` (MUST) says a second read there fails.
+- **Entry 7** (**retired**, task 2.1). `ServiceRequestException` derives from `IOException` and implements `IRetryableError` (`TRANSPORT-20`, `XCUT-4`); `catch (SdkException)` no longer catches a transport failure. The never-thrown
+  `ServiceResponseException` is deleted (task 2.2). The classification reading of §11 item 23 stands.
+- **Entry 8** (narrowed, retained). "Transports rethrow `OperationCanceledException` untouched" is narrower than built: the transport replaces the native exception when a deadline is armed or the cancel is internal. Repaired on the way:
+  `AsAsync` faults the task when the scheduler rejects the work or the token is already signalled (`ASYNC-2`, task 2.3), and "cancel without interruption" is the public `WaitOrDisposeAsync` (`SEAM-30`, task 2.4; §11 item 43).
+  `Thread.Abort` and `[ModuleInitializer]` are now banned.
+- **Entry 9** (narrowed, retained). `TryAdd` is used nowhere: `ServiceSlot` (identity-checked, throwing at `UseTransport`/`UseSerde`) and the validator give `SEAM-6` and `SEAM-5`.
+- **Entry 10** (narrowed, retained). "No builder objects" means no *model* builder: four public `*Builder` types exist (`Headers.Builder`, `Query.Builder`, `PipelineBuilder`, `DexpaceClientBuilder`). A validating `init` accessor now names its
+  property in `ParamName` (task 2.5); about fifteen range and format checks inside accessors still report `value`.
+- **Entry 11** (confirmed, retained).
+- **Entry 12** (contradicted, documentation corrected). The filter sits at six recovery sites among many filtered catch-alls, not "exactly four", and two redaction catch-alls swallowed `OutOfMemoryException` (repaired, task 1.4); a source
+  scan now holds every catch-all in the four runtime libraries.
+- **Entry 13** (confirmed, retained). **Entry 14** (confirmed, retained; `REDIR-25` sanctions it). **Entry 15** (confirmed, retained; stronger than the letter).
+- **Entry 16** (confirmed, retained, **counted**). The probe treats any non-fatal failure as a refusal (task 5.8); the mapping has never run on a real FIPS host.
+- **Entry 17** (narrowed, retained). `Page` stored the caller's list, so a fetcher page could change after it was yielded; it now copies (task 3.5).
+- **Entry 18** (narrowed, retained, **counted**). The splice drops no empty `&` segment (task 3.6), and `Request` refuses a `Uri` created without canonicalization, the only route that writes CR/LF to the wire (task 3.4); the residual is
+  unreserved-character equivalence.
+- **Entry 19** (narrowed, retained). A consumer with no `SynchronizationContext` resumes inline on the completing thread; `await Task.Yield()` moves it.
+- **Entry 20** (confirmed, retained). Residual R1 is repaired: an event whose data passes `maxEventBytes` (8 MiB by default) fails with `ServerSentEventTooLargeException` (task 5.6); the per-line cap stays.
+- **Entry 21** (confirmed, retained).
+- **Entry 22** (narrowed, retained). A null field value in the header-bearing events' state is the literal `null` (task 5.2); the plain-name fixed-key events use the `LoggerMessage` generator (task 5.3) and the dotted-key ones keep `Define`.
+- **Entry 23** (narrowed, retained). `Disposal` wrote to a non-recording activity at one site, repaired (task 1.5); every other SDK write was guarded as the 5c correction said.
+- **Entry 24** (**retired**, task 5.1). `TraceIdGeneration.W3C()`, `Datadog()` and `FormatDatadog` re-draw a zero draw; the SDK still never sets the process-wide hook. The runtime's own generator tests no zero draw (V13), so the
+  clause was *unmet by the runtime*, not merely "not shown".
+- **Entry 25** (narrowed, retained). The `CFG-2` fall-through is repaired (task 5.4): when the registered `IConfiguration` is the root that holds the client's section, a blank value falls through to the next provider with one. The "empty
+  value is *present*" sentence and the 9 correction's silent shadow are superseded; no property tier, raw accessor or global slot remains the deviation. *Corrected 2026-10-21 (phase 11 review):* the repair covers a section of the registered root only; for a section of any other configuration (or a section at the root with no path) the merged read stands and an empty value still hides the lower provider, a **counted** residual (`CFG-2`; `docs/deviations.md` entry 25; `di-empty-shadows`, narrowed, in `docs/first-release.md`).
+- **Entry 26** (confirmed, retained, **reclassified**; P11-10). The accessor letter of `CFG-5` to `CFG-7` is met (the grammars never throw and keep the default); the boot failure is a stricter host rule from the house guide, not an unmet
+  clause. This removes it from the count.
+- **Entry 27** (confirmed, retained).
+- **Entry 28** (**retired**, task 1.6). `CA1062` is `error` for `src/`; its single finding was a real null dereference in `HttpResponseException`'s constructor, now guarded, which also rejects a non-error status (`XCUT-8`).
+  It stays relaxed for tests and tools only.
+- **Entry 29** (confirmed, retained). **Entry 30** (confirmed, retained; a mechanism, not a departure).
+- **Entry 31** (contradicted, **retired**, task 3.3). `System.Formats.Tar` classifies a Unix path without opening it and is AOT-clean, so `FromFile` rejects a FIFO, device or socket at construction; verified on Linux only. *Corrected 2026-10-21 (review):* the writer opens a **regular** file to attach its content, so "without opening it" holds for the special files only; a refusal to open is read as "regular" and an empty file the process may not read is accepted, as before phase 11.
+- **Entry 32** (contradicted in its reason, retained, **counted**; P11-11). "The only workaround is replacing the parser" is wrong: a `PlaintextStreamFilter` can drop the line (V7). It stays unmet because that filter must parse every response head
+  ahead of the runtime's parser, a security and correctness risk out of proportion to tolerating a non-compliant server, where entry 33's filter never inspects a byte. Trigger to revisit: a consumer whose server sends such names.
+- **Entry 33** (contradicted, **retired**, task 4.1; P11-12). A pass-through `PlaintextStreamFilter` on every handler the SDK builds turns a connection that ends before any response byte into the I/O failure the runtime raises itself, so a
+  body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reaches the server once (*corrected 2026-10-21, review:* not up to four times; it is not "never twice", for one idle-connection window remains, see `docs/sdk-documentation/transport.md`). A handler or `HttpClient` the caller supplies is the caller's native client and keeps its retry (§11 item 71).
+- **Departures from the house styleguide.** The list above names two. After the audit it names **one**, entry 27 (`I` prefix and `Async` suffix): entry 28 is retired, and the `LoggerMessage` source-generator departure the overlay
+  records (the dotted keys the specification fixes cannot be generator placeholders, `SYSLIB1014`) is added to the list, narrowed to the fixed-key events whose names have dots; the six plain-name events conform.

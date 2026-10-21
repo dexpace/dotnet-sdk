@@ -34,6 +34,6 @@ public sealed record FetchedPage<T>(Page<T> Page, string? NextLink = null, strin
     public Page<T> Page
     {
         get => _page;
-        init => _page = value ?? throw new ArgumentNullException(nameof(value));
+        init => _page = value ?? throw new ArgumentNullException(nameof(Page));
     }
 }

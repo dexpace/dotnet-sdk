@@ -178,6 +178,8 @@ overloads; `Set` takes `string?` and `null` removes; `HttpHeaderName` is a `seal
 the four predicates a transport re-checks with. `HTTP-22` (interning) is declined (`docs/first-release.md`). *Dated
 correction*.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 11. A header name received from the wire is validated without trimming (task 3.2; §11 item 70).
+
 ### 4.2 Request and Response
 
 **Request** (**HTTP-6**, **HTTP-7**, **HTTP-8**, **HTTP-46**, **HTTP-47**) carries exactly method, absolute URL,
@@ -218,6 +220,8 @@ errors (§10 entry 29) and prints a redacted `ToString()`; `Response` carries it
 `Protocol`, has the five classification helpers and `WithBody`, and an absent body is an empty buffered body (§10 entry
 30). `EnsureSuccessAsync` was fixed in phase 1. *Dated correction*.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 29 and 30. `Request` also refuses a `Uri` created with `DangerousDisablePathAndQueryCanonicalization` (task 3.4).
+
 ### 4.3 Status, Method, Protocol
 
 **Status** (**HTTP-10**–**HTTP-12**) is a `readonly record struct` with the code as its identity and the canonical
@@ -256,6 +260,8 @@ non-blank string.
 validates an RFC 9110 token and folds the nine verbs, the public `IsSafe`/`IsIdempotent` are removed in favour of the
 internal `RetryFacts.IdempotentMethods` (TRACE is no longer idempotent), and `Protocol.Parse` folds with ASCII rules.
 *Dated correction*.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built.
 
 ### 4.4 Media type, query, and conditional helpers
 
@@ -309,6 +315,8 @@ values, and has no `TryParse`; `Query`, `RequestOptions`, `ETag`, `HttpRange` an
 for `utf-7`; `Query` (with the internal `Rfc3986` encoder), `RequestOptions`, `ETag`, `HttpRange` and `RequestConditions`
 are built (§11 item 40 records the obs-text interaction). *Dated correction*.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §11 item 40.
+
 ### 4.5 Bodies
 
 The body types are specified with the byte-stream contract in §3.1, because on .NET they *are* that contract's public
@@ -328,5 +336,7 @@ BOM (verified: UTF-8 `"a"` is the single byte `61`).
 returning the public sealed `FileRequestBody`; `FromForm(IEnumerable<KeyValuePair<string, string>> fields)`; `Multipart(IEnumerable<MultipartPart> parts, string? boundary = null)`.
 `MultipartPart` is a public sealed **class** with a validating constructor, not a record (`with` would bypass the validation), so it is a new entry in the construction
 allow-list of `ModelConstructionArchitectureTests`, on the `Request` precedent (P3b-8). *Dated correction*.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 31 retired (task 3.3): a size-0 `FromFile` path is classified without being opened. A second open of a response body returns the same stream (task 3.1).
 
 ---

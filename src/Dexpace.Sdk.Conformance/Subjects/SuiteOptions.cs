@@ -18,7 +18,7 @@ public sealed record SuiteOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Waivers));
             field = [.. value];
         }
     } = [];

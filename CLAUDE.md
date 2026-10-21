@@ -58,8 +58,8 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   collection expressions where they fit.
 - **`TreatWarningsAsErrors` + `AnalysisLevel=latest-recommended` + `EnforceCodeStyleInBuild`.** The build
   is the lint gate. Rule severities live in `.editorconfig`; a handful of analyzer rules are deliberately
-  dialled down there with a documented rationale (CA1308 lower-casing, CA1054/55/56 string URLs, CA1062,
-  CA1707 for test names) — do not silence others without justification. `CA2007` is **on** for `src/`
+  dialled down there with a documented rationale (CA1308 lower-casing, CA1054/55/56 string URLs, CA1707 for test names;
+  `CA1062` is `error` for `src/` and off for tests, tools and scripts only) — do not silence others without justification. `CA2007` is **on** for `src/`
   (every library `await` uses `ConfigureAwait(false)`, including `await using` and `await foreach`) and off
   for tests, tools and the AOT smoke consumer.
 - **Library gates** (every project under `src/`, from `Directory.Build.props`): `IsTrimmable` +
@@ -75,8 +75,9 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   `Dexpace.Sdk.Core` ships **no** transport and no concrete codec; each adapts one library in its own
   project (`Dexpace.Sdk.Http.*`, `Dexpace.Sdk.Serialization.*`).
 - **Deterministic cleanup.** `Response`, `ResponseBody`, and transports implement `IDisposable` /
-  `IAsyncDisposable`. Single-use bodies (stream-backed) throw `StreamConsumedException` on a second
-  read; call `RequestBody.ToReplayableAsync()` before the first send if retries are needed.
+  `IAsyncDisposable`. A single-use *request* body (stream-backed) throws `StreamConsumedException` on a second
+  *write*; a stream-backed *response* body is spent by its first convenience read, which disposes it, so a second read throws `StreamClosedException`, and a second *open* returns the
+  first stream; call `RequestBody.ToReplayableAsync()` before the first send if retries are needed.
 - **The dependency rule for core** (roadmap constraint 2; design §2.4 is the authority). `Dexpace.Sdk.Core`
   may reference only assemblies in the `Microsoft.NETCore.App` reference pack of its target framework,
   `Microsoft.Extensions.Logging.Abstractions` (band-matched to the target, 10.0.x), and build-only packages
@@ -187,9 +188,10 @@ Layered, bottom-up:
    with `AsAsync` / `AsBlocking` bridges.
 5. **Pipeline** (`Pipeline`) — staged `HttpPipelinePolicy`s over the transport, assembled by
    `DexpacePipeline.CreateDefault`; auth, pagination and serde sit on top of it.
-6. **Errors** — `SdkException` roots the hierarchy: `ServiceRequestException` (never sent, retry-safe
-   on idempotent methods), `ServiceResponseException` (sent, response unreadable),
-   `HttpResponseException` (4xx/5xx received intact), plus lifecycle/serialization/pipeline failures.
+6. **Errors** — `SdkException` roots the hierarchy, except the transport failure: `ServiceRequestException`
+   derives from `IOException` (so `catch (SdkException)` does not catch it) and keeps `IRetryableError` (retry-safe on
+   idempotent methods; its message says whether the request could not be sent or no response was received; there is no
+   `ServiceResponseException`). `HttpResponseException` (4xx/5xx received intact), plus lifecycle/serialization/pipeline failures.
 
 ## Things That Will Bite You
 
@@ -202,8 +204,9 @@ Layered, bottom-up:
 - **Lock files are committed.** After changing `Directory.Packages.props` or a reference, run
   `dotnet restore` (both solutions) and commit every changed `packages.lock.json`; CI's locked restore
   fails otherwise. `DexpaceToolchainPackVersion` moves with `global.json`.
-- **Single-use bodies throw on second consumption.** `RequestBody.FromStream` /
-  `ResponseBody.FromStream` raise `StreamConsumedException` the second time. Buffer first
+- **Single-use bodies throw on second consumption.** `RequestBody.FromStream` raises `StreamConsumedException` the second time it is
+  *written*. `ResponseBody.FromStream` never does: the first convenience read (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) disposes the body, so a second read or open throws `StreamClosedException`, and a
+  convenience read after a manual open and drain returns the empty remainder of the same handle. A second *open* of a response body returns the first handle (an open after dispose throws `StreamClosedException`). Buffer first
   (`ToReplayableAsync`) when retries are in play. The exception: a `RequestBody.FromStream` over a readable, seekable
   stream with a declared length is replayable (it seeks the caller's stream before each write). Disposal is latched: a
   `Response` or `ResponseBody` releases at most once, and a `ResponseBody` subclass overrides `Dispose(bool)`, not `Dispose()`.
@@ -219,6 +222,10 @@ Layered, bottom-up:
   `new SystemNetHttpClientOptions { Proxy = ProxyOptions.FromEnvironment() }` to ask for the environment, and `Proxy` with a handler or a client throws. `Execute` is a genuine `HttpClient.Send`, so a custom handler that
   implements only `SendAsync` throws (primary) or is skipped (delegating) on the sync face; every call after `Dispose` throws `ObjectDisposedException`, borrowed clients included
   (`docs/sdk-documentation/transport.md`).
+- **A transport failure is an `IOException`, not an `SdkException`; a second open of a response body is not an error.** `catch (SdkException)` does not catch `ServiceRequestException`
+  (`catch (IOException)` does, and `IRetryableError` still marks it retryable). `ResponseBody.OpenReadAsync` / `OpenRead` return the first stream on the second call and throw `StreamClosedException` only after dispose; a `StreamConsumedException`
+  is the second *write* of a single-use request body (or the response-logging wrapper's tail past its capture cap), never a response body's second read. A caller that abandons a bridged blocking call awaits it with `ResponseTaskExtensions.WaitOrDisposeAsync`, never `Task.WaitAsync(token)`, or a response that lands in the same instant is never closed.
+  The ledger of every departure from the spec is `docs/deviations.md`; a retained entry names a reason class, and `LedgerAuditTests` fails a cited `path:line` that no longer exists in its file and a negative scan whose paths read no file; it does not check that a cited line still holds what the ledger says, so a change that moves a cited line re-derives the citation by hand in the same pull request.
 - **Redirects follow only `GET` and `HEAD` by default, and 303 is opt-in.** `RedirectOptions` defaults to 3 hops, `AllowedMethods = {GET, HEAD}`
   and `FollowSeeOther = false`; a `POST` is never rewritten to a `GET`. An https to http hop throws `RedirectSchemeDowngradeException` and a
   method-preserving hop over a single-use body throws `RedirectBodyNotReplayableException` (`ToReplayableAsync` first); a revisited URI returns the 3xx.
@@ -238,7 +245,7 @@ Layered, bottom-up:
   must walk a cyclic exception chain and never throw one (Windows hangs), and the repository gates under `tests/Dexpace.Sdk.Conformance.Tests/Gates/` (license header on every `.cs`, a re-enable condition on every analyzer relaxation, every CI gate a blocking step) fail in the pull request that breaks them (`docs/sdk-documentation/cross-cutting-invariants.md`).
 - **Host integration is configured by a reader, not the binder, and fails at start naming the key.** `Dexpace.Sdk.Extensions.DependencyInjection` reads the `IConfigurationSection` the caller hands `AddDexpaceClient` with its own grammars
   (`ConfigurationBinder` is banned in `src/`: the generator binds no `init` accessor, the reflection mode is not AOT-safe); every bad value, rejected setting and unknown key fails `ValidateOnStart` at once as `"<path>: <rule>"`, never quoting a configured
-  value (a numeric accessor message may echo the number), and with no host `IStartupValidator.Validate()` or the first resolution fails the same way. An empty value is absent (it silently shadows a lower provider); there is no reload; a codec is required
+  value (a numeric accessor message may echo the number), and with no host `IStartupValidator.Validate()` or the first resolution fails the same way. An empty value is absent and, for a section of the `IConfiguration` registered in the container, falls through to the next provider (`CFG-2`); a section from any other configuration keeps the merged read, where an empty value still hides the lower provider (a counted unmet clause); there is no reload; a codec is required
   (`UseSerde`); dispose the provider with `DisposeAsync` (a synchronous dispose throws for an async-only transport); no configuration value turns the environment proxy read on. Compose `AddStandardResilienceHandler` with
   `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, never with the SDK's `MaxRetryAttempts = 0` (`docs/sdk-documentation/dependency-injection.md`).
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
@@ -318,8 +325,10 @@ the 1 MiB line-capped reader over the WHATWG line reader, the immutable `ServerS
 form — see `docs/sdk-documentation/pagination.md`; and phase 8a's transport conformance kit, `Dexpace.Sdk.Conformance` — 43 named assertions for the `TRANSPORT` and `ASYNC` requirements,
 the six result statuses and the by-ID waivers that must stay needed, the loopback `Wire` fixture promoted into it, the two drivers (the reference transport and a test-only raw-socket client) and the requirement
 catalogue generated from appendix C — see `docs/sdk-documentation/conformance.md`; and phase 8b's hardening of the reference transport — the options record and four constructors, the handler check, the
-installed proxy, the per-call deadline with its one failure classification, the real synchronous send, the header partition and drop policy, the bounded re-send capture and the `ObjectDisposedException` latch, with the kit green against both constructions and two permanent assertion-scoped
-waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33) — see `docs/sdk-documentation/transport.md`; and phase 9's host integration — the DI package `Dexpace.Sdk.Extensions.DependencyInjection`: `AddDexpaceClient` and the builder, the hand-written configuration reader and its grammars, the validator with `ValidateOnStart`, the named client over
+installed proxy, the per-call deadline with its one failure classification, the real synchronous send, the header partition and drop policy, the bounded re-send capture and the `ObjectDisposedException` latch, with the kit green against both constructions and, at phase 8b, two permanent assertion-scoped
+waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry for a body-less `GET`/`HEAD`/`OPTIONS`/`DELETE`/`TRACE`, design §10 entries 32 and 33; phase 11 retired the second, so only entry 32's remains) — see `docs/sdk-documentation/transport.md`; and phase 9's host integration — the DI package `Dexpace.Sdk.Extensions.DependencyInjection`: `AddDexpaceClient` and the builder, the hand-written configuration reader and its grammars, the validator with `ValidateOnStart`, the named client over
 `IHttpClientFactory` with its redirect-off primary and container-owned lease, the single-registration check, `DexpaceConfigurationKeys`, the audit's policy record, the third conformance driver — see `docs/sdk-documentation/dependency-injection.md`; and phase 10's cross-cutting invariants — the kit's invariant (28), codec (11) and packaging (8) suites with a negative control per assertion and three first-party drivers, `TransportFace.None`, the one combined report, the packaging and
 requirement-coverage scripts, the appendix-B map and its gate, the cross-path reproducible pack, the `NFR-11`, `NFR-4`, license-header, analyzer-waiver and CI-completeness tests, the `GetBaseException` and `ConcurrentDictionary` constructor bans and `CheckPhase10Async`, with `NFR-17`'s repository ruleset the one open action — see
-`docs/sdk-documentation/cross-cutting-invariants.md`): only the deviation audit (11) and the release path (12).
+`docs/sdk-documentation/cross-cutting-invariants.md`; and phase 11's deviation audit — every design §10 entry and §11 reading re-measured against the code in `docs/deviations.md`, the 4 counted unmet clauses
+(`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half, `CFG-2` for a section of an unregistered configuration), the repairs (transport failures derive from `IOException`, a second open returns the same stream, the plaintext filter that ends the native re-send, an empty configuration value that falls through for the registered root's sections,
+`WaitOrDisposeAsync`, the bounded SSE event, the `Uri` check), the `LedgerAuditTests` gate and the generated design §12 table — see `docs/deviations.md` and `docs/work/mvp/phase11/`): only the release path (12).

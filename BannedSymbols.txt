@@ -138,3 +138,10 @@ P:System.Net.Http.HttpClient.DefaultProxy;The runtime's process-wide proxy reads
 # nothing, and its reflection mode is not AOT-safe and mis-converts durations, integers and enums, so values reach the records
 # through the DI package's own reader. The type arrives transitively with Microsoft.Extensions.Http: banned, not removed.
 T:Microsoft.Extensions.Configuration.ConfigurationBinder;Bind through the DI package's reader; the binder's generator binds no init accessor and its reflection mode is not AOT-safe (CFG-5..CFG-7, P9-4)
+
+# Thread termination and load-time self-registration have no counterpart and no sanctioned use (design §10 entries 8 and 9; phase 11, ledger scans N2 and N4).
+# Thread.Abort is unsupported on .NET (cancellation is a CancellationToken, entry 8) and [ModuleInitializer] self-registration depends on lazy assembly load order and is invisible
+# to ILLink and NativeAOT (entry 9, NFR-8). The ledger scans keep the same claim checked over the tree; these make the build fail at the call site with the reason.
+M:System.Threading.Thread.Abort;Thread.Abort is unsupported on .NET; cancel through a CancellationToken (design §10 entry 8)
+M:System.Threading.Thread.Abort(System.Object);Thread.Abort is unsupported on .NET; cancel through a CancellationToken (design §10 entry 8)
+T:System.Runtime.CompilerServices.ModuleInitializerAttribute;Module-initializer self-registration is invisible to ILLink and NativeAOT; register explicitly (design §10 entry 9, NFR-8)

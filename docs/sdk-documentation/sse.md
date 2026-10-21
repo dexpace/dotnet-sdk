@@ -20,6 +20,7 @@ core parses the stream you hand it and reports the server's `retry` hint and eac
 | `ServerSentEventStream` | Owns one `Response`: `FromResponse`, then one of four single-use views, and a release rule for every way to stop |
 | `SseMapResult<T>`, `SseMapResult`, `SseMapResultKind` | The mapper's verdict for the typed adapter: `Value`, `Skip` or `Done` |
 | `ServerSentEventLineTooLongException` | A `StreamingException`: a line passed the cap |
+| `ServerSentEventTooLargeException` | A `StreamingException`: the data of one event passed the per-event cap (phase 11) |
 
 ## A response, end to end
 
@@ -40,7 +41,7 @@ If the response has no body to stream, `FromResponse` throws `ArgumentException`
 so the one-line shape above never leaks it. "No body" is a status of `204`, `205` or `304`; a `HEAD` request; a `Content-Length` of
 zero; or an absent body. The message names the reason and never the URL. There is no status or `Content-Type` check: the default
 pipeline's error mapping already throws on a `4xx` or `5xx`, servers mislabel event streams, and a convention like `Accept` stays out
-of core (`SSE-37`). An invalid `maxLineBytes` also disposes the response first. Nothing is read by `FromResponse` itself: the body
+of core (`SSE-37`). An invalid `maxLineBytes` or `maxEventBytes` also disposes the response first. Nothing is read by `FromResponse` itself: the body
 opens at the first pull, so a stream you never enumerate only releases its response.
 
 ### One stream, four views, one pass
@@ -133,10 +134,17 @@ mid-line, so every later pull throws it again. The message names the cap and nev
 constructor's `maxLineBytes`, `ReadAll{,Async}`'s, or `FromResponse`'s. This is the divergence the chapter's MAY licenses and design §10 entry 20 records;
 `Security/ServerSentEventLineCapTests` pins it permanently.
 
-**Residual R1: the cap bounds a line, not an event.** Lines that each fit are accumulated into the pending block without a limit until a blank line ends
-it, so a server that sends `data:` lines forever and never a blank line can still grow the block. Bound a stream from an untrusted server with the
-enumeration token or `OverallTimeout` (`AttemptTimeout` covers only the time to the response headers, so a live stream is not cut by it). A second, per-event cap is
-an optional-parameter addition later; the design left it open for the lead (P7b-5).
+**The event cap (`SSE-19`, phase 11, design §10 entry 20 residual R1, P11-19).** *Corrected 2026-10-20: this page said the cap bounds a line and not an event, and left a second cap
+open for the lead.* Lines that each fit used to be accumulated into the pending block without a limit until a blank line ended it: 8 000 000 lines of `data:x` (56 MB on the wire)
+became one 323 MB event. The `data` lines of one event now cost their UTF-8 value bytes plus one each, and an event whose data passes `maxEventBytes` (**8 MiB by default**,
+`ServerSentEventReader.DefaultMaxEventBytes`) fails at the line that passed it with `ServerSentEventTooLargeException` (a `StreamingException`, so `catch (StreamingException)` and
+`catch (SdkException)` see it; `MaxEventBytes` carries the cap, and the message names the cap and never a byte of the content). The reader **stays failed**: the source is
+mid-event, so every later pull throws it again. Change it with the `maxEventBytes` overloads of the reader's constructor, `ReadAll{,Async}` and `FromResponse`; an event that
+legitimately carries more than 8 MiB of data needs a larger value, and a non-positive one throws `ArgumentOutOfRangeException`. The earlier optional `maxLineBytes = 1048576`
+parameters became overloads (`maxLineBytes`, `maxEventBytes`, `ILogger?` in the orders `FromResponse` declares), because `RS0026`/`RS0027` refuse an optional parameter beside a
+longer overload; every call that compiled still compiles. `Security/ServerSentEventLineCapTests` also pins the hostile stream of many lines that each fit. The cap bounds the
+event's **data**, the one field that accumulates: a comment, `event`, `id` and `retry` each replace the last value and an unknown field is dropped, so none grows an event. A stream of
+them that never ends is still bounded only by the enumeration token or `OverallTimeout` (`AttemptTimeout` covers only the time to the response headers, so a live stream is not cut by it).
 
 ## Releasing the response
 
@@ -245,7 +253,7 @@ while (!cancellationToken.IsCancellationRequested)
             Handle(ev);
         }
     }
-    catch (Exception ex) when (ex is IOException or ServiceRequestException or ServiceResponseException)
+    catch (Exception ex) when (ex is IOException)       // ServiceRequestException is an IOException since phase 11
     {
         // the connection dropped or could not be made: fall through and reconnect
     }
@@ -263,4 +271,4 @@ refers to a transport or `HttpPipeline`.
 - **A strict-WHATWG mode** (design §11 item 17): `System.Net.ServerSentEvents.SseParser` dispatches nothing for a comment-only or id-only block, joins `data` lines, defaults the type to `message` and
   keeps a last-event-id, each of which a MUST forbids, so core ships its own grammar. An `SseItem<T>` bridge is a possible later convenience.
 - **A reactive adapter** (`SSE-41`, design §11 item 21): `IObservable<T>` over this would be an adapter package, listed in [`first-release.md`](../first-release.md); `SSE-41` is not applicable until one ships.
-- **An aggregate cap on one event** (residual R1, above).
+- ~~**An aggregate cap on one event** (residual R1).~~ Built by phase 11 (2026-10-20): the event cap above.

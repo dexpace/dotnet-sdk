@@ -259,6 +259,21 @@ public sealed class RetryRecoveryTests
     }
 
     [Fact]
+    public async Task The_recovery_stack_keeps_the_fixed_precedence()
+    {
+        // RETRY-21: the recovery stack scans the whole header map in a fixed order; the configured list belongs to the stage stack alone.
+        var clock = new RecordingFakeTimeProvider();
+        var headers = new Headers.Builder().Set("Retry-After", "3").Set("retry-after-ms", "500").Build();
+        var options = Options(2, baseMs: 5_000) with { PacingHeaders = ["retry-after-ms"] };
+        var retry = new RetryRecovery(options, TimeSpan.FromSeconds(10), clock);
+        var transport = new ScriptedTransport(Unavailable(headers: headers), TestResponses.Create(Status.Ok));
+
+        using var response = await EngineHarness.DriveAsync(Run(Dispatcher(retry), transport, async: true), clock);
+
+        Assert.Equal([TimeSpan.FromSeconds(3)], clock.Timers);
+    }
+
+    [Fact]
     public async Task A_cancelled_wait_yields_Failure_OperationCanceledException_and_the_dispatcher_rethrows_it_signalled()
     {
         var clock = new RecordingFakeTimeProvider();
@@ -418,7 +433,9 @@ public sealed class RetryRecoveryTests
         object Failure() => transportFailure ? new ServiceRequestException("never sent") : Unavailable();
         var transport = new ScriptedTransport(Failure(), Failure(), Failure());
 
-        await Assert.ThrowsAnyAsync<SdkException>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async: true, request));
+        // The exhausted failure is the last transport failure (an IOException since phase 11, not an SdkException) or the last error response; both are retryable errors.
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => Run(Dispatcher(new RetryRecovery(Options())), transport, async: true, request));
+        Assert.IsAssignableFrom<IRetryableError>(failure);
 
         Assert.Equal(expectedSends, transport.CallCount);
     }

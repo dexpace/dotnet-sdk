@@ -7,9 +7,10 @@ namespace Dexpace.Sdk.Core.Http.Common;
 
 /// <summary>
 /// The header-syntax predicates the model validates with (HTTP-17, HTTP-18, HTTP-19, HTTP-20, HTTP-26, XCUT-18;
-/// design §4.1): names are trimmed of surrounding SP/HTAB and held to the RFC 9110 token grammar (a superset of
-/// HTTP-17's rejections, design §11 item 36); outbound values accept HTAB and printable ASCII only; inbound values
-/// additionally admit obs-text (0x80 and above). Every rejection names the offending character by code point and
+/// design §4.1): outbound names are trimmed of surrounding SP/HTAB and held to the RFC 9110 token grammar (a superset of
+/// HTTP-17's rejections, design §11 item 36); inbound names are held to the same grammar but never trimmed (HTTP-19,
+/// design §11 item 70); outbound values accept HTAB and printable ASCII only; inbound values additionally admit obs-text
+/// (0x80 and above). Every rejection names the offending character by code point and
 /// never echoes the value, so a CR/LF or a secret never lands raw in a log line.
 /// </summary>
 internal static class HeaderSyntax
@@ -22,24 +23,42 @@ internal static class HeaderSyntax
     internal static string ValidateName(string name, string paramName)
     {
         ArgumentNullException.ThrowIfNull(name, paramName);
-        var trimmed = name.Trim(' ', '\t');
-        if (trimmed.Length == 0)
+        return ValidateToken(name.Trim(' ', '\t'), paramName);
+    }
+
+    /// <summary>
+    /// Validates a received header name as a token <b>without</b> trimming it (HTTP-19, XCUT-18; design §11 item 70): a name with
+    /// SP or HTAB at either end is refused, where <see cref="ValidateName"/> would have stored it trimmed.
+    /// </summary>
+    /// <param name="name">The candidate header name, exactly as received.</param>
+    /// <param name="paramName">The caller's parameter name, for the exception.</param>
+    /// <returns><paramref name="name"/>, unchanged.</returns>
+    /// <exception cref="ArgumentException">The name is blank or holds a non-token character, surrounding whitespace included.</exception>
+    internal static string ValidateInboundName(string name, string paramName)
+    {
+        ArgumentNullException.ThrowIfNull(name, paramName);
+        return ValidateToken(name, paramName);
+    }
+
+    private static string ValidateToken(string name, string paramName)
+    {
+        if (name.Length == 0)
         {
             throw new ArgumentException("Header name must not be blank.", paramName);
         }
 
-        for (var i = 0; i < trimmed.Length; i++)
+        for (var i = 0; i < name.Length; i++)
         {
-            if (!IsTokenChar(trimmed[i]))
+            if (!IsTokenChar(name[i]))
             {
                 throw new ArgumentException(
-                    $"Header name contains the invalid character {CodePoint(trimmed[i])} at index {i}; "
+                    $"Header name contains the invalid character {CodePoint(name[i])} at index {i}; "
                     + "a header name must be an RFC 9110 token.",
                     paramName);
             }
         }
 
-        return trimmed;
+        return name;
     }
 
     /// <summary>Validates an outbound (caller-set) header value: HTAB and printable ASCII only (HTTP-18).</summary>

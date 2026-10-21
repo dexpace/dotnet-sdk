@@ -3,6 +3,8 @@
 
 using Dexpace.Sdk.Core.Auth;
 using Dexpace.Sdk.Core.Errors;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Dexpace.Sdk.Extensions.DependencyInjection;
@@ -22,7 +24,7 @@ internal sealed class DexpaceClientStateSetup(DexpaceClientRegistration registra
             return;
         }
 
-        var configuration = ConfigurationReader.Read(registration.Section);
+        var configuration = ConfigurationReader.Read(registration.Section, services.GetService<IConfiguration>());
         options.Failures.AddRange(configuration.Failures.Select(static failure => failure.ToString()));
         options.Options = Transform(options, configuration.Options, registration.OptionsTransforms, "Configure", static (transform, value) => transform(value));
         options.Transport = Transform(options, configuration.Transport, registration.TransportTransforms, "ConfigureTransport", static (transform, value) => transform(value));

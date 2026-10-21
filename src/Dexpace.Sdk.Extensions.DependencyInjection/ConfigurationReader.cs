@@ -26,7 +26,23 @@ internal static partial class ConfigurationReader
     /// <param name="section">The client's section, or <see langword="null"/>.</param>
     /// <param name="touched">The keys the reader asked for.</param>
     /// <returns>The records, the handler setting and every failure.</returns>
-    internal static ClientConfiguration Read(IConfigurationSection? section, out IReadOnlyCollection<string> touched)
+    internal static ClientConfiguration Read(IConfigurationSection? section, out IReadOnlyCollection<string> touched) => Read(section, null, out touched);
+
+    /// <summary>
+    /// Reads <paramref name="section"/> through the providers of <paramref name="registered"/> when it is the root that holds the section, so a blank value
+    /// falls through to the next provider that has one (CFG-2, P11-17); otherwise the merged read stands.
+    /// </summary>
+    /// <param name="section">The client's section, or <see langword="null"/>.</param>
+    /// <param name="registered">The <c>IConfiguration</c> registered in the container, or <see langword="null"/>.</param>
+    /// <returns>The records, the handler setting and every failure.</returns>
+    internal static ClientConfiguration Read(IConfigurationSection? section, IConfiguration? registered) => Read(section, registered, out _);
+
+    /// <summary>Reads <paramref name="section"/> as the two-argument overload does and reports the keys the reader asked for.</summary>
+    /// <param name="section">The client's section, or <see langword="null"/>.</param>
+    /// <param name="registered">The <c>IConfiguration</c> registered in the container, or <see langword="null"/>.</param>
+    /// <param name="touched">The keys the reader asked for.</param>
+    /// <returns>The records, the handler setting and every failure.</returns>
+    internal static ClientConfiguration Read(IConfigurationSection? section, IConfiguration? registered, out IReadOnlyCollection<string> touched)
     {
         var failures = new List<ConfigurationFailure>();
         if (section is { Path.Length: 0 })
@@ -36,7 +52,8 @@ internal static partial class ConfigurationReader
             return Defaults(failures);
         }
 
-        var reader = new ConfigSection(section, failures);
+        var providers = section is null ? null : ConfigSection.ProvidersFor(section, registered);
+        var reader = new ConfigSection(section, failures, providers);
         var options = ReadClient(reader);
         var (transport, lifetime) = ReadTransport(reader);
         var credentials = ReadAuth(reader);

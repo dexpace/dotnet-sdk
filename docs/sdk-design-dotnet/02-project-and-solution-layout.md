@@ -61,6 +61,8 @@ the first release's lockstep version, `0.1.0` proposed, phase 12's decision) and
 The dependency audit holds it to a policy record, `("Microsoft.Extensions.Http", ["Dexpace.Sdk.Http.SystemNet"])`. Packable at `0.0.1-alpha.1`, unpublished. See [`docs/sdk-documentation/dependency-injection.md`](../sdk-documentation/dependency-injection.md).
 **As built (phase 9):** the package exists; the SystemNet reference departs from this section's "core only" cell and is recorded against `NFR-2` in §10 entry 2.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 2. The DI package's cell names one third-party root (`Microsoft.Extensions.Http`), not four packages, and the "core only" cell of the table above is the conformance kit's (`Dexpace.Sdk.Conformance` references core alone); `scripts/ci/dependency-audit.cs` holds each library to its own policy record.
+
 ### 2.2 Later packages
 
 Deliberately deferred, in rough priority order: `Dexpace.Sdk.Reactive` (`System.Reactive`) bridging pagination and
@@ -189,6 +191,8 @@ reference fails restore with NU1902 under `TreatWarningsAsErrors` (the .NET 8+ S
 repositories itself, per its documentation, so the reference can be removed rather than bumped — phase 0 confirms by
 inspecting the produced PDB).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built. `global.json` pins `10.0.401` with `rollForward: latestPatch`; every project targets `net10.0` only; `InternalsVisibleTo` is granted to a library's own test project and nobody else (`packaging:nfr-3.no-internals-granted`); no SourceLink package is referenced, the SDK ships it.
+
 ### 2.4 Enforcing the zero-dependency invariant, and what "standard library" means in .NET
 
 **SEAM-1** says core "MUST depend at runtime on nothing beyond its language's standard library plus a
@@ -291,5 +295,7 @@ the default run, because its nuspec half needs the packed `.nupkg`. It asserts t
 `Microsoft.Extensions.Logging.Abstractions` 9.0.5 plus `Microsoft.Extensions.DependencyInjection.Abstractions` 9.0.5
 and `System.Diagnostics.DiagnosticSource` 9.0.5, with no band-matching, no transitive pinning and no dependency-audit
 test; `CLAUDE.md` still states the BCL-only rule.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 1. On `net10.0` the closure of `Dexpace.Sdk.Core` is the logging facade and `Microsoft.Extensions.DependencyInjection.Abstractions`, both 10.0.12, and the audit allows exactly those two packages (task 1.3), proved by `dependency-audit-selftest.sh`.
 
 ---

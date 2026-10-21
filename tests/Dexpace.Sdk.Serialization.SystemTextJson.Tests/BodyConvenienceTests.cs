@@ -50,7 +50,7 @@ public sealed class BodyConvenienceTests
         var body = ResponseBody.FromBytes(json, CommonMediaTypes.ApplicationJson);
 
         await body.ReadValueAsync<Widget>(Serde(), cancellationToken: TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<StreamConsumedException>(
+        await Assert.ThrowsAsync<StreamClosedException>(
             async () => await body.ReadValueAsync<Widget>(Serde(), cancellationToken: TestContext.Current.CancellationToken));
     }
 

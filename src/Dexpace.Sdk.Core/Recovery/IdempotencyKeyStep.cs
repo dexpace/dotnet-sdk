@@ -32,7 +32,7 @@ public sealed class IdempotencyKeyStep : IRequestStep
         get => _methods;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Methods));
             _methods = value.ToFrozenSet();
         }
     }

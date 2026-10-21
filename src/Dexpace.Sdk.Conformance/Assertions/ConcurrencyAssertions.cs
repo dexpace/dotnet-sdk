@@ -44,9 +44,9 @@ internal static class ConcurrencyAssertions
 
         Check.True(failure is not null, "a send whose connection was reset before any response must fail, not succeed", "a failed send", "a completed send");
         Check.True(
-            failure is SdkException { IsRetryable: true } || Outcome.Find<StreamConsumedException>(failure) is not null,
-            "the failure must be a retryable SDK exception, or carry StreamConsumedException from a refused second write",
-            "retryable SdkException or StreamConsumedException",
+            failure is IRetryableError { IsRetryable: true } || Outcome.Find<StreamConsumedException>(failure) is not null,
+            "the failure must be a retryable error, or carry StreamConsumedException from a refused second write",
+            "a retryable error or StreamConsumedException",
             Outcome.Name(failure));
         var written = server.Requests.Where(request => request.Method == "POST").Sum(request => (long)request.Body.Length);
         Check.True(written <= BodyBytes, "the server must have received the single-use body at most once across every connection", $"at most {BodyBytes} bytes", $"{written} bytes");

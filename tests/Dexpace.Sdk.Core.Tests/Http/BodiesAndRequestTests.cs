@@ -67,7 +67,9 @@ public class BodiesAndRequestTests
     {
         var body = ResponseBody.FromBytes(Encoding.UTF8.GetBytes("x"));
         _ = await body.ReadAsBytesAsync(TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<StreamConsumedException>(() => body.OpenReadAsync(TestContext.Current.CancellationToken));
+
+        // BODY-14 (phase 11): the first read opened the one stream and disposed the body, so a later open reports it closed.
+        await Assert.ThrowsAsync<StreamClosedException>(() => body.OpenReadAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

@@ -219,6 +219,49 @@ public sealed class SyncToAsyncBridgeTests
     }
 
     [Fact]
+    public async Task A_scheduler_that_rejects_the_work_faults_the_returned_task_instead_of_throwing()
+    {
+        // ASYNC-2 (phase 11, task 2.3; F-A2, V4): a failure detectable while constructing the async operation, a worker-pool rejection included, is
+        // delivered through the future's failure channel and never thrown synchronously.
+        var scheduler = new RejectingTaskScheduler();
+        using var transport = new RecordingSyncTransport();
+        await using var bridge = transport.AsAsync(scheduler);
+        Task<Response>? task = null;
+
+        var thrown = Record.Exception(() => { task = bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, TestContext.Current.CancellationToken); });
+
+        Assert.Null(thrown);
+        Assert.NotNull(task);
+        var fault = await Assert.ThrowsAsync<TaskSchedulerException>(() => task);
+        Assert.IsType<InvalidOperationException>(fault.InnerException);
+        Assert.Equal(1, scheduler.QueueAttempts);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task A_pre_cancelled_call_completes_cancelled_without_touching_the_scheduler()
+    {
+        // SEAM-30, ASYNC-2: a token already signalled returns a cancelled task before the work reaches the scheduler, so even a scheduler that would
+        // reject it is never asked.
+        var scheduler = new RejectingTaskScheduler();
+        using var transport = new RecordingSyncTransport();
+        await using var bridge = transport.AsAsync(scheduler);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        Task<Response>? task = null;
+
+        var thrown = Record.Exception(() => { task = bridge.ExecuteAsync(NewRequest(), RequestOptions.Empty, cts.Token); });
+
+        Assert.Null(thrown);
+        Assert.NotNull(task);
+        Assert.True(task.IsCanceled);
+        var cancelled = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Equal(cts.Token, cancelled.CancellationToken);
+        Assert.Equal(0, scheduler.QueueAttempts);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
     public async Task A_response_produced_after_cancellation_is_disposed_exactly_once_and_never_surfaces()
     {
         // Ruling 3, SEAM-30's conformance clause: the delegate starts, the test cancels, the delegate returns a response.

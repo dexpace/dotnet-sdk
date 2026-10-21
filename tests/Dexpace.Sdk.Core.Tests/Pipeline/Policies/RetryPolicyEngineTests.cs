@@ -100,7 +100,7 @@ public sealed class RetryPolicyEngineTests
             async () => await PipelineOver(transport).SendAsync(Get(), Options(retries: 1), TestContext.Current.CancellationToken));
 
         Assert.Same(final, thrown);
-        var entry = Assert.IsType<HttpResponseException>(Assert.Single(thrown.Suppressed));
+        var entry = Assert.IsType<HttpResponseException>(Assert.Single(ExceptionTrail.GetSuppressed(thrown)));
         Assert.Equal(Status.ServiceUnavailable, entry.Status);
         Assert.Equal(1, body.OpenCount);
         Assert.Equal(1, body.DisposeCount);
@@ -425,7 +425,7 @@ public sealed class RetryPolicyEngineTests
     [Fact]
     public async Task A_wrapped_HttpResponseException_is_decided_by_the_configured_status_set()
     {
-        var wrapped = new ServiceResponseException("w", new HttpResponseException(TestResponses.Create(Status.FromCode(501))));
+        var wrapped = new ServiceRequestException("w", new HttpResponseException(TestResponses.Create(Status.FromCode(501))));
         var plain = new ScriptedTransport(wrapped, TestResponses.Create(Status.Ok));
         var options = new DexpaceClientOptions
         {
@@ -452,7 +452,7 @@ public sealed class RetryPolicyEngineTests
 
         Assert.Equal(asyncTransport.CallCount, syncTransport.CallCount);
         Assert.Equal(asyncFailure.Message, syncFailure.Message);
-        Assert.Equal(asyncFailure.Suppressed.Count, syncFailure.Suppressed.Count);
+        Assert.Equal(ExceptionTrail.GetSuppressed(asyncFailure).Count, ExceptionTrail.GetSuppressed(syncFailure).Count);
         Assert.Equal(3, syncTransport.CallCount);
     }
 
@@ -524,8 +524,8 @@ public sealed class RetryPolicyEngineTests
         var task = pipeline.SendAsync(Get(), Options(attemptTimeout: TimeSpan.FromSeconds(5)), TestContext.Current.CancellationToken).AsTask();
         var thrown = await Assert.ThrowsAsync<ServiceRequestTimeoutException>(async () => await EngineHarness.DriveAsync(task, clock));
 
-        Assert.Equal(2, thrown.Suppressed.Count);
-        Assert.All(thrown.Suppressed, e => Assert.IsType<ServiceRequestTimeoutException>(e));
+        Assert.Equal(2, ExceptionTrail.GetSuppressed(thrown).Count);
+        Assert.All(ExceptionTrail.GetSuppressed(thrown), e => Assert.IsType<ServiceRequestTimeoutException>(e));
     }
 
     [Fact]

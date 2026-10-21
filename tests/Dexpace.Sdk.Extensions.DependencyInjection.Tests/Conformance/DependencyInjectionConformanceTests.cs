@@ -8,8 +8,9 @@ namespace Dexpace.Sdk.Extensions.DependencyInjection.Tests.Conformance;
 
 /// <summary>
 /// The transport conformance kit driven against the transport <c>AddDexpaceClient</c> builds (phase 9, P9-22; the third driver beside the two SystemNet constructions
-/// and the raw-socket client): one case per (assertion, face), plus the whole suite as a report. The waivers are the two permanent assertion-scoped decisions
-/// (design section 10 entries 32 and 33); the kit fails the run if a waiver is left after its clause starts to pass. <c>transport-1.redirect-not-followed</c>
+/// and the raw-socket client): one case per (assertion, face), plus the whole suite as a report. The one waiver is the permanent assertion-scoped
+/// decision of design section 10 entry 32 (phase 11 retired entry 33's: the named client's handler carries the native-retry stop filter); the kit fails
+/// the run if a waiver is left after its clause starts to pass. <c>transport-1.redirect-not-followed</c>
 /// passing on both faces is the proof the 8a hand-off names, and <c>transport-15.owned-released</c> is what the container-owned lease earns (V8).
 /// </summary>
 [Trait("Category", "Conformance")]
@@ -73,14 +74,12 @@ public sealed class DependencyInjectionConformanceTests
     }
 
     [Fact]
-    public void Only_the_two_recorded_permanent_decisions_remain()
+    public void Only_the_malformed_name_decision_remains()
     {
         var waivers = DependencyInjectionSubject.Options.Waivers;
 
         Assert.DoesNotContain(waivers, static waiver => waiver.Owner is not null);
-        Assert.Equal(
-            ["TRANSPORT-14|transport-14.name-malformed-dropped", "TRANSPORT-2|transport-2.bodyless-not-resent"],
-            waivers.Select(static waiver => $"{waiver.RequirementId}|{waiver.Assertion}").Order(StringComparer.Ordinal));
+        Assert.Equal(["TRANSPORT-14|transport-14.name-malformed-dropped"], waivers.Select(static waiver => $"{waiver.RequirementId}|{waiver.Assertion}"));
         Assert.All(waivers, static waiver => Assert.Null(waiver.Face));
     }
 

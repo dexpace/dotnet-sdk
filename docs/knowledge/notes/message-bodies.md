@@ -1,0 +1,8 @@
+# message-bodies — notes
+
+Hand-written. `../harvested/message-bodies.md` is what the documents say; this is what the implementation found, and it wins.
+Facts measured on .NET SDK 10.0.401 / runtime 10.0.12, Linux, so a later reader does not have to re-measure them.
+
+## Conclusions
+- **`System.Formats.Tar`'s `TarWriter` classifies a path without opening a special file, so a FIFO, a device or a socket is told from a regular file where the shared framework alone cannot.** `File.Exists` is true and `FileInfo.Attributes` is `Normal` for a regular file, `/dev/null`, `/dev/zero` and a FIFO, a file length of 0 is reported for all of them, and opening a FIFO for read blocks until a writer appears; `TarWriter.WriteEntry(path, …)` reads the file type (type 0 regular, 3 character device, 6 FIFO, 5 directory) and does not block on a FIFO, and a Unix socket raises `IOException` (V8). The assembly is in `Microsoft.NETCore.App.Ref` and publishes under NativeAOT with no warning, so `RequestBody.FromFile` classifies a size-0 path on a non-Windows host through `UnixFileKind.SpecialKindOf` and rejects anything but a regular file at construction (design §10 entry 31, retired, P11-13). A regular file is the one type the writer opens (to attach its content), so a mode-000 empty file fails inside it with an `UnauthorizedAccessException` carrying the path; `UnixFileKind` reads that refusal as "regular" and reports `socket` only for the writer's managed `IOException` (a Unix socket; an errno-stamped one is an open failure). Verified on Linux only; the macOS CI row is the first to run it elsewhere.
+  <sub>review · `docs/work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-design.md` · high · sha:manual-p11-v8-tarwriter</sub>

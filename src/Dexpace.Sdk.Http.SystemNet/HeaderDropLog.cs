@@ -32,29 +32,14 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// A logger that throws is swallowed (<c>OBS-20</c>): logging never fails a send.
 /// </para>
 /// </remarks>
-internal sealed class HeaderDropLog
+internal sealed partial class HeaderDropLog
 {
     private const int MaxNames = 128;
 
-    private static readonly Action<ILogger, string, Exception?> s_warning = LoggerMessage.Define<string>(
-        LogLevel.Warning,
-        new EventId(DexpaceLogEvents.TransportHeaderDroppedId, DexpaceLogEvents.TransportHeaderDropped),
-        "Dropped the '{HeaderName}' request header: the transport could not send it (TRANSPORT-12, XCUT-18).");
-
-    private static readonly Action<ILogger, string, Exception?> s_quiet = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(DexpaceLogEvents.TransportHeaderDroppedId, DexpaceLogEvents.TransportHeaderDropped),
-        "Dropped the '{HeaderName}' request header: the transport could not send it (TRANSPORT-12, XCUT-18).");
-
-    private static readonly Action<ILogger, string, Exception?> s_framing = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(DexpaceLogEvents.TransportFramingHeaderDroppedId, DexpaceLogEvents.TransportFramingHeaderDropped),
-        "Dropped the caller-set '{HeaderName}' header: the transport computes it (TRANSPORT-11).");
-
-    private static readonly Action<ILogger, string, Exception?> s_inbound = LoggerMessage.Define<string>(
-        LogLevel.Debug,
-        new EventId(DexpaceLogEvents.TransportInboundHeaderDroppedId, DexpaceLogEvents.TransportInboundHeaderDropped),
-        "Dropped the '{HeaderName}' response header: its value carries a control character (HTTP-19, XCUT-18).");
+    // One generated method serves both levels of the request-header drop: the event id and name are the same and only the level follows
+    // the policy, and the generator rejects two methods that share an id (SYSLIB1006).
+    private static readonly Action<ILogger, string> s_warning = static (logger, headerName) => LogDropped(logger, LogLevel.Warning, headerName);
+    private static readonly Action<ILogger, string> s_quiet = static (logger, headerName) => LogDropped(logger, LogLevel.Debug, headerName);
 
     private readonly ILogger _logger;
     private readonly HeaderDropLogging _mode;
@@ -97,11 +82,11 @@ internal sealed class HeaderDropLog
 
     /// <summary>Logs that the caller-set framing header <paramref name="name"/> was dropped, at <see cref="LogLevel.Debug"/>.</summary>
     /// <param name="name">The header name; escaped for the log line.</param>
-    internal void FramingDropped(string name) => Write(s_framing, HttpHeaderSyntax.EscapeName(name));
+    internal void FramingDropped(string name) => Write(LogFramingDropped, HttpHeaderSyntax.EscapeName(name));
 
     /// <summary>Logs that the response header <paramref name="name"/> was dropped, at <see cref="LogLevel.Debug"/>.</summary>
     /// <param name="name">The header name; escaped for the log line.</param>
-    internal void InboundDropped(string name) => Write(s_inbound, HttpHeaderSyntax.EscapeName(name));
+    internal void InboundDropped(string name) => Write(LogInboundDropped, HttpHeaderSyntax.EscapeName(name));
 
     private bool FirstSeen(string name)
     {
@@ -123,15 +108,35 @@ internal sealed class HeaderDropLog
     }
 
     // OBS-20: a logger that throws must not fail the send.
-    private void Write(Action<ILogger, string, Exception?> message, string escapedName)
+    private void Write(Action<ILogger, string> message, string escapedName)
     {
         try
         {
-            message(_logger, escapedName, null);
+            message(_logger, escapedName);
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // Swallowed by design (OBS-20).
         }
     }
+
+    [LoggerMessage(
+        EventId = DexpaceLogEvents.TransportHeaderDroppedId,
+        EventName = DexpaceLogEvents.TransportHeaderDropped,
+        Message = "Dropped the '{HeaderName}' request header: the transport could not send it (TRANSPORT-12, XCUT-18).")]
+    private static partial void LogDropped(ILogger logger, LogLevel level, string headerName);
+
+    [LoggerMessage(
+        EventId = DexpaceLogEvents.TransportFramingHeaderDroppedId,
+        EventName = DexpaceLogEvents.TransportFramingHeaderDropped,
+        Level = LogLevel.Debug,
+        Message = "Dropped the caller-set '{HeaderName}' header: the transport computes it (TRANSPORT-11).")]
+    private static partial void LogFramingDropped(ILogger logger, string headerName);
+
+    [LoggerMessage(
+        EventId = DexpaceLogEvents.TransportInboundHeaderDroppedId,
+        EventName = DexpaceLogEvents.TransportInboundHeaderDropped,
+        Level = LogLevel.Debug,
+        Message = "Dropped the '{HeaderName}' response header: its value carries a control character (HTTP-19, XCUT-18).")]
+    private static partial void LogInboundDropped(ILogger logger, string headerName);
 }

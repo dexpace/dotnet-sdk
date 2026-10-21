@@ -8,6 +8,8 @@
 
 #pragma warning disable CA2000 // The streams and bodies under test are owned by the test.
 
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
@@ -214,6 +216,154 @@ public sealed class FileRequestBodyTests : IDisposable
 
         Assert.Equal(6, body.ContentLength);
         Assert.Equal(Encoding.ASCII.GetBytes("target"), await WriteAsync(body));
+    }
+
+    // BODY-11, HTTP-40 (phase 11, P11-13, design section 10 entry 31): "regular file" is enforced on Unix too. A FIFO or a character device
+    // reports a size of 0, which used to make it an empty upload; the construction now classifies a size-0 path without opening it.
+    [Fact]
+    public void A_character_device_is_rejected_at_construction()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no /dev/null; its device attribute check is a separate branch.");
+
+        var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile("/dev/null"));
+
+        Assert.Contains("character device", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("/dev/null", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_fifo_is_rejected_at_construction_without_blocking()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no FIFO.");
+        var path = Path.Combine(_directory, "pipe");
+        Assert.SkipUnless(TryMakeFifo(path), "mkfifo is not available on this host.");
+
+        // The construction must not open the FIFO (opening one for read blocks until a writer appears): run it on a worker with a guard.
+        var constructing = Task.Run(() => Record.Exception(() => RequestBody.FromFile(path)), Token);
+        var error = await constructing.WaitAsync(TimeSpan.FromSeconds(5), Token);
+
+        var rejected = Assert.IsType<ArgumentException>(error);
+        Assert.Contains("FIFO", rejected.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_symbolic_link_to_a_special_file_is_rejected_as_its_target()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no /dev/null.");
+        var link = Path.Combine(_directory, "null-link");
+        try
+        {
+            File.CreateSymbolicLink(link, "/dev/null");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Skip("This host cannot create a symbolic link here.");
+        }
+
+        var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile(link));
+
+        Assert.Contains("character device", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_unix_domain_socket_is_rejected_at_construction()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "A Unix domain socket file is not a Windows concept here.");
+        var path = Path.Combine(_directory, "s");
+        using var server = new System.Net.Sockets.Socket(
+            System.Net.Sockets.AddressFamily.Unix, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Unspecified);
+        try
+        {
+            server.Bind(new System.Net.Sockets.UnixDomainSocketEndPoint(path));
+        }
+        catch (Exception ex) when (ex is System.Net.Sockets.SocketException or ArgumentOutOfRangeException or PlatformNotSupportedException)
+        {
+            Assert.Skip("This host cannot bind a Unix domain socket at a path this short.");
+        }
+
+        var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile(path));
+
+        Assert.Contains("socket", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, error.Message, StringComparison.Ordinal);
+    }
+
+    // Review fix: the classification must not open a regular file. An empty regular file the process may not read (mode 000) was accepted before
+    // phase 11, because nothing opens a count-0 body, and stays accepted; the type check used to open it and fail with an UnauthorizedAccessException
+    // whose message is the path.
+    [Fact]
+    public async Task An_empty_regular_file_the_process_may_not_read_is_accepted()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "File modes are a Unix concept.");
+        var path = NewFile([], "locked.bin");
+        SetUnixMode(path, UnixFileMode.None);
+        Assert.SkipWhen(CanOpenForRead(path), "This process can read a mode-000 file (it is running as root), so the file is not unreadable here.");
+
+        var body = RequestBody.FromFile(path);
+
+        Assert.Equal(0, body.ContentLength);
+        Assert.Empty(await WriteAsync(body));
+        Assert.Empty(WriteSync(body));
+    }
+
+    [Fact]
+    public void A_fifo_the_process_may_not_open_is_rejected_by_its_kind_and_not_its_path()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no FIFO.");
+        var path = Path.Combine(_directory, "locked-pipe");
+        Assert.SkipUnless(TryMakeFifo(path), "mkfifo is not available on this host.");
+        SetUnixMode(path, UnixFileMode.None);
+
+        var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile(path));
+
+        Assert.Contains("FIFO", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, error.Message, StringComparison.Ordinal);
+    }
+
+    private static void SetUnixMode(string path, UnixFileMode mode)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, mode);
+        }
+    }
+
+    private static bool CanOpenForRead(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    // A pin: an empty regular file was always accepted and must stay so, on every platform.
+    [Fact]
+    public async Task An_empty_regular_file_is_accepted()
+    {
+        var path = NewFile([], "empty.bin");
+
+        var body = RequestBody.FromFile(path);
+
+        Assert.Equal(0, body.ContentLength);
+        Assert.Empty(await WriteAsync(body));
+    }
+
+    private static bool TryMakeFifo(string path)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo("mkfifo", path) { UseShellExecute = false, RedirectStandardError = true });
+            process!.WaitForExit();
+            return process.ExitCode == 0 && File.Exists(path);
+        }
+        catch (Win32Exception)
+        {
+            return false;
+        }
     }
 
     [Fact]

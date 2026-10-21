@@ -64,7 +64,7 @@ internal static class TaxonomyInvariants
 
         var refused = await context.FailureOfAsync(transport, Request.Get(InvariantOptions.Url), "the call whose connection is refused", token).ConfigureAwait(false);
 
-        Check.True(refused is SdkException and not HttpResponseException, "a failure with no response must be the transport branch, not a response-carrying error", "an SDK exception carrying no response", Outcome.Name(refused));
+        Check.True(refused is IOException, "a failure with no response must be the transport branch (an IOException), not a response-carrying error", "an IOException carrying no response", Outcome.Name(refused));
         Check.True(refused is IRetryableError { IsRetryable: true }, "a transport error must report itself always retryable", "retryable", Outcome.Name(refused));
         Check.True(
             Outcome.Find<SocketException>(refused) is not null || Outcome.Find<IOException>(refused) is not null,

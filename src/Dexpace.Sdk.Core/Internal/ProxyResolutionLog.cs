@@ -15,13 +15,8 @@ namespace Dexpace.Sdk.Core.Internal;
 /// it. The call is wrapped so that a throwing <see cref="ILogger"/> cannot make the resolver throw (OBS-20's rule ahead of
 /// 5b's emission guard, which replaces this wrapper; P5a-28).
 /// </remarks>
-internal static class ProxyResolutionLog
+internal static partial class ProxyResolutionLog
 {
-    private static readonly Action<ILogger, string, string, Exception?> s_ignored = LoggerMessage.Define<string, string>(
-        LogLevel.Warning,
-        new EventId(20, "ProxyConfigurationIgnored"),
-        "Proxy configuration in {Variable} was ignored: {Reason}.");
-
     /// <summary>Logs that <paramref name="variable"/> was ignored for <paramref name="reason"/>.</summary>
     /// <param name="logger">The logger.</param>
     /// <param name="variable">The environment variable name.</param>
@@ -30,11 +25,18 @@ internal static class ProxyResolutionLog
     {
         try
         {
-            s_ignored(logger, variable, reason, null);
+            LogIgnored(logger, variable, reason);
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // A failing logger must not turn a rejected proxy value into an exception (CFG-24).
         }
     }
+
+    [LoggerMessage(
+        EventId = 20,
+        EventName = "ProxyConfigurationIgnored",
+        Level = LogLevel.Warning,
+        Message = "Proxy configuration in {Variable} was ignored: {Reason}.")]
+    private static partial void LogIgnored(ILogger logger, string variable, string reason);
 }

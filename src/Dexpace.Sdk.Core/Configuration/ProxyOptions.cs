@@ -63,7 +63,7 @@ public sealed record ProxyOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Host));
             field = IsValidHost(value)
                 ? value
                 : throw new ArgumentException("The proxy host is blank or contains a character that is not allowed in a host.", nameof(value));
@@ -93,12 +93,12 @@ public sealed record ProxyOptions
         get => _nonProxyHosts;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(NonProxyHosts));
             var copy = new string[value.Count];
             var compiled = new string[copy.Length];
             for (var i = 0; i < copy.Length; i++)
             {
-                copy[i] = value[i] ?? throw new ArgumentNullException(nameof(value), "A bypass pattern is null.");
+                copy[i] = value[i] ?? throw new ArgumentNullException(nameof(NonProxyHosts), "A bypass pattern is null.");
                 compiled[i] = ProxyGlob.Compile(copy[i]);
             }
 

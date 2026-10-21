@@ -16,8 +16,13 @@ using Xunit;
 
 namespace Dexpace.Sdk.Core.Tests.Pipeline.Policies;
 
-/// <summary>OBS-1, OBS-34, P5b-19: the disabled path allocates and emits nothing.</summary>
-[Collection("Instrumentation")]
+/// <summary>
+/// OBS-1, OBS-34, P5b-19: the disabled path allocates and emits nothing. It is a zero-allocation class, so it runs in <c>NoDiagnosticListeners</c> (phase 11,
+/// task 1.2): an <see cref="System.Diagnostics.ActivityListener"/> is process-wide, and one a test running in parallel installs part-way through makes
+/// the instrumented pipeline start an <see cref="System.Diagnostics.Activity"/> per call from then on, an allocation the second (long-URL) phase of
+/// <see cref="The_redacted_url_is_not_computed_on_the_disabled_path"/> sees and the first does not (seen as "short 745 B, long 995 B per call").
+/// </summary>
+[Collection("NoDiagnosticListeners")]
 [Trait("Category", "Unit")]
 public sealed class DisabledPathAllocationTests
 {

@@ -116,7 +116,7 @@ public sealed class RetryEngineTests
             TestContext.Current.CancellationToken);
 
         Assert.Same(sdk[2], Error(sdkOutcome));
-        Assert.Equal([sdk[0], sdk[1]], sdk[2].Suppressed);
+        Assert.Equal([sdk[0], sdk[1]], ExceptionTrail.GetSuppressed(sdk[2]));
 
         var reused = new ServiceRequestException("same");
         var reusedOutcome = await Engine().RunAsync(
@@ -125,7 +125,7 @@ public sealed class RetryEngineTests
             TestContext.Current.CancellationToken);
 
         Assert.Same(reused, Error(reusedOutcome));
-        Assert.DoesNotContain(reused, reused.Suppressed);
+        Assert.DoesNotContain(reused, ExceptionTrail.GetSuppressed(reused));
     }
 
     [Fact]
@@ -453,7 +453,7 @@ public sealed class RetryEngineTests
         var outcome = await Engine().RunAsync(run, async: true, TestContext.Current.CancellationToken);
 
         Assert.Same(final, Error(outcome));
-        var entry = Assert.IsType<HttpResponseException>(Assert.Single(final.Suppressed));
+        var entry = Assert.IsType<HttpResponseException>(Assert.Single(ExceptionTrail.GetSuppressed(final)));
         Assert.Equal(503, entry.Status.Code);
         Assert.Equal(1, body.DisposeCount);
         Assert.Equal(["retried:open", "retried:dispose"], log);
@@ -475,7 +475,7 @@ public sealed class RetryEngineTests
 
         await Engine().RunAsync(run, async: true, TestContext.Current.CancellationToken);
 
-        Assert.Empty(final.Suppressed);
+        Assert.Empty(ExceptionTrail.GetSuppressed(final));
         Assert.Equal(1, body.DisposeCount);
         Assert.Equal(["ok:dispose"], log);
     }
@@ -497,7 +497,7 @@ public sealed class RetryEngineTests
         var outcome = await Engine().RunAsync(run, async: true, TestContext.Current.CancellationToken);
 
         Assert.Same(final, Error(outcome));
-        Assert.Same(drainFailure, Assert.Single(final.Suppressed));
+        Assert.Same(drainFailure, Assert.Single(ExceptionTrail.GetSuppressed(final)));
         Assert.Empty(log);
     }
 
@@ -555,6 +555,26 @@ public sealed class RetryEngineTests
     }
 
     [Fact]
+    public async Task The_attempt_header_replaces_its_previous_value()
+    {
+        // RETRY-38 (design section 11 item 10): a request that already carries the header, from a caller or an outer layer, ends each send with exactly one value.
+        var seen = new List<string[]>();
+        var options = new RetryOptions { MaxRetryAttempts = 2, BaseDelay = TimeSpan.Zero, Jitter = 0, AttemptHeaderName = "X-Attempt" };
+        var run = new RetryRun(
+            s_get.WithHeader("X-Attempt", "outer").WithHeader("x-attempt", "stale").WithHeader("X-Key", "k"),
+            options,
+            (request, _, _, _) =>
+            {
+                seen.Add([.. request.Headers.GetAll("X-Attempt"), request.Headers.Get("X-Key")!]);
+                return ValueTask.FromResult<Outcome>(Fail());
+            });
+
+        await Engine().RunAsync(run, async: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal([["1", "k"], ["2", "k"], ["3", "k"]], seen);
+    }
+
+    [Fact]
     public async Task A_disabled_attempt_header_sends_the_same_request_instance()
     {
         Request? seen = null;
@@ -587,6 +607,6 @@ public sealed class RetryEngineTests
         // 4 s elapsed after send 1, 8 s after send 2; a third wait of 4 s would end at 12 s, past the 10 s budget.
         Assert.Equal(3, sends);
         Assert.Same(last, Error(outcome));
-        Assert.Equal([first, middle], last.Suppressed);
+        Assert.Equal([first, middle], ExceptionTrail.GetSuppressed(last));
     }
 }

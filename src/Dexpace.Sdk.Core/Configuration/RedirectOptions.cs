@@ -83,10 +83,10 @@ public sealed record RedirectOptions
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(AllowedMethods));
             foreach (var method in value)
             {
-                ArgumentNullException.ThrowIfNull(method, nameof(value));
+                ArgumentNullException.ThrowIfNull(method, nameof(AllowedMethods));
             }
 
             field = value.ToFrozenSet();

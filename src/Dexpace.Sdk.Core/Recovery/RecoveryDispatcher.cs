@@ -50,10 +50,19 @@ public sealed class RecoveryDispatcher
     /// <param name="responseChain">The chain whose response steps run after every send and whose recovery steps run once.</param>
     /// <param name="retry">The retry configuration: options, total-time budget and clock.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="requestChain"/> holds an <see cref="IdempotencyKeyStep"/> whose header is the retry options'
+    /// <see cref="Configuration.RetryOptions.AttemptHeaderName"/>, which the attempt stamp would overwrite on every send (RETRY-38).
+    /// </exception>
     public RecoveryDispatcher(RequestRecoveryChain requestChain, ResponseRecoveryChain responseChain, RetryRecovery retry)
         : this(requestChain, responseChain)
     {
         ArgumentNullException.ThrowIfNull(retry);
+        if (AttemptHeaderCollision.In(requestChain.Steps, retry.Options) is { } collision)
+        {
+            throw new ArgumentException(collision, nameof(retry));
+        }
+
         Retry = retry;
     }
 
@@ -139,6 +148,8 @@ public sealed class RecoveryDispatcher
                 MaxRetries = options.MaxRetries ?? retry.Options.MaxRetryAttempts,
                 Budget = RetryBudget.For(retry.TotalTimeout, retry.Clock),
                 HonorPacing = true,
+
+                // RETRY-21: the recovery stack scans the pacing headers in the fixed precedence; RetryOptions.PacingHeaders belongs to the stage stack.
             };
             terminal = await retry.Engine.RunAsync(run, async, cancellationToken).ConfigureAwait(false);
         }

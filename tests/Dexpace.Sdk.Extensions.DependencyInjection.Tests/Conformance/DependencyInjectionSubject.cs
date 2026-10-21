@@ -43,18 +43,18 @@ internal static class DependencyInjectionSubject
         AfterDispose = AfterDisposeBehavior.ThrowsObjectDisposedException,
     };
 
-    /// <summary>The kit's bounds and the two permanent assertion-scoped waivers of the SystemNet drivers (design section 10 entries 32 and 33), each turning stale if its assertion passes.</summary>
+    /// <summary>
+    /// The kit's bounds and the one permanent assertion-scoped waiver of the SystemNet drivers that applies here (design section 10 entry 32),
+    /// turning stale if its assertion passes. <c>TRANSPORT-2</c>'s body-less clause is not waived: the named client is built over
+    /// <c>SystemNetHttpClient.CreatePrimaryHandler</c>, whose stop filter ends the native re-send (phase 11, P11-12).
+    /// </summary>
     internal static TransportSuiteOptions Options { get; } = new()
     {
         AssertionTimeout = TimeSpan.FromSeconds(20),
         ReleaseTimeout = TimeSpan.FromSeconds(5),
         Waivers =
         [
-            new("TRANSPORT-2", "SocketsHttpHandler has no public switch for its own connection-failure retry: a request with no content whose connection ends before any response byte is re-sent up to three more times. The transport closes the clause where it can: a body-less POST, PUT, PATCH or extension method is given a zero-length content (Content-Length: 0, byte for byte what the native client writes anyway), so the retry cannot fire. A body-less GET, HEAD, OPTIONS, DELETE and TRACE is still re-sent: all are idempotent (RFC 9110 section 9.2.2), which permits the retry, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6. Unmet on that stated domain: design section 10 entry 33")
-            {
-                Assertion = "transport-2.bodyless-not-resent",
-            },
-            new("TRANSPORT-14", "SocketsHttpHandler rejects the whole response on a malformed header name (a space, a control byte or a non-ASCII byte) before the adapter sees any header, and has no leniency switch; no handler-level workaround exists short of replacing its HTTP/1.1 parser. Unmet on that stated domain: design section 10 entry 32 (the value and obs-text clauses are met and unwaived)")
+            new("TRANSPORT-14", "SocketsHttpHandler rejects the whole response on a malformed header name (a space, a control byte or a non-ASCII byte) before the adapter sees any header, and has no leniency switch; the only repair is a hand-written HTTP/1.1 head rewriter in the byte path of every response, a second parser ahead of the runtime's, which the transport declines. Unmet on that stated domain: design section 10 entry 32 (the value and obs-text clauses are met and unwaived)")
             {
                 Assertion = "transport-14.name-malformed-dropped",
             },

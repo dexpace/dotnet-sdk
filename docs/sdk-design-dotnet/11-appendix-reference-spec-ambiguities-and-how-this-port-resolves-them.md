@@ -361,3 +361,44 @@ count instrument and no operation-level instrument.
     bare fraction, `1.5`); and trims ASCII whitespace from every scalar first, **booleans included** (the Ruby port does not trim a boolean). `CFG-6` therefore accepts `" true "`. `1_000` is rejected where the Ruby port tolerates it. §8.2.
 68. **`CFG-2` says an empty value "falls through to the system-property layer" and "rather than resolving to the empty string"; `IConfiguration` merges providers before the reader sees a key.** *Added by dated correction, 2026-10-13 (phase 9, P9-7; open for the lead).* The "rather than resolving to the empty string" half is
     met (an empty or whitespace-only value is absent and the record default applies); the fall-through half cannot be, so an empty environment value silently shadows a lower provider's value (§10 entry 25). The alternative, an empty value failing start, turns a blank templated variable into a boot failure and drops the met half. §8.2.
+
+---
+
+**Correction 2026-10-20 (phase 11, P11-3): the as-built audit of this chapter.** Every item above was re-read against the source ([`docs/deviations.md`](../deviations.md), *Readings*, one row per item with its verdict and evidence); the
+numbering and the text stand. Of items 1 to 68, 49 are confirmed, 13 narrowed and 6 contradicted (10, 20, 30, 43, 44 and 68). Four were repaired by this phase (36, 43, 54, 68) and 16 are documentation corrections, below; the specification
+amendments they suggest are recorded, not applied, in the ledger's *Amendment set N11* (P11-4). The four new items continue the numbering.
+
+- **Item 2** (narrowed). `NFR-11` holds (no framework type leaks), but two documented sync-over-async defaults remain: `HttpPipelinePolicy.Process` and `TokenCredential.GetToken`.
+- **Item 4** (narrowed). The DI package reads the section the caller hands it; tier order is the host's provider order, and the `Configure` transforms are `CFG-1`'s first tier.
+- **Item 10** (contradicted). `RETRY-38` is not deferred: it is built (`RetryOptions.AttemptHeaderName`, phase 6a). The attempt header is *set*, not appended, and may not be named `Idempotency-Key` (task 5.7).
+- **Item 12** (narrowed). One control flow serves both paths of every policy, but the credential hooks of the authorization policies are sync/async twins.
+- **Item 14** (narrowed). `ServiceSlot` gives the idempotence; `TryAdd` is used nowhere.
+- **Item 15** (narrowed). The deep-equality helper compares zero sign explicitly and has no production caller; it is a tested internal helper that carries `CFG-33` and `CFG-34`.
+- **Item 18** (confirmed, two wordings corrected). The refusal chain of a failed re-send has an `HttpRequestException` layer the text omits, and "a limit of 0 disables the capture" is wrong (`ResendCaptureTests`).
+- **Item 20** (contradicted). One built feature, `RETRY-38` and `RECOV-31`, as item 10 says.
+- **Item 24** (narrowed). Nothing the SDK adds retries below it, and since task 4.1 the handler the SDK builds does not either; a caller's own handler keeps the runtime's native retry (item 71).
+- **Item 30** (contradicted). There is no `CallKey` on `RequestOptions`, no stamp and no SDK reader; the store's public lookup is for consumers. It is a post-release trigger in `docs/first-release.md`, and ledger scan N19 holds the absence.
+- **Item 32** (narrowed). Classification tests the call's token first and then also reads an inner `TimeoutException` by type.
+- **Item 36** (repaired, task 3.2). The trim of `HTTP-17` is outbound-only; an inbound name with surrounding whitespace is refused (item 70).
+- **Item 41** (narrowed). One public type implements a seam in core, `HttpPipeline` (`SeamImplementationArchitectureTests`).
+- **Item 43** (contradicted, repaired, task 2.4). `task.WaitAsync(token)` leaked a response in 44 of 20 000 runs; the public `WaitOrDisposeAsync` closes the orphan exactly once.
+- **Item 44** (contradicted). `CapturedBytes` has no production caller; it stays as a tested internal helper (P11-25).
+- **Item 47** (narrowed). The operation span is opened by `HttpPipeline`, not by `OperationPolicy`.
+- **Item 51** (narrowed). Core has no configuration builder; `DexpaceClientBuilder` is one and is used single-threaded.
+- **Item 54** (narrowed, repaired, task 5.5). The stage stack walks a caller-configurable ordered list, `RetryOptions.PacingHeaders`; the recovery stack keeps the fixed precedence.
+- **Item 67** (narrowed). The duration grammar also accepts `"250 ms"` and `"1.5s"`.
+- **Item 68** (contradicted, repaired, task 5.4). The fall-through half of `CFG-2` can be met: when the registered `IConfiguration` is the root that holds the section, an empty value falls through to the next provider with one. *Corrected 2026-10-21 (phase 11 review):* for a section of the registered root only; a section of any other configuration keeps the merged read, a counted residual (§10 entry 25).
+
+69. **`XCUT-24` asks error snapshots to be non-consuming, while `BODY-30` and `RECOV-16` require the cap to drain and release the original.** *Added by dated correction, 2026-10-20 (phase 11, P11-16).* Phase 10 declined
+    `XCUT-24`'s non-consuming clause for an error-body snapshot above 1 MiB as a SHOULD; that decline misread the other two rows. *Resolved* (§4.5, §5.2): the snapshot's primary read path is the `BODY-30` buffered copy, a replayable body
+    that every read leaves intact (`ErrorBodyBufferTests.The_buffered_copy_is_replayable`); the original stream is released per `RECOV-16`. The truncation at the cap is markerless and stated. A reading, not a deviation; the
+    register's decline is struck. Amendment N11-1.
+70. **`HTTP-17` trims surrounding whitespace from a header name, and `HTTP-19` and `XCUT-18` refuse one with HTAB.** *Added by dated correction, 2026-10-20 (phase 11, P11-14).* The two meet at the edge of a name. *Resolved* (§4.1): the trim
+    is outbound-only; a name received from the wire (`Headers.Builder.AddInbound`) is validated against the token grammar without trimming, so " X-A" and "X-A\t" are refused. The reference transport never reaches the path (the runtime
+    refuses such names), so the repair closes it for third-party transports and direct callers. Amendment N11-2.
+71. **`TRANSPORT-2` turns off the native client's retry in "an SDK-managed transport"; the term is undefined when the caller supplies the native client.** *Added by dated correction, 2026-10-20 (phase 11, P11-12).* *Resolved* (§3.2): an
+    SDK-managed transport is one whose primary handler the SDK built (`SystemNetHttpClient.CreatePrimaryHandler`, used by the owned construction and by the DI named client), which installs the stream filter that stops the handler's
+    re-send. A handler or `HttpClient` the caller supplies is the caller's native client and keeps its retry. A reading, not a deviation; the asymmetry is `borrowed-handler-native-retry` in `docs/first-release.md`. Amendment N11-4.
+72. **`CFG-5` to `CFG-7` say the accessor never throws; the DI package fails the boot on a recorded parse failure.** *Added by dated correction, 2026-10-20 (phase 11, P11-10).* *Resolved* (§8.2): the clauses bind the accessor, and the
+    grammars never throw and keep the record default; a host validator that refuses to start on a recorded failure is a stricter host rule from the house guide, not a contrary one, and removes §10 entry 26 from the count of unmet
+    clauses. Amendment N11-8.

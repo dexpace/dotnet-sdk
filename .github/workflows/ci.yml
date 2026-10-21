@@ -122,6 +122,11 @@ jobs:
       - name: Dependency audit
         run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages
 
+      # The audit's own regression check (phase 11, task 1.3): core's allowance is the fixed set {facade, DependencyInjection.Abstractions}, so a
+      # package injected under the facade, under its dependency, or with no edge at all must fail it, naming the package.
+      - name: Dependency audit - self-test
+        run: scripts/ci/dependency-audit-selftest.sh artifacts/packages
+
       # NFR-1/-2/-3/-8/-9/-10/-13/-14/-15 (phase 10, P10-10): the kit's PackagingSuite over the packed .nupkg files: the published metadata (nuspec
       # dependencies, license, versions) and each packed assembly's attributes (IsTrimmable, IsAotCompatible, InternalsVisibleTo, the version),
       # read without loading them. The audit above reads the build output's closure; this reads what was published (two checks, two subjects).
@@ -156,6 +161,13 @@ jobs:
         if: runner.os == 'Linux'
         run: dotnet run scripts/ci/requirement-coverage.cs -- --check
 
+      # Blocking. Design section 12's coverage table (the satisfied, vacuous, not-satisfied and deferred IDs of every prefix) is generated from the
+      # checklists' resolved marks, not typed (roadmap phase 11, P11-21): a checklist change that moves an ID between the sets fails here until
+      # section 12's last generated table is regenerated with `--section12`.
+      - name: Section 12
+        if: runner.os == 'Linux'
+        run: dotnet run scripts/ci/requirement-coverage.cs -- --check-section12
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -176,9 +188,16 @@ jobs:
 
       # NFR-12's build half: two packs of HEAD from two checkouts at different paths (git worktrees, phase 10, P10-14), with
       # SOURCE_DATE_EPOCH at the commit time, must be byte-identical, so a path leaking into an artefact fails the job. The release
-      # half (a published artifact rebuilt from its tag) is phase 12's.
+      # half (a published artifact rebuilt from its tag) is phase 12's. The script writes a job-local global.json with "rollForward": "disable"
+      # into each checkout and prints `dotnet --version` from inside it, failing when it is not the SDK global.json pins (phase 11, task 1.1):
+      # setup-dotnet installs that SDK, but the runner image may carry a newer patch that "latestPatch" would pick.
       - name: Pack twice and compare
         run: scripts/ci/reproducible-pack.sh artifacts/reproducible
+
+      # The compare's own regression check: a copy of one pack with one byte flipped must fail it, naming the package, and a toolchain other
+      # than the pinned one must be refused.
+      - name: Pack twice and compare - self-test
+        run: scripts/ci/reproducible-pack.sh --self-test artifacts/reproducible-selftest
 
   aot-smoke:
     name: NativeAOT smoke

@@ -13,16 +13,20 @@ namespace Dexpace.Sdk.Core.Internal;
 /// <remarks>
 /// <para>
 /// <c>Task&lt;T&gt;.WaitAsync</c> abandons the task when the token fires first, so a result delivered later is disposed by
-/// nobody. This helper is the one sanctioned <c>WaitAsync</c> site (the banned-API list points here): it attaches one
+/// nobody. This helper is the sanctioned <c>WaitAsync</c> site for a task whose result is a disposable the caller would
+/// otherwise orphan (the banned-API list points here; <c>TypedResponse.GetValueAsync</c> is the other <c>WaitAsync</c> site, safe
+/// because the result lives in the memoized task and the response handler owns and disposes the response): it attaches one
 /// awaiter per abandonment that disposes the result through <see cref="Disposal"/> if the task later completes, observes
 /// a late fault so it cannot surface as an unobserved task exception, and ignores a late cancellation. "Exactly once"
 /// holds twice over: one awaiter per abandonment, and <c>Response</c>'s own dispose is latched (3b).
 /// </para>
 /// <para>
-/// No as-built caller needs it today: <c>AsAsync</c> already disposes a response produced after cancellation inside its
-/// worker (2b). Phase 6a's <c>AttemptTimeout</c> would be a consumer if it abandoned a task; phase 8b's per-call timeout is
-/// not one, because the reference transport's deadline cancels the native send through a linked token and abandons nothing
-/// (P8b-8). It is internal because no caller outside core abandons an SDK-produced task it does not own (P5a-9).
+/// It is generic and internal; the public face is <see cref="Client.ResponseTaskExtensions.WaitOrDisposeAsync"/>, which fixes
+/// <c>T</c> to <c>Response</c> and is the cancel-without-interruption mode of <c>AsAsync</c>'s task (phase 11, task 2.4;
+/// design §11 item 43, SEAM-30). <c>AsAsync</c> itself disposes a response produced after cancellation inside its worker (2b),
+/// which covers a task that is still running when the token fires; this covers the window where the task has completed with a
+/// response at the instant the caller's wait observes the token. Phase 8b's per-call timeout is not a consumer: the reference
+/// transport's deadline cancels the native send through a linked token and abandons nothing (P8b-8).
 /// </para>
 /// </remarks>
 internal static class LateResult

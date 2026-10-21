@@ -1,6 +1,8 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using System.Text;
+
 namespace Dexpace.Sdk.Core.ServerSentEvents;
 
 /// <summary>
@@ -21,15 +23,26 @@ namespace Dexpace.Sdk.Core.ServerSentEvents;
 /// <para>
 /// The accumulator never names a default event type or a stream sentinel (SSE-10, SSE-37).
 /// </para>
+/// <para>
+/// It also bounds the one thing a block accumulates, the <c>data</c> lines (SSE-19, P11-19): each costs its UTF-8 value bytes plus one for
+/// the line break that ends it, and the line that takes the running cost of the pending event past <c>maxEventBytes</c> is not kept and
+/// sets <see cref="OverCap"/>. The reader fails on the flag before it pulls another line, so the accumulator never grows past the cap by
+/// more than the line that tripped it.
+/// </para>
 /// </remarks>
-internal sealed class EventAccumulator
+/// <param name="maxEventBytes">The most data bytes one event may hold; positive.</param>
+internal sealed class EventAccumulator(int maxEventBytes = ServerSentEventReader.DefaultMaxEventBytes)
 {
     private readonly List<string> _data = [];
+    private long _dataBytes;
     private string? _id;
     private string? _event;
     private string? _comment;
     private TimeSpan? _retry;
     private bool _seen;
+
+    /// <summary>Whether a data line has taken the pending event past its cap; the event is then abandoned and the reader fails.</summary>
+    internal bool OverCap { get; private set; }
 
     /// <summary>Takes one decoded line, without its terminator.</summary>
     /// <param name="line">The line; the empty string is the blank line that ends a block.</param>
@@ -68,8 +81,7 @@ internal sealed class EventAccumulator
         switch (name)
         {
             case "data":
-                _data.Add(line[valueStart..]);
-                _seen = true;
+                AddData(line, valueStart);
                 break;
             case "event":
                 _event = line[valueStart..];
@@ -90,6 +102,20 @@ internal sealed class EventAccumulator
                 // An unknown name sets no state and is not a field seen (SSE-7).
                 break;
         }
+    }
+
+    private void AddData(string line, int valueStart)
+    {
+        // The cost is counted before the value is copied out of the line, so the line that passes the cap allocates nothing.
+        _dataBytes += Encoding.UTF8.GetByteCount(line.AsSpan(valueStart)) + 1L;
+        if (_dataBytes > maxEventBytes)
+        {
+            OverCap = true;
+            return;
+        }
+
+        _data.Add(line[valueStart..]);
+        _seen = true;
     }
 
     private void SetId(string value)
@@ -113,6 +139,7 @@ internal sealed class EventAccumulator
 
         var dispatched = new ServerSentEvent { Id = _id, Event = _event, Data = _data, Comment = _comment, Retry = _retry };
         _data.Clear();
+        _dataBytes = 0;
         _id = null;
         _event = null;
         _comment = null;

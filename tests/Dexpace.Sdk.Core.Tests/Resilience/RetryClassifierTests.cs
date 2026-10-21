@@ -39,13 +39,23 @@ public sealed class RetryClassifierTests
         for (var code = 100; code <= 599; code++)
         {
             var expected = RetryFacts.IsRetryableStatus(code);
-            Assert.Equal(expected, Http(code).IsRetryable);
+            if (code >= 400)
+            {
+                Assert.Equal(expected, Http(code).IsRetryable);
+            }
+            else
+            {
+                // XCUT-8 (phase 11, P11-9): the exception is built for an error status only, and no status below 400 is retryable.
+                Assert.False(expected);
+                Assert.Throws<ArgumentException>(() => Http(code));
+            }
+
             trueCount += expected ? 1 : 0;
         }
 
         Assert.Equal(100, trueCount);
-        Assert.False(Http(301).IsRetryable);
-        Assert.False(Http(100).IsRetryable);
+        Assert.False(RetryFacts.IsRetryableStatus(301));
+        Assert.False(RetryFacts.IsRetryableStatus(100));
     }
 
     [Fact]
@@ -60,15 +70,12 @@ public sealed class RetryClassifierTests
     }
 
     [Fact]
-    public void A_service_request_or_response_exception_is_always_retryable()
+    public void A_service_request_exception_is_always_retryable()
     {
         Assert.True(new ServiceRequestException("x").IsRetryable);
-        Assert.True(new ServiceResponseException("x").IsRetryable);
         Assert.True(new ServiceRequestTimeoutException("x").IsRetryable);
         Assert.True(typeof(ServiceRequestException).GetProperty(nameof(IRetryableError.IsRetryable))!.GetMethod!.IsFinal);
-        Assert.True(typeof(ServiceResponseException).GetProperty(nameof(IRetryableError.IsRetryable))!.GetMethod!.IsFinal);
         Assert.True(Classify(new ServiceRequestException("x")));
-        Assert.True(Classify(new ServiceResponseException("x")));
     }
 
     public static TheoryData<Exception> IoFamily => new()
@@ -149,7 +156,7 @@ public sealed class RetryClassifierTests
         Assert.True(Classify(Http(501), withSet501));
         Assert.False(Classify(Http(503), only429));
 
-        var wrapper = new ServiceResponseException("w", Http(503));
+        var wrapper = new ServiceRequestException("w", Http(503));
         Assert.True(wrapper.IsRetryable);
         Assert.False(Classify(wrapper, only429));
         Assert.True(Classify(wrapper, s_default));
@@ -217,7 +224,7 @@ public sealed class RetryClassifierTests
     [Fact]
     public void The_overrides_are_sealed()
     {
-        foreach (var type in new[] { typeof(ServiceRequestException), typeof(ServiceResponseException), typeof(HttpResponseException) })
+        foreach (var type in new[] { typeof(ServiceRequestException), typeof(HttpResponseException) })
         {
             var getter = type.GetProperty(nameof(IRetryableError.IsRetryable))!.GetMethod!;
             Assert.True(getter.IsFinal, type.Name);

@@ -195,6 +195,8 @@ rejection and the public sync `Response.EnsureSuccess` stay 4c's, over `ErrorBod
 - **"A response with no body" is the empty replayable body (P4c-18)**, which `ErrorMappingPolicy` maps without a drain; the exception
   carries the response as it is (**BODY-30**).
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entry 14 (both standard pipelines follow redirects); `XCUT-24` is met (§11 item 69).
+
 ### 5.2 The recovery-chain primitives
 
 **RECOV-1**'s closed two-variant outcome is a record hierarchy closed by a private constructor — the styleguide's
@@ -314,6 +316,8 @@ the transport and the response steps per send; the recovery steps once on the te
 `RecoveryDispatcher` gains a constructor taking it and a `Retry` property. `RECOV-17`–`RECOV-31` and `RECOV-34` are closed by the
 6a checklist's carried-rows table.
 
+**As built (2026-10-20, phase 11, `eb3facc`):** built, with §10 entries 12 and 13: the fatal filter sits at six recovery sites among many filtered catch-alls, all held by a source scan (task 1.4); the retry attempt header is set, not appended (task 5.7).
+
 ### 5.3 The async mirror and the two bridges
 
 **One stage identity, two invocation protocols, one implementation per policy.** **PIPE-28**'s "the two MUST NOT
@@ -395,6 +399,8 @@ gives `AccessTokenCache` a sync path. *The options capture (P4c-11)*: `Build(tra
 `Build(transport, options)` the caller's, so the seam entry points have client options to run with; the `SendAsync`/`Send` overloads
 taking a `DexpaceClientOptions` override them for one call and carry no optional token (`RS0026`, `RS0027`). *Dated correction, 2026-10-07,
 phase 5a (P5a-6):* the overloads are kept; `DexpaceClientOptions` is now an immutable record, so "this call, these options" is derived with `with`.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built; the credential bridge is the synchronous default of `TokenCredential.GetToken` (§11 item 2); `AsAsync` faults instead of throwing (task 2.3).
 
 ### 5.4 The execution context model
 
@@ -489,3 +495,5 @@ identity-compare slot lives in the internal `BoundedMap`, not a context-specific
 
 **As built (2026-10-07, 4a):** built. `Dexpace.Sdk.Core.Execution` holds the chain, the key, the bundle and
 `DexpaceCallContexts.TryGet`; `BoundedMap` backs the store.
+
+**As built (2026-10-20, phase 11, `eb3facc`):** built; there is no `CallKey` on `RequestOptions`, no stamp and no SDK reader (a post-release trigger, §11 item 30; ledger scan N19).

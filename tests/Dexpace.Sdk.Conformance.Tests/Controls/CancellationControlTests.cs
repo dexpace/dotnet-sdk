@@ -22,6 +22,7 @@ public sealed class CancellationControlTests
         ControlRow.Over("transport-7.cancel-releases-exchange", TransportFace.Async, "reports the cancel but leaves the socket open", () => BrokenTransports.IgnoringCancellation(reportCancellation: true)),
         ControlRow.Over("transport-7.attempt-timeout-aborts", TransportFace.Async, "ignores the attempt token", () => BrokenTransports.IgnoringCancellation(reportCancellation: false)),
         ControlRow.Over("transport-7.attempt-timeout-aborts", TransportFace.Async, "reports the attempt token as an unrelated SDK failure", BrokenTransports.CancellationAsUnrelatedSdkFailure),
+        ControlRow.Over("transport-7.attempt-timeout-aborts", TransportFace.Async, "reports the attempt token as a raw IOException wrapping a timeout", BrokenTransports.CancellationAsRawIOException),
         ControlRow.Over("transport-16.close-idempotent-nonblocking", TransportFace.Async, "throws on the second disposal", () => new BrokenTransports.ThrowsOnSecondDispose()),
         ControlRow.Over("transport-16.close-idempotent-nonblocking", TransportFace.Async, "disposal waits for the call in flight", () => new BrokenTransports.DisposeWaitsForInFlight()),
         ControlRow.Over("async-20.late-cancel-leaves-response-open", TransportFace.Async, "disposes the response on a late cancel", BrokenTransports.DisposesResponseOnLateCancel),

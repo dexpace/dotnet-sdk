@@ -45,7 +45,8 @@ public sealed class HttpResponseExceptionGetErrorTests
 
         var thrown = Assert.Throws<ResponseNotReadException>(() => ex.GetError<string>(new Utf8LiteralSerde()));
 
-        Assert.IsType<StreamConsumedException>(thrown.InnerException);
+        // BODY-14 (phase 11): the second read is handed the first read's stream, already disposed, not a StreamConsumedException.
+        Assert.IsType<ObjectDisposedException>(thrown.InnerException);
     }
 
     [Fact]

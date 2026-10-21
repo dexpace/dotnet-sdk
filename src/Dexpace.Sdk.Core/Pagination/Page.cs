@@ -13,7 +13,7 @@ namespace Dexpace.Sdk.Core.Pagination;
 /// <typeparam name="T">The item type.</typeparam>
 /// <remarks>
 /// <para>
-/// <see cref="Values"/> holds the page's items, an immutable snapshot taken before the page is yielded.
+/// <see cref="Values"/> holds the page's items, an immutable snapshot the constructor takes of the list it is given.
 /// <see cref="Status"/>, <see cref="Headers"/> and <see cref="Request"/> are immutable values too, so a page can be
 /// retained and read forever (PAGE-2).
 /// </para>
@@ -25,13 +25,14 @@ namespace Dexpace.Sdk.Core.Pagination;
 /// </para>
 /// <para>
 /// <b>Breaking:</b> the constructor took <c>(values, status, headers)</c>; it now also requires the
-/// <see cref="Request"/> the walk sent for the page (PAGE-2, P7c-7).
+/// <see cref="Request"/> the walk sent for the page (PAGE-2, P7c-7). <b>Breaking (phase 11):</b> the constructor copies
+/// the list it is given; <see cref="Values"/> used to be that very list.
 /// </para>
 /// </remarks>
 public sealed class Page<T>
 {
     /// <summary>Creates a page.</summary>
-    /// <param name="values">The items on this page.</param>
+    /// <param name="values">The items on this page; copied, so a later change to the list does not reach the page.</param>
     /// <param name="status">The HTTP status of the response that produced this page.</param>
     /// <param name="headers">The HTTP response headers for this page.</param>
     /// <param name="request">The request the walk sent for this page.</param>
@@ -41,13 +42,15 @@ public sealed class Page<T>
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(headers);
         ArgumentNullException.ThrowIfNull(request);
-        Values = values;
+        // The page keeps its own read-only copy (PAGE-2): a list the caller goes on to change, or a live view a strategy or a fetcher
+        // handed in, cannot alter a page after it was yielded.
+        Values = [.. values];
         Status = status;
         Headers = headers;
         Request = request;
     }
 
-    /// <summary>The items on this page; never <see langword="null"/>.</summary>
+    /// <summary>The items on this page, a read-only snapshot; never <see langword="null"/>.</summary>
     public IReadOnlyList<T> Values { get; }
 
     /// <summary>The HTTP status code of the response that produced this page.</summary>

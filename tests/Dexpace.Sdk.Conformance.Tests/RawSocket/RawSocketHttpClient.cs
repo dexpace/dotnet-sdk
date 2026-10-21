@@ -26,7 +26,7 @@ namespace Dexpace.Sdk.Conformance.Tests.RawSocket;
 /// Failures follow the SDK taxonomy: no response is a retryable <see cref="ServiceRequestException"/> with the I/O cause, a
 /// per-call <see cref="RequestOptions.Timeout"/> is a <see cref="ServiceRequestTimeoutException"/>, a cancelled caller token
 /// is an <see cref="OperationCanceledException"/> carrying that token (decided by the caller's token, never by exception
-/// type, the lesson of F3), and an unparseable status line is a <see cref="ServiceResponseException"/>.
+/// type, the lesson of F3), and an unparseable status line is a <see cref="ServiceRequestException"/> too (no response was received), with its own message.
 /// </remarks>
 internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false, bool strictInbound = false) : IAsyncHttpClient
 {
@@ -72,7 +72,7 @@ internal sealed class RawSocketHttpClient(bool forwardCallerFraming = false, boo
         return failure switch
         {
             _ when timeout?.IsCancellationRequested == true => new ServiceRequestTimeoutException("The request timed out before a response was received.", failure),
-            RawSocketResponseReader.InvalidStatusLineException => new ServiceResponseException("The server sent an unparseable response.", failure),
+            RawSocketResponseReader.InvalidStatusLineException => new ServiceRequestException("The server sent an unparseable response.", failure),
             _ => new ServiceRequestException("The request could not be sent to the server.", failure),
         };
     }

@@ -72,8 +72,19 @@ internal static class SendFailures
             return cancelled;
         }
 
-        return new ServiceRequestException("The request could not be sent to the server.", native);
+        return new ServiceRequestException(DescribeRequestFailure(native), native);
     }
+
+    // The message follows what the runtime says happened (XCUT-4, phase 11): "could not be sent" only for a failure that stopped the request leaving
+    // (name resolution, connect, TLS, a proxy tunnel); a connection that ended or sent something unreadable after the request arrived is "no response
+    // was received", and so is any other native request failure. Neither carries a URL, a header value or a credential (XCUT-18).
+    private static string DescribeRequestFailure(Exception native) =>
+        native is HttpRequestException
+        {
+            HttpRequestError: HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError or HttpRequestError.SecureConnectionError or HttpRequestError.ProxyTunnelError,
+        }
+            ? "The request could not be sent to the server."
+            : "The request failed and no response was received.";
 
     // The caller cancelled, but the native exception does not carry the caller's token: it carries the linked deadline token, or it is a
     // request failure from a connection torn down by the same cancel. The call ends cancelled, carrying the caller's token, with

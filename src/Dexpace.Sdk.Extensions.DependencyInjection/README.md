@@ -23,8 +23,7 @@ public sealed class GitHubClient([FromKeyedServices("github")] HttpPipeline pipe
 - **Settings from the section you pass** (never the configuration root). Keys are relative to it, case-insensitive and `:`-separated (`Dexpace__Retry__MaxRetryAttempts` as an environment variable):
   `BaseAddress`, `UserAgent`, `OverallTimeout`, `AttemptTimeout`; `Retry:*`, `Redirect:*`, `Logging:*`, `Transport:*` (including `Transport:Proxy:*` and `Transport:PooledConnectionLifetime`) and `Auth:*`.
   The full table is in [`docs/sdk-documentation/dependency-injection.md`](https://github.com/dexpace/dotnet-sdk/blob/main/docs/sdk-documentation/dependency-injection.md).
-- **Strict grammars**: base-10 integers, `true`/`false`, durations (`PT5S`, `250ms`, `3s`, `1500` as milliseconds, `none`), enums by name, lists that replace the defaults. An empty value is absent (the record default applies, and it
-  silently shadows a lower provider's value).
+- **Strict grammars**: base-10 integers, `true`/`false`, durations (`PT5S`, `250ms`, `3s`, `1500` as milliseconds, `none`), enums by name, lists that replace the defaults. An empty value is absent and falls through to the next provider that has a value when the registered `IConfiguration` is the root that holds the section (the record default applies when none does). A section from any other configuration keeps the merged read, where an empty value in the highest provider still hides the lower one: read the section from the configuration you register.
 - **Failures at start, naming the key and never the value.** Every bad value, rejected setting and unknown key is reported at once as `"<path>: <rule>"` through `ValidateOnStart` (or `IStartupValidator.Validate()` with no host, or the first
   resolution).
 - **No reload**: the snapshot is taken at first resolution.

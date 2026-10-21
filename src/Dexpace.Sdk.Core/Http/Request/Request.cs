@@ -16,7 +16,10 @@ namespace Dexpace.Sdk.Core.Http.Request;
 /// constructor, <see cref="Create"/> and every <c>With*</c> derivation, goes through the one validating constructor
 /// (HTTP-2): a missing field is an <see cref="ArgumentNullException"/> (HTTP-4), a body on GET, HEAD, TRACE or CONNECT
 /// is an <see cref="ArgumentException"/> (HTTP-7), and a URL that is not absolute <c>http</c> or <c>https</c> is an
-/// <see cref="ArgumentException"/> carrying the URL as <see cref="UrlRedactor"/> renders it (HTTP-47).
+/// <see cref="ArgumentException"/> carrying the URL as <see cref="UrlRedactor"/> renders it (HTTP-47). A <see cref="Uri"/>
+/// created with <see cref="UriCreationOptions.DangerousDisablePathAndQueryCanonicalization"/> is an
+/// <see cref="ArgumentException"/> too: it would carry raw control characters of its query into the request line
+/// (<b>Breaking</b>, phase 11, design §10 entry 18).
 /// <para>
 /// <b>Equality (HTTP-46).</b> Two requests are equal when their method, <see cref="Uri.AbsoluteUri"/> (compared
 /// ordinally, so userinfo and fragment count and no DNS runs), headers (by value) and bodies are equal. Bodies compare
@@ -42,7 +45,8 @@ public sealed record Request
     /// <exception cref="ArgumentException">
     /// <paramref name="body"/> is set for a method that forbids one (<c>ParamName</c> <c>body</c>), or
     /// <paramref name="url"/> is not an absolute <c>http</c> or <c>https</c> URI (<c>ParamName</c> <c>url</c>; the
-    /// message carries the redacted input).
+    /// message carries the redacted input), or was created without path and query canonicalization (<c>ParamName</c>
+    /// <c>url</c>; the message names the cause, not the input).
     /// </exception>
     public Request(Method method, Uri url, Headers? headers = null, RequestBody? body = null)
     {
@@ -60,6 +64,7 @@ public sealed record Request
             throw UrlError(url.OriginalString, nameof(url));
         }
 
+        RequireCanonical(url);
         Method = method;
         Url = url;
         Headers = headers ?? Headers.Empty;
@@ -128,7 +133,9 @@ public sealed record Request
     /// <summary>Returns a copy with the given URL, validated like the constructor's.</summary>
     /// <param name="url">The replacement absolute <c>http</c> or <c>https</c> URL.</param>
     /// <returns>A new <see cref="Request"/>.</returns>
-    /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute <c>http</c> or <c>https</c> URI.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="url"/> is not an absolute <c>http</c> or <c>https</c> URI, or was created without path and query canonicalization.
+    /// </exception>
     public Request WithUrl(Uri url) => new(Method, url, Headers, Body);
 
     /// <summary>Returns a copy with the given headers, replacing the current ones.</summary>
@@ -203,6 +210,26 @@ public sealed record Request
         url.IsAbsoluteUri
         && (url.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
             || url.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
+
+    // A Uri built with UriCreationOptions.DangerousDisablePathAndQueryCanonicalization keeps its path and query exactly as written, a CR or LF
+    // included, and HttpClient puts them raw into the request line; the runtime marks such a Uri by refusing to give back its path or query
+    // components, which a Uri the default parser made always does (design section 10 entry 18, V9, P11-15). The message names the cause and
+    // not the input, which may hold the very control characters this check keeps off the wire.
+    private static void RequireCanonical(Uri url)
+    {
+        try
+        {
+            _ = url.GetComponents(UriComponents.Path | UriComponents.Query, UriFormat.UriEscaped);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new ArgumentException(
+                "Request URL was created without path and query canonicalization (UriCreationOptions.DangerousDisablePathAndQueryCanonicalization), "
+                + "which can put raw control characters on the wire; create the Uri with the default canonicalization.",
+                nameof(url),
+                ex);
+        }
+    }
 
     // HTTP-47 (ruled P2a-2): the input goes through the shared redactor, so a password or query token never lands in
     // an exception message; an unparseable input becomes the redactor's sentinel.

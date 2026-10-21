@@ -66,7 +66,12 @@ a task, a `null` task, a `null` result — arrives through the returned task. Th
   `Activity.Current` and logging scopes flow to the worker (`SEAM-24`). Cancellation maps both ways through the one token.
   A blocking call cannot be interrupted, so cancellation is cooperative.
   **No orphaned response** (`SEAM-30`): a response produced after the token was signalled is disposed and the call
-  completes cancelled, so awaiting through `task.WaitAsync(token)` and walking away cannot leak one.
+  completes cancelled. *Corrected 2026-10-20 (phase 11, design §11 item 43):* this page said that awaiting through `task.WaitAsync(token)` and walking away cannot leak one. It can:
+  `WaitAsync` returns the instant the token fires and abandons the task, and a response the task completes with in that window is delivered to nobody (44 of 20 000 runs of the design's probe). A caller
+  that wants to stop **waiting** while the call runs on awaits `await task.WaitOrDisposeAsync(token)` (`ResponseTaskExtensions`, `Dexpace.Sdk.Core.Client`): the wait ends with an
+  `OperationCanceledException` carrying that token, and a response the task delivers afterwards is disposed exactly once and quietly (a throwing `Dispose` is swallowed and a later fault is
+  observed). It does not cancel the call; pass the same token to the call that produced the task. The scheduler of `AsAsync(IHttpClient, TaskScheduler)` may reject the work; the returned
+  task then **faults** with the `TaskSchedulerException` instead of the call throwing it (`ASYNC-2`), and a token that is already signalled returns a cancelled task without touching the scheduler.
 - **`AsBlocking(this IAsyncHttpClient)`** blocks with `GetAwaiter().GetResult()`, so a failure surfaces as itself. It is
   a last resort: under a `SynchronizationContext` that runs one callback at a time, a wrapped transport whose awaits do
   not use `ConfigureAwait(false)` can deadlock. It does not hop to the pool to avoid that.

@@ -56,7 +56,7 @@ internal static class RedirectAndTimeoutAssertions
         var failure = await Outcome.OfAsync(transport.SendAsync(Request.Get(url.AbsoluteUri), options, cancellationToken), context.TimeoutBound, $"{what} to be cut by its timeout of {Bounded.Format(timeout)}", cancellationToken).ConfigureAwait(false);
 
         Check.True(failure is ServiceRequestTimeoutException, $"{what} must fail with a ServiceRequestTimeoutException when its per-call timeout elapses, never a cancellation and never a hang", "ServiceRequestTimeoutException", Outcome.Name(failure));
-        Check.True(failure is SdkException { IsRetryable: true }, $"{what}: a timeout is retryable (XCUT-2)", "IsRetryable == true", "false");
+        Check.True(failure is IRetryableError { IsRetryable: true }, $"{what}: a timeout is retryable (XCUT-2)", "IsRetryable == true", "false");
         Check.True(failure is not OperationCanceledException && !cancellationToken.IsCancellationRequested, $"{what}: the caller's token must not be signalled by a timeout");
     }
 
@@ -114,7 +114,7 @@ internal static class RedirectAndTimeoutAssertions
         var failure = await Outcome.OfAsync(call, context.TimeoutBound, "the call to end after the native client cancelled it", cancellationToken).ConfigureAwait(false);
 
         Check.True(failure is not null, "a call cancelled from the native side must fail", "a failed call", "a completed call");
-        Check.True(failure is not ServiceRequestTimeoutException && failure is not SdkException { IsRetryable: true }, "an internal cancellation must not be reported as a retryable timeout (TRANSPORT-8)", "a terminal cancellation or a non-retryable failure", Outcome.Name(failure));
+        Check.True(failure is not ServiceRequestTimeoutException && failure is not IRetryableError { IsRetryable: true }, "an internal cancellation must not be reported as a retryable timeout (TRANSPORT-8)", "a terminal cancellation or a non-retryable failure", Outcome.Name(failure));
         Check.True(!cancellationToken.IsCancellationRequested, "the caller's token must not have been signalled by the native cancellation");
 
         var second = context.RequireInternalCancel();

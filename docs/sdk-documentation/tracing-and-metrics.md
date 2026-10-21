@@ -135,8 +135,11 @@ listener exists: the adapter cannot see the handler. Leave propagation on, or do
 ## What is not emitted
 
 - Byte-count milestones (`OBS-28`'s SHOULD): not emitted. Transport milestones are the runtime's own `System.Net.Http` spans.
-- A Datadog trace-id flavour (`OBS-27`): the runtime models W3C ids only (design §10 entry 24). The SDK never sets
-  `Activity.TraceIdGenerator`; the build bans it in `src/`. A zero id from the runtime's generator is not coerced by the SDK.
+- ~~A Datadog trace-id flavour (`OBS-27`): the runtime models W3C ids only (design §10 entry 24).~~ *Corrected 2026-10-20 (phase 11, entry 24 retired):* `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration`
+  ships `W3C()` and `Datadog()`, both returning an `ActivityTraceId` drawn from `RandomNumberGenerator` and drawn again on an all-zero draw (the runtime's own generator tests neither half for zero), and
+  `FormatDatadog(ActivityTraceId)`, which renders the low 64 bits as an unsigned decimal string (the default id and a zero low half throw `ArgumentException`). A Datadog id is the low 64 bits of the 128-bit
+  W3C id with a zero high half, so it still propagates as a valid `traceparent`. The SDK still never sets `Activity.TraceIdGenerator`; the build bans it in `src/`. The application opts in with one line:
+  `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Without it the runtime's generator runs, and a zero id from it is not coerced by the SDK.
 - Log correlation keys `trace.id` and `span.id`: log correlation is the host's `ActivityTrackingOptions` (`TraceId`, `SpanId`;
   design §10 entry 23).
 - A shared no-op span object: the untraced span is `null`.

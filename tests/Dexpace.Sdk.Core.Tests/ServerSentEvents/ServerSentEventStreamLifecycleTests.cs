@@ -89,6 +89,19 @@ public sealed class ServerSentEventStreamLifecycleTests : IDisposable
         Assert.Equal(1, body.DisposeCount);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void FromResponse_disposes_the_response_when_the_event_cap_is_invalid(int cap)
+    {
+        var (response, body) = SseResponses.Respond("data: x\n\n");
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ServerSentEventStream.FromResponse(response, ServerSentEventReader.DefaultMaxLineBytes, cap, logger: null));
+
+        Assert.Equal("maxEventBytes", ex.ParamName);
+        Assert.Equal(1, body.DisposeCount);
+    }
+
     [Fact]
     public void FromResponse_rejects_a_null_response()
     {

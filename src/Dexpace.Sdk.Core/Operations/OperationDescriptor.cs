@@ -40,7 +40,7 @@ public sealed record OperationDescriptor
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Method));
             field = value;
         }
     }
@@ -63,7 +63,7 @@ public sealed record OperationDescriptor
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(PathTemplate));
             Placeholders = PathTemplateSyntax.PlaceholderNames(PathTemplateSyntax.Parse(value, nameof(PathTemplate)));
             field = value;
         }
@@ -85,7 +85,7 @@ public sealed record OperationDescriptor
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(PathParameters));
             foreach (var (key, parameter) in value)
             {
                 RequireUsablePathValue(key, parameter, nameof(PathParameters));
@@ -104,7 +104,7 @@ public sealed record OperationDescriptor
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Query));
             field = value;
         }
     } = Query.Empty;
@@ -116,7 +116,7 @@ public sealed record OperationDescriptor
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(Headers));
             field = value;
         }
     } = Headers.Empty;

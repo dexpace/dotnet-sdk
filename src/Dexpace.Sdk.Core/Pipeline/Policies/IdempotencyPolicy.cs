@@ -1,6 +1,7 @@
 // Copyright (c) 2026 dexpace and Omar Aljarrah.
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
+using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Http.Response;
 using Dexpace.Sdk.Core.Internal;
@@ -59,6 +60,9 @@ public sealed class IdempotencyPolicy : HttpPipelinePolicy
 
     /// <inheritdoc/>
     public override PipelineStage Stage => PipelineStage.PerCall;
+
+    // The header the step stamps its key under: the pipeline refuses a retry attempt stamp of the same name (RETRY-38).
+    internal HttpHeaderName HeaderName => _step.HeaderName;
 
     /// <inheritdoc/>
     public override ValueTask<Response> ProcessAsync(Request request, PipelineContext context, PipelineRunner continuation) =>

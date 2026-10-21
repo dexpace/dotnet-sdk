@@ -163,6 +163,45 @@ internal static class BrokenTransports
             return ct.IsCancellationRequested ? throw new Dexpace.Sdk.Core.Errors.SdkException("the exchange failed") : await call;
         });
 
+    /// <summary>
+    /// A transport that reacts to the call's token firing by releasing the exchange and then reporting a raw <see cref="IOException"/> that
+    /// wraps a <see cref="TimeoutException"/>: the timeout is there in the cause chain, but the failure is the platform type escaping
+    /// unmapped, not the transport-failure type (it reports no retryability), which a caller that classifies by type or by
+    /// <c>IRetryableError</c> cannot recognise.
+    /// </summary>
+    internal static IAsyncHttpClient CancellationAsRawIOException() =>
+        Around(async (request, options, ct, inner) =>
+        {
+            try
+            {
+                return await inner.ExecuteAsync(request, options, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw new IOException("The exchange timed out.", new TimeoutException());
+            }
+        });
+
+    /// <summary>
+    /// A transport whose native layer re-sends a single-use body correctly (it buffers the body once and sends the copy twice) but lets
+    /// the body source's own <see cref="IOException"/> escape when buffering fails, instead of failing the send with the transport-failure
+    /// type: the failure reaches the caller as the platform exception it was, with no retryability.
+    /// </summary>
+    internal sealed class ResendsLettingBufferingFailureEscape : IAsyncHttpClient
+    {
+        private readonly RawSocketHttpClient _raw = new();
+
+        public async Task<Response> ExecuteAsync(Request request, RequestOptions options, CancellationToken cancellationToken)
+        {
+            var replayable = request.Body is null ? null : await request.Body.ToReplayableAsync(cancellationToken);
+            var buffered = replayable is null ? request : request.WithBody(replayable);
+            (await _raw.ExecuteAsync(buffered, options, cancellationToken)).Dispose();
+            return await _raw.ExecuteAsync(buffered, options, cancellationToken);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     /// <summary>A transport whose second disposal throws.</summary>
     internal sealed class ThrowsOnSecondDispose : IAsyncHttpClient
     {

@@ -17,13 +17,14 @@ public sealed class InvariantTaxonomyControlTests
     internal static IReadOnlyList<InvariantControlRow> Rows { get; } =
     [
         .. Both("xcut-4.two-branches", "turns a refused connection into a non-retryable error", "always retryable", () => BrokenPipelines.OverDefault("refusal not retryable", _ => new BrokenPipelines.RefusalNotRetryable())),
+        .. Both("xcut-4.two-branches", "turns a refused connection into a bare SDK exception", "IOException", () => BrokenPipelines.OverDefault("refusal not an IOException", _ => new BrokenPipelines.RefusalNotAnIoError())),
         .. Both("xcut-4.two-branches", "surfaces an error status as a bare error", "response-carrying error", () => BrokenPipelines.OverDefault("status as a bare error", _ => new BrokenPipelines.StatusAsBareError())),
         new("xcut-5.one-classifier", TransportFace.None, "bakes false for 507", () => new InvariantSubject { Name = "broken: 507", CreateResponseException = r => new BrokenPipelines.BakedException(r.Status.Code != 507 && Classified(r.Status.Code)) }, Because: "507"),
         new("xcut-5.one-classifier", TransportFace.None, "bakes true for 501", () => new InvariantSubject { Name = "broken: 501", CreateResponseException = r => new BrokenPipelines.BakedException(r.Status.Code == 501 || Classified(r.Status.Code)) }, Because: "501"),
         new("xcut-5.one-classifier", TransportFace.None, "hardcodes true for every status", () => new InvariantSubject { Name = "broken: hardcoded", CreateResponseException = _ => new BrokenPipelines.BakedException(true) }, Because: "400"),
         .. Both("xcut-6.capability-queried", "retries only the concrete types it knows", "declaring itself retryable", () => BrokenPipelines.Subject("concrete types", _ => [new BrokenPipelines.RetriesConcreteTypes()])),
         .. Both("xcut-7.configured-set-authoritative", "reads the baked flag instead of the configured set", "501 in the configured set", () => BrokenPipelines.Subject("baked flag", _ => [new BrokenPipelines.RetriesOnBakedFlag()])),
-        new("xcut-8.strict-factory-rejects", TransportFace.None, "maps a 200", () => new InvariantSubject { Name = "broken: maps a 200", MapStrict = r => new HttpResponseException(r) }, Because: "argument error"),
+        new("xcut-8.strict-factory-rejects", TransportFace.None, "maps a 200", () => new InvariantSubject { Name = "broken: maps a 200", MapStrict = _ => new SdkException("mapped a 200") }, Because: "argument error"),
         new("xcut-8.strict-factory-rejects", TransportFace.None, "returns null-like for an error status", () => new InvariantSubject { Name = "broken: refuses everything", MapStrict = _ => throw new ArgumentException("no") }, Because: "must map the error status"),
         .. Both("xcut-8.convenience-returns-response", "throws for a 3xx", "non-error status", () => BrokenPipelines.OverDefault("throws for a 3xx", _ => new BrokenPipelines.ThrowsForRedirects())),
     ];

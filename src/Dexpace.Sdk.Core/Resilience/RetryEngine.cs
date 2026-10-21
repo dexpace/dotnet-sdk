@@ -129,8 +129,9 @@ internal sealed class RetryEngine(TimeProvider timeProvider, Func<double> random
         return outcome;
     }
 
+    // RETRY-38: the stamp replaces any value the request already carries under the name, so a send holds exactly one.
     private static Request Stamp(Request request, string? headerName, int send) =>
-        headerName is null ? request : request.WithHeader(headerName, send.ToString(CultureInfo.InvariantCulture));
+        headerName is null ? request : request.WithHeaders(request.Headers.Set(headerName, send.ToString(CultureInfo.InvariantCulture)));
 
     // Returns the terminal outcome, or null to continue with the next send.
     private async ValueTask<Outcome?> DecideAsync(RetryCall call, Outcome outcome)
@@ -224,7 +225,7 @@ internal sealed class RetryEngine(TimeProvider timeProvider, Func<double> random
         var delay = OverrideDelay(call, attempt);
         if (delay is null && run.HonorPacing)
         {
-            delay = PacingDelay(outcome);
+            delay = PacingDelay(outcome, run.PacingOrder);
         }
 
         delay ??= RetryBackoff.Compute(call.Sends, run.Options, SafeRandom);
@@ -258,12 +259,12 @@ internal sealed class RetryEngine(TimeProvider timeProvider, Func<double> random
     }
 
     // RETRY-22, RECOV-29: a failure while reading the hint degrades to "no hint"; it never replaces the upstream failure.
-    private TimeSpan? PacingDelay(Outcome outcome)
+    private TimeSpan? PacingDelay(Outcome outcome, IReadOnlyList<string> order)
     {
         try
         {
             return PacingHeaders(outcome) is { } headers
-                ? RetryPacing.TryGetHint(headers, timeProvider.GetUtcNow(), random)
+                ? RetryPacing.TryGetHint(headers, timeProvider.GetUtcNow(), random, order)
                 : null;
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))

@@ -37,7 +37,7 @@ public sealed record CodecSubject
         get;
         init
         {
-            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(value, nameof(CreateSerde));
             field = value;
         }
     } = static () => throw new InvalidOperationException("A CodecSubject needs a CreateSerde factory.");

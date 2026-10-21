@@ -35,7 +35,7 @@ public sealed class ResponseShapeControlTests
             "transport-24.vendor-status-readable",
             TransportFace.Async,
             "maps a 5xx status to a failure",
-            () => BrokenTransports.Rewriting(response => response.Status.Code >= 500 ? throw new ServiceResponseException("5xx") : response)),
+            () => BrokenTransports.Rewriting(response => response.Status.Code >= 500 ? throw new ServiceRequestException("5xx") : response)),
         ControlRow.Over(
             "transport-24.vendor-status-readable",
             TransportFace.Blocking,

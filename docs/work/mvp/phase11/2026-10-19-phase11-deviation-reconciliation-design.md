@@ -27,6 +27,7 @@ Phase Status Note bullet addressed to 11 (8a, 8b, 9, 10), and `docs/first-releas
 confirmed, 13 narrowed and 6 contradicted**. Eight §10 entries are **repaired** (the deviation goes away), 24 are **retained** with a
 stated reason, and 1 is a documentation correction. The count of MUST clauses unmet on a stated domain falls from **seven to three**
 (`AUTH-15` on a FIPS host, `PAGE-21`'s unreserved residual, `TRANSPORT-14`'s name clause), inside the roadmap's parity target of five.
+*Amended 2026-10-21 (review).* The count is **four**, not three: `CFG-2` (§10 entry 25, P11-17) is repaired only for a section of the container's registered `IConfiguration`, because no public API reaches the root of an `IConfigurationSection`, and for a section of any other configuration the outcome is not delivered, which P11-2 counts. The tables below stand as written; `docs/deviations.md` and the checklist carry the corrected count.
 The audit also found **twelve defects no document recorded** (among them a synchronous throw from an async bridge, a response leak in
 the documented cancel-without-interruption mode, two catch-alls that swallow `OutOfMemoryException`, a span write on non-recording and
 foreign activities, and a `NullReferenceException` in a public constructor), each a TDD task.

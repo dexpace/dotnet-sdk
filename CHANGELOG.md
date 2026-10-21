@@ -695,6 +695,140 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `CheckPhase8bAsync`.
 - `docs/sdk-documentation/transport.md`.
 
+### Phase 11 — deviation reconciliation
+
+Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
+for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under
+`docs/work/mvp/phase11/`. Every public-surface change is a reviewed `PublicAPI.Unshipped.txt` diff, nothing is shipped, and the one-time choices that phase 12 decides before the first
+`PublicAPI.Shipped.txt` are listed in `docs/first-release.md`. The breaking entries below are breaking against the phase 10 tree, not against a release.
+
+
+#### Changed
+
+- **Breaking (phase 11):** `HttpResponseException(Response, string?)` throws an `ArgumentNullException` for a `null` response (was: a
+  `NullReferenceException`) and an `ArgumentException` for a response whose status is not 400 to 599 (was: it built "The server returned an error
+  response: OK(200)."), so no successful "error" can be constructed through the one public mapping route (`XCUT-8`, `NFR-7`; design §10 entry 28).
+- **Breaking (phase 11):** `ServiceRequestException` (and so `ServiceRequestTimeoutException`) derives from `IOException` and implements `IRetryableError`;
+  it is no longer an `SdkException` (`TRANSPORT-20`, `XCUT-4`; design §10 entry 7). `catch (SdkException)` no longer catches a transport failure: catch
+  `ServiceRequestException` or `IOException`. A transport failure has no `Suppressed` property; read its suppressed trail with
+  `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads `IRetryableError` and the cause chain, so
+  retry behaviour is unchanged. The conformance kit's transport assertions now require an `IOException` that reports itself retryable.
+- **Breaking (phase 11):** `ServiceResponseException` is removed. It was public, documented as part of `XCUT-4`'s taxonomy and never thrown by any
+  transport; a failure with no response is a `ServiceRequestException`. The reference transport's message now follows the native error kind: "The request
+  could not be sent to the server." for a name-resolution, connect, TLS or proxy-tunnel failure, and "The request failed and no response was received."
+  for the rest (a response that ended after the request arrived is no longer called unsent).
+- **Breaking (behaviour, phase 11):** the `ExecuteAsync` of an `AsAsync(IHttpClient, TaskScheduler)` bridge no longer throws a `TaskSchedulerException`
+  from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
+  task without touching the scheduler.
+- **Breaking (behaviour, phase 11):** an `ArgumentNullException` from a validating `init` accessor now carries the property's name as its `ParamName`
+  (`"Retry"`, `"Methods"`, `"Headers"`, ...) instead of the accessor's implicit `"value"`, which named nothing (`SEAM-29`, `HTTP-2` to `HTTP-4`; design §10
+  entry 10). It covers `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `ProxyOptions`, `RequestOptions`, `OperationDescriptor`, `AuthRequirement`,
+  `FetchedPage<T>`, `IdempotencyKeyStep`, `SystemNetHttpClientOptions` and the conformance kit's subjects and options, including a null element of
+  `RedirectOptions.AllowedMethods` and `ProxyOptions.NonProxyHosts`.
+- **Breaking (phase 11):** a response body returns the same stream on a second open (`BODY-14`, `HTTP-41`). `ResponseBody.OpenRead` and
+  `OpenReadAsync`, in either order, hand back the one stream the first open obtained (the stream-backed, in-memory and `SystemNetHttpClient`
+  bodies); the second open used to throw `StreamConsumedException`. The convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual
+  open now read the remaining bytes of that same stream. A body disposed after it was opened now reports `StreamClosedException` on a later open (it
+  reported `StreamConsumedException` first), so a second typed read after a first one throws `StreamClosedException`, and `HttpResponseException.GetError`
+  twice over a plain, non-buffered body still throws `ResponseNotReadException`, now over an `ObjectDisposedException`. The response-logging wrapper past its
+  capture cap keeps `BODY-24`'s rule: its tail is single-use and a second open throws `StreamConsumedException`. The buffered error body is unchanged.
+- **Breaking (phase 11):** `Headers.Builder.AddInbound` no longer trims a received header name (`HTTP-19`, `XCUT-18`; design §11 item 70). A name with SP or HTAB at either
+  end is not a token and throws `ArgumentException` (it used to be stored under the trimmed name); the outbound path (`Add`, `Set`, `With`, `HttpHeaderName.Of`) still trims
+  (`HTTP-17`). `SystemNetHttpClient` already drops a header that fails the inbound path, and the runtime never hands it such a name. The conformance kit's `xcut-18.model-validation`
+  requires an inbound refusal where it used to accept a refusal or a trim, with a negative control for a model that trims.
+- **Breaking (phase 11):** `RequestBody.FromFile` refuses a Unix special file at construction (`BODY-11`, `HTTP-40`; design §10 entry 31). A FIFO, a character or block
+  device or a socket reports a length of 0, so it used to upload as an empty body; a size-0 path is now classified by its file type through `System.Formats.Tar` (in the shared framework,
+  which opens no special file, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file, readable or not, and a symbolic link to a regular file are unchanged;
+  a link to a special file is refused as its target. Windows keeps its device-attribute check. The NativeAOT smoke refuses `/dev/null`.
+- **Breaking (phase 11):** `Request` (the constructor and so `WithUrl`, `WithMethod`, `WithHeaders`, `WithBody`) rejects a `Uri` created with
+  `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` with an `ArgumentException` (`ParamName` `url`; the message names the cause and not the input). Such a `Uri` keeps
+  its path and query exactly as written and `HttpClient` writes a CR or LF in the query raw into the request line (design §10 entry 18). A `Uri` the default parser made, from a
+  string or `new Uri(string)`, is unaffected, and `Request.Create` takes a string.
+- **Breaking (phase 11):** the `Page<T>` constructor copies the list it is given (`PAGE-2`; design §10 entry 17). `Values` is a read-only snapshot, not the caller's list: a list a
+  `Pageable.FromFetchers` fetcher goes on to change (or a live view a strategy returned) no longer alters a page after it was yielded, and `ReferenceEquals(page.Values, list)` is
+  no longer true.
+- **Breaking (phase 11):** the owned `SystemNetHttpClient` and the dependency-injection named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`,
+  `DELETE` or `TRACE` natively (`TRANSPORT-2`; design §10 entry 33). `SystemNetHttpClient.CreatePrimaryHandler` installs a pass-through `PlaintextStreamFilter` (HTTP/1.x only) that
+  turns an end of stream arriving after a request was written and before any response byte into the `HttpIOException` (`ResponseEnded`) the runtime raises itself, so the request
+  reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. One window remains, reasoned from how the runtime reuses a pooled connection and not reproduced: a read of 0 before a request's first write passes through (an idle
+  close is not a failed request), so a server close that lands after the runtime's reuse check of a pooled connection and before that write can still make the runtime re-send once, a request whose first copy went to an already-closed connection;
+  "reaches the server once" means not up to four times, not never twice (`docs/sdk-documentation/transport.md`). A handler or `HttpClient` you
+  supply is your native client and keeps its own retry (design §11 item 71); a caller who replaces the filter on a handler from `CreatePrimaryHandler` removes the guarantee. The
+  conformance drivers' `transport-2.bodyless-not-resent` waiver is deleted for the owned and DI subjects and kept, rescoped, for the handler-taking subject.
+- **Breaking (behaviour, phase 11): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
+  `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
+  highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
+  way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
+  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read, where the empty value still wins: no public API reaches the root of an `IConfigurationSection`, so this is a counted unmet clause (`CFG-2`; `docs/first-release.md`, `di-empty-shadows` narrowed), and the fix is to read the section from the configuration you register. No `ConfigurationBinder` is involved.
+- **Breaking (behaviour, phase 11): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
+  end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
+  each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
+  `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
+  `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
+  parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
+- **Breaking (phase 11): the retry attempt header is set, not appended, and `AttemptHeaderName` may not be `Idempotency-Key`** (`RETRY-38`, design §11 item 10). The stamp
+  `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
+  value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
+  and one that replaced it would send the attempt number as the key.
+
+#### Added
+
+- **`ResponseTaskExtensions.WaitOrDisposeAsync(this Task<Response>, CancellationToken)`** (phase 11; `SEAM-30`, `ASYNC-3`; design §11 item 43): the
+  cancel-without-interruption mode of an `AsAsync` bridge's task. A caller that stops waiting through `Task.WaitAsync(token)` could orphan an undisposed
+  `Response` when the call completed at the instant the token was signalled (44 of 20 000 runs of the design's probe); through this method every caller gets
+  a live response or an `OperationCanceledException`, and a response the task delivers after the caller stopped waiting is disposed exactly once and quietly.
+- **`TraceIdGeneration`** (`OBS-27`, design §10 entry 24, P11-18). New public static class `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` with `W3C()` and
+  `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
+  do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
+  never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
+- **`RetryOptions.PacingHeaders`: the stage stack's pacing headers are an ordered list** (`RETRY-21`, design §11 item 54). New `IReadOnlyList<string> PacingHeaders { get; init; }`,
+  defaulting to `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` (the fixed order, so nothing changes by default). `RetryPolicy` reads the headers it
+  lists, in that order, each by its own semantics; a header left out is not read, which is how a service that sends a delta-seconds `X-RateLimit-Reset` (read as an epoch
+  time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
+  no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
+  fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
+
+#### Fixed
+
+- **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
+  cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
+- **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
+  keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
+  null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
+- **An unexpected MD5 probe failure declines MD5 instead of failing construction** (`AUTH-15`, design §10 entry 16). The once-per-process probe that decides whether this host computes MD5
+  treated only `CryptographicException` and `PlatformNotSupportedException` as a refusal; any other exception escaped and the `Lazy` cached it, so every `DigestChallengeHandler` would have
+  thrown. Any non-fatal failure now means "refused" and drops the MD5 algorithms from the handler's preference; a fatal one still propagates.
+- **Fixed (phase 11):** `UrlRedactor`'s two backstops no longer turn a fatal exception into the redaction sentinel (`RECOV-2`, `RETRY-25`, `XCUT-20`; design §10 entry 12). They caught
+  `Exception` unfiltered, so an `OutOfMemoryException` while redacting a URL was swallowed; they now filter with `ExceptionFacts.IsFatal`. `FatalFilterArchitectureTests` scans the four runtime
+  libraries and fails a catch-all that neither ends in a rethrow nor excludes fatal exceptions in its `when`.
+- **Fixed (phase 11):** the quiet dispose records its failure only on a recording activity (`OBS-21`; design §10 entry 23). An `Activity` whose sampler only propagates context
+  (`IsAllDataRequested` false) still stored an `exception` event, so a span that must be inert was written to; the write is now guarded.
+- **Fixed (phase 11):** `RequestBody.FromFile` accepts an empty regular file the process may not read again (`BODY-11`, `HTTP-40`; design §10 entry 31). The Unix type check wrote the path into an
+  in-memory tar archive, and the tar writer opens a regular file to attach its content, so a mode-000 empty file failed construction with an `UnauthorizedAccessException` whose message is the full path
+  (it was accepted before phase 11, since a count of 0 never opens the file). A refusal to open, or any other system-call failure inside the writer, now classifies the path as regular; only the managed
+  `IOException` the writer throws for a file type it has no tar type for (a Unix domain socket, told by its `HResult` carrying no errno) is reported as a `socket`, and no operating-system message
+  reaches the caller. A FIFO and a device are classified without being opened, mode 000 or not.
+- **Fixed (phase 11):** the ledger-audit gate no longer lets a negative scan pass by reading nothing (`LedgerAuditTests`, rule L10). A scan whose *Paths* cell holds no glob, a glob that is not `<dir>/**/*.<ext>` or `*.{a,b}`, or a glob whose directory
+  holds no file of its extension was skipped silently, so a renamed directory made its absence claim true vacuously; each is now a finding, with a fixture for each that must fail. Rule L3 is unchanged and checks that a cited line exists in its file, not that it
+  still holds what the ledger says; `CLAUDE.md` now says so instead of promising to fail a stale citation.
+- **Fixed (phase 11):** two conformance-kit assertions no longer accept a raw `IOException` escaping a third-party transport (`TRANSPORT-18`, `TRANSPORT-7`, `TRANSPORT-20`; design §10 entry 7). Moving the transport failure under `IOException` had loosened
+  `transport-18.native-resend-identical` (a body source that fails mid-write) and `transport-7.attempt-timeout-aborts` (an attempt that outlives its deadline) to "an `IOException`"; both now require the transport-failure type, an `IOException` that is an
+  `IRetryableError` (the attempt-timeout assertion still accepts any `SdkException`). A transport that lets the body source's own exception, or a raw `IOException` wrapping a timeout, reach the caller fails them; each clause has a negative control.
+- **Fixed (phase 11):** a second `HttpResponseException.GetError` / `GetErrorAsync` over a `SystemNetHttpClient` response throws `ResponseNotReadException` again (`BODY-14`, `HTTP-41`; design §10 entry 6). The body returns the first stream on a
+  second open, and the content stream `SocketsHttpHandler` hands out reads 0 bytes after it is disposed instead of throwing, so the second call decoded an empty payload (the CHANGELOG entry above said it threw). The transport's body now hands out a
+  stream that reports its own disposal: once a consumer disposed it, the same handle comes back from a later open and every read throws `ObjectDisposedException`, as the stream of every other body does, which `GetError*` already reads as "already
+  consumed". A manual open, drain and dispose followed by a convenience read now fails the same way instead of returning an empty array.
+- **Fixed (phase 11):** two concurrent first opens of a `SystemNetHttpClient` response body no longer race inside `HttpContent` (`BODY-14`, `HTTP-41`; design §10 entry 6). Both opens called `ReadAsStream` / `ReadAsStreamAsync`, and a response
+  content can be consumed once, so the second caller got an `InvalidOperationException` ("The stream was already consumed") from `SocketsHttpHandler`'s content (4 threads, 40 bodies: reproduced on every run), or an
+  `HttpRequestException` for a synchronous read of a stream first obtained asynchronously. The first open now runs under a gate taken by both forms, so every open of either form is handed the one stream; a queued open takes the
+  caller's token and gives up alone, a failed opener leaves the next open to try, and a body disposed while its first open is in flight reports `StreamClosedException`. Every open after the first is still one volatile read.
+- **Fixed (phase 11):** the retry attempt header can no longer overwrite a configured idempotency key (`RETRY-38`; design §11 item 10). `RetryOptions.AttemptHeaderName` refused only the literal
+  `Idempotency-Key`, but `IdempotencyKeyStep.HeaderName` is configurable, so `HeaderName = "X-Request-Key"` with `AttemptHeaderName = "X-Request-Key"` replaced the key with the attempt number
+  on every send of a retried `POST`. The pair is now refused where the stack that holds both is assembled: `PipelineBuilder.Build` (an `InvalidOperationException`) and a per-call
+  `DexpaceClientOptions` override passed to `HttpPipeline.SendAsync`/`Send` (an `ArgumentException`, before anything is sent) for an `IdempotencyPolicy` beside a `RetryPolicy`, and the
+  `RecoveryDispatcher` constructor (an `ArgumentException`) for an `IdempotencyKeyStep` in the request chain beside a `RetryRecovery`. Names compare ignoring case; a custom policy or step that
+  stamps a key of its own is opaque to the check.
+
 ### Phase 7a — serde
 
 Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP-45` carried from 3b); design and plan under

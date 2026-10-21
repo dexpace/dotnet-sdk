@@ -179,17 +179,17 @@ internal static class SecurityInvariants
             RejectsArgument(() => models.InboundHeader("X-" + c + "-Y", "v"), $"an inbound header name containing {SecurityVectors.Describe(c)} inside it");
 
             // HTAB at the end of a name is where two MUSTs meet: XCUT-18 refuses a name with HTAB, and HTTP-17 trims an outbound
-            // (caller-set) name's surrounding whitespace before validating it. A model may do either, so the check is the safety property both
-            // share: the name is refused, or it is stored as exactly the trimmed token and never with the tab. The same is accepted
-            // of an inbound name, which HTTP-19 says stays strictly validated: pinning the trim there would assert what no row supports, and
-            // a model that refuses it follows the text, so the inbound trim is reported as a split clause (checklist, XCUT-18) and not as a pass condition.
-            // Every other character of the set is refused at the ends too.
+            // (caller-set) name's surrounding whitespace before validating it. A model may do either for an outbound name, so that check is
+            // the safety property both share: the name is refused, or it is stored as exactly the trimmed token and never with the tab.
+            // An inbound name has only the one reading: HTTP-19 keeps received names strictly validated and HTTP-17's trim is outbound only
+            // (design section 11 item 70, phase 11), so a model that trims an inbound name fails. Every other character of the set is
+            // refused at the ends of both.
             foreach (var edged in new[] { c + "X", "X" + c })
             {
                 if (c == '\t')
                 {
                     RefusesOrStoresTrimmed(() => models.OutboundHeader(edged, "v"), "an outbound header name with HTAB at one end (refused, or trimmed under HTTP-17)");
-                    RefusesOrStoresTrimmed(() => models.InboundHeader(edged, "v"), "an inbound header name with HTAB at one end (refused, or trimmed as the lenient path does)");
+                    RejectsArgument(() => models.InboundHeader(edged, "v"), "an inbound header name with HTAB at one end (refused: the inbound path never trims)");
                 }
                 else
                 {

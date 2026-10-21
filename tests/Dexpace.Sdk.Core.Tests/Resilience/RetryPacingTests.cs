@@ -52,6 +52,51 @@ public sealed class RetryPacingTests
     }
 
     [Fact]
+    public void An_ordered_list_walks_the_given_names_and_returns_the_first_parseable_value()
+    {
+        var headers = HeadersOf(("Retry-After", "2"), ("retry-after-ms", "500"), ("X-RateLimit-Reset", "60"));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(500), RetryPacing.TryGetHint(headers, s_now, () => 0, ["retry-after-ms", "Retry-After"]));
+        Assert.Equal(TimeSpan.FromSeconds(2), RetryPacing.TryGetHint(headers, s_now, () => 0, ["Retry-After", "retry-after-ms"]));
+        Assert.Equal(TimeSpan.FromSeconds(2), RetryPacing.TryGetHint(headers, s_now, () => 0, ["Retry-After"]));
+    }
+
+    [Fact]
+    public void A_header_that_is_not_in_the_list_is_not_read()
+    {
+        // X-RateLimit-Reset: 60 is epoch 60, long past, so by default it is a zero-length hint; left out of the list it is no hint at all.
+        var reset = HeadersOf(("X-RateLimit-Reset", "60"));
+        var both = HeadersOf(("X-RateLimit-Reset", "60"), ("retry-after-ms", "500"));
+
+        Assert.Equal(TimeSpan.Zero, RetryPacing.TryGetHint(reset, s_now, () => 0));
+        Assert.Null(RetryPacing.TryGetHint(reset, s_now, () => 0, ["Retry-After"]));
+        Assert.Equal(TimeSpan.FromMilliseconds(500), RetryPacing.TryGetHint(both, s_now, () => 0));
+        Assert.Null(RetryPacing.TryGetHint(both, s_now, () => 0, ["Retry-After"]));
+        Assert.Equal(TimeSpan.Zero, RetryPacing.TryGetHint(both, s_now, () => 0, ["X-RateLimit-Reset", "retry-after-ms"]));
+    }
+
+    [Fact]
+    public void An_unparseable_value_falls_to_the_next_name_in_the_list_and_each_name_keeps_its_own_semantics()
+    {
+        var headers = HeadersOf(("Retry-After", "nonsense"), ("x-ms-retry-after-ms", "1500"));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), RetryPacing.TryGetHint(headers, s_now, () => 0, ["Retry-After", "x-ms-retry-after-ms"]));
+        Assert.Equal(
+            TimeSpan.FromSeconds(30),
+            RetryPacing.TryGetHint(HeadersOf(("Retry-After", "Thu, 01 Jan 2026 00:00:30 GMT")), s_now, () => 0, ["Retry-After"]));
+    }
+
+    [Fact]
+    public void The_default_order_is_the_fixed_precedence()
+    {
+        Assert.Equal(["Retry-After", "retry-after-ms", "x-ms-retry-after-ms", "X-RateLimit-Reset"], RetryPacing.DefaultOrder);
+        var headers = HeadersOf(("X-RateLimit-Reset", "60"), ("x-ms-retry-after-ms", "9"), ("retry-after-ms", "5"), ("Retry-After", "3"));
+
+        Assert.Equal(RetryPacing.TryGetHint(headers, s_now, () => 0), RetryPacing.TryGetHint(headers, s_now, () => 0, RetryPacing.DefaultOrder));
+        Assert.Equal(TimeSpan.FromSeconds(3), RetryPacing.TryGetHint(headers, s_now, () => 0));
+    }
+
+    [Fact]
     public void Retry_After_delta_seconds_integer_and_fractional()
     {
         Assert.Equal(TimeSpan.FromSeconds(5), Hint("Retry-After", "5"));

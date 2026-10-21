@@ -27,7 +27,8 @@ public sealed class InvariantSecurityControlTests
         new("xcut-18.model-validation", TransportFace.None, "drops a CR from an outbound value and accepts it", () => Modelling(new ModelFactories { OutboundHeader = (name, value) => new Headers.Builder().Add(name, value.Replace("\r", string.Empty, StringComparison.Ordinal)).Build() }), Because: "outbound header value"),
         new("xcut-18.model-validation", TransportFace.None, "accepts a CR or LF in an inbound value", () => Modelling(new ModelFactories { InboundHeader = (name, value) => new Headers.Builder().AddInbound(name, value.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal)).Build() }), Because: "inbound header value"),
         new("xcut-18.model-validation", TransportFace.None, "stores an outbound name with HTAB at one end under another name", () => Modelling(new ModelFactories { OutboundHeader = (name, value) => new Headers.Builder().Add(EdgedByTab(name) ? "X-Edge" : name, value).Build() }), Because: "stored name of an outbound"),
-        new("xcut-18.model-validation", TransportFace.None, "stores an inbound name with HTAB at one end under another name", () => Modelling(new ModelFactories { InboundHeader = (name, value) => new Headers.Builder().AddInbound(EdgedByTab(name) ? "X-Edge" : name, value).Build() }), Because: "stored name of an inbound"),
+        new("xcut-18.model-validation", TransportFace.None, "stores an inbound name with HTAB at one end under another name", () => Modelling(new ModelFactories { InboundHeader = (name, value) => new Headers.Builder().AddInbound(EdgedByTab(name) ? "X-Edge" : name, value).Build() }), Because: "inbound header name with HTAB at one end"),
+        new("xcut-18.model-validation", TransportFace.None, "trims the HTAB off an inbound name instead of refusing it", () => Modelling(new ModelFactories { InboundHeader = (name, value) => new Headers.Builder().AddInbound(name.Trim('\t'), value).Build() }), Because: "inbound header name with HTAB at one end"),
         .. Both("xcut-19.redaction-default-deny", "redacts nothing", "redacted URL", () => new InvariantSubject { Name = "broken: allow-all redactor", RedactUrl = url => url }),
         .. Both("xcut-19.redaction-default-deny", "renders a credential with its secret", "must not reveal its secret", () => new InvariantSubject { Name = "broken: leaky credential", Credentials = [new CredentialSample("Leaky", "leaky-secret-123", () => "Leaky { Secret = leaky-secret-123 }")] }),
         .. Both("xcut-19.redaction-default-deny", "logs request headers verbatim", "logging must redact", () => Logging(logger => new BrokenPipelines.LogsHeadersVerbatim(logger))),
@@ -48,8 +49,9 @@ public sealed class InvariantSecurityControlTests
     [MemberData(nameof(PositiveCases))]
     public Task The_default_subject_passes(string assertion, TransportFace face) => InvariantControlRow.RunPositiveAsync(assertion, face);
 
-    // XCUT-18 refuses a name with HTAB and HTTP-17 trims surrounding whitespace: a model may do either at the edge of a name (core
-    // trims; this one refuses), and both pass. Only a model that keeps the name under another form is caught.
+    // XCUT-18 refuses a name with HTAB and HTTP-17 trims an outbound name's surrounding whitespace: a model may do either at the edge of an
+    // outbound name, and both pass; only a model that keeps the name under another form is caught. An inbound name has one reading
+    // (HTTP-19: never trimmed), so the model below passes by refusing both.
     [Fact]
     public Task A_model_that_refuses_a_name_with_HTAB_at_either_end_passes() =>
         InvariantControlRow.RunPositiveAsync(

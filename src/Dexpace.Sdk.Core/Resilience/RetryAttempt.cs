@@ -63,6 +63,12 @@ internal sealed record RetryRun(Request Request, RetryOptions Options, RetrySend
     /// <summary>Whether the server's pacing headers are read (<c>HonorRetryAfter</c> on the stage stack, always on for recovery).</summary>
     internal bool HonorPacing { get; init; } = true;
 
+    /// <summary>
+    /// The pacing headers to try, in order (<c>RetryOptions.PacingHeaders</c> on the stage stack); the recovery stack leaves it at
+    /// <see cref="RetryPacing.DefaultOrder"/>, the fixed precedence (RETRY-21).
+    /// </summary>
+    internal IReadOnlyList<string> PacingOrder { get; init; } = RetryPacing.DefaultOrder;
+
     /// <summary>The condition override, or <see langword="null"/>.</summary>
     internal RetryCondition? Condition { get; init; }
 

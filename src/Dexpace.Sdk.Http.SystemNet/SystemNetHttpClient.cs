@@ -114,8 +114,12 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <b>Native retry (TRANSPORT-2).</b> <c>SocketsHttpHandler</c> has no switch for its own connection-failure retry, which re-sends a
 /// request that has no content when its connection ends before any response byte. A body-less <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or
 /// extension-method request is therefore given a zero-length content (the same bytes on the wire) and is sent once. A body-less
-/// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> or <c>TRACE</c> is still re-sent by the native client, up to three more times:
-/// all are idempotent, and attaching content to them would break TRANSPORT-26 or RFC 9110 section 8.6.
+/// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c>, <c>DELETE</c> or <c>TRACE</c> cannot be given content (TRANSPORT-26, RFC 9110 section 8.6),
+/// so the handler the SDK builds (<see cref="CreatePrimaryHandler"/>, which the owned construction and the dependency-injection
+/// package use) carries a pass-through stream filter that turns an end of stream arriving before any response byte into the
+/// <c>ResponseEnded</c> failure the runtime raises itself; the request reaches the server once (bar the idle-connection window on FirstResponseByteStream) and the SDK's retry layer decides
+/// whether to send it again. <b>Breaking</b> (phase 11): they used to be re-sent natively, up to three more times. A handler or
+/// <c>HttpClient</c> you supply is your native client, and keeps its own retry (design §11 item 71).
 /// </para>
 /// <para>
 /// <b>Inbound headers.</b> Response headers take the lenient inbound path (HTTP-19): obs-text is kept, and a header
@@ -489,7 +493,9 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
     /// <summary>
     /// Builds the <c>SocketsHttpHandler</c> the owned construction uses, so a factory-built handler chain starts from the same
     /// invariants: it never follows a redirect (TRANSPORT-1), it goes direct unless <see cref="SystemNetHttpClientOptions.Proxy"/>
-    /// is set (CFG-28), and its server <c>Credentials</c> stay unset so a proxy credential can only answer a 407 (TRANSPORT-30).
+    /// is set (CFG-28), its server <c>Credentials</c> stay unset so a proxy credential can only answer a 407 (TRANSPORT-30), and its
+    /// <c>PlaintextStreamFilter</c> is set to a pass-through that stops the handler's own re-send of a request whose connection ends
+    /// before any response byte (TRANSPORT-2; do not replace the filter if you want that to hold).
     /// </summary>
     /// <param name="options">
     /// The transport's settings. Only <see cref="SystemNetHttpClientOptions.Proxy"/> and <see cref="SystemNetHttpClientOptions.Logger"/>
@@ -508,6 +514,12 @@ public sealed class SystemNetHttpClient : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(options);
         var proxy = options.Proxy is { } configured ? new ProxyOptionsWebProxy(configured) : null;
         var handler = new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = proxy is not null, Proxy = proxy };
+
+        // TRANSPORT-2 (P11-12): the handler re-sends a body-less request whose connection ends before any response byte, with no switch
+        // to stop it. This pass-through filter turns that end of stream into the IOException the runtime raises otherwise, so the SDK's
+        // retry layer is the only re-send. HTTP/2 multiplexes and has no such retry, so it is left untouched.
+        handler.PlaintextStreamFilter = static (context, _) => new ValueTask<Stream>(
+            context.NegotiatedHttpVersion.Major == 1 ? new FirstResponseByteStream(context.PlaintextStream) : context.PlaintextStream);
         if (options.Proxy is { } warned)
         {
             ProxyWarnings.Emit(options.Logger, warned);

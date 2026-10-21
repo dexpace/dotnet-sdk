@@ -54,8 +54,8 @@ rename is a reviewed change (`OBS-39`). Filter on the constants, not on string l
 | `dexpace.dispose.suppressed` (130) | `Warning` | a dispose failed where it must not mask the outcome | `dexpace.dispose.resource_type`, `error.type` (never a message) |
 
 Values are strings, integers, longs and doubles; a header with several values is one key whose value is the individually
-redacted values joined with `", "` (`OBS-6`). A `null` value is carried as `null` in the state; a formatter renders it `(null)` (the
-residual `design §10 entry 22` names). `http.request.body.size` / `http.response.body.size` are always the declared length (and
+redacted values joined with `", "` (`OBS-6`). A `null` value is carried in the state and emitted as the string `null`, where the framework's own formatting would print `(null)` (`OBS-3`; *corrected 2026-10-20, phase 11, design §10 entry 22:* the state's
+formatter now renders it, so no formatter turns it into `(null)`). No SDK site passes a null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally. `http.request.body.size` / `http.response.body.size` are always the declared length (and
 absent when unknown); `*.body.preview.size` is the number of bytes the preview was rendered from (`OBS-36`).
 
 The request preview rides on the response (or failure) event, not on `http.request`: the body is written inside the continuation,

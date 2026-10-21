@@ -77,12 +77,12 @@ length is known.
 `BodyTooLargeException` derives from `StreamingException` and is distinct from `StreamConsumedException`. Its message names
 the limit and, when known, the declared length, and never echoes body content.
 
-## A response body opens once, in either form
+## A response body has one handle, in either form
 
-The first of `OpenRead` and `OpenReadAsync` claims the body; a second open in either form throws `StreamConsumedException`
-(`BODY-14`, `HTTP-41`; design §10 entry 6). The specification would return the same handle, but a second holder of the same
-partly read stream interleaves reads silently. The buffered error body that `EnsureSuccessAsync` attaches to an
-`HttpResponseException` is replayable by design and opens a fresh view each time.
+The first of `OpenRead` and `OpenReadAsync` obtains the body's stream; a second open in either form returns **that same stream** (`BODY-14`, `HTTP-41`; design §10 entry 6, retired by phase 11).
+*Corrected 2026-10-20:* this page said a second open throws `StreamConsumedException`, because a second holder of the same partly read stream interleaves reads silently. The specification
+returns the same handle, and the page's worry is the caller's to manage; an open after dispose throws `StreamClosedException`. The buffered error body that `EnsureSuccessAsync` attaches to an
+`HttpResponseException` is replayable by design and opens a fresh view each time. The response-logging wrapper, past its capture cap, hands its tail out once (`BODY-24`).
 
 ## What stays internal
 
@@ -104,6 +104,6 @@ Phase 3a changes five behaviours. All are in `CHANGELOG.md` `[Unreleased]` and m
 | 2 | `FromStream` on both bodies | Accepted any `contentLength`; the request side accepted an unreadable stream | `contentLength` below `-1` throws `ArgumentOutOfRangeException`; an unreadable request source throws `ArgumentException` |
 | 3 | `ResponseBody.ReadAsBytesAsync`, `ReadAsStringAsync` | Unbounded | Throw `BodyTooLargeException` above 64 MiB; stream through `OpenReadAsync` instead |
 | 4 | `RequestBody.ToReplayableAsync` | Failed with `IOException` ("Stream was too long") or `OutOfMemoryException`, after consuming the body | Throws `BodyTooLargeException` above `Array.MaxLength`, before writing when the length is known |
-| 5 | A response body's `OpenRead` after `OpenReadAsync`, or the reverse | No sync form existed | Throws `StreamConsumedException` |
+| 5 | A response body's `OpenRead` after `OpenReadAsync`, or the reverse | No sync form existed | Returns the same stream (phase 3a threw `StreamConsumedException`; changed by phase 11, 2026-10-20) |
 
 Requirement IDs: `HTTP-36`, `HTTP-39`, `IO-3`, `IO-9`, `IO-11`, `IO-12`, `IO-13`, `IO-14`, `IO-17`.

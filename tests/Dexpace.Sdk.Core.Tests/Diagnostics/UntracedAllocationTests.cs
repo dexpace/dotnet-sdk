@@ -134,11 +134,25 @@ public sealed class UntracedAllocationTests
         var shortUrl = Request.Get("https://api.example.com/p?a=1");
         var longUrl = Request.Get("https://api.example.com/p?a=" + new string('x', 20_000));
 
-        var shortCost = await PerCallAsync(pipeline, shortUrl);
-        var longCost = await PerCallAsync(pipeline, longUrl);
+        // The best of several rounds for each URL, as the sibling tests measure: noise on the measuring thread only ever adds bytes, so one round
+        // can put a few hundred bytes a call on either URL (3 failures in 21 full-suite runs with a single round), while a redaction that ran would
+        // add tens of KB to every round of the long one.
+        var shortCost = await BestPerCallAsync(pipeline, shortUrl);
+        var longCost = await BestPerCallAsync(pipeline, longUrl);
 
         // Redacting the 20 KB URL would cost tens of KB a call; a skipped redaction costs the same as the short one.
         Assert.True(longCost - shortCost < 200, $"short {shortCost} B, long {longCost} B per call");
+    }
+
+    private static async Task<long> BestPerCallAsync(HttpPipeline pipeline, Request request)
+    {
+        var best = long.MaxValue;
+        for (var round = 0; round < 6; round++)
+        {
+            best = Math.Min(best, await PerCallAsync(pipeline, request));
+        }
+
+        return best;
     }
 
     private static async Task<long> PerCallAsync(HttpPipeline pipeline, Request request)
