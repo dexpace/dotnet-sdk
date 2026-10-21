@@ -153,7 +153,8 @@ Widget? syncMaybe = response.Body.ReadValueOrDefault<Widget>(serde, ct);
 - **They dispose the body on every path**, success, codec failure, `IOException` and root `null` alike; a dispose failure after a failed
   read is attached to that failure's suppressed trail, never substituted for it. A codec failure is the codec's own exception (never
   re-wrapped, `SERDE-9`); an `IOException` from the stream propagates unwrapped (`SERDE-12`); a second read throws
-  `StreamConsumedException`.
+  `StreamClosedException` (*corrected 2026-10-20, phase 11:* `StreamConsumedException` before, because the first read disposed the body and an open after dispose now reports
+  the dispose, not the earlier open; a second open of a body nobody disposed returns the same stream).
 - **The sync readers** call `body.OpenRead` and the seam's `Deserialize<T>(Stream)`. `SystemNetHttpClient`'s response body implements
   the synchronous open (phase 7b), so they work over the reference transport; over a transport whose body does not override `OpenRead`
   they throw `NotSupportedException`, as every synchronous body reader does.

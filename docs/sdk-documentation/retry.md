@@ -45,7 +45,11 @@ server answering `503`, a `POST` with a body reached it four times under the sta
 `AddStandardResilienceHandler` is `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)` (the handler-side `o.Retry.MaxRetryAttempts = 0` is refused by the handler's own options validation). See
 [`dependency-injection.md`](./dependency-injection.md).
 
-The reference transport's own `SocketsHttpHandler` is the one native retry the SDK cannot turn off yet: it exposes no switch, and it re-sends
+*Corrected 2026-10-20 (phase 11, design §10 entry 33, retired; §11 item 71): the next paragraph describes phase 8b. The transport the SDK builds (`new SystemNetHttpClient()` and the DI named client)
+now stops that re-send with a pass-through `PlaintextStreamFilter`, so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reaches the server once per SDK attempt; a handler or `HttpClient` you supply
+keeps the runtime's retry (see [`transport.md`](./transport.md)).*
+
+The reference transport's own `SocketsHttpHandler` was the one native retry the SDK could not turn off: it exposes no switch, and it re-sends
 a request whose connection ends before any response byte (the server closed it; a reset is not re-sent) up to three more times, so a request
 that carries no content (a `GET`, a `DELETE`, a body-less `POST`) can reach the server more than once for a single SDK attempt. A request with a single-use body is never
 re-written. The conformance kit measures it (`transport-2.bodyless-not-resent`; [`conformance.md`](./conformance.md)). *Dated correction, 2026-10-11 (phase 8b):* the
@@ -57,11 +61,13 @@ transport now keeps it off for a body-less `POST`, `PUT` and `PATCH` (a zero-len
 A **response** is retried when its status is in `RetryOptions.RetryableStatusCodes` (default `408, 429, 500, 502, 503, 504`,
 `XCUT-7`; every member must be an error status, 400 to 599). A **failure** is retried when it, or any exception in its cause
 chain (depth 64, cycle-safe), reports `IRetryableError.IsRetryable`, or is in the I/O family: `IOException`,
-`SocketException`, `TimeoutException`, an `HttpRequestException` with no `StatusCode` (`RETRY-2`). `ServiceRequestException`,
-`ServiceResponseException` and `HttpResponseException` for a retryable status report it themselves (`RETRY-3`, `RETRY-4`).
+`SocketException`, `TimeoutException`, an `HttpRequestException` with no `StatusCode` (`RETRY-2`). `ServiceRequestException`
+and `HttpResponseException` for a retryable status report it themselves (`RETRY-3`, `RETRY-4`). *Corrected 2026-10-20 (phase 11):* `ServiceRequestException` is
+itself an `IOException`, so it is in the I/O family twice over, and the classifier reads `IRetryableError` and the cause chain, never the SDK root (`SdkException`), which
+is why moving it under `IOException` changed no decision; `ServiceResponseException`, which this page listed, is removed (nothing ever threw it).
 
 - **An `HttpResponseException` anywhere in the chain is decided by the configured set alone** (`RETRY-37`): a 501 you added to
-  the set is retried although the exception's own flag says no, and a `ServiceResponseException` wrapping a 503 is not retried
+  the set is retried although the exception's own flag says no, and an exception wrapping a 503 `HttpResponseException` is not retried
   when the set excludes 503.
 - **A `false` capability does not veto.** A `DeserializationException` over an `IOException` is retried (`P6a-8`).
 - **A cancelled call is never retried**, whatever the exception (`RETRY-23`). A `TaskCanceledException` whose inner exception
@@ -98,7 +104,8 @@ is gone (`RETRY-7`). Retries are capped at `MaxRetryAttempts` after the first se
 | `FixedDelay` | `null` | when set, replaces the whole schedule: no growth, no jitter, no `MaxDelay` cap (`RETRY-43`) |
 | `HonorRetryAfter` | `true` | the stage policy honours the server's pacing headers |
 | `RetryableStatusCodes` | the six above | copied at `init`; 400 to 599 |
-| `AttemptHeaderName` | `null` | when set, every send carries `name: <1-based send number>` (`RETRY-38`, `RECOV-31`) |
+| `AttemptHeaderName` | `null` | when set, every send carries `name: <1-based send number>` (`RETRY-38`, `RECOV-31`); the stamp **replaces** any value the request already carries under that name, so a send holds exactly one, and `Idempotency-Key`, in any case, is refused with `ArgumentException` (phase 11) |
+| `PacingHeaders` | `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` | the headers the stage policy reads, in this order; a subset in any order, no duplicate, at least one, matched ignoring case and stored in this spelling (`RETRY-21`, phase 11; configuration key `Retry:PacingHeaders`) |
 
 Every member validates where it is set (`RECOV-34`), including through `with`; equality is by value. The delay before retry `n`
 is `BaseDelay × Multiplier^(n-1)`, capped at `MaxDelay`, then jittered symmetrically over `[d(1-j/2), d(1+j/2)]`
@@ -107,15 +114,17 @@ is `BaseDelay × Multiplier^(n-1)`, capped at `MaxDelay`, then jittered symmetri
 
 ## The server's pacing hint
 
-The first usable value wins, in this order (`RETRY-15`, `RETRY-21`): `Retry-After` as delta-seconds (`5`, `1.5`; ASCII digits with
+The first usable value wins, in the order of `RetryOptions.PacingHeaders` (`RETRY-15`, `RETRY-21`; the default list is the order below, *added 2026-10-20, phase 11*): `Retry-After` as delta-seconds (`5`, `1.5`; ASCII digits with
 an optional fraction, honoured to 100 ns) or as an HTTP-date (`HttpDate`), `retry-after-ms`, `x-ms-retry-after-ms`, then
 `X-RateLimit-Reset` as a Unix epoch in seconds, which gets 0 to 20 percent positive jitter (`RECOV-25`). A malformed value is
 "no hint", never zero (`RETRY-16`); a date or epoch already past is zero (`RETRY-17`). A hint **replaces** the schedule and is not
 jittered (`RETRY-20`). An all-digit numeral of any size is honoured and clamped to 365 days.
 
 **Caveat (risk 3 of the design):** some APIs send `X-RateLimit-Reset` as seconds until the reset, not an epoch. The specification
-says epoch, so a small value reads as an instant long past and the retry happens at once. Turn `HonorRetryAfter` off for such an
-API and use `FixedDelay`, or override the delay (below).
+says epoch, so a small value reads as an instant long past and the retry happens at once. Leave the header out of `PacingHeaders` (the
+other three stay honoured: `new RetryOptions { PacingHeaders = ["Retry-After", "retry-after-ms", "x-ms-retry-after-ms"] }`), or turn `HonorRetryAfter` off for
+such an API and use `FixedDelay`, or override the delay (below). A header that is not listed is not read, whatever the response carries. The list belongs to the stage
+policy; the recovery stack keeps its fixed precedence.
 
 ## Hooks and the `X-Should-Retry` recipe
 
@@ -146,7 +155,8 @@ public sealed class ServerHintRetryPolicy(TimeProvider? clock = null) : RetryPol
 ## What a failed call carries
 
 When a call fails, the exception it throws carries every earlier attempt's failure, oldest first: on an `SdkException` in
-`Suppressed` (and in `ToString()`), on any other exception through `ExceptionTrail.GetSuppressed` (`RETRY-34`). A discarded
+`Suppressed` (and in `ToString()`), on any other exception through `ExceptionTrail.GetSuppressed` (`RETRY-34`); since phase 11 a transport failure
+(`ServiceRequestException`, an `IOException`) is one of the others, and its `ToString()` still renders the trail. A discarded
 error response is drained (at most 1 MiB) into an `HttpResponseException` for that trail and its connection is released
 (`RETRY-35`); a response with a non-error status that a hook forced to retry is simply disposed. When the retries run out on a
 response, the stage policy returns it live and drops the trail.
@@ -184,4 +194,6 @@ and the effective count was above zero (`OBS-28`, `OBS-29`). `MaxRetryAttempts =
 | a response arriving after your token fired was returned | it is disposed and the call throws `OperationCanceledException` |
 | `OverallTimeout` expiry threw `OperationCanceledException` | throws `OperationTimeoutException` |
 | `OverallTimeout = TimeSpan.Zero` or negative meant "none" | rejected where set; use `null` |
+| *(phase 11)* `AttemptHeaderName` appended its value to one the request already had; `"Idempotency-Key"` was accepted | the stamp replaces; `Idempotency-Key` throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start) |
+| *(phase 11)* the pacing headers were a fixed order | `RetryOptions.PacingHeaders`, the same order by default |
 | `new OperationPolicy()` | `new OperationPolicy(TimeProvider? = null)` (source-compatible) |

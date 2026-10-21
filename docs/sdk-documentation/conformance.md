@@ -249,7 +249,9 @@ transport that cannot meet one (a native client that rejects a whole response ov
 *Dated correction, 2026-10-11 (phase 8b):* the rows are built ([`transport.md`](./transport.md)), the reference transport's driver runs the whole kit
 through both of its constructions (the owned one and the handler-taking one, each with a `CreateWithProxy` hook, so `transport-30` is no longer
 `NotExercised`), and no waiver with `Owner = "8b"` remains. Two permanent, assertion-scoped waivers are left (`Owner = null`):
-`transport-14.name-malformed-dropped` (design §10 entry 32) and `transport-2.bodyless-not-resent` (entry 33).
+`transport-14.name-malformed-dropped` (design §10 entry 32) and `transport-2.bodyless-not-resent` (entry 33). *Corrected 2026-10-20 (phase 11):* the second is deleted for the owned and
+the DI-built subjects and kept, rescoped to a `SocketsHttpHandler` the caller built, for the handler-taking subject (design §11 item 71); the first stays on all three. The reference
+transport's driver therefore carries one waiver for its owned construction and two for its handler construction, the DI driver one (`TRANSPORT-14`'s name half), and the test-only raw-socket client its own `TRANSPORT-11` one.
 
 `TRANSPORT-2` has two assertions because the clause has two halves. `transport-2.no-silent-resend` is the specification's own
 conformance sentence: a single-use body whose exchange was reset reaches the server at most once. A native client never re-writes
@@ -258,7 +260,8 @@ does: a body-less `POST`, `DELETE` and `GET` on a warmed keep-alive connection, 
 them and before any response byte, must each arrive exactly once. The close is orderly, not `Abort()`'s FIN and reset: whether a native
 client re-sends turns on what its read reports, and only an orderly close is reported the same way, as an end of stream, on every
 platform. `SocketsHttpHandler` has no switch for its own retry and re-sends such a request up to three more times, so the reference
-transport was waived for it (owner `8b`) on every platform while it passed the first half. *Dated correction, 2026-10-11 (phase 8b):* the
+transport was waived for it (owner `8b`) on every platform while it passed the first half. *Dated correction, 2026-10-20 (phase 11):* the owned construction now passes the whole
+assertion, because the handler the SDK builds stops the native re-send (see `transport.md`), and the waiver is gone for it. *Dated correction, 2026-10-11 (phase 8b):* the
 transport now sends a body-less `POST`, `PUT` and `PATCH` once (a zero-length content, the wire unchanged), so the assertion's `POST` step passes, but its `DELETE` and
 `GET` steps still arrive four times: the waiver is permanent (`Owner = null`), narrowed to this assertion, and turns stale if the runtime ever stops the retry.
 
@@ -290,7 +293,7 @@ version: `0.1.0` is proposed, and `docs/first-release.md` makes the number phase
 
 *Added 2026-10-13.* `tests/Dexpace.Sdk.Extensions.DependencyInjection.Tests/Conformance/` runs the kit over the transport `AddDexpaceClient` builds from `IHttpClientFactory`: a fresh container per transport, the kit's logger forwarded through a
 single-logger factory, the hooks added as handlers of the named client (the faulting, re-sending and cancel-on-demand handlers are the SystemNet suite's, shared by linked source) and the proxy hook through the `Transport:Proxy:*` keys. It is green on both
-faces with the two permanent assertion-scoped waivers of the SystemNet drivers (design §10 entries 32 and 33); `transport-15.borrowed-survives` is `NotExercised` because the package never borrows a client. `transport-1.redirect-not-followed` passing on both
+faces with the one permanent assertion-scoped waiver of the owned SystemNet driver (design §10 entry 32; *corrected 2026-10-20, phase 11:* entry 33's waiver is gone, because the named client's primary is `CreatePrimaryHandler`'s); `transport-15.borrowed-survives` is `NotExercised` because the package never borrows a client. `transport-1.redirect-not-followed` passing on both
 faces is the proof the 8a hand-off named, and `transport-15.owned-released` is what the container-owned primary-handler lease earns: it failed on the first build of the driver, because the factory never releases a handler whose lifetime is infinite.
 
 ## The invariant suite (phase 10)

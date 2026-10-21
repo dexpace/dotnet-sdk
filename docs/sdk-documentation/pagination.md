@@ -54,7 +54,7 @@ silent restart would re-run the first request behind the consumer's back; ask fo
 
 ### Pages are values, not resources
 
-A `Page<T>` is a sealed, immutable value: `Values` (a snapshot, not a live view of the envelope), `Status`, `Headers`, `Request`. It
+A `Page<T>` is a sealed, immutable value: `Values` (a snapshot, not a live view of the envelope; since phase 11, `PAGE-2` and design §10 entry 17, the constructor **copies** the list it is given, so a list a `FromFetchers` fetcher goes on to change no longer alters a page already yielded, and `ReferenceEquals(page.Values, list)` is false), `Status`, `Headers`, `Request`. It
 is neither `IDisposable` nor `IAsyncDisposable`. The engine reads the body once, parses it, and **closes the response before it
 yields the page**, so no response is open while you hold a page or an item, and an enumerator you drop without `DisposeAsync`
 leaks nothing (`PAGE-3`, `PAGE-11`, `PAGE-12`; design §10 entry 17). The item view closes a page before it hands over even the
@@ -109,10 +109,11 @@ PaginationStrategies.LinkHeader<WidgetPage, Widget>(p => p.Items, headerName: "L
   data. The target is resolved against the page's **response** URL (RFC 3986), so a first page that redirected still resolves
   relative links, and a query-only `?page=2` keeps the path.
 
-The query splice behind `Cursor` and `PageNumber` is internal in v1: it copies every untargeted segment verbatim, matches names
+The query splice behind `Cursor` and `PageNumber` is internal in v1: it copies every untargeted segment verbatim (*corrected 2026-10-20, phase 11, `PAGE-21`:* an empty segment included, so a stray `&` in `?a=1&&b=2&` is carried through as an untargeted parameter and no longer dropped when a parameter is set), matches names
 ordinally on the decoded name, replaces the first occurrence and drops later duplicates, and rebuilds the URL from its components
 (`PAGE-21` to `PAGE-24`). Its one residue is `System.Uri`'s own canonical form of the query, which decodes percent-escaped
-unreserved characters (`%7E` becomes `~`) before the splice sees it (design §10 entry 18). A lone surrogate in a name or value is an
+unreserved characters (`%7E` becomes `~`) before the splice sees it (design §10 entry 18; the unmet `PAGE-21` clause, RFC 3986 section 6.2.2.2 equivalence of unreserved characters, is the one counted clause here).
+A `Request` now refuses a `Uri` made without canonicalization, so the splice never receives a raw CR or LF in a query. A lone surrogate in a name or value is an
 `ArgumentException` that names the parameter and never echoes the value, because a cursor can carry a session token.
 
 ### The `Link` origin guard

@@ -695,10 +695,36 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `CheckPhase8bAsync`.
 - `docs/sdk-documentation/transport.md`.
 
-### Phase 11 — bodies, headers, URLs, pages and the transport's native retry
+### Phase 11 — deviation reconciliation
+
+Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
+for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are three (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half), from seven. Design, plan and checklist under
+`docs/work/mvp/phase11/`. Every public-surface change is a reviewed `PublicAPI.Unshipped.txt` diff, nothing is shipped, and the one-time choices that phase 12 decides before the first
+`PublicAPI.Shipped.txt` are listed in `docs/first-release.md`. The breaking entries below are breaking against the phase 10 tree, not against a release.
+
 
 #### Changed
 
+- **Breaking (phase 11):** `HttpResponseException(Response, string?)` throws an `ArgumentNullException` for a `null` response (was: a
+  `NullReferenceException`) and an `ArgumentException` for a response whose status is not 400 to 599 (was: it built "The server returned an error
+  response: OK(200)."), so no successful "error" can be constructed through the one public mapping route (`XCUT-8`, `NFR-7`; design §10 entry 28).
+- **Breaking (phase 11):** `ServiceRequestException` (and so `ServiceRequestTimeoutException`) derives from `IOException` and implements `IRetryableError`;
+  it is no longer an `SdkException` (`TRANSPORT-20`, `XCUT-4`; design §10 entry 7). `catch (SdkException)` no longer catches a transport failure: catch
+  `ServiceRequestException` or `IOException`. A transport failure has no `Suppressed` property; read its suppressed trail with
+  `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads `IRetryableError` and the cause chain, so
+  retry behaviour is unchanged. The conformance kit's transport assertions now require an `IOException` that reports itself retryable.
+- **Breaking (phase 11):** `ServiceResponseException` is removed. It was public, documented as part of `XCUT-4`'s taxonomy and never thrown by any
+  transport; a failure with no response is a `ServiceRequestException`. The reference transport's message now follows the native error kind: "The request
+  could not be sent to the server." for a name-resolution, connect, TLS or proxy-tunnel failure, and "The request failed and no response was received."
+  for the rest (a response that ended after the request arrived is no longer called unsent).
+- **Breaking (behaviour, phase 11):** the `ExecuteAsync` of an `AsAsync(IHttpClient, TaskScheduler)` bridge no longer throws a `TaskSchedulerException`
+  from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
+  task without touching the scheduler.
+- **Breaking (behaviour, phase 11):** an `ArgumentNullException` from a validating `init` accessor now carries the property's name as its `ParamName`
+  (`"Retry"`, `"Methods"`, `"Headers"`, ...) instead of the accessor's implicit `"value"`, which named nothing (`SEAM-29`, `HTTP-2` to `HTTP-4`; design §10
+  entry 10). It covers `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `ProxyOptions`, `RequestOptions`, `OperationDescriptor`, `AuthRequirement`,
+  `FetchedPage<T>`, `IdempotencyKeyStep`, `SystemNetHttpClientOptions` and the conformance kit's subjects and options, including a null element of
+  `RedirectOptions.AllowedMethods` and `ProxyOptions.NonProxyHosts`.
 - **Breaking (phase 11):** a response body returns the same stream on a second open (`BODY-14`, `HTTP-41`). `ResponseBody.OpenRead` and
   `OpenReadAsync`, in either order, hand back the one stream the first open obtained (the stream-backed, in-memory and `SystemNetHttpClient`
   bodies); the second open used to throw `StreamConsumedException`. The convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual
@@ -721,14 +747,60 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 - **Breaking (phase 11):** the `Page<T>` constructor copies the list it is given (`PAGE-2`; design §10 entry 17). `Values` is a read-only snapshot, not the caller's list: a list a
   `Pageable.FromFetchers` fetcher goes on to change (or a live view a strategy returned) no longer alters a page after it was yielded, and `ReferenceEquals(page.Values, list)` is
   no longer true.
-- **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
-  cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
 - **Breaking (phase 11):** the owned `SystemNetHttpClient` and the dependency-injection named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`,
   `DELETE` or `TRACE` natively (`TRANSPORT-2`; design §10 entry 33). `SystemNetHttpClient.CreatePrimaryHandler` installs a pass-through `PlaintextStreamFilter` (HTTP/1.x only) that
   turns an end of stream arriving after a request was written and before any response byte into the `HttpIOException` (`ResponseEnded`) the runtime raises itself, so the request
   reaches the server once (it used to arrive four times) and the SDK's retry layer decides whether to send it again. No byte is inspected or changed. A handler or `HttpClient` you
   supply is your native client and keeps its own retry (design §11 item 71); a caller who replaces the filter on a handler from `CreatePrimaryHandler` removes the guarantee. The
   conformance drivers' `transport-2.bodyless-not-resent` waiver is deleted for the owned and DI subjects and kept, rescoped, for the handler-taking subject.
+- **Breaking (behaviour, phase 11): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
+  `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
+  highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
+  way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
+  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
+- **Breaking (behaviour, phase 11): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
+  end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
+  each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
+  `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
+  `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
+  parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
+- **Breaking (phase 11): the retry attempt header is set, not appended, and `AttemptHeaderName` may not be `Idempotency-Key`** (`RETRY-38`, design §11 item 10). The stamp
+  `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
+  value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
+  and one that replaced it would send the attempt number as the key.
+
+#### Added
+
+- **`ResponseTaskExtensions.WaitOrDisposeAsync(this Task<Response>, CancellationToken)`** (phase 11; `SEAM-30`, `ASYNC-3`; design §11 item 43): the
+  cancel-without-interruption mode of an `AsAsync` bridge's task. A caller that stops waiting through `Task.WaitAsync(token)` could orphan an undisposed
+  `Response` when the call completed at the instant the token was signalled (44 of 20 000 runs of the design's probe); through this method every caller gets
+  a live response or an `OperationCanceledException`, and a response the task delivers after the caller stopped waiting is disposed exactly once and quietly.
+- **`TraceIdGeneration`** (`OBS-27`, design §10 entry 24, P11-18). New public static class `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` with `W3C()` and
+  `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
+  do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
+  never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
+- **`RetryOptions.PacingHeaders`: the stage stack's pacing headers are an ordered list** (`RETRY-21`, design §11 item 54). New `IReadOnlyList<string> PacingHeaders { get; init; }`,
+  defaulting to `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` (the fixed order, so nothing changes by default). `RetryPolicy` reads the headers it
+  lists, in that order, each by its own semantics; a header left out is not read, which is how a service that sends a delta-seconds `X-RateLimit-Reset` (read as an epoch
+  time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
+  no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
+  fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
+
+#### Fixed
+
+- **Fixed (phase 11):** the pagination query splice copies empty segments verbatim (`PAGE-21`; design §10 entry 18). A stray `&` in a next-page URL (`?a=1&&b=2&`) used to be dropped when a
+  cursor or page-number parameter was set (`?a=1&b=2&cursor=…`); it is now an untargeted parameter and is carried through (`?a=1&&b=2&&cursor=…`). A query with no characters still has no segments.
+- **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
+  keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
+  null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
+- **An unexpected MD5 probe failure declines MD5 instead of failing construction** (`AUTH-15`, design §10 entry 16). The once-per-process probe that decides whether this host computes MD5
+  treated only `CryptographicException` and `PlatformNotSupportedException` as a refusal; any other exception escaped and the `Lazy` cached it, so every `DigestChallengeHandler` would have
+  thrown. Any non-fatal failure now means "refused" and drops the MD5 algorithms from the handler's preference; a fatal one still propagates.
+- **Fixed (phase 11):** `UrlRedactor`'s two backstops no longer turn a fatal exception into the redaction sentinel (`RECOV-2`, `RETRY-25`, `XCUT-20`; design §10 entry 12). They caught
+  `Exception` unfiltered, so an `OutOfMemoryException` while redacting a URL was swallowed; they now filter with `ExceptionFacts.IsFatal`. `FatalFilterArchitectureTests` scans the four runtime
+  libraries and fails a catch-all that neither ends in a rethrow nor excludes fatal exceptions in its `when`.
+- **Fixed (phase 11):** the quiet dispose records its failure only on a recording activity (`OBS-21`; design §10 entry 23). An `Activity` whose sampler only propagates context
+  (`IsAllDataRequested` false) still stored an `exception` event, so a span that must be inert was written to; the write is now guarded.
 
 ### Phase 7a — serde
 
@@ -795,71 +867,5 @@ Sub-phase 7a of roadmap phase 7 (`SERDE-1`..`SERDE-30`, plus `HTTP-44` and `HTTP
 #### Fixed
 
 - `SERDE-26`: constructing a serde no longer freezes the caller's `JsonSerializerOptions` (see the Breaking entry above).
-
-### Phase 11 — deviation reconciliation
-
-#### Changed
-
-- **Breaking (phase 11):** `HttpResponseException(Response, string?)` throws an `ArgumentNullException` for a `null` response (was: a
-  `NullReferenceException`) and an `ArgumentException` for a response whose status is not 400 to 599 (was: it built "The server returned an error
-  response: OK(200)."), so no successful "error" can be constructed through the one public mapping route (`XCUT-8`, `NFR-7`; design §10 entry 28).
-- **Breaking (phase 11):** `ServiceRequestException` (and so `ServiceRequestTimeoutException`) derives from `IOException` and implements `IRetryableError`;
-  it is no longer an `SdkException` (`TRANSPORT-20`, `XCUT-4`; design §10 entry 7). `catch (SdkException)` no longer catches a transport failure: catch
-  `ServiceRequestException` or `IOException`. A transport failure has no `Suppressed` property; read its suppressed trail with
-  `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads `IRetryableError` and the cause chain, so
-  retry behaviour is unchanged. The conformance kit's transport assertions now require an `IOException` that reports itself retryable.
-- **Breaking (phase 11):** `ServiceResponseException` is removed. It was public, documented as part of `XCUT-4`'s taxonomy and never thrown by any
-  transport; a failure with no response is a `ServiceRequestException`. The reference transport's message now follows the native error kind: "The request
-  could not be sent to the server." for a name-resolution, connect, TLS or proxy-tunnel failure, and "The request failed and no response was received."
-  for the rest (a response that ended after the request arrived is no longer called unsent).
-- **Breaking (behaviour, phase 11):** the `ExecuteAsync` of an `AsAsync(IHttpClient, TaskScheduler)` bridge no longer throws a `TaskSchedulerException`
-  from the call when the scheduler rejects the work; the returned task faults with it (`ASYNC-2`). A token that is already signalled returns a cancelled
-  task without touching the scheduler.
-- **Breaking (behaviour, phase 11):** an `ArgumentNullException` from a validating `init` accessor now carries the property's name as its `ParamName`
-  (`"Retry"`, `"Methods"`, `"Headers"`, ...) instead of the accessor's implicit `"value"`, which named nothing (`SEAM-29`, `HTTP-2` to `HTTP-4`; design §10
-  entry 10). It covers `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `ProxyOptions`, `RequestOptions`, `OperationDescriptor`, `AuthRequirement`,
-  `FetchedPage<T>`, `IdempotencyKeyStep`, `SystemNetHttpClientOptions` and the conformance kit's subjects and options, including a null element of
-  `RedirectOptions.AllowedMethods` and `ProxyOptions.NonProxyHosts`.
-
-#### Added
-
-- **`ResponseTaskExtensions.WaitOrDisposeAsync(this Task<Response>, CancellationToken)`** (phase 11; `SEAM-30`, `ASYNC-3`; design §11 item 43): the
-  cancel-without-interruption mode of an `AsAsync` bridge's task. A caller that stops waiting through `Task.WaitAsync(token)` could orphan an undisposed
-  `Response` when the call completed at the instant the token was signalled (44 of 20 000 runs of the design's probe); through this method every caller gets
-  a live response or an `OperationCanceledException`, and a response the task delivers after the caller stopped waiting is disposed exactly once and quietly.
-
-#### Observability, configuration, retry, SSE and auth (PR 5)
-
-- **`TraceIdGeneration`** (`OBS-27`, design §10 entry 24, P11-18). New public static class `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` with `W3C()` and
-  `Datadog()` (both return an `ActivityTraceId`, drawn from `RandomNumberGenerator` and drawn again on an all-zero draw, which the runtime's own generator does not
-  do) and `FormatDatadog(ActivityTraceId)` (the low 64 bits as an unsigned decimal string; the default id and a zero low half throw `ArgumentException`). The SDK still
-  never sets the process-wide hook: the application opts in with `Activity.TraceIdGenerator = TraceIdGeneration.Datadog;`. Additive.
-- **A null log field value is the literal `null`** (`OBS-3`, design §10 entry 22). The structured state of the `http.request` and `http.response` events (the latter also reports a failed attempt, id 102)
-  keeps a pair whose value is `null` and emits the value as the string `null`, where the framework's own formatting would print `(null)`. No SDK site passes a
-  null today (every `LoggerMessage.Define` argument is a non-nullable `string`), so this closes the rule structurally rather than changing an output.
-- **Breaking (behaviour): an empty configuration value falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P11-17). When the
-  `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
-  highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
-  way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
-  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
-- **`RetryOptions.PacingHeaders`: the stage stack's pacing headers are an ordered list** (`RETRY-21`, design §11 item 54). New `IReadOnlyList<string> PacingHeaders { get; init; }`,
-  defaulting to `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` (the fixed order, so nothing changes by default). `RetryPolicy` reads the headers it
-  lists, in that order, each by its own semantics; a header left out is not read, which is how a service that sends a delta-seconds `X-RateLimit-Reset` (read as an epoch
-  time long past, so the retry fires at once) opts that header out. The list is a validated subset of the four names, matched ignoring case and stored in the spelling above, with
-  no duplicate and at least one name (`HonorRetryAfter = false` stays the off switch), copied and read-only, and takes part in equality and `ToString`. The recovery stack keeps the
-  fixed precedence. Configuration key `Retry:PacingHeaders` (a list that replaces the default) and `DexpaceConfigurationKeys.PacingHeaders`. Additive.
-- **Breaking (behaviour): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
-  end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
-  each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
-  `ServerSentEventTooLargeException` (a `StreamingException` carrying `MaxEventBytes`), and the reader stays failed. `ServerSentEventReader`'s constructor, `ReadAll`, `ReadAllAsync` and
-  `ServerSentEventStream.FromResponse` gain `maxEventBytes` overloads; the existing `maxLineBytes = 1048576` default parameters become overloads (`RS0026`/`RS0027` refuse an optional
-  parameter beside a longer overload), so every call that compiled still compiles. A permanent `Security` test pins the hostile stream.
-- **Breaking: the retry attempt header is set, not appended, and `AttemptHeaderName` may not be `Idempotency-Key`** (`RETRY-38`, design §11 item 10). The stamp
-  `RetryOptions.AttemptHeaderName` names now replaces any value the request already carries under that name, so a send holds exactly one (it was appended after a caller's or an outer layer's
-  value). `AttemptHeaderName = "Idempotency-Key"`, in any case, now throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start): the stamp has to preserve the idempotency key,
-  and one that replaced it would send the attempt number as the key.
-- **An unexpected MD5 probe failure declines MD5 instead of failing construction** (`AUTH-15`, design §10 entry 16). The once-per-process probe that decides whether this host computes MD5
-  treated only `CryptographicException` and `PlatformNotSupportedException` as a refusal; any other exception escaped and the `Lazy` cached it, so every `DigestChallengeHandler` would have
-  thrown. Any non-fatal failure now means "refused" and drops the MD5 algorithms from the handler's preference; a fatal one still propagates.
 
 [Unreleased]: https://github.com/dexpace/dotnet-sdk/commits/main

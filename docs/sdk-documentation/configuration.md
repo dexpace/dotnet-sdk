@@ -6,7 +6,7 @@ configuration surface of `Dexpace.Sdk.Core` after phase 5a: the options records,
 (`docs/product-spec/16-configuration.md`, `CFG-8`-`CFG-36`); the decisions behind each type are in the
 [phase 5a design](../work/mvp/phase5/phase5a/2026-10-07-phase5a-configuration-design.md) and in
 [design §8.2 and §8.3](../sdk-design-dotnet/08-instrumentation-and-configuration.md). Neither is restated here. The layered lookup
-(`IConfiguration`, environment, `appsettings.json`) is phase 9's binding tier and is not built.
+(`IConfiguration`, environment, `appsettings.json`) is phase 9's binding tier, built in `Dexpace.Sdk.Extensions.DependencyInjection` (*corrected 2026-10-20*: see [`dependency-injection.md`](./dependency-injection.md)); core has no configuration reader.
 
 Ruby's counterpart page (`ruby-sdk/docs/sdk-documentation/`) is not in the local clone, as the earlier pages also found; Node's `config/`
 tests were read from `nodejs-sdk@54aeed4`. This page is written from this repository's source.
@@ -28,7 +28,12 @@ var patient = options with { Retry = options.Retry with { MaxRetryAttempts = 5 }
   `BaseDelay` above `MaxDelay`) were deliberately **not** checked in 5a. *Correction, 2026-10-08 (phase 6a):* `RetryOptions` now validates every
   member where it is set, and `OverallTimeout` / `AttemptTimeout` accept `null` or `(0, 49 days]`; `BaseDelay` above `MaxDelay` stays
   legal (the cap wins). See [`retry.md`](./retry.md). *Correction, 2026-10-08 (phase 6b):* `RedirectOptions.MaxRedirects` rejects a negative value where it is set and defaults to `3`, and `AllowedMethods` rejects a null set or element; see [`redirect.md`](./redirect.md). Phase 9 owns the other options.
-- **`ToString`** renders every member with `BaseAddress` through `UrlRedactor`, so a signed query never reaches a log.
+  *Correction, 2026-10-20 (phase 11, design §10 entry 10, `SEAM-29`, `HTTP-2` to `HTTP-4`):* a validating `init` accessor that rejects `null` now reports the **property** as the
+  `ArgumentNullException`'s `ParamName` (`"Retry"`, `"Methods"`, `"Headers"`, ...), where the accessor's implicit parameter named it `"value"`, which named nothing; it covers
+  `DexpaceClientOptions`, `RetryOptions`, `RedirectOptions`, `ProxyOptions`, `RequestOptions`, `OperationDescriptor`, `AuthRequirement` and `SystemNetHttpClientOptions`, and a null
+  element of `RedirectOptions.AllowedMethods` and `ProxyOptions.NonProxyHosts`. A range or format rejection inside an accessor (a negative count, a malformed name) still reports `value`.
+  `RetryOptions` gained `PacingHeaders` (an ordered, validated subset of the four pacing headers, copied and read-only, part of equality and `ToString`; [`retry.md`](./retry.md)), and its
+  `AttemptHeaderName` refuses `Idempotency-Key` in any case. Both keys are read by the DI package (`Retry:PacingHeaders`, `Retry:AttemptHeaderName`).- **`ToString`** renders every member with `BaseAddress` through `UrlRedactor`, so a signed query never reaches a log.
 - **Per call.** `HttpPipeline.SendAsync` and `Send` overloads taking a `DexpaceClientOptions` run one call with that value;
   `RequestOptions` remains the transport seam's per-call carrier (timeout, retry cap, tags).
 - There is no configuration builder (`CFG-12` is N/A) and no process-wide configuration slot (`CFG-13`).
@@ -85,7 +90,7 @@ The default `User-Agent` is the tokens joined by a space.
 
 ## What is not configurable, and why
 
-The 64 MiB materialisation cap is a constant; its configurable form is phase 7a's per-read limit, and the SSE line cap is 7b's. The
+The 64 MiB materialisation cap is a constant; its configurable form is phase 7a's per-read limit, and the SSE line cap (1 MiB) and event cap (8 MiB, phase 11) are per-call arguments of 7b's reader, never options. The
 context-store capacity is a constant (a process-wide store has no coherent per-client option). The binding tier is phase 9.
 
 ## Migration from the mutable options

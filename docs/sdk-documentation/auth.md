@@ -134,7 +134,9 @@ or the legacy no-`qop` form (`AUTH-15` to `AUTH-17`).
   (`DigestChallengeHandler.DefaultPreference`); pass any non-empty, duplicate-free subset.
 - **FIPS.** MD5 availability is probed once per process (`net10.0` has no `MD5.IsSupported`, so it tries a hash). On a host that
   refuses MD5 the MD5 algorithms are dropped: an MD5-only challenge is declined, a server offering both gets SHA-256, and
-  construction never fails.
+  construction never fails. *Corrected 2026-10-20 (phase 11, design §10 entry 16):* "refuses" now means **any** non-fatal failure of the probe, not only `CryptographicException` and
+  `PlatformNotSupportedException`; an unexpected exception type used to escape, be cached by the `Lazy`, and make every `DigestChallengeHandler` throw. A fatal exception still propagates.
+  The probe is still one per process (`Md5AvailabilityTests.An_unexpected_probe_failure_means_refused`).
 - **Declined, never answered wrongly:** no `realm` or `nonce`; only `auth-int`; an unsupported algorithm; a `-sess` algorithm
   without `qop` (its response could not be verified, P6c-31); a realm, nonce or opaque that is not valid outbound header text;
   a credential character the challenge's charset cannot represent. A declined attempt consumes no `nc`.

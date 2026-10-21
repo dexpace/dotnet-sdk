@@ -57,7 +57,8 @@ Keys are relative to the section, case-insensitive and `:`-separated (`Dexpace__
 | `Retry:Multiplier`, `Retry:Jitter` | `.Multiplier`, `.Jitter` | decimal (invariant, finite) |
 | `Retry:HonorRetryAfter` | `.HonorRetryAfter` | boolean |
 | `Retry:RetryableStatusCodes` | `.RetryableStatusCodes` | list of integers, or `none` |
-| `Retry:AttemptHeaderName` | `.AttemptHeaderName` | header name |
+| `Retry:AttemptHeaderName` | `.AttemptHeaderName` | header name; `Idempotency-Key`, in any case, fails (phase 11) |
+| `Retry:PacingHeaders` | `.PacingHeaders` | list of the four pacing header names (`Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset`), a subset in any order, no duplicate, not empty; replaces the default (phase 11) |
 | `Redirect:MaxRedirects` | `RedirectOptions.MaxRedirects` | integer |
 | `Redirect:AllowHttpsToHttpDowngrade`, `Redirect:FollowSeeOther` | the two flags | boolean |
 | `Redirect:AllowedMethods` | `.AllowedMethods` | list of method tokens, or `none` |
@@ -87,8 +88,13 @@ Code-only, never read from configuration: `RedirectOptions.Predicate`, `SystemNe
 - *Enum*: a name, in any case. A number or an undefined value fails and the failure lists the names (`OBS-35`).
 - *List*: child keys (`Key:0`, `Key:1`, in the configuration's order) or one comma-separated value, never both; `none` is the empty list. A list **replaces** the record's default.
 
-**An empty value is absent, and it silently shadows** (`CFG-2`, design §10 entry 25, P9-7). `IConfiguration` merges its providers before the package sees a key, so an empty environment value
-over a value in `appsettings.json` resolves the **record default**, never `""` and never the JSON value. A blank templated variable is therefore invisible: say so in your deployment notes.
+**An empty value is absent, and it falls through to the next provider** (`CFG-2`, design §10 entry 25, §11 item 68, P9-7, P11-17). *Corrected 2026-10-20 (phase 11): this page said an empty
+environment value over a value in `appsettings.json` resolved the record default, silently, because `IConfiguration` merges its providers before the package sees a key.* When the `IConfiguration` registered
+in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the highest and takes the first value that is not empty or whitespace-only
+(a `ChainedConfigurationProvider` is walked into, and a list item falls through the same way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds, and
+the record default applies only when no provider has a value. A section taken from a configuration that is **not** the registered root (a standalone `ConfigurationBuilder().Build()` handed to `AddDexpaceClient`, or
+a section at the root with no path) keeps the merged read, where a blank value in the highest provider still hides the lower ones and the default applies: register the root you read the section from. The
+package still reads the keys itself and never touches `ConfigurationBinder`. `EmptyValueTests.An_empty_value_falls_through_to_the_lower_provider` pins it.
 
 **No failure quotes a configured string, URL or credential.** A failure reads `"<path>: <rule>"` (`Dexpace:GitHub:Retry:MaxRetryAttempts: not a base-10 integer ...`). An accessor's numeric range message may echo the
 rejected number (`value ('-7') must be a non-negative value`); no numeric option carries a secret (P9-28).

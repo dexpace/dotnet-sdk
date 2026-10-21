@@ -20,7 +20,7 @@ A handler whose primary `SocketsHttpHandler`/`HttpClientHandler` follows redirec
 rejected with `ArgumentException`: the SDK's `RedirectPolicy` is the only redirect authority. Set `AllowAutoRedirect = false`.
 
 `SystemNetHttpClient.CreatePrimaryHandler(SystemNetHttpClientOptions)` returns the `SocketsHttpHandler` the owned construction builds (no redirects, direct unless a proxy is set, server credentials
-unset), for a primary handler in an `IHttpClientFactory` chain; the caller owns it, and the handler constructor then takes the chain with `Proxy` left `null`.
+unset, and a `PlaintextStreamFilter` that ends the native re-send), for a primary handler in an `IHttpClientFactory` chain; the caller owns it, and the handler constructor then takes the chain with `Proxy` left `null`.
 [`Dexpace.Sdk.Extensions.DependencyInjection`](https://www.nuget.org/packages/Dexpace.Sdk.Extensions.DependencyInjection) builds a named client that way.
 
 ## Behaviour
@@ -62,10 +62,10 @@ unset), for a primary handler in an `IHttpClientFactory` chain; the caller owns 
   then sends no `traceparent`; the remedies are to leave runtime propagation on, or not to listen to `System.Net.Http`.
 - **Metrics.** Enable the `Dexpace.Sdk` meter **or** `System.Net.Http`'s for HTTP client duration, not both: each attempt is
   reported under `http.client.request.duration` by both.
-- **Two known gaps.** `SocketsHttpHandler` rejects a response with a malformed header *name* outright, before this adapter sees it
-  (`TRANSPORT-14`'s name clause), and it re-sends a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE` whose connection ends
-  before any response byte (`TRANSPORT-2`'s native retry; a body-less `POST`, `PUT` and `PATCH` are sent once). The
-  [transport page](https://github.com/dexpace/dotnet-sdk/blob/main/docs/sdk-documentation/transport.md) says why.
+- **One known gap, and one scope.** `SocketsHttpHandler` rejects a response with a malformed header *name* outright, before this adapter sees it
+  (`TRANSPORT-14`'s name clause). And the handler this package builds (the owned construction, and `CreatePrimaryHandler`) stops the runtime's own re-send of a request whose connection ends before any
+  response byte (`TRANSPORT-2`), so a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE` reaches the server once; a handler or `HttpClient` you supply keeps the runtime's retry, which can send it up to four times.
+  The [transport page](https://github.com/dexpace/dotnet-sdk/blob/main/docs/sdk-documentation/transport.md) says why.
 
 ## Usage
 

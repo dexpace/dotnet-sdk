@@ -8,8 +8,9 @@ transport does with a single-use body the native client sends twice. The require
 (`docs/product-spec/17-transport-adapter-conformance-contract.md`, `TRANSPORT-1` to `TRANSPORT-30`); the decisions behind each
 behaviour are in the [phase 8b design](../work/mvp/phase8/phase8b/2026-10-09-phase8b-reference-transport-design.md) (rulings
 `P8b-1` to `P8b-24`) and in [design §3.2 and §3.3](../sdk-design-dotnet/03-seam-by-seam-idiomatic-mapping.md). Neither is restated
-here. The transport is proven by the [conformance kit](./conformance.md): both of its constructions run the whole suite, with two
-permanent, narrowed waivers (below).
+here. The transport is proven by the [conformance kit](./conformance.md): both of its constructions run the whole suite, with one
+permanent, narrowed waiver for the owned construction and two for the handler-taking one (below; *corrected 2026-10-20, phase 11*:
+phase 8b left two for both, and phase 11 retired the second for the owned construction).
 
 ## Construction and ownership (`TRANSPORT-1`, `-15`; P8b-2, P8b-3)
 
@@ -119,13 +120,21 @@ One helper classifies every native failure, on both faces, state first and the s
 | 2 | the transport's deadline fired | `ServiceRequestTimeoutException` (retryable), the native exception as its cause | `TRANSPORT-4`, `-5`, `XCUT-2` |
 | 3 | a cancellation whose cause is a `TimeoutException` (a borrowed client's `HttpClient.Timeout`) | `ServiceRequestTimeoutException` | `TRANSPORT-4` |
 | 4 | any other cancellation: `CancelPendingRequests`, the native client or this transport disposed mid-call | a **new, terminal** `OperationCanceledException` with the native exception on its `ExceptionTrail`, **not** its `InnerException` | `TRANSPORT-8` |
-| 5 | a native request failure (`HttpRequestException`) | `ServiceRequestException` (retryable), the native exception as its cause | `TRANSPORT-20` |
+| 5 | a native request failure (`HttpRequestException`) | `ServiceRequestException` (retryable), the native exception as its cause; it is an `IOException`, not an `SdkException` (phase 11) | `TRANSPORT-20` |
 | – | `ObjectDisposedException`, `NotSupportedException`, anything else | propagates unwrapped: a configuration error or a defect, not a transport failure | |
 
 Row 1 comes first, so a call the caller cancelled is cancelled even if its deadline also fired. Row 4 keeps the native exception off
 `InnerException` on purpose: the retry classifier walks the cause chain and calls any `IOException` in it retryable, and the runtime's
 internal cancellation is a `TaskCanceledException` over an `IOException`, so a cause there would have the SDK retry a cancellation
 nobody asked for. A new SDK exception type for row 4 was considered and not built (ruling P8b-7); it would still need the trail trick.
+
+*Corrected 2026-10-20 (phase 11, design §10 entry 7, retired).* `ServiceRequestException` and `ServiceRequestTimeoutException` derive from `IOException` and keep `IRetryableError`
+(`TRANSPORT-20`: a transport failure is catchable as a generic I/O error), so `catch (SdkException)` does not catch one: catch `ServiceRequestException` or `IOException`. A
+transport failure has no `Suppressed` property; read the trail with `ExceptionTrail.GetSuppressed(exception)`, and `ToString()` still renders it. The retry classifier reads
+`IRetryableError` and the cause chain, never the SDK root, so no retry decision changed. Row 5's message follows what the runtime says happened: "The request could not be sent to
+the server." for a name-resolution, connect, TLS or proxy-tunnel failure (the request never left), and "The request failed and no response was received." for the rest, including a
+connection that ended after the request arrived. Neither carries a URL, a header value or a credential (`XCUT-18`). `ServiceResponseException`, which no transport ever threw, is
+removed; a failure with no response is a `ServiceRequestException`.
 
 **Breaking** (phase 8b): `RequestOptions.Timeout` was ignored; an internal cancellation used to surface as a retryable
 `ServiceRequestTimeoutException`.
@@ -206,18 +215,26 @@ message naming `ResendBufferLimit` and `ToReplayableAsync`. The transport never 
 sent once. To upload a larger single-use stream through a client that can re-send, raise `ResendBufferLimit` or call
 `RequestBody.ToReplayableAsync()` first.
 
-**`TRANSPORT-2` (the native retry is off).** `SocketsHttpHandler` has no switch for its own connection-failure retry. Per runtime source
+**`TRANSPORT-2` (the native retry is off for the transport the SDK builds).** `SocketsHttpHandler` has no switch for its own connection-failure retry. Per runtime source
 (`HttpConnection.SendAsync`), a request is retryable on a connection that ended before any response byte only while it has no content or
 an `Expect: 100-continue`, and the transport therefore gives a body-less `POST`, `PUT`, `PATCH` or extension-method request a
 zero-length content: the native client writes `Content-Length: 0` for these methods anyway, so the wire is byte for byte the same, and with
 content present the retry cannot fire (a caller `Expect` is a framing header and is dropped, so it cannot bring the retry back). The
 conformance kit and `BodylessRetryWireTests` pin it with a server that reads each request and closes in order. A body-less `GET`, `HEAD`,
-`OPTIONS`, `DELETE` and `TRACE` is **still re-sent** by the native client, up to three more times: all are idempotent (RFC 9110
-section 9.2.2, which permits the retry), and attaching content would break `TRANSPORT-26` or RFC 9110 section 8.6. This is the one
-unmet clause recorded as [design §10 entry 33](../sdk-design-dotnet/10-deliberate-deviations-from-the-reference-contract.md), and the
-kit's `transport-2.bodyless-not-resent` carries a permanent, assertion-scoped waiver for it. If the runtime ever stops the retry, the
-waiver turns stale and the run fails, so the gap cannot outlive its cause. `TRACE` natively writes `Content-Length: 0`, so a zero-length
-content there would be wire-identical; it is left out deliberately (`TRANSPORT-26`).
+`OPTIONS`, `DELETE` and `TRACE` is idempotent (RFC 9110 section 9.2.2 permits the retry) and cannot be given content without breaking
+`TRANSPORT-26` or RFC 9110 section 8.6.
+
+*Corrected 2026-10-20 (phase 11, design §10 entry 33, retired; §11 item 71).* Phase 8b recorded those five methods as re-sent up to three more times and waived the kit's
+`transport-2.bodyless-not-resent` for it. They no longer are, on the handler the SDK builds. `SystemNetHttpClient.CreatePrimaryHandler`, which the owned construction and the DI named
+client use, sets the handler's `PlaintextStreamFilter` to a pass-through stream (`FirstResponseByteStream`, HTTP/1.x only) that tracks one fact, a write with no response byte read since,
+and turns a read of 0 in that state into the `HttpIOException` (`HttpRequestError.ResponseEnded`) the runtime raises itself when a response ends prematurely. The runtime takes its
+retry only on a zero-byte read and not on an exception, so the request fails once, reaches the server once, and the failure maps to a `ServiceRequestException` that the SDK's own
+retry layer classifies and may send again under its re-send gate. No byte is inspected, buffered or changed, and an idle connection the server closes is untouched, because the
+state is only set by a write. **What it does not cover.** A handler or `HttpClient` you supply is your native client: the SDK does not wrap it and it keeps the runtime's retry, so
+such a request can still arrive up to four times (retry through the SDK's pipeline, or build the handler with `CreatePrimaryHandler`); a caller who replaces `PlaintextStreamFilter`
+on a handler from `CreatePrimaryHandler` removes the guarantee. The kit's `transport-2.bodyless-not-resent` waiver is therefore deleted for the owned and DI subjects and kept,
+rescoped, for the handler-taking subject alone (`SystemNetSubject.OptionsFor`), where it turns stale if the runtime ever stops the retry. `TRACE` natively writes
+`Content-Length: 0`, so a zero-length content there would be wire-identical; it is left out deliberately (`TRANSPORT-26`).
 
 ## What the transport does not do (`TRANSPORT-9`, `-14`, `-28`; P8b-8, P8b-14, P8b-15)
 
@@ -226,10 +243,13 @@ content there would be wire-identical; it is left out deliberately (`TRANSPORT-2
   settle race (`Task.WaitAsync`, `WhenAny`, `WhenAll`, `Task.Delay`, a `TaskCompletionSource<Response>`) appear nowhere in the assembly
   (an IL scan pins it), so there is nothing for `LateResult` to dispose after.
 - **`TRANSPORT-14`'s malformed header *name* clause is unmet.** `SocketsHttpHandler` rejects the **whole response** on a header name
-  with a space, a control byte or a non-ASCII byte before the adapter sees any header, and has no leniency switch; no handler-level
-  workaround exists short of replacing its HTTP/1.1 parser. The value and obs-text clauses are met. Recorded as
+  with a space, a control byte or a non-ASCII byte before the adapter sees any header, and has no leniency switch. The value and obs-text
+  clauses are met. Recorded as
   [design §10 entry 32](../sdk-design-dotnet/10-deliberate-deviations-from-the-reference-contract.md) and a `docs/first-release.md`
-  *Unsatisfied MUSTs* line; the kit's `transport-14.name-malformed-dropped` carries the other permanent waiver.
+  *Unsatisfied MUSTs* line; the kit's `transport-14.name-malformed-dropped` carries the permanent waiver, for every subject.
+  *Corrected 2026-10-20 (phase 11, V7).* This page said no handler-level workaround exists short of replacing the parser. A `PlaintextStreamFilter` that dropped a bad line would turn
+  the failure into a 200 with the other headers, but only by parsing every response head ahead of the runtime's parser (1xx heads, folded lines, lenient line endings), which is a
+  second HTTP parser in the byte path of every response and not the pass-through of the stream filter above. The transport declines it; the clause stays unmet for that reason.
 - **`TRANSPORT-28`'s zero-copy SHOULD is declined.** The MUST half holds: a file range (`RequestBody.FromFile(path, type, offset, count)`) is
   replayable, each write opens a fresh handle and copies exactly the range, so a retry, a redirect or a re-send carries the same bytes. But
   `HttpClient` writes content to its own connection stream (possibly an `SslStream`), so no sendfile path is reachable through it.
@@ -251,10 +271,19 @@ content there would be wire-identical; it is left out deliberately (`TRANSPORT-2
 A body-less `POST`, `PUT`, `PATCH` or extension-method request now carries a zero-length content (the same bytes on the wire) and is no
 longer re-sent by the native client; that is a fix of `TRANSPORT-2`, not a break.
 
+**Phase 11 (2026-10-20)**, in the same `CHANGELOG.md` entry:
+
+| # | Change | Migration |
+|---|---|---|
+| 10 | `ServiceRequestException` is an `IOException`, not an `SdkException`; `ServiceResponseException` is removed | catch `ServiceRequestException` or `IOException`; `ExceptionTrail.GetSuppressed(exception)` for the trail |
+| 11 | the owned transport and the DI named client no longer let `SocketsHttpHandler` re-send a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE`; it reaches the server once (it used to arrive up to four times) | nothing to do; retry through the SDK's pipeline. A handler you supply keeps the native retry |
+| 12 | the message of a native request failure says whether the request could not be sent or no response was received | do not parse the message |
+
 ## Factory-built chains (`TRANSPORT-1`, `-15`, `-30`; phase 9, P9-12)
 
 *Added 2026-10-13 (phase 9).* `SystemNetHttpClient.CreatePrimaryHandler(SystemNetHttpClientOptions)` returns the `SocketsHttpHandler` the owned construction builds: `AllowAutoRedirect = false`, `UseProxy` only when `Proxy` is set (through the
 internal adapter over `ProxyOptions`), server `Credentials` unset, and the `TRANSPORT-30` warnings through `options.Logger`. The owned construction is built on it, so the invariants have one source. The caller owns the returned handler: pass it as the
 primary of a chain given to `new SystemNetHttpClient(chain, options)` with `options.Proxy` left `null` (that constructor refuses a proxy: a handler you own keeps its own). The DI package builds each named client's primary this way and
-composes it with `IHttpClientFactory`'s chain; see [`dependency-injection.md`](./dependency-injection.md). The handler constructor's redirect check walks the chain to the primary, so a factory chain whose primary was left at its default
+composes it with `IHttpClientFactory`'s chain; see [`dependency-injection.md`](./dependency-injection.md). Since phase 11 the handler also carries the `PlaintextStreamFilter` that ends the native re-send (`TRANSPORT-2`, above), so a
+chain built on it has the guarantee and a chain built on a handler of your own does not. The handler constructor's redirect check walks the chain to the primary, so a factory chain whose primary was left at its default
 (`AllowAutoRedirect = true`) is refused.
