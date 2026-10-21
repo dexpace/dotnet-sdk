@@ -11,7 +11,7 @@ namespace Dexpace.Sdk.Conformance.Tests.Gates;
 /// eleven rules: L1 every §10 number has one audit row; L2 the status and disposition cells are in their closed sets (never <c>design only</c>); L3 every cited
 /// <c>path:line</c> exists; L4 every retained row has a reason class and a <c>Why it stays</c> block; L5 every cited requirement ID is in appendix C; L6 the unmet-clause
 /// rows, the count line and the <c>Unsatisfied MUSTs</c> of the release register agree, at most five; L7 every §11 item has a readings row; L8 every permanent conformance waiver
-/// has a ledger row; L9 every negative scan matches only its allow-list; L10 every scan's probe matches its pattern; L11 every cited test exists. Each rule is a permanent
+/// has a ledger row; L9 every negative scan matches only its allow-list; L10 every scan's probe matches its pattern and every scan reads at least one file (a path glob that does not parse, or whose directory holds no file, is a scan that proves nothing); L11 every cited test exists. Each rule is a permanent
 /// test over the real files and has a fixture, held in this class, that must fail it (the repository's red/green discipline for a gate).
 /// </summary>
 [Trait("Category", "Unit")]
@@ -41,6 +41,9 @@ public sealed class LedgerAuditTests
         { "L8", "an unmet-clause row that cites a waiver which was deleted", "deleted waiver" },
         { "L9", "a scan matching outside its allow-list", "scan" },
         { "L10", "a scan whose probe does not match its pattern", "probe" },
+        { "L10", "a scan whose path glob does not parse", "glob" },
+        { "L10", "a scan whose directory yields no file", "empty" },
+        { "L10", "a scan with no path glob at all", "no path" },
         { "L11", "a cited test that does not exist", "test" },
     };
 
@@ -90,7 +93,7 @@ public sealed class LedgerAuditTests
     public void L9_every_negative_scan_matches_only_its_allow_list() => Assert.Empty(Of("L9"));
 
     [Fact]
-    public void L10_every_scan_probe_matches_its_pattern() => Assert.Empty(Of("L10"));
+    public void L10_every_scan_probe_matches_its_pattern_and_its_paths_read_a_file() => Assert.Empty(Of("L10"));
 
     [Fact]
     public void L11_every_cited_test_exists() => Assert.Empty(Of("L11"));
@@ -175,6 +178,9 @@ public sealed class LedgerAuditTests
         ("L8", "waiver") => Baseline().Replace(DriverPath, "var c =", "var d = new ConformanceWaiver(\"PAGE-22\", \"x\") { Assertion = \"d\" };\nvar c ="),
         ("L8", _) => Baseline().Replace(DriverPath, "new ConformanceWaiver(\"AUTH-15\", \"reason\") { Assertion = \"a\" }", "new Placeholder()"),
         ("L9", _) => Baseline().With("src/Other.cs", "class Widget { }\n"),
+        ("L10", "glob") => Baseline().Replace(LedgerPath, "| `src/**/*.cs` | `Allowed.cs` |", "| `src/*.cs` | `Allowed.cs` |"),
+        ("L10", "empty") => Baseline().Replace(LedgerPath, "| `src/**/*.cs` | `Allowed.cs` |", "| `source/**/*.cs` | `Allowed.cs` |"),
+        ("L10", "no path") => Baseline().Replace(LedgerPath, "| `src/**/*.cs` | `Allowed.cs` |", "| — | `Allowed.cs` |"),
         ("L10", _) => Baseline().Replace(LedgerPath, "`class Widget`", "`class Gadget`"),
         ("L11", _) => Baseline().Replace(LedgerPath, "`WidgetTests.Works`, the waiver", "`WidgetTests.Missing`, the waiver"),
         _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, "No fixture for this rule."),

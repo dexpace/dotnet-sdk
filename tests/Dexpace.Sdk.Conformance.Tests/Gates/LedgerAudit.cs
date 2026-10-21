@@ -49,6 +49,9 @@ internal static partial class LedgerAudit
     [GeneratedRegex(@"^(?<type>[A-Z]\w*Tests)\.(?<method>\w+)$", RegexOptions.CultureInvariant)]
     private static partial Regex TestCitation();
 
+    [GeneratedRegex(@"^(?<dir>[^*]+)/\*\*/\*\.(?<ext>\{[^}]+\}|\w+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex PathGlob();
+
     [GeneratedRegex(@"Unmet clauses:\s*\*\*(?<count>\d+)\*\*\s*of at most\s*\*\*(?<target>\d+)\*\*", RegexOptions.CultureInvariant)]
     private static partial Regex CountLine();
 
@@ -414,7 +417,8 @@ internal static partial class LedgerAudit
         return ids;
     }
 
-    // L9 and L10: each scan matches only its allow-list, and its probe matches its pattern (a vacuous scan fails).
+    // L9 and L10: each scan matches only its allow-list, its probe matches its pattern (a vacuous pattern fails), and its paths read at least one
+    // file (a glob that does not parse, or whose directory holds none, is a scan that proves nothing, so a renamed directory fails the rule).
     private static IEnumerable<LedgerFinding> ScanFindings(LedgerModel model, ILedgerRepository repository)
     {
         foreach (var row in model.Scans.Where(static row => row.Count >= 7))
@@ -438,10 +442,36 @@ internal static partial class LedgerAudit
                 continue;
             }
 
+            var globs = Spans(row[4]).ToList();
+            foreach (var finding in GlobFindings(row[0], globs, repository))
+            {
+                yield return finding;
+            }
+
             var allowed = Spans(row[5]).ToHashSet(StringComparer.Ordinal);
-            foreach (var hit in Hits(regex, Spans(row[4]), repository).Where(hit => !allowed.Contains(Path.GetFileName(hit.File))))
+            foreach (var hit in Hits(regex, globs, repository).Where(hit => !allowed.Contains(Path.GetFileName(hit.File))))
             {
                 yield return new LedgerFinding("L9", $"scan {row[0]} matches {hit.File}:{hit.Line}, which its allow-list does not name");
+            }
+        }
+    }
+
+    private static IEnumerable<LedgerFinding> GlobFindings(string scan, List<string> globs, ILedgerRepository repository)
+    {
+        if (globs.Count == 0)
+        {
+            yield return new LedgerFinding("L10", $"scan {scan}: names no path glob, so it reads nothing");
+        }
+
+        foreach (var glob in globs)
+        {
+            if (FilesOf(glob, repository) is not { } files)
+            {
+                yield return new LedgerFinding("L10", $"scan {scan}: the path glob '{glob}' is not <dir>/**/*.<ext> or <dir>/**/*.{{a,b}}, so it reads nothing");
+            }
+            else if (files.Count == 0)
+            {
+                yield return new LedgerFinding("L10", $"scan {scan}: the path glob '{glob}' matches no file (a renamed or emptied directory?), so it reads nothing");
             }
         }
     }
@@ -460,26 +490,29 @@ internal static partial class LedgerAudit
 
     private static IEnumerable<string> Spans(string cell) => CodeSpan().Matches(cell).Select(static m => m.Groups["span"].Value);
 
+    // The files a glob names, or null when it is not of the one shape the ledger documents.
+    private static List<string>? FilesOf(string glob, ILedgerRepository repository)
+    {
+        var match = PathGlob().Match(glob);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var extensions = match.Groups["ext"].Value.Trim('{', '}').Split(',').Select(static e => "." + e).ToArray();
+        return [.. repository.Files(match.Groups["dir"].Value, extensions)];
+    }
+
     private static IEnumerable<(string File, int Line)> Hits(Regex regex, IEnumerable<string> globs, ILedgerRepository repository)
     {
-        foreach (var glob in globs)
+        foreach (var file in globs.SelectMany(glob => FilesOf(glob, repository) ?? []))
         {
-            var match = Regex.Match(glob, @"^(?<dir>[^*]+)/\*\*/\*\.(?<ext>\{[^}]+\}|\w+)$", RegexOptions.CultureInvariant);
-            if (!match.Success)
+            var lines = (repository.ReadText(file) ?? string.Empty).ReplaceLineEndings("\n").Split('\n');
+            for (var i = 0; i < lines.Length; i++)
             {
-                continue;
-            }
-
-            var extensions = match.Groups["ext"].Value.Trim('{', '}').Split(',').Select(static e => "." + e).ToArray();
-            foreach (var file in repository.Files(match.Groups["dir"].Value, extensions))
-            {
-                var lines = (repository.ReadText(file) ?? string.Empty).ReplaceLineEndings("\n").Split('\n');
-                for (var i = 0; i < lines.Length; i++)
+                if (!lines[i].TrimStart().StartsWith("//", StringComparison.Ordinal) && regex.IsMatch(lines[i]))
                 {
-                    if (!lines[i].TrimStart().StartsWith("//", StringComparison.Ordinal) && regex.IsMatch(lines[i]))
-                    {
-                        yield return (file, i + 1);
-                    }
+                    yield return (file, i + 1);
                 }
             }
         }

@@ -10,7 +10,7 @@ repository's two registers: [`first-release.md`](./first-release.md) holds what 
 
 **Audit commit.** `eb3facc`, the merged phase 11 tip when the evidence below was re-derived: every `path:line` in this file is a line of that tree, checked to exist by the gate (rule L3), and the
 later commits of the phase touch documents, the ledger gate, `BannedSymbols.txt`, two scripts and `ci.yml` only. A claim of the design that the source contradicts is corrected in design §10 by a dated
-correction, never by editing the entry (P11-3).
+correction, never by editing the entry (P11-3). The review fixes made after that commit moved some cited lines; each citation they moved was re-derived against the tree of the fix, by hand, because rule L3 checks that a line exists and not what it holds.
 
 **The counting rule (P11-2).** A clause counts against the roadmap's parity target ("at most five clauses unsatisfied or unmet on a stated domain, each argued") when the **observable outcome** the
 clause protects is not delivered on some stated domain. A **mechanism substitution**, where the letter names a mechanism the port replaces and the protected outcome is delivered or strengthened, is
@@ -316,7 +316,7 @@ item says how the port read it.
 
 A claim that something does not exist is backed by a scan with a probe that proves the scan is not vacuous (P11-6). *Pattern* is a .NET regular expression (`\|` is a literal bar inside a table cell and
 stands for the regex alternation bar), run line by line over the files of *Paths* (`<dir>/**/*.<ext>` or `*.{a,b}`; `bin/` and `obj/` excluded; a line that starts with `//` is a comment and is not read); *Allowed* is the
-file names that may match, else none; *Probe* is a line the pattern must match, which rule L10 checks. `LedgerAuditTests` rule L9 runs every row over the tree, and the scan N20 below is the one enforced by an
+file names that may match, else none; *Probe* is a line the pattern must match, which rule L10 checks; L10 also fails a *Paths* cell with no glob, a glob that is not of the two shapes above, and a glob whose directory holds no file of its extension (a scan that reads nothing proves nothing, so a renamed directory cannot make a scan pass). `LedgerAuditTests` rule L9 runs every row over the tree, and the scan N20 below is the one enforced by an
 architecture test instead. Absence claims about the compiled surface are architecture tests under `tests/Dexpace.Sdk.Core.Tests/Architecture/`, and the gate checks that every test a row cites exists.
 
 

@@ -806,6 +806,9 @@ for free before the first release, and corrected what could not; the clauses sti
   (it was accepted before phase 11, since a count of 0 never opens the file). A refusal to open, or any other system-call failure inside the writer, now classifies the path as regular; only the managed
   `IOException` the writer throws for a file type it has no tar type for (a Unix domain socket, told by its `HResult` carrying no errno) is reported as a `socket`, and no operating-system message
   reaches the caller. A FIFO and a device are classified without being opened, mode 000 or not.
+- **Fixed (phase 11):** the ledger-audit gate no longer lets a negative scan pass by reading nothing (`LedgerAuditTests`, rule L10). A scan whose *Paths* cell holds no glob, a glob that is not `<dir>/**/*.<ext>` or `*.{a,b}`, or a glob whose directory
+  holds no file of its extension was skipped silently, so a renamed directory made its absence claim true vacuously; each is now a finding, with a fixture for each that must fail. Rule L3 is unchanged and checks that a cited line exists in its file, not that it
+  still holds what the ledger says; `CLAUDE.md` now says so instead of promising to fail a stale citation.
 - **Fixed (phase 11):** two conformance-kit assertions no longer accept a raw `IOException` escaping a third-party transport (`TRANSPORT-18`, `TRANSPORT-7`, `TRANSPORT-20`; design §10 entry 7). Moving the transport failure under `IOException` had loosened
   `transport-18.native-resend-identical` (a body source that fails mid-write) and `transport-7.attempt-timeout-aborts` (an attempt that outlives its deadline) to "an `IOException`"; both now require the transport-failure type, an `IOException` that is an
   `IRetryableError` (the attempt-timeout assertion still accepts any `SdkException`). A transport that lets the body source's own exception, or a raw `IOException` wrapping a timeout, reach the caller fails them; each clause has a negative control.
