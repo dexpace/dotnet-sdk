@@ -131,6 +131,9 @@ What this changes in the text above, which stands as written:
 - **The MUST tally** of the resolved rows: N/A 22, ✅ 505, 🚫 4 (`PAGE-3`, `PAGE-29`, `PAGE-30`, `REDIR-25`, each citing its retained entry), ⏳ 1 (`NFR-17`); SHOULD: N/A 11, ✅ 85, 🚫 2, ⏳ 1; MAY: N/A 2, ✅ 8, 🚫 1, ⏳ 3.
   It read ⏳ 16 on MUST rows before the phase 11 checklist gave the 15 hand-offs their closing rows.
 
+*Corrected 2026-10-21 (phase 11 review).* A fourth clause is unmet on a stated domain: **CFG-2** (§10 entry 25), for a section of any configuration other than the container's registered root, where no public API reaches the root of an `IConfigurationSection` and an empty value still hides the lower
+provider. The count in the list above is **four**, and `CFG-2` is in both the satisfied and the not-satisfied column of the generated table (satisfied for the registered root, as `AUTH-15`, `PAGE-21` and `TRANSPORT-14` are in part).
+
 <!-- section12:begin -->
 | Prefix | Satisfied | Vacuous | Not satisfied (section 10 entry) | Deferred (owner) |
 |---|---|---|---|---|
@@ -148,7 +151,7 @@ What this changes in the text above, which stands as written:
 | SSE | SSE-1..40 | SSE-41 | — | — |
 | SERDE | SERDE-1..30 | — | — | — |
 | OBS | OBS-1..4, OBS-6, OBS-7, OBS-11..39 | OBS-5, OBS-8..10, OBS-40 | OBS-28 (entry 23) | — |
-| CFG | CFG-1..3, CFG-5..9, CFG-11, CFG-14..19, CFG-21..38 | CFG-4, CFG-10, CFG-12 | CFG-13 (entry 25), CFG-20 (entry 8) | — |
+| CFG | CFG-1..3, CFG-5..9, CFG-11, CFG-14..19, CFG-21..38 | CFG-4, CFG-10, CFG-12 | CFG-2 (entry 25), CFG-13 (entry 25), CFG-20 (entry 8) | — |
 | TRANSPORT | TRANSPORT-1..30 | — | TRANSPORT-14 (entry 32), TRANSPORT-28 | — |
 | ASYNC | ASYNC-1..3, ASYNC-5..15, ASYNC-17..20, ASYNC-22 | ASYNC-4, ASYNC-16, ASYNC-21 | — | — |
 | XCUT | XCUT-1..24 | — | — | — |

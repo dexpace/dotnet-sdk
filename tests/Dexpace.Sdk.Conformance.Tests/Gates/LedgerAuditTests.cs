@@ -108,7 +108,7 @@ public sealed class LedgerAuditTests
         Assert.Equal(72, ledger.Readings.Count);
         Assert.True(ledger.Scans.Count >= 20, $"{ledger.Scans.Count} scans");
         Assert.NotNull(ledger.CountLine);
-        Assert.Equal(3, ledger.Audit.Count(static row => row[4].Contains("unmet-clause", StringComparison.Ordinal)));
+        Assert.Equal(4, ledger.Audit.Count(static row => row[4].Contains("unmet-clause", StringComparison.Ordinal)));
         Assert.True(ledger.Retained.Count >= 25, $"{ledger.Retained.Count} retained blocks");
     }
 

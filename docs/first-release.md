@@ -58,8 +58,8 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
 - [ ] **Conformance green.** `Dexpace.Sdk.Conformance` passes against every shipped transport on every CI row, with
       waivers listed by requirement ID. It is written by phase 8a and completed by phase 10 (2026-10-14: the invariant, codec and packaging suites, with three first-party drivers that each pin their `NotExercised` list).
 - [x] **Deviations audited.** `docs/deviations.md` exists and every row reads `as-built: …`. Phase 11. *Ticked 2026-10-20 (phase 11):* [`docs/deviations.md`](./deviations.md) holds all 33 design §10 entries and 72 §11 readings, each with an
-      `as-built:` verdict (or `retired (repaired, task n.m)`), a disposition and a cited reason, and `LedgerAuditTests` (rules L1 to L11, a blocking step of the `Test` job) fails the build on a stale citation, a missing row or a count that
-      disagrees with this file. The clauses unmet on a stated domain are three (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half), below the roadmap's five.
+      `as-built:` verdict (or `retired (repaired, task n.m)`), a disposition and a cited reason, and `LedgerAuditTests` (rules L1 to L11, a blocking step of the `Test` job) fails the build on a cited line past the end of its file, a missing row, a scan that reads no file or a count that
+      disagrees with this file. The clauses unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half and `CFG-2` for a section of an unregistered configuration; the first count of 2026-10-20 said three and missed the last, found by the 2026-10-21 review), below the roadmap's five.
 - [ ] **One-time public-surface choices decided before the first `PublicAPI.Shipped.txt`.** Adding a public member
       later is compatible; removing or narrowing one after the tag is a break. Phase 11 lists the choices here, and
       phase 12 decides them. ~~Candidates found so far (phase 10, 2026-10-14): whether `HttpResponseException(Response)` should refuse a non-error status (`XCUT-8`, P10-24;
@@ -112,11 +112,11 @@ phases add the rest as they decline or defer something. Nothing below is a block
 Every candidate must first be argued in design §10 and then pass phase 11's audit. The roadmap's parity target is at most five clauses
 unsatisfied or unmet on a stated domain, each one argued.
 
-**Audited by phase 11 (2026-10-20): the count is three, inside the target.** [`deviations.md`](./deviations.md) re-derived every §10 entry from the source under the
+**Audited by phase 11 (2026-10-20), corrected by its review (2026-10-21): the count is four, inside the target.** [`deviations.md`](./deviations.md) re-derived every §10 entry from the source under the
 counting rule P11-2 (a clause counts when the outcome it protects is not delivered on a stated domain; a mechanism substitution that keeps the outcome is argued there and not
-counted). The three below are the only clauses that count, and `LedgerAuditTests` holds this list, the ledger's `unmet-clause` rows and its count line to one another. The seven
+counted). The four below are the only clauses that count, and `LedgerAuditTests` holds this list, the ledger's `unmet-clause` rows and its count line to one another. The seven
 that phase 8b counted are resolved: entries 24 (`OBS-27`), 31 (`BODY-11`) and 33 (`TRANSPORT-2`) were repaired, 26 (`CFG-5` to `CFG-7`) is a stricter host rule that meets the
-accessor letter, and 16, 18 and 32 stay. `TRANSPORT-2`'s line is struck through below; it is not unsatisfied.
+accessor letter, and 16, 18 and 32 stay; the review added `CFG-2`'s residual under entry 25, which the first count had written off as repaired. `TRANSPORT-2`'s line is struck through below; it is not unsatisfied.
 
 - **`AUTH-15` (MUST), Digest MD5 and MD5-sess where the host's crypto refuses MD5.** .NET bundles no MD5; on Linux it is OpenSSL's, which a FIPS-enabled provider refuses.
   The handler probes once per process, treats any non-fatal failure as a refusal and drops the MD5 algorithms from its preference, so an MD5-only challenge is declined and a
@@ -130,6 +130,11 @@ accessor letter, and 16, 18 and 32 stay. `TRANSPORT-2`'s line is struck through 
   `PlaintextStreamFilter` could drop such a line, but only by parsing every response head ahead of the runtime's parser, which is a security and correctness risk out of proportion to
   tolerating a non-compliant server (contrast the native-retry filter, which never inspects a byte). Phase 8b (2026-10-11), re-audited by phase 11 (2026-10-20); design §10 entry 32. The
   conformance drivers carry a permanent waiver for `transport-14.name-malformed-dropped` alone.
+- **`CFG-2` (MUST), an empty configuration value falls through, for a section of an unregistered configuration.** The fall-through walks the providers of the root the section was taken from, and an
+  `IConfigurationSection` exposes no way to that root (`ConfigurationSection` keeps it private; reading it by reflection is not AOT-safe). So the reader walks the providers of the `IConfiguration` registered in the container when that is a
+  root whose slice at the section's path holds the same pairs as the section, and otherwise reads the merged view, where an empty environment value in the highest provider still hides the lower one and the record default applies. A section of the
+  container's configuration (`builder.Configuration.GetSection(...)`, the case a host produces) is fully met. Phase 9 (2026-10-13) recorded the whole clause as unmet (`di-empty-shadows`); phase 11 (2026-10-20) repaired it for the registered root and wrote the rest off;
+  the phase 11 review (2026-10-21) counted the rest, because by P11-2 the outcome is still not delivered on that domain; design §10 entry 25. A public overload that takes the root and a path is a post-v1 candidate.
 
 Superseded, kept for the record (struck through, never deleted):
 
@@ -220,6 +225,10 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   write, so a read of 0 before it passes through (an idle close is not a failed request, and the pool relies on that read). A server close that lands after the runtime's reuse check of a pooled connection and before that first
   write can still make the runtime re-send the request once on a new connection; the first copy was written to an already-closed connection and usually never reached the server's application. Reasoned from the runtime's source, not reproduced. "Reaches
   the server once" means not up to four times, not "never twice". The SDK's own retry layer is unaffected. See [`transport.md`](./sdk-documentation/transport.md).
+- **`di-empty-shadows`, narrowed (phase 9, P9-7; narrowed by phase 11, 2026-10-20; counted as `CFG-2` by the phase 11 review, 2026-10-21; design §10 entry 25).** For a section taken from any `IConfiguration` other than the one registered in the
+  container, or from a root with no path, an empty or whitespace-only value is still absent but still shadows: `IConfiguration` merges its providers before the package reads the key, so an empty environment value over a value in `appsettings.json`
+  resolves the record default, silently. For a section of the registered root the value falls through to the next provider with one. Read the section from the configuration you register (`builder.Configuration.GetSection(...)`); a standalone
+  `ConfigurationBuilder().Build()` handed to `AddDexpaceClient` keeps the merged read. Pinned by `EmptyValueTests.A_section_from_an_unregistered_configuration_keeps_the_merged_read`; see [`dependency-injection.md`](./sdk-documentation/dependency-injection.md).
 - **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
   strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
   strategies turn out to need it. Recorded by phase 7c (2026-10-09).

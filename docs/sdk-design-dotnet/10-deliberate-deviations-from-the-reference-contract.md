@@ -394,6 +394,7 @@ entries, 19 confirmed, 10 narrowed and 4 contradicted (12, 31, 32 and 33); six a
   `AUTH-22`, §11 item 62) do not count. The count is **three**, inside the parity target of five: **AUTH-15** on a host whose crypto refuses MD5 (entry 16), **PAGE-21** for percent-encoded unreserved characters (entry 18) and
   **TRANSPORT-14**'s malformed header *name* (entry 32). Entries 24, 31 and 33 were repaired, 26 meets the accessor letter and is reclassified, and the "meet a MUST clause in structured form only" pair
   (entries 22 and 8) are mechanism substitutions that deliver the outcome. The paragraph's "four" and the 8b correction's "seven" and "over the parity target" stand as history.
+  *Corrected 2026-10-21 (phase 11 review):* the count is **four**. **CFG-2** (entry 25) is the fourth: the fall-through needs the providers of the root a section was taken from, no public API reaches it from an `IConfigurationSection`, and the outcome is not delivered for a section of any configuration other than the container's registered root, which P11-2 counts.
 - **Retired by repair:** entries **6** (task 3.1), **7** (2.1), **24** (5.1), **28** (1.6), **31** (3.3) and **33** (4.1). Their text above describes a departure that no longer exists; the audit row is their record.
 - **Entry 1** (narrowed, retained). Measured on `net10.0`: the facade 10.0.12 brings `DependencyInjection.Abstractions` 10.0.12 and nothing else, with no `DiagnosticSource` package; the `net8.0` 9.0.5 closure the entry measured is superseded
   (`net8.0` is gone). The audit is the CI script `scripts/ci/dependency-audit.cs`, not a `deps.json` test, and allows exactly those two packages (task 1.3), proved by `dependency-audit-selftest.sh`.
@@ -427,7 +428,7 @@ entries, 19 confirmed, 10 narrowed and 4 contradicted (12, 31, 32 and 33); six a
 - **Entry 24** (**retired**, task 5.1). `TraceIdGeneration.W3C()`, `Datadog()` and `FormatDatadog` re-draw a zero draw; the SDK still never sets the process-wide hook. The runtime's own generator tests no zero draw (V13), so the
   clause was *unmet by the runtime*, not merely "not shown".
 - **Entry 25** (narrowed, retained). The `CFG-2` fall-through is repaired (task 5.4): when the registered `IConfiguration` is the root that holds the client's section, a blank value falls through to the next provider with one. The "empty
-  value is *present*" sentence and the 9 correction's silent shadow are superseded; no property tier, raw accessor or global slot remains the deviation.
+  value is *present*" sentence and the 9 correction's silent shadow are superseded; no property tier, raw accessor or global slot remains the deviation. *Corrected 2026-10-21 (phase 11 review):* the repair covers a section of the registered root only; for a section of any other configuration (or a section at the root with no path) the merged read stands and an empty value still hides the lower provider, a **counted** residual (`CFG-2`; `docs/deviations.md` entry 25; `di-empty-shadows`, narrowed, in `docs/first-release.md`).
 - **Entry 26** (confirmed, retained, **reclassified**; P11-10). The accessor letter of `CFG-5` to `CFG-7` is met (the grammars never throw and keep the default); the boot failure is a stricter host rule from the house guide, not an unmet
   clause. This removes it from the count.
 - **Entry 27** (confirmed, retained).

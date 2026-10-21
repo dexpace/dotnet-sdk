@@ -387,7 +387,7 @@ amendments they suggest are recorded, not applied, in the ledger's *Amendment se
 - **Item 51** (narrowed). Core has no configuration builder; `DexpaceClientBuilder` is one and is used single-threaded.
 - **Item 54** (narrowed, repaired, task 5.5). The stage stack walks a caller-configurable ordered list, `RetryOptions.PacingHeaders`; the recovery stack keeps the fixed precedence.
 - **Item 67** (narrowed). The duration grammar also accepts `"250 ms"` and `"1.5s"`.
-- **Item 68** (contradicted, repaired, task 5.4). The fall-through half of `CFG-2` can be met: when the registered `IConfiguration` is the root that holds the section, an empty value falls through to the next provider with one.
+- **Item 68** (contradicted, repaired, task 5.4). The fall-through half of `CFG-2` can be met: when the registered `IConfiguration` is the root that holds the section, an empty value falls through to the next provider with one. *Corrected 2026-10-21 (phase 11 review):* for a section of the registered root only; a section of any other configuration keeps the merged read, a counted residual (§10 entry 25).
 
 69. **`XCUT-24` asks error snapshots to be non-consuming, while `BODY-30` and `RECOV-16` require the cap to drain and release the original.** *Added by dated correction, 2026-10-20 (phase 11, P11-16).* Phase 10 declined
     `XCUT-24`'s non-consuming clause for an error-body snapshot above 1 MiB as a SHOULD; that decline misread the other two rows. *Resolved* (§4.5, §5.2): the snapshot's primary read path is the `BODY-30` buffered copy, a replayable body

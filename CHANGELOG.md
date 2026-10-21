@@ -698,7 +698,7 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
 ### Phase 11 — deviation reconciliation
 
 Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
-for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are three (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half), from seven. Design, plan and checklist under
+for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under
 `docs/work/mvp/phase11/`. Every public-surface change is a reviewed `PublicAPI.Unshipped.txt` diff, nothing is shipped, and the one-time choices that phase 12 decides before the first
 `PublicAPI.Shipped.txt` are listed in `docs/first-release.md`. The breaking entries below are breaking against the phase 10 tree, not against a release.
 
@@ -759,7 +759,7 @@ for free before the first release, and corrected what could not; the clauses sti
   `IConfiguration` registered in the container is the root that holds the section handed to `AddDexpaceClient`, the reader walks that root's providers from the
   highest and takes the first value that is not empty or whitespace-only (a `ChainedConfigurationProvider` is walked into, and a list item falls through the same
   way), so `FOO__RETRY__MAXRETRYATTEMPTS=` in the environment no longer hides the value `appsettings.json` holds. Was: the merged read, where the empty value won
-  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read. No `ConfigurationBinder` is involved.
+  and the record default applied. A section from a configuration that is not registered, or not a root, keeps the merged read, where the empty value still wins: no public API reaches the root of an `IConfigurationSection`, so this is a counted unmet clause (`CFG-2`; `docs/first-release.md`, `di-empty-shadows` narrowed), and the fix is to read the section from the configuration you register. No `ConfigurationBinder` is involved.
 - **Breaking (behaviour, phase 11): an SSE event is bounded in the data it accumulates** (`SSE-19`, design §10 entry 20 residual R1, P11-19). The line cap bounded a line; lines that each fit and never
   end the event were retained without limit (8 000 000 lines of `data:x`, 56 MB on the wire, became one 323 MB event). The `data` lines of one event now cost their UTF-8 value bytes plus one
   each, and an event whose data passes `maxEventBytes` (default `ServerSentEventReader.DefaultMaxEventBytes`, 8 MiB) fails at the line that passed it with the new
