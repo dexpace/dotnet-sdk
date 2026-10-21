@@ -198,4 +198,25 @@ Registered where their owner reads them (`docs/first-release.md`); listed here s
 
 ## Gate results
 
-Filled in by the final gate (task 6.9), below.
+Run on 2026-10-21 at `dc4bc0c` (the tip before this section was written), .NET SDK 10.0.401, Linux, from the repository root, in the order of `CLAUDE.md`'s *Build & test*.
+
+| Gate | Result |
+|---|---|
+| `dotnet restore Dexpace.Sdk.sln --locked-mode` | ok |
+| `dotnet build Dexpace.Sdk.sln --configuration Release` | 0 warnings, 0 errors |
+| `dotnet format Dexpace.Sdk.sln --verify-no-changes` | exit 0 |
+| `dotnet test --solution Dexpace.Sdk.sln --configuration Release` with coverlet | 7631 tests: 7608 passed, 0 failed, 23 skipped (the pinned `NotExercised` rows of the first-party invariant drivers and the permanent waivers: `transport-14.name-malformed-dropped` on three subjects and both faces, `transport-2.bodyless-not-resent` on the handler subject alone) |
+| `coverage-gate.cs` (floor 80) and its self-test | aggregate 97.51%; self-test ok |
+| `dotnet pack`, `dependency-audit.cs`, its self-test, `packaging-conformance.cs` | 5 packages; 5 libraries conform; self-test ok; packaging verdict GREEN (8 passed) |
+| `requirement-coverage.cs --check` / `--check-section12` / `--report` / self-test | no finding in a MUST row; section 12's generated table is current; MUST rows N/A 22, **⏳ 1**, ✅ 505, 🚫 4 (532); SHOULD N/A 11, ⏳ 1, ✅ 85, 🚫 2; MAY N/A 2, ⏳ 3, ✅ 8, 🚫 1; self-test ok |
+| `reproducible-pack.sh` and `--self-test` | 5 packages byte-identical across two checkouts at different paths; self-test passed |
+| NativeAOT publish and run | no warning; `aot-smoke: all checks passed` |
+| `tools/Dexpace.Tools.sln` build and test | 0 warnings; 438 passed |
+| `scripts/knowledge verify-structure` | OK: 3346 harvested entries, 66 notes |
+| housekeeping `probe` | no drift found |
+| `Category=Security`, core tests | 316 passed; the diff against `main` is additions only (`HeaderInjectionValidationTests`, `ServerSentEventLineCapTests`) apart from the two comment lines noted above |
+| `Category=Conformance`: core, SystemNet, DI tests | 50 passed / 1 skipped; 136 / 6; 119 / 7 |
+
+**One red, then fixed.** The first full run failed `UntracedAllocationTests.The_untraced_path_does_not_compute_the_redacted_url` (short 665 B, long 890 B per call against a 200 B bound). It passed alone and in 18 of 21 full `Dexpace.Sdk.Core.Tests` runs;
+the sibling tests of the class take the best of six rounds and this one took one reading. It now takes the best of six per URL (`dc4bc0c`, 0 failures in 30 runs afterwards). On `main` (`7919190`) the same project failed 2 of 10 runs in two other tests (`InstrumentationContextTests`, twice, and `RecordingTaskSchedulerTests`, which task 1.2 fixed in `b748f11`; `InstrumentationContextTests` did not recur in 21 runs on this branch and is not touched), so the Core suite's load sensitivity is not new;
+whether CI's `build & test` rows hit it is for the first CI log to say.
