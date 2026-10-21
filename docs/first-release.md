@@ -1,7 +1,7 @@
 # First Release
 
 This is the release-readiness register: everything the first NuGet publish must know that no phase owns. It is one
-of this repository's two registers. The other is `docs/deviations.md`, which phase 11 creates. The register is
+of this repository's two registers. The other is [`docs/deviations.md`](./deviations.md), the as-built audit of the deviation ledger, which phase 11 created (2026-10-20). The register is
 indexed by the [v1 roadmap](./work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md), and every entry below names its
 owner: a roadmap phase, or this file. When a blocker clears it is ticked, dated and pointed at its evidence, never
 deleted. A finding is routed to its owner when it is found, not registered here, unless the owner is the release
@@ -37,27 +37,42 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
 - [ ] **CI green on every matrix row.** The green build, format check, locked restore, coverage floor, `PublicAPI`
       files, package validation, dependency audit and 3-OS matrix are phase 0's; the complete gate set is phase 10's
       (built and dispositioned on 2026-10-14: the gate table in the [phase 10 checklist](./work/mvp/phase10/2026-10-13-phase10-cross-cutting-invariants-checklist.md);
-      `CiWorkflowTests` pins that every gate is a step and none is advisory). This line is ticked when the first CI run on `main` after phase 10 is green on every row.
+      `CiWorkflowTests` pins that every gate is a step and none is advisory). This line is ticked when the first CI run on `main` after phase 11 is green on every row.
+      *Phase 11 (2026-10-20):* the `reproducible packages` job was red when phase 10 merged, and the run was not green on every row. Task 1.1 added a toolchain check (a job-local `global.json` with `rollForward: disable`, printing
+      `dotnet --version` from inside each checkout) and a self-test (`reproducible-pack.sh --self-test`) on hypothesis (a), that the runner's SDK patch differs from `global.json`'s, **without reading the failing job's log** (a remote read);
+      whether the job is now green is the first thing to read in the next CI run, and if it is red its `reproducible-pack:` lines name the entry that differs. Phase 11 also adds blocking steps: the dependency-audit self-test, the
+      reproducible-pack self-test and `Section 12`, and the ledger audit runs in the existing `Test` step.
 - [ ] **The `main` ruleset requires the CI jobs (`NFR-17`'s merge half).** A `required_status_checks` rule naming `build & test (ubuntu-latest)`, `build & test (windows-latest)`,
       `build & test (macos-latest)`, `reproducible packages` and `NativeAOT smoke`; design V9 found none (no classic protection either), so a red job does not block a merge.
       An admin-only repository setting that phase 10 did not apply (request text in the phase 10 checklist's *Open items*). Read it back with `gh api repos/dexpace/dotnet-sdk/rulesets` and tick this line.
-- [ ] **The nine P0 defects closed, with permanent `Security` regression tests.** The defects are header CR/LF
+- [x] **The nine P0 defects closed, with permanent `Security` regression tests.** The defects are header CR/LF
       injection, a caller-set `Host`, transport auto-redirect with cross-origin credential forwarding, credentials
       over `http`, deny-list URL redaction, the attempt-leaking `PipelineContext`, the `Retry-After` overflow, the
-      throw on 304, and the leak on a malformed `Content-Type`. Phase 1.
+      throw on 304, and the leak on a malformed `Content-Type`. Phase 1. *Ticked 2026-10-20 (phase 11), closed 2026-09-29:* each defect has its permanent `Security` test in the
+      [phase 1 checklist](./work/mvp/phase1/2026-09-28-phase1-security-fixes-checklist.md), and the phase 11 audit added three more and edited none.
 - [ ] **Every MUST dispositioned.** Every one of the 532 MUSTs has a checklist row: ✅ with a named test; N/A or
       vacuous with a design §10 or §11 citation; or listed below under *Unsatisfied MUSTs*. Phases 2–10 own the
       rows, and phase 10's row-count gate proves the total. **Phase 10 (2026-10-14) built the gate and it is green:** `dotnet run scripts/ci/requirement-coverage.cs -- --check` reports all 645 IDs of appendix C owned by a checklist row, each with its level and a legend mark,
-      and no finding in a MUST row; it is a blocking Linux step of `ci.yml`. **The line stays open** because the script's tally still reads 16 MUST rows as ⏳ in the row that owns them: `NFR-17` (the ruleset line above), and hand-offs whose closing evidence sits in a later phase's checklist in a table
-      the script does not read as owning (the 12 `RECOV` rows `RECOV-17` to `-24`, `-27`, `-28`, `-29` and `-34`, which 4b's table leaves ⏳ and 6a's table closes, and `BODY-4`, `BODY-5` and `BODY-10`, 3b's hand-offs to 6a, 6b, 6c and 3a: `BODY-4` and `BODY-5` carry a 2026-10-08 correction under 3b's table, not in the row, and `BODY-10` rests on 3a's `HTTP-39` row). `HTTP-44` and `HTTP-45` are not among them: 7a's checklist owns them last, at ✅. Phase 11 gives those 15 rows their dated corrections and ticks this line; it also decides whether `NFR-17` is the only MUST left open.
+      and no finding in a MUST row; it is a blocking Linux step of `ci.yml`. ~~**The line stays open** because the script's tally still reads 16 MUST rows as ⏳ in the row that owns them: `NFR-17` (the ruleset line above), and hand-offs whose closing evidence sits in a later phase's checklist in a table
+      the script does not read as owning (the 12 `RECOV` rows `RECOV-17` to `-24`, `-27`, `-28`, `-29` and `-34`, which 4b's table leaves ⏳ and 6a's table closes, and `BODY-4`, `BODY-5` and `BODY-10`, 3b's hand-offs to 6a, 6b, 6c and 3a: `BODY-4` and `BODY-5` carry a 2026-10-08 correction under 3b's table, not in the row, and `BODY-10` rests on 3a's `HTTP-39` row). `HTTP-44` and `HTTP-45` are not among them: 7a's checklist owns them last, at ✅. Phase 11 gives those 15 rows their dated corrections and ticks this line; it also decides whether `NFR-17` is the only MUST left open.~~ *Phase 11 (2026-10-20):* the 15 hand-off rows have their closing rows in the [phase 11 checklist](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-checklist.md) (with the rows of every ID a repair changed, and the five SHOULD/MAY hand-offs the same measurement found), and the script's tally of resolved MUST rows reads ⏳ 1: `NFR-17`, the ruleset line above, which names this register as its owner. **The line stays open for `NFR-17` alone.**
 - [ ] **Conformance green.** `Dexpace.Sdk.Conformance` passes against every shipped transport on every CI row, with
       waivers listed by requirement ID. It is written by phase 8a and completed by phase 10 (2026-10-14: the invariant, codec and packaging suites, with three first-party drivers that each pin their `NotExercised` list).
 - [ ] **Deviations audited.** `docs/deviations.md` exists and every row reads `as-built: …`. Phase 11.
 - [ ] **One-time public-surface choices decided before the first `PublicAPI.Shipped.txt`.** Adding a public member
       later is compatible; removing or narrowing one after the tag is a break. Phase 11 lists the choices here, and
-      phase 12 decides them. Candidates found so far (phase 10, 2026-10-14): whether `HttpResponseException(Response)` should refuse a non-error status (`XCUT-8`, P10-24;
+      phase 12 decides them. ~~Candidates found so far (phase 10, 2026-10-14): whether `HttpResponseException(Response)` should refuse a non-error status (`XCUT-8`, P10-24;
       today every core mapping path goes through a guarded internal factory and the public constructor accepts a 200), and whether `ServiceResponseException`, public and never
-      thrown (`XCUT-4`, P10-25), is deleted or argued into design §3.2.
+      thrown (`XCUT-4`, P10-25), is deleted or argued into design §3.2.~~ *Both decided by phase 11 (2026-10-20): the constructor refuses `null` and a non-error status, and `ServiceResponseException` is deleted.*
+      The list for phase 12 (each is in `PublicAPI.Unshipped.txt` and a `CHANGELOG.md` line; nothing is shipped, so each can still change shape for free):
+      - `ServiceRequestException` (and `ServiceRequestTimeoutException`) derives from `IOException`, not `SdkException`; `catch (SdkException)` no longer catches a transport failure (P11-7, the choice most worth a second look).
+      - `ServiceResponseException` is removed; `HttpResponseException`'s public constructor throws `ArgumentNullException` and `ArgumentException` (P11-9).
+      - A second open of a response body returns the same stream; an open after dispose throws `StreamClosedException` (P11-8).
+      - `Headers.Builder.AddInbound` refuses a name with surrounding whitespace; `Request` refuses a `Uri` built without canonicalization; `RequestBody.FromFile` refuses a Unix special file.
+      - `Dexpace.Sdk.Core.Diagnostics.TraceIdGeneration` (`W3C`, `Datadog`, `FormatDatadog`) and `ResponseTaskExtensions.WaitOrDisposeAsync`.
+      - `RetryOptions.PacingHeaders` (and `DexpaceConfigurationKeys.PacingHeaders`); `AttemptHeaderName` may not be `Idempotency-Key`.
+      - The SSE per-event cap: `ServerSentEventReader.DefaultMaxEventBytes`, the `maxEventBytes` overloads of the reader's constructor, `ReadAll`, `ReadAllAsync` and `ServerSentEventStream.FromResponse` (the optional `maxLineBytes`
+        parameters became overloads), and `ServerSentEventTooLargeException` (default 8 MiB, P11-19, the default to check).
+      - Validating `init` accessors report their property in `ParamName`; an empty configuration value falls through to the next provider (P11-17).
 - [ ] **A reachable `SECURITY.md` contact.** Phase 0 creates the file; this line is ticked only when the contact is
       confirmed to be monitored.
 - [ ] **NuGet ownership settled.**
@@ -139,8 +154,15 @@ Each phase adds an entry for each requirement it declines, with the requirement 
   `HttpClient` writes content to its own connection stream, possibly an `SslStream`, so no sendfile path is reachable through it and the transport does not
   special-case file bodies. Phase 8b (2026-10-11); P8b-15.
 
-- **`XCUT-24` (SHOULD), the non-consuming clause for an error-body snapshot above 1 MiB.** A body-log preview is byte-capped and does not pull the body ahead of its reader (the embedded MUST and the clause are met there, `invariant:xcut-24.preview-capped-non-consuming`),
-  but `ErrorBodyBuffer.Capture` drains at most `Response.MaxBufferedErrorBytes` (1 MiB), truncates without a marker and replaces the original body, so the original stream is consumed. A repair candidate for phase 11 (retain the stream, or mark the truncation). Phase 10 (2026-10-14); P10-23.
+- ~~**`XCUT-24` (SHOULD), the non-consuming clause for an error-body snapshot above 1 MiB.** A body-log preview is byte-capped and does not pull the body ahead of its reader (the embedded MUST and the clause are met there, `invariant:xcut-24.preview-capped-non-consuming`), but `ErrorBodyBuffer.Capture` drains at most `Response.MaxBufferedErrorBytes` (1 MiB), truncates without a marker and replaces the original body, so the original stream is consumed. A repair candidate for phase 11 (retain the stream, or mark the truncation). Phase 10 (2026-10-14); P10-23.~~ *Struck by phase 11 (2026-10-20): the decline misread `BODY-30` and `RECOV-16`, which require the cap to drain and release; the snapshot's primary read path is the buffered copy and reads of it are non-consuming (design §11 item 69, amendment N11-1). The clause is met.*
+- **`BODY-12` (SHOULD): the kernel file-to-socket path is not built.** `HttpClient` writes request content to its own connection stream, possibly an `SslStream`, so no sendfile path is reachable through it, as for
+  `TRANSPORT-28`. Phase 3b (2026-10-03), declined in this register by phase 11 (2026-10-20, P11-26).
+
+- **`OBS-28` (SHOULD), the request and response byte-count milestones.** The span vocabulary is built; the response count exists only after the consumer drains the body, after the attempt span has ended, and the
+  transport's own milestones are the runtime's spans (design §10 entry 23). Phase 5c, declined in this register by phase 11 (2026-10-20, P11-26).
+
+- **`SEAM-28` (MAY): the operation id is not attached to the context chain.** `OperationDescriptor.OperationId` is carried and never reaches the request; there is no carrier on `RequestOptions` and no consumer, so attaching it
+  would be surface without a reader. Adding one later is additive. Phase 2b, declined in this register by phase 11 (2026-10-20, P11-26).
 
 - **Authentication features outside the requirements (phase 6c, P6c-13, P6c-19, P6c-35, P6c-40).** Not built, and not planned for v1: **claims challenges**
   (`WWW-Authenticate: Bearer … claims="…"`, continuous access evaluation; the bearer hook re-fetches with the same `TokenRequestContext`), an **`apiKey` in a query
@@ -187,8 +209,11 @@ Each phase adds an entry for each requirement it declines, with the requirement 
 - **`di-handler-lifetime` (phase 9, P9-13, P9-14).** The DI package holds one handler chain per named client for the process, with an infinite `IHttpClientFactory` handler lifetime and `Transport:PooledConnectionLifetime` (default 2 minutes) doing
   the rotation's job inside the one handler; a container-owned lease releases the primary the package built. `builder.HttpClient.ConfigureHttpClient(...)` has no effect (the package uses the handler, never `CreateClient`), and the factory's own logging
   handlers are removed so the SDK's redacted events are the one HTTP log stream. Recorded by phase 9 (2026-10-13).
-- **`di-empty-shadows` (phase 9, P9-7; design §10 entry 25).** An empty or whitespace-only configuration value is absent, so the record's default applies, and `IConfiguration` merges its providers before the package reads a key: an empty environment value
-  over a value in `appsettings.json` therefore resolves the record default, silently. The alternative (an empty value fails start) is the lead's to rule on. Recorded by phase 9 (2026-10-13).
+- ~~**`di-empty-shadows` (phase 9, P9-7; design §10 entry 25).** An empty or whitespace-only configuration value is absent, so the record's default applies, and `IConfiguration` merges its providers before the package reads a key: an empty environment value over a value in `appsettings.json` therefore resolves the record default, silently. The alternative (an empty value fails start) is the lead's to rule on. Recorded by phase 9 (2026-10-13).~~ *Repaired by phase 11 (2026-10-20, task 5.4, design §10 entry 25): when the `IConfiguration` registered in the container is the root that holds the client's section, an empty or whitespace-only value falls through to the next provider with a value. A section from a configuration that is not registered, or not a root, keeps the merged read.*
+- **`borrowed-handler-native-retry` (phase 11, P11-12; design §11 item 71; `TRANSPORT-2`).** The transport the SDK builds (`new SystemNetHttpClient()` and the DI named client) installs a stream filter so
+  `SocketsHttpHandler`'s own connection-failure retry cannot fire, and a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` and `TRACE` reaches the server once. A handler or `HttpClient` the caller supplies is the caller's
+  native client: the SDK does not wrap it, and it keeps the runtime's retry, so such a request can still arrive up to four times. Retry through the SDK's pipeline, or build the handler with
+  `SystemNetHttpClient.CreatePrimaryHandler`. The conformance waiver for `transport-2.bodyless-not-resent` is kept for that subject alone. Recorded by phase 11 (2026-10-20).
 - **`public-query-splice` (post-1.0 candidate, P7c-9).** The query splice behind `Cursor` and `PageNumber` is internal in v1, so a custom
   strategy builds its own query with `Query` and `Request.WithUrl`. Making the splice public is a candidate for a later release, if custom
   strategies turn out to need it. Recorded by phase 7c (2026-10-09).
