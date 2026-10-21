@@ -90,4 +90,31 @@ public sealed class ResponseBodyReopenWireTests
         Assert.Equal("ok:", System.Text.Encoding.ASCII.GetString(head));
         Assert.Equal("boom", System.Text.Encoding.ASCII.GetString(rest.ToArray()));
     }
+
+    [Fact]
+    public async Task Concurrent_first_opens_over_real_responses_agree()
+    {
+        // BODY-14 under a real SocketsHttpHandler content, which can be consumed once: opens of both forms on one body, released together.
+        await using var server = StartErrorServer();
+        await using var transport = new SystemNetHttpClient();
+
+        for (var round = 0; round < 40; round++)
+        {
+            using var response = await SendAsync(transport, server);
+            using var start = new ManualResetEventSlim(initialState: false);
+            var opens = Enumerable.Range(0, 4)
+                .Select(i => Task.Run(
+                    async () =>
+                    {
+                        start.Wait(Ct);
+                        return i % 2 == 0 ? await response.Body.OpenReadAsync(Ct) : response.Body.OpenRead(Ct);
+                    },
+                    Ct))
+                .ToArray();
+            start.Set();
+
+            var streams = await Task.WhenAll(opens).WaitAsync(Ct);
+            Assert.All(streams, stream => Assert.Same(streams[0], stream));
+        }
+    }
 }

@@ -19,12 +19,13 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// </summary>
 internal sealed class HttpResponseMessageBody : ResponseBody
 {
-    private readonly HttpResponseMessage _message;
-    private Stream? _stream;
-    private int _closed;
-
     // Repeats ResponseBody.ClosedMessage verbatim (Core's constant is internal); a test asserts the two stay equal.
     private const string ClosedMessage = "This response body was disposed, so its stream is no longer available.";
+
+    private readonly HttpResponseMessage _message;
+    private Stream? _stream;
+    private SemaphoreSlim? _opening;
+    private int _closed;
 
     public HttpResponseMessageBody(HttpResponseMessage message)
     {
@@ -43,13 +44,21 @@ internal sealed class HttpResponseMessageBody : ResponseBody
 
     public override async Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
     {
-        ThrowIfClosed();
-        if (Volatile.Read(ref _stream) is { } opened)
+        if (Opened() is { } opened)
         {
             return opened;
         }
 
-        return Publish(await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false));
+        var gate = OpeningGate();
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return Opened() ?? Publish(await _message.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false));
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     // The synchronous twin (P3a-5): it shares the one handle with OpenReadAsync, so an open in either order returns the same
@@ -57,16 +66,53 @@ internal sealed class HttpResponseMessageBody : ResponseBody
     // server-sent-events views over this transport.
     public override Stream OpenRead(CancellationToken cancellationToken = default)
     {
-        ThrowIfClosed();
-        return Volatile.Read(ref _stream) ?? Publish(_message.Content.ReadAsStream(cancellationToken));
+        if (Opened() is { } opened)
+        {
+            return opened;
+        }
+
+        var gate = OpeningGate();
+        gate.Wait(cancellationToken);
+        try
+        {
+            return Opened() ?? Publish(_message.Content.ReadAsStream(cancellationToken));
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
-    // The content hands out one stream per message however often it is asked, so two first opens racing agree already; the
-    // compare-and-set keeps the handle this body returns single even over a content type that does not.
-    private Stream Publish(Stream obtained)
+    // BODY-14, HTTP-41: the first open obtains the content stream under this gate, so two opens racing agree. A response content can
+    // be consumed once (SocketsHttpHandler's throws InvalidOperationException to a second caller that reaches it before the first
+    // has recorded its stream), and HttpContent refuses a synchronous read of a stream first obtained asynchronously; only the
+    // pairs that include a synchronous open race inside it, since two asynchronous opens share one in-flight task. The gate is one
+    // semaphore taken by both forms, with the caller's token on the wait: a queued open gives up alone, and an opener that fails
+    // releases the gate, so the next open makes its own attempt. It is created by the first open of a body that is opened at all
+    // and never disposed (it holds no handle unless AvailableWaitHandle is read, which nothing does); every open after the first
+    // is one volatile read.
+    private SemaphoreSlim OpeningGate() => LazyInitializer.EnsureInitialized(ref _opening, static () => new SemaphoreSlim(1, 1));
+
+    // The handle once it exists; throws when the body was disposed, so a queued open reports the dispose, not a stale stream.
+    private Stream? Opened()
     {
+        ThrowIfClosed();
+        return Volatile.Read(ref _stream);
+    }
+
+    // The gate is held, so there is one publisher. A body disposed while its first open was in flight has disposed the message under
+    // it: the obtained stream is dropped and the open reports the dispose.
+    private DisposalAwareStream Publish(Stream obtained)
+    {
+        if (Volatile.Read(ref _closed) != 0)
+        {
+            obtained.Dispose();
+            ThrowIfClosed();
+        }
+
         var handle = new DisposalAwareStream(obtained);
-        return Interlocked.CompareExchange(ref _stream, handle, null) ?? handle;
+        Volatile.Write(ref _stream, handle);
+        return handle;
     }
 
     private void ThrowIfClosed()
