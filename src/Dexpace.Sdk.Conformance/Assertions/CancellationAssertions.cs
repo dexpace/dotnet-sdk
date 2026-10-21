@@ -107,7 +107,11 @@ internal static class CancellationAssertions
         var call = pipeline.SendAsync(Request.Get(server.Url("/hang").AbsoluteUri), options, cancellationToken).AsTask();
         var failure = await Outcome.OfAsync(call, context.ReleaseTimeout, "the attempt to end after its 300 ms deadline", cancellationToken).ConfigureAwait(false);
 
-        Check.True(failure is SdkException or IOException, "an attempt that outlives its deadline must fail with an SDK exception or an I/O-family transport failure, not hang or surface a bare cancellation", "an SdkException or an IOException", Outcome.Name(failure));
+        Check.True(
+            failure is SdkException or (IOException and IRetryableError),
+            "an attempt that outlives its deadline must fail with an SDK exception or the transport-failure type (an IOException that reports retryability, not a raw platform exception escaping unmapped), not hang or surface a bare cancellation",
+            "an SdkException, or an IOException that is an IRetryableError",
+            Outcome.Name(failure));
         Check.True(
             Outcome.FindTimeout(failure) is not null,
             "the transport must honour the attempt-linked token as a timeout: the failure, its cause chain or its trail must hold a timeout, not an unrelated SDK failure (the phase 6a hand-off, XCUT-2)",

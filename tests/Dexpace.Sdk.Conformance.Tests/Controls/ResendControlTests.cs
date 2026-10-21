@@ -24,6 +24,16 @@ public sealed class ResendControlTests
                 CreateAsync = _ => BrokenTransports.Plain(),
                 CreateWithNativeResend = _ => BrokenTransports.ResendsAnEmptyBody(),
             }),
+        new(
+            "transport-18.native-resend-identical",
+            TransportFace.Async,
+            "lets a raw IOException from the body source escape",
+            () => new TransportSubject
+            {
+                Name = "lets a raw IOException from the body source escape",
+                CreateAsync = _ => BrokenTransports.Plain(),
+                CreateWithNativeResend = _ => new BrokenTransports.ResendsLettingBufferingFailureEscape(),
+            }),
         ControlRow.Over("transport-28.file-range-replayable", TransportFace.Async, "ignores the offset and count", BrokenTransports.IgnoresFileRange),
         ControlRow.Over("transport-28.file-range-replayable", TransportFace.Blocking, "ignores the offset and count", BrokenTransports.IgnoresFileRange),
     ];

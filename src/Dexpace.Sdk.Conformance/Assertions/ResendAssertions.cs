@@ -65,7 +65,11 @@ internal static class ResendAssertions
         var broken = transport.SendAsync(Request.Post(server.Url("/broken").AbsoluteUri, RequestBody.FromStream(failing, contentLength: ResentBytes)), cancellationToken);
         var brokenFailure = await Outcome.OfAsync(broken, context.AssertionBound, "the send whose body source fails mid-write to end", cancellationToken).ConfigureAwait(false);
 
-        Check.True(brokenFailure is IOException, "a body source that fails mid-write must fail the send with the transport-failure type (an IOException), never ship a truncated or empty body (TRANSPORT-18, TRANSPORT-20)", "an IOException", Outcome.Name(brokenFailure));
+        Check.True(
+            brokenFailure is IOException and IRetryableError,
+            "a body source that fails mid-write must fail the send with the transport-failure type (an IOException that reports retryability, not the body source's own exception escaping unmapped), never ship a truncated or empty body (TRANSPORT-18, TRANSPORT-20)",
+            "a transport-failure IOException (an IOException that is an IRetryableError)",
+            Outcome.Name(brokenFailure));
     }
 
     // TRANSPORT-28: a byte range of a file is sent, twice if need be, with the same bytes each time. (Zero-copy is not observable on the wire.)
