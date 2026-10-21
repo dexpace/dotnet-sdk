@@ -75,8 +75,9 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   `Dexpace.Sdk.Core` ships **no** transport and no concrete codec; each adapts one library in its own
   project (`Dexpace.Sdk.Http.*`, `Dexpace.Sdk.Serialization.*`).
 - **Deterministic cleanup.** `Response`, `ResponseBody`, and transports implement `IDisposable` /
-  `IAsyncDisposable`. Single-use bodies (stream-backed) throw `StreamConsumedException` on a second
-  *read*, while a second *open* of a response body returns the first stream; call `RequestBody.ToReplayableAsync()` before the first send if retries are needed.
+  `IAsyncDisposable`. A single-use *request* body (stream-backed) throws `StreamConsumedException` on a second
+  *write*; a stream-backed *response* body is spent by its first convenience read, which disposes it, so a second read throws `StreamClosedException`, and a second *open* returns the
+  first stream; call `RequestBody.ToReplayableAsync()` before the first send if retries are needed.
 - **The dependency rule for core** (roadmap constraint 2; design §2.4 is the authority). `Dexpace.Sdk.Core`
   may reference only assemblies in the `Microsoft.NETCore.App` reference pack of its target framework,
   `Microsoft.Extensions.Logging.Abstractions` (band-matched to the target, 10.0.x), and build-only packages
@@ -203,9 +204,9 @@ Layered, bottom-up:
 - **Lock files are committed.** After changing `Directory.Packages.props` or a reference, run
   `dotnet restore` (both solutions) and commit every changed `packages.lock.json`; CI's locked restore
   fails otherwise. `DexpaceToolchainPackVersion` moves with `global.json`.
-- **Single-use bodies throw on second consumption.** `RequestBody.FromStream` /
-  `ResponseBody.FromStream` raise `StreamConsumedException` the second time they are *read*; a second *open* of a response body
-  returns the first handle (an open after dispose throws `StreamClosedException`). Buffer first
+- **Single-use bodies throw on second consumption.** `RequestBody.FromStream` raises `StreamConsumedException` the second time it is
+  *written*. `ResponseBody.FromStream` never does: the first convenience read (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) disposes the body, so a second read or open throws `StreamClosedException`, and a
+  convenience read after a manual open and drain returns the empty remainder of the same handle. A second *open* of a response body returns the first handle (an open after dispose throws `StreamClosedException`). Buffer first
   (`ToReplayableAsync`) when retries are in play. The exception: a `RequestBody.FromStream` over a readable, seekable
   stream with a declared length is replayable (it seeks the caller's stream before each write). Disposal is latched: a
   `Response` or `ResponseBody` releases at most once, and a `ResponseBody` subclass overrides `Dispose(bool)`, not `Dispose()`.
@@ -223,7 +224,7 @@ Layered, bottom-up:
   (`docs/sdk-documentation/transport.md`).
 - **A transport failure is an `IOException`, not an `SdkException`; a second open of a response body is not an error.** `catch (SdkException)` does not catch `ServiceRequestException`
   (`catch (IOException)` does, and `IRetryableError` still marks it retryable). `ResponseBody.OpenReadAsync` / `OpenRead` return the first stream on the second call and throw `StreamClosedException` only after dispose; a `StreamConsumedException`
-  is the second *read* of a single-use body. A caller that abandons a bridged blocking call awaits it with `ResponseTaskExtensions.WaitOrDisposeAsync`, never `Task.WaitAsync(token)`, or a response that lands in the same instant is never closed.
+  is the second *write* of a single-use request body (or the response-logging wrapper's tail past its capture cap), never a response body's second read. A caller that abandons a bridged blocking call awaits it with `ResponseTaskExtensions.WaitOrDisposeAsync`, never `Task.WaitAsync(token)`, or a response that lands in the same instant is never closed.
   The ledger of every departure from the spec is `docs/deviations.md`; a retained entry names a reason class, and `LedgerAuditTests` fails a cited `path:line` that no longer exists in its file and a negative scan whose paths read no file; it does not check that a cited line still holds what the ledger says, so a change that moves a cited line re-derives the citation by hand in the same pull request.
 - **Redirects follow only `GET` and `HEAD` by default, and 303 is opt-in.** `RedirectOptions` defaults to 3 hops, `AllowedMethods = {GET, HEAD}`
   and `FollowSeeOther = false`; a `POST` is never rewritten to a `GET`. An https to http hop throws `RedirectSchemeDowngradeException` and a

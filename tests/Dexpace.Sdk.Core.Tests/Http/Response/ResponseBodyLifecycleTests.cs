@@ -283,6 +283,44 @@ public class ResponseBodyLifecycleTests
         body.Dispose();
     }
 
+    // Review fix (CLAUDE.md said a stream-backed response body "throws StreamConsumedException on a second read"): a convenience read disposes the
+    // body, so the second one reports the dispose, and a stream-backed response body never raises StreamConsumedException (that is the request side's
+    // second write and the logging wrapper's tail past its cap).
+    [Theory]
+    [InlineData("bytes", false)]
+    [InlineData("bytes", true)]
+    [InlineData("string", false)]
+    [InlineData("string", true)]
+    public async Task A_second_convenience_read_of_a_stream_body_reports_closed_never_consumed(string reader, bool sync)
+    {
+        var body = ResponseBody.FromStream(new MemoryStream([104, 105]));
+        _ = sync ? Read(body, reader) : await ReadAsync(body, reader);
+
+        var thrown = sync
+            ? Assert.Throws<StreamClosedException>(() => Read(body, reader))
+            : await Assert.ThrowsAsync<StreamClosedException>(() => ReadAsync(body, reader));
+
+        Assert.IsNotType<StreamConsumedException>(thrown);
+
+        static object Read(ResponseBody body, string reader) => reader == "bytes" ? body.ReadAsBytes(Token) : body.ReadAsString(cancellationToken: Token);
+        static async Task<object> ReadAsync(ResponseBody body, string reader) =>
+            reader == "bytes" ? await body.ReadAsBytesAsync(Token) : await body.ReadAsStringAsync(cancellationToken: Token);
+    }
+
+    [Fact]
+    public async Task A_convenience_read_after_a_manual_drain_of_a_stream_body_returns_the_empty_remainder_of_the_same_handle()
+    {
+        var body = ResponseBody.FromStream(new MemoryStream([1, 2, 3]));
+        var handle = await body.OpenReadAsync(Token);
+        using var drained = new MemoryStream();
+        await handle.CopyToAsync(drained, Token);
+
+        var rest = await body.ReadAsBytesAsync(Token);
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, drained.ToArray());
+        Assert.Empty(rest);
+    }
+
     [Fact]
     public async Task A_typed_reader_after_a_manual_open_reads_the_remaining_bytes_of_the_same_handle()
     {
