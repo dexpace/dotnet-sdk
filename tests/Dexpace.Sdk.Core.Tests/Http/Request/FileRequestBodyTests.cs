@@ -284,6 +284,60 @@ public sealed class FileRequestBodyTests : IDisposable
         var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile(path));
 
         Assert.Contains("socket", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, error.Message, StringComparison.Ordinal);
+    }
+
+    // Review fix: the classification must not open a regular file. An empty regular file the process may not read (mode 000) was accepted before
+    // phase 11, because nothing opens a count-0 body, and stays accepted; the type check used to open it and fail with an UnauthorizedAccessException
+    // whose message is the path.
+    [Fact]
+    public async Task An_empty_regular_file_the_process_may_not_read_is_accepted()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "File modes are a Unix concept.");
+        var path = NewFile([], "locked.bin");
+        SetUnixMode(path, UnixFileMode.None);
+        Assert.SkipWhen(CanOpenForRead(path), "This process can read a mode-000 file (it is running as root), so the file is not unreadable here.");
+
+        var body = RequestBody.FromFile(path);
+
+        Assert.Equal(0, body.ContentLength);
+        Assert.Empty(await WriteAsync(body));
+        Assert.Empty(WriteSync(body));
+    }
+
+    [Fact]
+    public void A_fifo_the_process_may_not_open_is_rejected_by_its_kind_and_not_its_path()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no FIFO.");
+        var path = Path.Combine(_directory, "locked-pipe");
+        Assert.SkipUnless(TryMakeFifo(path), "mkfifo is not available on this host.");
+        SetUnixMode(path, UnixFileMode.None);
+
+        var error = Assert.Throws<ArgumentException>(() => RequestBody.FromFile(path));
+
+        Assert.Contains("FIFO", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(path, error.Message, StringComparison.Ordinal);
+    }
+
+    private static void SetUnixMode(string path, UnixFileMode mode)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, mode);
+        }
+    }
+
+    private static bool CanOpenForRead(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     // A pin: an empty regular file was always accepted and must stay so, on every platform.

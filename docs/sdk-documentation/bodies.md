@@ -58,7 +58,7 @@ rewritten in place between two writes breaks byte-identity of the two. `FileRequ
 
 > **Domain limit (design §10 entry 31), retired by phase 11 (corrected 2026-10-20).** On Unix `File.Exists` is true and `FileInfo.Attributes` is `Normal` for a FIFO, a device
 > and a regular file alike, and opening a FIFO blocks, so a special file used to report a size of 0 and upload as an **empty body**. `FromFile` now classifies a size-0 path by its
-> file type through `System.Formats.Tar`, which reads the type without opening the path, and refuses a FIFO, a character or block device or a socket with an
+> file type through `System.Formats.Tar`, which reads the type without opening a special file (it opens a regular file to attach its content, and a regular file the process may not read is still accepted when empty), and refuses a FIFO, a character or block device or a socket with an
 > `ArgumentException` naming the kind (never the path). An empty regular file and a symbolic link to a regular file are unchanged; a link to a special file is refused as its target.
 > Windows keeps its device-attribute check. Only a path whose size is 0 is classified, so a sized file costs nothing extra.
 

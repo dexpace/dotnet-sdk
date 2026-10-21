@@ -32,9 +32,10 @@ namespace Dexpace.Sdk.Core.Http.Request;
 /// <see cref="FileNotFoundException"/>, a directory throws <see cref="ArgumentException"/>, a symbolic link is resolved to
 /// its target before the size is taken. A device throws <see cref="ArgumentException"/> on Windows (by its attribute) and on
 /// Unix, where a FIFO, a character or block device and a socket also throw: the shared framework reports such a file as
-/// length 0, so a path of length 0 is classified by its file type through <c>System.Formats.Tar</c>, which opens nothing (a
-/// FIFO opened for read blocks). <b>Breaking:</b> a special file used to upload as an empty body. An empty regular file is
-/// accepted, and <b>a count of 0 never opens the file</b>.
+/// length 0, so a path of length 0 is classified by its file type through <c>System.Formats.Tar</c>, which opens no special
+/// file (a FIFO opened for read blocks) and opens a regular file only to attach its content, a refusal of which reads as
+/// "regular". <b>Breaking:</b> a special file used to upload as an empty body. An empty regular file is accepted, whether or
+/// not the process may read it, and <b>a count of 0 never opens the file</b> to write it.
 /// </para>
 /// <para>Equality is identity.</para>
 /// </remarks>

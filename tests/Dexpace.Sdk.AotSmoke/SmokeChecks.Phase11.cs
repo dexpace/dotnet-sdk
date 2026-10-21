@@ -18,7 +18,7 @@ internal static partial class SmokeChecks
         Expect(ReferenceEquals(first, body.OpenRead()), "a second open of a response body returns the same stream under NativeAOT");
         body.Dispose();
 
-        // BODY-11, HTTP-40 (task 3.3): FromFile classifies a size-0 path through System.Formats.Tar without opening it, so a Unix character
+        // BODY-11, HTTP-40 (task 3.3): FromFile classifies a size-0 path through System.Formats.Tar without opening a special file, so a Unix character
         // device is refused at construction; the classification is trim- and AOT-clean (the publish prints no warning).
         if (OperatingSystem.IsLinux())
         {

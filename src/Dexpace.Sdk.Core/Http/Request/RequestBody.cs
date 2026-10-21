@@ -307,7 +307,8 @@ public abstract class RequestBody
         }
 
         // BODY-11, HTTP-40 (P11-13): a Unix FIFO or device reports a length of 0, so only a size-0 path needs the type check, which
-        // opens nothing. The message names the kind, never the path.
+        // opens no special file (the tar writer opens a regular file, and an unreadable empty one is still accepted, as it was before the
+        // check). The message names the kind, never the path.
         var length = file.Length;
         if (length == 0 && !OperatingSystem.IsWindows() && UnixFileKind.SpecialKindOf(file.FullName) is { } kind)
         {

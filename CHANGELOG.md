@@ -738,7 +738,7 @@ for free before the first release, and corrected what could not; the clauses sti
   requires an inbound refusal where it used to accept a refusal or a trim, with a negative control for a model that trims.
 - **Breaking (phase 11):** `RequestBody.FromFile` refuses a Unix special file at construction (`BODY-11`, `HTTP-40`; design §10 entry 31). A FIFO, a character or block
   device or a socket reports a length of 0, so it used to upload as an empty body; a size-0 path is now classified by its file type through `System.Formats.Tar` (in the shared framework,
-  which opens nothing, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file and a symbolic link to a regular file are unchanged;
+  which opens no special file, so a FIFO does not block) and throws `ArgumentException` naming the kind, never the path. An empty regular file, readable or not, and a symbolic link to a regular file are unchanged;
   a link to a special file is refused as its target. Windows keeps its device-attribute check. The NativeAOT smoke refuses `/dev/null`.
 - **Breaking (phase 11):** `Request` (the constructor and so `WithUrl`, `WithMethod`, `WithHeaders`, `WithBody`) rejects a `Uri` created with
   `UriCreationOptions.DangerousDisablePathAndQueryCanonicalization` with an `ArgumentException` (`ParamName` `url`; the message names the cause and not the input). Such a `Uri` keeps
@@ -801,6 +801,11 @@ for free before the first release, and corrected what could not; the clauses sti
   libraries and fails a catch-all that neither ends in a rethrow nor excludes fatal exceptions in its `when`.
 - **Fixed (phase 11):** the quiet dispose records its failure only on a recording activity (`OBS-21`; design §10 entry 23). An `Activity` whose sampler only propagates context
   (`IsAllDataRequested` false) still stored an `exception` event, so a span that must be inert was written to; the write is now guarded.
+- **Fixed (phase 11):** `RequestBody.FromFile` accepts an empty regular file the process may not read again (`BODY-11`, `HTTP-40`; design §10 entry 31). The Unix type check wrote the path into an
+  in-memory tar archive, and the tar writer opens a regular file to attach its content, so a mode-000 empty file failed construction with an `UnauthorizedAccessException` whose message is the full path
+  (it was accepted before phase 11, since a count of 0 never opens the file). A refusal to open, or any other system-call failure inside the writer, now classifies the path as regular; only the managed
+  `IOException` the writer throws for a file type it has no tar type for (a Unix domain socket, told by its `HResult` carrying no errno) is reported as a `socket`, and no operating-system message
+  reaches the caller. A FIFO and a device are classified without being opened, mode 000 or not.
 - **Fixed (phase 11):** the retry attempt header can no longer overwrite a configured idempotency key (`RETRY-38`; design §11 item 10). `RetryOptions.AttemptHeaderName` refused only the literal
   `Idempotency-Key`, but `IdempotencyKeyStep.HeaderName` is configurable, so `HeaderName = "X-Request-Key"` with `AttemptHeaderName = "X-Request-Key"` replaced the key with the attempt number
   on every send of a retried `POST`. The pair is now refused where the stack that holds both is assembled: `PipelineBuilder.Build` (an `InvalidOperationException`) and a per-call
