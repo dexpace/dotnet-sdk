@@ -295,10 +295,21 @@ public sealed class PipelineBuilder
     /// <param name="transport">The terminal transport; the pipeline never owns or disposes it.</param>
     /// <param name="options">The client options to capture.</param>
     /// <returns>The pipeline.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The pipeline holds a <see cref="RetryPolicy"/> and an <see cref="IdempotencyPolicy"/>, and
+    /// <see cref="RetryOptions.AttemptHeaderName"/> of <paramref name="options"/> is the header the idempotency policy stamps its
+    /// key under, which the attempt stamp would overwrite on every send (RETRY-38).
+    /// </exception>
     public HttpPipeline Build(IAsyncHttpClient transport, DexpaceClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(transport);
         ArgumentNullException.ThrowIfNull(options);
+
+        // RETRY-38: the attempt stamp may not replace the key an IdempotencyPolicy stamped.
+        if (AttemptHeaderGuard.Collision(_entries.Select(e => e.Policy), options.Retry) is { } collision)
+        {
+            throw new InvalidOperationException(collision);
+        }
 
         // Stable sort by the stage recorded at insertion (fact 5: OrderBy is stable).
         PipelineEntry[] sorted = [.. _entries.OrderBy(e => (int)e.Stage)];

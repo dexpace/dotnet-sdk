@@ -104,7 +104,7 @@ is gone (`RETRY-7`). Retries are capped at `MaxRetryAttempts` after the first se
 | `FixedDelay` | `null` | when set, replaces the whole schedule: no growth, no jitter, no `MaxDelay` cap (`RETRY-43`) |
 | `HonorRetryAfter` | `true` | the stage policy honours the server's pacing headers |
 | `RetryableStatusCodes` | the six above | copied at `init`; 400 to 599 |
-| `AttemptHeaderName` | `null` | when set, every send carries `name: <1-based send number>` (`RETRY-38`, `RECOV-31`); the stamp **replaces** any value the request already carries under that name, so a send holds exactly one, and `Idempotency-Key`, in any case, is refused with `ArgumentException` (phase 11) |
+| `AttemptHeaderName` | `null` | when set, every send carries `name: <1-based send number>` (`RETRY-38`, `RECOV-31`); the stamp **replaces** any value the request already carries under that name, so a send holds exactly one, and `Idempotency-Key`, in any case, is refused with `ArgumentException` (phase 11). The name may not be the header a configured `IdempotencyKeyStep` stamps its key under either: `PipelineBuilder.Build` (an `InvalidOperationException`), a per-call `DexpaceClientOptions` override on the pipeline (an `ArgumentException`, before anything is sent) and `RecoveryDispatcher`'s constructor (an `ArgumentException`) refuse the pair, because the stamp would otherwise send the attempt number as the key |
 | `PacingHeaders` | `Retry-After`, `retry-after-ms`, `x-ms-retry-after-ms`, `X-RateLimit-Reset` | the headers the stage policy reads, in this order; a subset in any order, no duplicate, at least one, matched ignoring case and stored in this spelling (`RETRY-21`, phase 11; configuration key `Retry:PacingHeaders`) |
 
 Every member validates where it is set (`RECOV-34`), including through `with`; equality is by value. The delay before retry `n`
@@ -194,6 +194,6 @@ and the effective count was above zero (`OBS-28`, `OBS-29`). `MaxRetryAttempts =
 | a response arriving after your token fired was returned | it is disposed and the call throws `OperationCanceledException` |
 | `OverallTimeout` expiry threw `OperationCanceledException` | throws `OperationTimeoutException` |
 | `OverallTimeout = TimeSpan.Zero` or negative meant "none" | rejected where set; use `null` |
-| *(phase 11)* `AttemptHeaderName` appended its value to one the request already had; `"Idempotency-Key"` was accepted | the stamp replaces; `Idempotency-Key` throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start) |
+| *(phase 11)* `AttemptHeaderName` appended its value to one the request already had; `"Idempotency-Key"` was accepted | the stamp replaces; `Idempotency-Key` throws `ArgumentException` (and fails `Retry:AttemptHeaderName` at start), and so does any header a configured `IdempotencyKeyStep` stamps its key under, where the stack is assembled |
 | *(phase 11)* the pacing headers were a fixed order | `RetryOptions.PacingHeaders`, the same order by default |
 | `new OperationPolicy()` | `new OperationPolicy(TimeProvider? = null)` (source-compatible) |

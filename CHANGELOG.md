@@ -801,6 +801,12 @@ for free before the first release, and corrected what could not; the clauses sti
   libraries and fails a catch-all that neither ends in a rethrow nor excludes fatal exceptions in its `when`.
 - **Fixed (phase 11):** the quiet dispose records its failure only on a recording activity (`OBS-21`; design §10 entry 23). An `Activity` whose sampler only propagates context
   (`IsAllDataRequested` false) still stored an `exception` event, so a span that must be inert was written to; the write is now guarded.
+- **Fixed (phase 11):** the retry attempt header can no longer overwrite a configured idempotency key (`RETRY-38`; design §11 item 10). `RetryOptions.AttemptHeaderName` refused only the literal
+  `Idempotency-Key`, but `IdempotencyKeyStep.HeaderName` is configurable, so `HeaderName = "X-Request-Key"` with `AttemptHeaderName = "X-Request-Key"` replaced the key with the attempt number
+  on every send of a retried `POST`. The pair is now refused where the stack that holds both is assembled: `PipelineBuilder.Build` (an `InvalidOperationException`) and a per-call
+  `DexpaceClientOptions` override passed to `HttpPipeline.SendAsync`/`Send` (an `ArgumentException`, before anything is sent) for an `IdempotencyPolicy` beside a `RetryPolicy`, and the
+  `RecoveryDispatcher` constructor (an `ArgumentException`) for an `IdempotencyKeyStep` in the request chain beside a `RetryRecovery`. Names compare ignoring case; a custom policy or step that
+  stamps a key of its own is opaque to the check.
 
 ### Phase 7a — serde
 

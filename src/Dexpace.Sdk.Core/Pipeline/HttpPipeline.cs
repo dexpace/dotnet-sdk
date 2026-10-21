@@ -256,6 +256,7 @@ public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(requestOptions);
+        RequireNoAttemptKeyCollision(options);
 
         // OBS-29, P5c-2: the operation span opens at call entry, before the dispatch context is built, so the bundle (and the
         // CallKey minted from it, CTX-17) carries the operation span's ids. An untraced call's bundle is None (P5c-3).
@@ -297,6 +298,16 @@ public sealed class HttpPipeline : IAsyncHttpClient, IHttpClient
         finally
         {
             OperationTelemetry.Stop(operation, settled);
+        }
+    }
+
+    // RETRY-38: Build refuses the captured options' collision; a per-call override never passed through Build, so it is refused here,
+    // before the operation span opens and before anything is sent.
+    private void RequireNoAttemptKeyCollision(DexpaceClientOptions options)
+    {
+        if (!ReferenceEquals(options, ClientOptions) && AttemptHeaderGuard.Collision(Policies, options.Retry) is { } collision)
+        {
+            throw new ArgumentException(collision, nameof(options));
         }
     }
 

@@ -216,7 +216,10 @@ public sealed record RetryOptions
     /// </summary>
     /// <remarks>
     /// The name may not be <c>Idempotency-Key</c>, in any case: the stamp preserves the idempotency key (RETRY-38), and a stamp that
-    /// replaced it would send the attempt number as the key.
+    /// replaced it would send the attempt number as the key. An idempotency step can be configured to use another header
+    /// (<see cref="Recovery.IdempotencyKeyStep.HeaderName"/>), which this setter cannot see; the stack that holds both refuses the
+    /// pair where it is assembled: <see cref="Pipeline.PipelineBuilder.Build(Client.IAsyncHttpClient, DexpaceClientOptions)"/> and a
+    /// per-call <see cref="DexpaceClientOptions"/> override on the stage stack, <see cref="Recovery.RecoveryDispatcher"/> on the recovery stack.
     /// </remarks>
     /// <exception cref="ArgumentException">The value is not an HTTP token, or it is the idempotency key's name.</exception>
     public string? AttemptHeaderName
