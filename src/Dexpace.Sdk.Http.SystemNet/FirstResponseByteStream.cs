@@ -36,8 +36,8 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// <para>
 /// <b>The window it does not close.</b> The state is set by the first write of a request, so a read that returns 0 before that write passes
 /// through; it has to, because an idle connection that the server closes is not a failed request. The runtime reuses a pooled connection
-/// after checking that the read it keeps outstanding on an idle connection has not completed (reasoned from the runtime's source, not
-/// reproduced here). A server close that lands after that check and before the transport's first write completes the outstanding read
+/// after checking that the read it keeps outstanding on an idle connection has not completed. This window is reasoned, not reproduced: a test cannot
+/// land a close between the runtime's check and the transport's first write. A server close that lands after that check and before the transport's first write completes the outstanding read
 /// with 0 while the state is clear; the runtime then writes the request into the closed connection, takes that 0 as the first read of the
 /// response, and may re-send the request once on a new connection. That is the stale-pooled-connection retry every HTTP client has,
 /// and it is a request that, in the usual case, never reached the server's application because the server had already closed the
