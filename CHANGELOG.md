@@ -806,6 +806,10 @@ for free before the first release, and corrected what could not; the clauses sti
   (it was accepted before phase 11, since a count of 0 never opens the file). A refusal to open, or any other system-call failure inside the writer, now classifies the path as regular; only the managed
   `IOException` the writer throws for a file type it has no tar type for (a Unix domain socket, told by its `HResult` carrying no errno) is reported as a `socket`, and no operating-system message
   reaches the caller. A FIFO and a device are classified without being opened, mode 000 or not.
+- **Fixed (phase 11):** a second `HttpResponseException.GetError` / `GetErrorAsync` over a `SystemNetHttpClient` response throws `ResponseNotReadException` again (`BODY-14`, `HTTP-41`; design §10 entry 6). The body returns the first stream on a
+  second open, and the content stream `SocketsHttpHandler` hands out reads 0 bytes after it is disposed instead of throwing, so the second call decoded an empty payload (the CHANGELOG entry above said it threw). The transport's body now hands out a
+  stream that reports its own disposal: once a consumer disposed it, the same handle comes back from a later open and every read throws `ObjectDisposedException`, as the stream of every other body does, which `GetError*` already reads as "already
+  consumed". A manual open, drain and dispose followed by a convenience read now fails the same way instead of returning an empty array.
 - **Fixed (phase 11):** the retry attempt header can no longer overwrite a configured idempotency key (`RETRY-38`; design §11 item 10). `RetryOptions.AttemptHeaderName` refused only the literal
   `Idempotency-Key`, but `IdempotencyKeyStep.HeaderName` is configurable, so `HeaderName = "X-Request-Key"` with `AttemptHeaderName = "X-Request-Key"` replaced the key with the attempt number
   on every send of a retried `POST`. The pair is now refused where the stack that holds both is assembled: `PipelineBuilder.Build` (an `InvalidOperationException`) and a per-call

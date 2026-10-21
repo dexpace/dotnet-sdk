@@ -141,7 +141,9 @@ first). An in-memory body (`FromBytes`) that was never opened still serves after
 connection. **A second open in either form returns the first stream** (`BODY-14`, `HTTP-41`; design §10 entry 6, retired by phase 11): `OpenReadAsync` then `OpenRead`, or the reverse, hand
 back the one handle the first open obtained, not a replay and not a failure, and the convenience readers (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) after a manual open read the
 remaining bytes of that same stream. This page said a second open throws `StreamConsumedException` and names the buffering route; that is now only the response-logging wrapper's
-rule past its capture cap, where the tail is single-use (`BODY-24`). A second *read* of a single-use body still throws `StreamConsumedException`. The buffered error
+rule past its capture cap, where the tail is single-use (`BODY-24`). A second *read* of a single-use body still throws `StreamConsumedException`. The stream a second open returns is the first one even after a consumer disposed it, and
+a read of a disposed stream throws `ObjectDisposedException` on every body, the transport's included (*corrected 2026-10-21, review:* the stream `SocketsHttpHandler` hands out reads 0 bytes after it is disposed, so the
+transport wraps it in a stream that reports its own disposal; before, a second `HttpResponseException.GetError*` over a transport response decoded an empty payload instead of throwing `ResponseNotReadException`). The buffered error
 body an `HttpResponseException` carries is replayable and opens a fresh view every time, before and after the response is
 disposed (`BODY-33`).
 

@@ -12,7 +12,10 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// Disposing the body (at most once, by the base class's latch) disposes the underlying <see cref="HttpResponseMessage"/>,
 /// releasing the connection back to the pool. The first open obtains the content stream and every later open, in either
 /// form, returns that same stream (BODY-14, HTTP-41); a body opened after it was disposed throws
-/// <see cref="StreamClosedException"/> (P3b-11), whether or not it was opened before.
+/// <see cref="StreamClosedException"/> (P3b-11), whether or not it was opened before. The handle is a
+/// <see cref="DisposalAwareStream"/> over the content stream: once the stream itself is disposed, the same handle comes back
+/// from a later open and fails every read with <see cref="ObjectDisposedException"/>, as the other bodies' streams do (the
+/// content stream <c>SocketsHttpHandler</c> hands out would read 0 bytes there, an empty payload).
 /// </summary>
 internal sealed class HttpResponseMessageBody : ResponseBody
 {
@@ -60,7 +63,11 @@ internal sealed class HttpResponseMessageBody : ResponseBody
 
     // The content hands out one stream per message however often it is asked, so two first opens racing agree already; the
     // compare-and-set keeps the handle this body returns single even over a content type that does not.
-    private Stream Publish(Stream obtained) => Interlocked.CompareExchange(ref _stream, obtained, null) ?? obtained;
+    private Stream Publish(Stream obtained)
+    {
+        var handle = new DisposalAwareStream(obtained);
+        return Interlocked.CompareExchange(ref _stream, handle, null) ?? handle;
+    }
 
     private void ThrowIfClosed()
     {
