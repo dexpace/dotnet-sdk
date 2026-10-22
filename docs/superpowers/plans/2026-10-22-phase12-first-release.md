@@ -1,7 +1,7 @@
 # Phase 12 — First Release: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-22 against `main` at `6b49af6` (phases 0 to 11 merged), on branch `107-phase-12-first-release` at tip
-`1b6b6c9` (the design commit), for issue #107. Design: [phase 12 design](../specs/2026-10-22-phase12-first-release-design.md) (filed by task 5.5 to
+`1b6b6c9` (the design commit), for issue #107. Revised 2026-10-22 after review (ParamName helper sites, signing scope, fence isolation, HEAD-only reproducible-pack, and smaller corrections). Design: [phase 12 design](../specs/2026-10-22-phase12-first-release-design.md) (filed by task 5.5 to
 `docs/work/mvp/phase12/2026-10-22-phase12-first-release-design.md`), the authority for every decision below. The plan cites its facts (`V1`..`V20`),
 decisions (`P12-1`..`P12-26`) and ledger entries (`P12-D1`..`P12-D4`) rather than restating them. Format precedent: the phase 11 plan
 (`docs/work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation.md`).
@@ -41,7 +41,9 @@ task 0.2 is the lead's CI read. Proposed branches, each off its predecessor, the
 5. **`Security` tests are never deleted or loosened.** Phase 12 adds none and edits none. Gate: `git diff --stat main...HEAD -- '**/Security/*.cs'` is empty.
 6. **`PublicAPI`.** No task changes a public member (task 1.2 changes an exception's `ParamName`, not a signature). The only `PublicAPI.*` edit is the
    move of task 2.4. If a contingent task (1.C1 to 1.C3) does change a signature, it is an `Unshipped` line and the task says so; RS0016/RS0017 are the
-   authority. After 2.4 `Unshipped` is `#nullable enable` alone at the phase's exit.
+   authority. After 2.4 `Unshipped` is `#nullable enable` alone at the phase's exit: any `Unshipped` line a contingent fix adds after the move of 2.4 is
+   folded into `Shipped` (appended in order, `Unshipped` back to the header alone) before task 5.6, in the contingent task's own commit or a `chore:` commit
+   of its own, and the checklist (5.2) records it.
 7. **Breaking changes** get a `CHANGELOG.md` `[Unreleased]` line **in the same commit** (constraint 8), under a `### Phase 12 — first release` heading
    (created by the first task that needs it, 1.1). Task 1.2 is the one **Breaking** line; strong naming (2.1) is an identity change recorded as *Changed*,
    not Breaking, because nothing is published.
@@ -59,7 +61,7 @@ task 0.2 is the lead's CI read. Proposed branches, each off its predecessor, the
 12. **The ledger cites lines.** `docs/deviations.md` cites `path:line` and `LedgerAuditTests` (L1 to L11) fails a line past the end of its file; it does not
     check that a cited line still holds what the ledger says. A task that moves a cited line re-derives the citation by hand in the same commit. The cited
     lines this plan can move: `HeaderDropLog.cs:123` (task 1.1, `docs/deviations.md` lines 55 and 189) and `RetryOptions.cs:60`, `:178`, `:225` and
-    `SystemNetHttpClientOptions.cs:116` (task 1.2 keeps its edits line-neutral; the verify step greps the ledger).
+    `SystemNetHttpClientOptions.cs:116` (task 1.2 keeps its edits line-neutral, including its fourteen one-line `ThrowIf*` edits, `RetryOptions.cs:60` among them; the verify step greps the ledger).
 13. **Frozen documents get dated corrections.** `docs/sdk-design-dotnet/` and `docs/product-spec/` are never rewritten; a change is a dated correction
     (`**Dated correction, 2026-10-22 (phase 12, P12-n).**`). `docs/knowledge/notes/` is hand-written and append-only; `harvested/` is never touched.
     `docs/first-release.md` keeps its `### Unsatisfied MUSTs` heading and list shape (`LedgerAudit` rule L6, V17).
@@ -113,7 +115,8 @@ task 0.2 is the lead's CI read. Proposed branches, each off its predecessor, the
      globs).
    - **V9 and V10**: in a copy of the tree under **S**, generate a key (task 2.1 gives the blob layout), set `SignAssembly` with the `Key` metadata, and
      confirm `CS1726` without it, a clean build with it, and `CS0281` for a `CALG_RSA_KEYX` blob.
-   - **V11**: `grep -rn "nameof(value)" src --include='*.cs'` (the files are listed in task 1.2).
+   - **V11**: `grep -rn "nameof(value)" src --include='*.cs'` and, for the sites that grep cannot see (design amendment to V11),
+     `grep -rnE "ThrowIf(Negative|LessThan|LessThanOrEqual|NullOrWhiteSpace|NullOrEmpty)\(value[,)]" src --include='*.cs'` (the files are listed in task 1.2; the second grep finds exactly 14 lines, all accessors).
    - **V15**: count ` ```csharp ` fences in `README.md`, `docs/sdk-documentation/*.md`, `src/*/README.md` (71) and those naming `Dexpace.Sdk` (7).
    - **V19**: `cat nuget.config`; `git remote -v` (visibility is not readable, and is not read).
 5. Confirm the sibling sources task 4.5 ports exist as git objects (a local read, not a remote one):
@@ -159,7 +162,8 @@ declaration outside a comment line (one type per file is the repository conventi
   methods as `internal static partial void`: `Dropped(ILogger, LogLevel, string headerName)` (event `TransportHeaderDropped`), `FramingDropped(ILogger,
   string)`, `InboundDropped(ILogger, string)` and `ProxyFeatureUnsupported(ILogger, string feature, string member)`. Move the four `[LoggerMessage(...)]`
   attributes with their `EventId`, `EventName`, `Level` and `Message` text **unchanged**, and the SYSLIB1006 comment (one method serves both levels of the
-  request-header drop) from `HeaderDropLog.cs:39-41` with them. Reading R3: the design's "one `static partial` class" is a new class, because `HeaderDropLog`
+  request-header drop, `HeaderDropLog.cs:39-40`) with them. **Moves:** the four attributes with their declarations and that two-line comment. **Stays in
+  `HeaderDropLog`:** `s_warning` and `s_quiet` (`:41-42`), which are only re-pointed at `TransportLog.Dropped`. Reading R3: the design's "one `static partial` class" is a new class, because `HeaderDropLog`
   is an instance class and `ProxyWarnings` a static one.
 - `HeaderDropLog`: drop `partial` from the declaration; `s_warning`/`s_quiet` call `TransportLog.Dropped(logger, LogLevel.Warning|Debug, headerName)`; the
   framing and inbound callers call `TransportLog.FramingDropped` / `InboundDropped`; delete the three generated-method declarations.
@@ -173,50 +177,77 @@ assert event ids, names and messages, which are unchanged.
 
 **Verify.** V-build; V-core `LoggerMessageDeterminismArchitectureTests`; `dotnet test --project tests/Dexpace.Sdk.Http.SystemNet.Tests -c Release --no-build`
 (whole project); V-conf-tests `LedgerAuditTests`; V-fmt. **The fix is judged by the generator's output, not by a run count (V7, reading R5):** repeat the
-task-0.1 probe: eight builds must give **one** distinct `LoggerMessage.g.cs` hash (before: two). Then `scripts/ci/reproducible-pack.sh artifacts/reproducible`
-three times as a smoke only.
+task-0.1 probe: eight builds must give **one** distinct `LoggerMessage.g.cs` hash (before: two). Then **commit, then run** `scripts/ci/reproducible-pack.sh
+artifacts/reproducible` three times as a smoke only: the script packs two `git worktree` checkouts of committed `HEAD` (its header, lines 9-10), never the
+working tree, so an uncommitted fix is not what it measures.
 **IDs.** `NFR-12` (build half). `TRANSPORT-12`, `TRANSPORT-13`, `TRANSPORT-30`, `OBS-19`, `OBS-20` are untouched (event ids and messages unchanged).
 **Commit.** `fix: one [LoggerMessage] type per assembly so the packs are reproducible (NFR-12)`.
 
-## Task 1.2 — Validating `init` accessors name their property for range and format rejections (P12-14; V11)
+## Task 1.2 — Validating `init` accessors name their property for range and format rejections (P12-14; V11 and its amendment)
 
-**Files.** `src/Dexpace.Sdk.Core/Configuration/ProxyOptions.cs`, `RetryOptions.cs`, `DexpaceClientOptions.cs`; `src/Dexpace.Sdk.Core/Http/Request/RequestOptions.cs`;
-`src/Dexpace.Sdk.Core/Auth/AuthRequirement.cs`; `src/Dexpace.Sdk.Http.SystemNet/SystemNetHttpClientOptions.cs`;
-`src/Dexpace.Sdk.Conformance/Subjects/TransportSubject.cs`; new `tests/Dexpace.Sdk.Core.Tests/Configuration/InitAccessorRejectionParamNameTests.cs`;
-`tests/Dexpace.Sdk.Http.SystemNet.Tests/InitAccessorParamNameTests.cs` (rows added); `CHANGELOG.md`.
+**Files.** `src/Dexpace.Sdk.Core/Configuration/ProxyOptions.cs`, `RetryOptions.cs`, `DexpaceClientOptions.cs`, `HttpLoggingOptions.cs`, `RedirectOptions.cs`;
+`src/Dexpace.Sdk.Core/Http/Request/RequestOptions.cs`; `src/Dexpace.Sdk.Core/Auth/AuthRequirement.cs`, `AccessTokenCache.cs`, `AuthCredentials.cs`;
+`src/Dexpace.Sdk.Http.SystemNet/SystemNetHttpClientOptions.cs`; `src/Dexpace.Sdk.Conformance/Subjects/TransportSubject.cs`, `CodecSubject.cs`, `InvariantSubject.cs`,
+`PackagingSubject.cs`, `SuiteOptions.cs`, `TransportSuiteOptions.cs`; `tests/Dexpace.Sdk.TestSupport/Source/InitAccessorScanner.cs`; new
+`tests/Dexpace.Sdk.Core.Tests/Configuration/InitAccessorRejectionParamNameTests.cs`; `tests/Dexpace.Sdk.Core.Tests/Configuration/InitAccessorParamNameTests.cs` (coverage test
+re-pointed, scanner fixtures added); `tests/Dexpace.Sdk.Http.SystemNet.Tests/InitAccessorParamNameTests.cs` (rows added); the two tests that pin the defect,
+`tests/Dexpace.Sdk.Core.Tests/Configuration/RedirectOptionsTests.cs:31` and `HttpLoggingOptionsTests.cs:57`; `CHANGELOG.md`.
+
+**The defect has two spellings (the design's V11 amendment).** (a) `nameof(value)` passed to an exception, which V11 listed; (b) a framework throw helper called on `value`,
+`ArgumentOutOfRangeException.ThrowIf*(value…)` and `ArgumentException.ThrowIfNullOrWhiteSpace(value)`, which name the exception after the argument *expression* (`CallerArgumentExpression`),
+so `ParamName` is `"value"` and a `nameof(value)` grep cannot see them. Fourteen accessors are in (b): `HttpLoggingOptions.cs:57` (`BodyPreviewSize`), `RedirectOptions.cs:45`
+(`MaxRedirects`), `RetryOptions.cs:60` (`MaxRetryAttempts`), `SystemNetHttpClientOptions.cs:121` (`ResendBufferLimit`), `AccessTokenCache.cs:72` (`RefreshMargin`), `AuthCredentials.cs:39`
+(`TokenRefreshMargin`), and in the kit `CodecSubject.cs:29` (`Name`), `InvariantSubject.cs:49` (`Name`), `PackagingSubject.cs:19` (`Name`), `:41` (`CoreId`), `:63` (`DeclaredFloor`),
+`TransportSuiteOptions.cs:32` (`AssertionTimeout`), `:47` (`ReleaseTimeout`), `SuiteOptions.cs:35` (`AssertionTimeout`). The five `ThrowIfNullOrWhiteSpace(value)` sites also report `"value"` for a
+**null** (an `ArgumentNullException`), which phase 11's null table did not see.
 
 **Tests first.**
-- `InitAccessorRejectionParamNameTests.A_rejected_value_names_the_property` (Core.Tests, `Unit`): a table keyed `Type.Property` → an action that sets a
-  rejected value, asserting `ParamName == Property` (the existing `InitAccessorParamNameTests` is the null-rejection table; this is its sibling). Rows:
-  `ProxyOptions.Type` (an undefined enum), `.Host` (blank), `.Port` (70000); `RetryOptions.Multiplier` (0.5), `.Jitter` (1.5), `.RetryableStatusCodes` ({200}),
-  `.AttemptHeaderName` (twice: a non-token, and `Idempotency-Key`), `.BaseDelay` (negative), `.MaxDelay` (negative), `.FixedDelay` (negative);
-  `RequestOptions.Timeout` (zero), `.MaxRetries` (-1); `DexpaceClientOptions.BaseAddress` (a relative URI), `.OverallTimeout` (zero), `.AttemptTimeout` (zero);
-  `AuthRequirement.Scopes` (a list holding a `null`); `TransportSubject.Name` (blank). **Red today:** every row reports `"value"`.
-- `InitAccessorParamNameTests` (SystemNet.Tests) gains `A_rejected_value_names_the_property` rows `SystemNetHttpClientOptions.Timeout` (zero) and `.HeaderDropLogging`
-  (undefined enum). **Red today:** `"value"` (`SystemNetHttpClientOptions.cs:85`, `:101`).
-- `InitAccessorRejectionParamNameTests.The_remaining_nameof_value_sites_are_methods_whose_parameter_is_value` (Core.Tests, `Unit`), a ratchet: the files under
-  `src/` that still contain `nameof(value)` are exactly `AsciiFold.cs`, `ETag.cs`, `Headers.cs`, `HttpRange.cs`, `MediaType.cs`, `Protocol.cs`, `Query.cs`,
-  `QuerySplice.cs`, `ServerSentEvent.cs` (V11's "methods whose parameter really is `value`"). **Red today:** the seven files this task fixes are also present.
-  A future file with the idiom fails here and forces a decision. (Reading R6: the scanner cannot see helper methods called from `init`, which is why the
-  behavioural table above exists as well.)
+- **The scanner learns spelling (b) first** (`InitAccessorScanner`, TestSupport, which today recognises three null spellings). Inside an accessor body it also recognises
+  `ArgumentOutOfRangeException.ThrowIf*(value…)`, `ArgumentException.ThrowIfNullOrWhiteSpace(value)` / `ThrowIfNullOrEmpty(value)` and `new Argument*Exception(…, nameof(value))` (the last
+  is `TransportSubject.cs:41`). A site's `NamedParameter` is the `nameof(X)` it passes, else `null` (`NamesItsProperty` is unchanged); `Site` gains a `Kind` (`Null` for the existing
+  spellings and the null half of `ThrowIfNullOrWhiteSpace`, `Rejection` for the rest). A call whose first argument is not `value` is an element and keeps the existing `Element` rule. The
+  scanner's own fixtures in `InitAccessorParamNameTests.The_scanner_flags_a_bare_ThrowIfNull_and_ignores_a_method_parameter` gain one snippet per new spelling (flagged) and a method whose
+  parameter is `value` (ignored). **Red today:** `Every_validating_accessor_in_the_libraries_names_its_property` now reports every site of (b) and `The_table_covers_every_validating_accessor`
+  reports the sites with no row; this replaces the file-level `nameof(value)` allow-list the first draft of this task had (reading R6), so a future accessor of either spelling is caught by
+  the scan, not by a list of nine file names.
+- `The_table_covers_every_validating_accessor` is re-pointed: `Null` sites must equal the null table's keys (today's equality, unchanged), and every `Rejection` site's key must be a key of the
+  rejection table below (the rejection table may hold more rows than the scan sees; see the helper rows).
+- `InitAccessorRejectionParamNameTests.A_rejected_value_names_the_property` (Core.Tests, `Unit`): a table keyed `Type.Property` (a ` (null)` suffix selects a null row, stripped before the
+  comparison) → an action that sets a rejected value, asserting `Assert.ThrowsAny<ArgumentException>` and `ParamName == Property`. The scanner-visible rows (a) and (b):
+  `ProxyOptions.Type` (undefined enum), `.Host` (blank), `.Port` (70000); `RetryOptions.Multiplier` (0.5), `.Jitter` (1.5), `.RetryableStatusCodes` ({200}), `.AttemptHeaderName` (twice: a
+  non-token, and `Idempotency-Key`), `.MaxRetryAttempts` (-1); `AuthRequirement.Scopes` (a list holding a `null`); `TransportSubject.Name` (blank); `HttpLoggingOptions.BodyPreviewSize` (-1);
+  `RedirectOptions.MaxRedirects` (-1); `AccessTokenCache.RefreshMargin` (negative, over a stub `TokenCredential`); `AuthCredentials.TokenRefreshMargin` (negative);
+  `CodecSubject.Name`, `InvariantSubject.Name`, `PackagingSubject.Name`, `.CoreId`, `.DeclaredFloor` (each blank, and ` (null)`); `TransportSuiteOptions.AssertionTimeout`, `.ReleaseTimeout`
+  and `SuiteOptions.AssertionTimeout` (zero). The helper-routed rows the scanner cannot see are kept as behavioural rows: `RetryOptions.BaseDelay`, `.MaxDelay`, `.FixedDelay` (negative; `RequireDuration`),
+  `RequestOptions.Timeout` (zero; `RequireNullOrPositive`), `.MaxRetries` (-1; `RequireNullOrNonNegative`), `DexpaceClientOptions.BaseAddress` (a relative URI; `RequireUsable`), `.OverallTimeout`
+  and `.AttemptTimeout` (zero; `RequireTimeout`). **Red today:** every row reports `"value"`.
+- `InitAccessorParamNameTests` (SystemNet.Tests) gains `A_rejected_value_names_the_property` rows `SystemNetHttpClientOptions.Timeout` (zero), `.HeaderDropLogging` (undefined enum) and
+  `.ResendBufferLimit` (-1). **Red today:** `"value"` (`SystemNetHttpClientOptions.cs:85`, `:101`, `:121`). Its coverage test applies the same `Null`/`Rejection` split to the transport tree.
+- The two existing tests that assert the defect are edited **in this commit**: `RedirectOptionsTests.cs:31` (`Assert.Equal("value", ex.ParamName)` becomes `"MaxRedirects"`) and
+  `HttpLoggingOptionsTests.cs:57` (`Assert.Equal("value", thrown.ParamName, ignoreCase: true)` becomes `"BodyPreviewSize"`). `grep -rn '"value"' tests --include='*.cs'` found no other test
+  that pins an accessor (the other hits are `Parse`/`ServerSentEvent`/`Tristate`/`QuerySplice` methods whose parameter is `value`).
 
-**Change.** Line-neutral where possible (convention 12): pass the property name instead of `nameof(value)`.
+**Change.** Line-neutral where possible (convention 12): pass the property name instead of `nameof(value)` / the implicit expression, on the same line.
 - `ProxyOptions.cs:53` `nameof(Type)`, `:69` `nameof(Host)`, `:82` `nameof(Port)`.
 - `RetryOptions.cs:91` `nameof(Multiplier)`, `:125` `nameof(Jitter)`, `:204` `nameof(RetryableStatusCodes)`, `:232` and `:237` `nameof(AttemptHeaderName)`. The helper
   `RequireDuration(TimeSpan value)` (`:289`) becomes `RequireDuration(TimeSpan value, string paramName)`, throwing with `paramName`; its callers (`:75`
-  `BaseDelay`, `:108` `MaxDelay`, `:144` `FixedDelay`, where the local is `fixedDelay`) pass `nameof(BaseDelay)`, `nameof(MaxDelay)`, `nameof(FixedDelay)`.
+  `BaseDelay`, `:108` `MaxDelay`, `:144` `FixedDelay`, where the local is `fixedDelay`) pass `nameof(BaseDelay)`, `nameof(MaxDelay)`, `nameof(FixedDelay)`. **`:60` stays on `:60`:**
+  `ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(MaxRetryAttempts));` (`docs/deviations.md` line 294 cites `RetryOptions.cs:60` as `ThrowIfNegative`).
 - `RequestOptions.cs`: `RequireNullOrPositive(TimeSpan? value, string paramName)` (`:144`, caller `:36` `Timeout`) and `RequireNullOrNonNegative(int? value, string
   paramName)` (`:154`, caller `:47` `MaxRetries`).
 - `DexpaceClientOptions.cs` (reading R6: not in V11's list, same defect): `RequireUsable(Uri? value, string paramName)` (`:165`, caller `:52` `BaseAddress`) and
   `RequireTimeout(TimeSpan? value, string paramName)` (`:186`, callers `:90` `OverallTimeout`, `:115` `AttemptTimeout`).
 - `AuthRequirement.cs:57` `nameof(Scopes)`; `SystemNetHttpClientOptions.cs:85` `nameof(Timeout)`, `:101` `nameof(HeaderDropLogging)`; `TransportSubject.cs:41`
   `nameof(Name)`.
+- The fourteen of spelling (b), each a one-line edit of the `ThrowIf*` call: add `nameof(<Property>)` as the `paramName` argument (`ThrowIfNegative(value, nameof(MaxRedirects))`,
+  `ThrowIfLessThan(value, TimeSpan.Zero, nameof(RefreshMargin))`, `ThrowIfLessThanOrEqual(value, TimeSpan.Zero, nameof(AssertionTimeout))`, `ThrowIfNullOrWhiteSpace(value, nameof(CoreId))`), at
+  the lines listed above. `SystemNetHttpClientOptions.cs:116` (cited by the ledger) is the property's declaration line above `:121`; both stay put.
 - `CHANGELOG.md`: one **Breaking** line — a rejected range or format value now reports the property in `ParamName` (was `"value"`); lists the properties.
-No existing test asserts `"value"` for these (checked by `grep -rn '"value"' tests --include='*.cs'` in the verify step; edit any hit in this commit).
 
 **Verify.** V-build; V-core `InitAccessorRejectionParamNameTests`, `InitAccessorParamNameTests`, `RetryOptionsTests`, `RequestOptionsTests`, `ProxyOptionsTests`,
-`DexpaceClientOptionsTests`; V-sn `InitAccessorParamNameTests`; V-conf-tests `LedgerAuditTests`; `grep -n "RetryOptions.cs:\|SystemNetHttpClientOptions.cs:"
-docs/deviations.md` and confirm each cited line still holds the declaration it cites (`public IReadOnlyList<string> PacingHeaders` at `:178`, `public string?
+`DexpaceClientOptionsTests`, `RedirectOptionsTests`, `HttpLoggingOptionsTests`; V-sn `InitAccessorParamNameTests`; V-conf-tests `LedgerAuditTests`; `grep -rnE "ThrowIf(Negative|LessThan|LessThanOrEqual|NullOrWhiteSpace|NullOrEmpty)\(value[,)]" src --include='*.cs'`
+finds nothing (before the change: exactly the 14 sites); `grep -n "RetryOptions.cs:\|SystemNetHttpClientOptions.cs:" docs/deviations.md` and confirm each cited line
+still holds the declaration it cites (`public IReadOnlyList<string> PacingHeaders` at `:178`, `public string?
 AttemptHeaderName` at `:225`, `ThrowIfNegative` at `:60`, `public long ResendBufferLimit` at `:116`); V-fmt.
 **IDs.** `SEAM-29`, `HTTP-2` to `HTTP-4` (phase 11 task 2.5's family); `CFG` options validation untouched.
 **Breaking.** `ParamName` of the listed rejections. **Commit.** `fix: validating init accessors name their property for range and format rejections`.
@@ -256,9 +287,10 @@ R2). If L1 reports nothing, there is no commit and the checklist records "not tr
 `tests/Dexpace.Sdk.Conformance.Tests/Gates/StrongNameKeyTests.cs`; `CHANGELOG.md`.
 
 **Test first.** `StrongNameKeyTests` (Conformance.Tests/Gates, `Unit`), reading the repository through `RepositoryRoot`:
-- `The_public_key_property_is_the_key_the_assemblies_are_signed_with` — parses `DexpacePublicKey` (hex) from `Directory.Build.props` and compares it with
-  `typeof(Request).Assembly.GetName().GetPublicKey()` (Core), with the conformance kit's assembly, and with this test assembly's own key (the friend test
-  assemblies are signed, V9). **Red today:** the property is absent and the assemblies carry no key.
+- `The_public_key_property_is_the_key_the_assemblies_are_signed_with` — parses `DexpacePublicKey` (hex) from `Directory.Build.props` and compares it with the public key
+  of **each of the five built libraries** (P12-10: "each built library"), read with `AssemblyName.GetAssemblyName` on `src/*/bin/Release/net10.0/<Id>.dll` (no project reference, so the
+  three libraries this project cannot reference are covered too; the test fails with a message to build Release first if a file is missing, never skips), and with this test assembly's own
+  key (the friend test assemblies are signed, V9). **Red today:** the property is absent and the assemblies carry no key.
 - `The_key_is_a_signing_key` — the first four bytes are `00 24 00 00` (`CALG_RSA_SIGN`; the `CALG_RSA_KEYX` trap of V10 is `00 A4 00 00` and gives `CS0281`).
 - `The_public_key_token_is_the_documented_one` — SHA-1 of the key, last eight bytes reversed, equals a literal in the test (the token the docs quote); a key
   rotation is therefore a visible test edit.
@@ -273,16 +305,23 @@ R2). If L1 reports nothing, there is no commit and the checklist records "not tr
    00 24 00 00 52 53 41 31`, bit length, exponent, modulus). The design's "160-byte" figure (V9) is the probe's 1024-bit key; the size is the plan's choice.
    Commit `Dexpace.Sdk.snk`. The public key is not a secret (design §9.2).
 2. `.gitattributes`: `*.snk binary` (the file has `* text=auto eol=lf`, which must not touch the key).
-3. `Directory.Build.props`: in a new `Label="Strong naming"` group, `SignAssembly` `true`, `AssemblyOriginatorKeyFile` `$(MSBuildThisFileDirectory)Dexpace.Sdk.snk`,
-   and `DexpacePublicKey` (the hex), for **every** project (V9: the friend test assemblies must be signed). `AssemblyVersion` stays the SDK default.
+3. `Directory.Build.props`: in a new `Label="Strong naming"` group, `DexpacePublicKey` (the hex) unconditionally, and `SignAssembly` `true` with `AssemblyOriginatorKeyFile`
+   `$(MSBuildThisFileDirectory)Dexpace.Sdk.snk` **only for projects under `src/` and `tests/`**, by a path test in the style of `DexpaceIsLibrary` (`Directory.Build.props:52`): a new
+   `DexpaceIsSigned` property true when `MakeRelative` of the project directory starts with `src/` or `tests/`. (V9: the friend test assemblies must be signed, so `tests/` is in.) This is
+   decided here, not left as a fallback (reading R8): the reviewer's probe of signing every project broke the tools solution with `CS1726` in `Housekeeping.Tests`, `Knowledge.Tests` and
+   `KnowledgeHarvest.Tests`, because `tools/Knowledge/Knowledge.csproj`, `.claude/skills/housekeeping/src/Housekeeping.csproj` and `.claude/skills/knowledge-harvest/src/KnowledgeHarvest.csproj`
+   carry keyless `InternalsVisibleTo` items and a signed friend demands a keyed grant. The tools are not packed, so they stay unsigned and keep their keyless grants. With the condition the
+   reviewer measured the main solution, the NativeAOT smoke, packaging conformance, the dependency audit and the file-based `scripts/ci/*.cs` fine with signing on, and no
+   `packages.lock.json` changed. `AssemblyVersion` stays the SDK default.
 4. Each of the five library `.csproj`: `<InternalsVisibleTo Include="…Tests" Key="$(DexpacePublicKey)" />`.
 5. `CHANGELOG.md`: *Changed* — the five assemblies are strong-named (`PublicKeyToken` in the line).
 
 **Verify.** V-build (0 warnings: no `CS1726`, `CS8002`, `CS0281`); `StrongNameKeyTests`; `dotnet pack` then
 `dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages` (8 of 8, V9: `nfr-3.no-internals-granted` compares only the name before the first
-comma); **the tools solution (reading R8)** — V-tools, because `Directory.Build.props` reaches `tools/` and `.claude/skills/*`: if `CS8002` or an
-analyzer finding appears there, restrict `SignAssembly` to `src/` and `tests/` with a condition and say so in the commit; the AOT publish and run;
-`scripts/ci/reproducible-pack.sh` (signing is deterministic); `git status` shows no `packages.lock.json` change.
+comma); **the tools solution (reading R8)** — V-tools, because `Directory.Build.props` reaches `tools/` and `.claude/skills/*`: it must build and test green **unsigned**, with no
+`CS1726`, `CS8002` or analyzer finding (and `AssemblyName.GetAssemblyName` on a tools DLL shows no public key); the AOT publish and run; **commit, then run**
+`scripts/ci/reproducible-pack.sh artifacts/reproducible` (signing is deterministic; the script packs committed `HEAD`, not the working tree, header lines 9-10); `git status` shows no
+`packages.lock.json` change.
 **IDs.** `NFR-16` (strong-naming half of design §9.2), `NFR-3` (the grant is still the library's own test project, by name). **No `PublicAPI` change.**
 **Alternative if the lead declines (P12-9):** drop this task, the token check in 3.1, `StrongNameKeyTests`, and write §9.2's correction as "declined".
 **Commit.** `feat: strong-name the five libraries with a committed key (NFR-16, design 9.2)`.
@@ -294,11 +333,14 @@ analyzer finding appears there, restrict `SignAssembly` to `src/` and `tests/` w
 **Test first.** Extend `reproducible-pack.sh --self-test` (the script's own regression check, as `coverage-gate-selftest.sh` is for coverage) with two cases:
 every `.nupkg` of the self-test pack has a `.snupkg` beside it, and one flipped byte in a `.snupkg` of the copy fails the compare (exit 1, the `.snupkg` named).
 **Red today:** `ls "$out/1"/*.snupkg` is empty, so the case prints `FAILED` and the self-test exits 1. The script already compares `*.snupkg` (`:132`).
+**The red run uses committed `HEAD`:** the script packs two `git worktree` checkouts of `HEAD` (header lines 9-10, `pack_checkout`; `--self-test` too), but runs its own working-tree text. So
+edit the script only, leave it uncommitted, run `--self-test` (it packs `HEAD`, which has no `IncludeSymbols`: red), then make the `Directory.Build.props` change and commit both together, and
+run it again (green, on the commit that carries `IncludeSymbols`). No commit on the branch is red: a red-first commit of the case alone would fail the `reproducible packages` job's self-test step.
 
 **Change.** `Directory.Build.props`, `Label="Library gates"`: `IncludeSymbols` `true`, `SymbolPackageFormat` `snupkg`. The audits ignore `.snupkg`
 (`dependency-audit.cs:170` globs `{library}.*.nupkg`; `packaging-conformance.cs:49` reads `*.nupkg`; V8). Update the script's header comment ("`.snupkg` once symbols
 are packed" becomes "`.snupkg`").
-**Verify.** `scripts/ci/reproducible-pack.sh --self-test artifacts/reproducible-selftest` (all cases ok); `scripts/ci/reproducible-pack.sh artifacts/reproducible` (ten
+**Verify (after the commit; the script reads `HEAD`).** `scripts/ci/reproducible-pack.sh --self-test artifacts/reproducible-selftest` (all cases ok); `scripts/ci/reproducible-pack.sh artifacts/reproducible` (ten
 files identical across two paths, symbols included — this is the V6 fix in action); `dotnet pack` leaves five `.nupkg` and five `.snupkg`; both audits green.
 **IDs.** `NFR-12`. **Commit.** `feat: pack symbol packages for every library (NFR-12)`.
 
@@ -399,10 +441,13 @@ test that edits copies): **red today because the file does not exist**. It pins 
 with their input and output names are **copied from each action's README at authoring** (design: medium-high confidence; unverified in this plan), and the header says so.
 Build job: ubuntu only (the three-OS matrix and the AOT smoke are CI's, on `main`), restore locked, build, full test run without coverage, `SOURCE_DATE_EPOCH=$(git log -1
 --format=%ct)`, `scripts/ci/reproducible-pack.sh artifacts/release`, audit and conformance over `artifacts/release/1`, preflight over the same, `sha256sum *.nupkg *.snupkg >
-SHA256SUMS`, upload. Publish job as pinned. `ci.yml`'s header: the "Package-validation baseline" line now says held until the first publish (V5), and the "Strong naming
+SHA256SUMS`, upload. Publish job as pinned: it has **no checkout and no `setup-dotnet`** (it needs nothing from the repository, only the downloaded artifact), so `dotnet nuget push` runs on the runner image's
+preinstalled .NET SDK, and the header says so; `global.json` does not apply to it, which is harmless for a push of finished packages (adding `setup-dotnet` would need a checkout for
+`global-json-file`, which the publish job deliberately lacks). `dotnet nuget push` pushes the `.snupkg` beside each `.nupkg` automatically when given the `.nupkg` glob, so the step names
+`*.nupkg` and no second push is written; the implementer confirms this against the `dotnet nuget push` documentation when authoring the step (not verified in this plan). `ci.yml`'s header: the "Package-validation baseline" line now says held until the first publish (V5), and the "Strong naming
 and author signing" line says strong naming is built (phase 12) and `NFR-16` rests on the attestation (P12-13). `CiWorkflowTests` is unchanged by this file (reading R10).
 **Verify.** V-conf-tests `ReleaseWorkflowTests`, `CiWorkflowTests`; run the build job's commands locally in order (restore, build, test, `reproducible-pack.sh
-artifacts/release`, the audits, the preflight, `sha256sum`) — they are the same commands CI will run; `actionlint .github/workflows/release.yml` if it is installed (optional).
+artifacts/release` from a committed `HEAD`, the audits, the preflight, `sha256sum`) — they are the same commands CI will run; `actionlint .github/workflows/release.yml` if it is installed (optional).
 **IDs.** `NFR-16`, `NFR-12`, `NFR-17` (the file is a gate set the ruleset will later name only if the lead adds it; it is not a PR check). **No remote action.**
 **If the repository is private** (L2) the attestation step and its pins are removed and the register records the fallback (task 5.1).
 **Commit.** `ci: add the inert release workflow, pinned by ReleaseWorkflowTests (NFR-16, NFR-12)`.
@@ -419,7 +464,7 @@ V-gate (now with the preflight and its self-test); the Security diff. Hand the l
 
 **Files.** New `.claude/skills/housekeeping/src/Fences.cs`; `.claude/skills/housekeeping/src/Program.cs` (command and usage); new
 `.claude/skills/housekeeping/tests/FencesTests.cs` (and `Fixture.cs` additions); `.claude/skills/housekeeping/SKILL.md` ("Deliberately not ported: the fence check" becomes
-"The fence check", with the info-string rule); `.github/workflows/ci.yml` (one step); `CiWorkflowTests.cs` (`Gates` row and `Conditionals` entry);
+"The fence check", with the info-string rule and the scratch-outside-the-repository rule; it keeps the "reported, not failed" sentence); `.github/workflows/ci.yml` (one step); `CiWorkflowTests.cs` (`Gates` row and `Conditionals` entry);
 the existing fences that name `Dexpace.Sdk` (`README.md`, `docs/sdk-documentation/*.md`, `src/*/README.md`).
 
 **Test first.** `FencesTests` (housekeeping tests, no trait), a fixture pair for every rule (the suite's convention): **red today because `fences` is an unknown command
@@ -429,14 +474,25 @@ the existing fences that name `Dexpace.Sdk` (`README.md`, `docs/sdk-documentatio
 - `A_clean_fence_compiles` and `A_broken_fence_fails_naming_page_and_line` — these compile against the real `src/*/bin/Release/net10.0/*.dll`, so they need the solution
   built in Release first (reading R12; they fail with a message saying so, never skip).
 - `The_scratch_project_is_written_through_the_guard` and `The_command_writes_nothing_in_the_repository` (a `git status --porcelain` snapshot around a run, as
-  `ProbeTests.The_probe_writes_nothing`).
+  `ProbeTests.The_probe_writes_nothing`); `The_scratch_root_is_outside_the_repository_and_inherits_no_build_props` (the generated project's directory is under `Path.GetTempPath()`, and a
+  fence that needs `ILogger` compiles, which a repository-rooted or logging-less project would not: `NU1008` / `CS0012`).
+- `A_fence_needing_an_unpinned_optional_package_is_reported_and_not_failed` — a fence naming a `Dexpace.Sdk` type and a namespace of a package absent from `Directory.Packages.props`: the
+  line is `skipped: needs <package>`, `s skipped` is 1, the exit is 0 (red today with the rest of the command: it does not exist).
 
 **Change.** `fences [--root <dir>] [--libs <dir>]`: extract every ` ```csharp ` fence in `README.md`, `docs/sdk-documentation/*.md`, `src/*/README.md` whose text names a
-`Dexpace.Sdk` namespace (a `using Dexpace.Sdk…;` or a qualified `Dexpace.Sdk.` type); write one generated project per fence under the scratch directory through `Guard.AssertWritable`
-(`net10.0`, `OutputType` `Exe`, top-level statements, `Nullable` on, `ImplicitUsings` on, `TreatWarningsAsErrors`, `<Reference>`s to the built DLLs, `PackageReference`s to the
-`Microsoft.Extensions.*` versions pinned in `Directory.Packages.props` for fences that need them), each file starting with a `#line <n> "<page>"` directive so the compiler's
-diagnostics name page and line; build them all in one `dotnet build` of a generated traversal project. Output `path:line: [fence] message`, then `n compiled, m fragments,
-k failed`; exit 0 clean, 1 on any failure, 2 usage. The command references no package (the tool's rule). `ci.yml`: step **Doc fences** (`if: runner.os == 'Linux'`,
+`Dexpace.Sdk` namespace (a `using Dexpace.Sdk…;` or a qualified `Dexpace.Sdk.` type); write one generated project per fence under a scratch directory **outside the repository**
+(`Directory.CreateTempSubdirectory("dexpace-fences")` under `Path.GetTempPath()`, removed in a `finally`), each path through `Guard.AssertWritable` (which refuses only frozen
+repository paths, `Guard.cs:80-84`, so it is the convention here and not the isolation). *Why outside, not stopper files in the scratch root:* MSBuild finds `Directory.Build.props`,
+`.targets` and `Directory.Packages.props` by walking up from the project, so a project anywhere under the repository would inherit `TreatWarningsAsErrors`, the analyzers, lock files,
+`NuGetAudit=all`, signing and central package management (a versioned `PackageReference` is then `NU1008`); outside the tree none of them is found, and nothing needs keeping in step with
+a future repository prop or a fourth inherited file. Generated project: `net10.0`, `OutputType` `Exe`, top-level statements, `Nullable` on, `ImplicitUsings` on, `TreatWarningsAsErrors`,
+`NuGetAudit` `false` (the audit would otherwise need the network for a throwaway project), `<Reference>`s to the built DLLs, and **always** a `PackageReference` to
+`Microsoft.Extensions.Logging.Abstractions` at the version pinned in `Directory.Packages.props` (read by the tool as text), because Core's public surface exposes `ILogger` and a raw
+`<Reference>` does not bring it (`CS0012` otherwise); the other `Microsoft.Extensions.*` packages pinned there are added for the fences whose namespaces need them. A fence whose
+namespace needs an **optional package not pinned** in `Directory.Packages.props` is **reported, not failed** (the rule housekeeping `SKILL.md` already holds for the check): the output line
+is `path:line: [fence] skipped: needs <package>`, it is counted (`s skipped`), and the exit code is unaffected, each file starting with a `#line <n> "<page>"` directive so the compiler's
+diagnostics name page and line; build them all in one `dotnet build` of a generated traversal project. Output `path:line: [fence] message`, then `n compiled, m fragments, s skipped,
+k failed`; exit 0 clean, 1 on any failure, 2 usage. The command's own project references no package (the tool's rule). `ci.yml`: step **Doc fences** (`if: runner.os == 'Linux'`,
 `dotnet run --project .claude/skills/housekeeping/src -- fences`) after *Tools - test*; `CiWorkflowTests.Gates` row `("Doc fences", "-- fences")` and
 `Conditionals["Doc fences"] = "runner.os == 'Linux'"` in the same commit. Run the command over the repository: each of today's seven fences compiles or becomes
 ` ```csharp fragment ` with a one-line reason beside it; record the counts for the checklist.
@@ -504,7 +560,7 @@ reporting named as a second channel **in conditional wording** ("when enabled on
 - `The_block_leads_with_the_breaking_changes` — the block's first list names the transport-failure change (`catch (SdkException)` no longer catches a `ServiceRequestException`).
 - `The_scan_can_fail` — removing an item from a copy of the block is flagged.
 
-**Change.** (1) **The audit** (P12-19): walk `git log --first-parent main --oneline` (54 commits at `1b6b6c9`; the `feat:`/`fix:`/`test:`/`ci:` ones, since PR #3); for each, find its
+**Change.** (1) **The audit** (P12-19): walk `git log --first-parent main --oneline` (55 commits at `1b6b6c9`, the count at the task's start, so re-count when starting; the `feat:`/`fix:`/`test:`/`ci:` ones, since PR #3); for each, find its
 entry in `CHANGELOG.md`; add what is missing (earlier entries are not rewritten); record the walk, with the missing ones, in the checklist (task 5.2). (2) The Phase 12 entry (the
 lines added by the earlier tasks, gathered under `### Phase 12 — first release`). (3) The draft release-notes block: the summary, the breaking-change digest that phase 11 asked to lead
 with (assembled from the `**Breaking:**` lines of `### Phase 11 — deviation reconciliation`), the `ShouldHandle` guidance and the no-reload rule (phase 9 hand-off), and **every item**
@@ -578,7 +634,7 @@ Repoint every citation of the inbox paths to `docs/work/mvp/phase12/`; the last 
 
 V-gate in full, including `--check-section12`, the preflight and its self-test, the reproducible pack and its self-test, `fences`, the AOT smoke, V-tools and `verify-structure`; the Security diff
 (empty); `requirement-coverage.cs --report` (MUST ⏳ 1: `NFR-17`); `git diff main...HEAD -- 'src/*/PublicAPI.Shipped.txt'` is the only `PublicAPI` change and every `Unshipped` is `#nullable enable`
-alone. Hand the lead the five branch names and the [lead actions](#lead-actions). **No push, no `gh`.**
+alone (a contingent fix's `Unshipped` lines having been folded into `Shipped`, convention 6 and R2). Hand the lead the five branch names and the [lead actions](#lead-actions). **No push, no `gh`.**
 
 ---
 
@@ -629,7 +685,7 @@ Never an implementer step. The plan lists them so the checklist can record each 
 | V8 symbols safe once V6 is fixed | 2.2 |
 | V9 strong naming measured | 2.1 |
 | V10 `CALG_RSA_SIGN` trap | 2.1, 5.3 (note) |
-| V11 `ParamName` accessors | 1.2 |
+| V11 `ParamName` accessors (and its amendment: the helper-routed accessors) | 1.2 |
 | V12 flake not reproduced | 0.2, 1.C2 |
 | V13 stale `SECURITY.md`, `README.md` | 4.7 |
 | V14 documentation inventory | 4.2 to 4.6 |
@@ -700,7 +756,7 @@ Never an implementer step. The plan lists them so the checklist can record each 
 | CI not run on `main` since `6b49af6` | 0.2 (L1) |
 | The reproducible-pack fix unproven | 1.1 (root cause), 2.2, 1.C3 |
 | macOS `FromFile` | 1.C1 |
-| ~15 `ParamName` accessors | 1.2 |
+| ~15 `ParamName` accessors (plus the 14 `ThrowIf*(value)` sites of the design's V11 amendment) | 1.2 |
 | The Core flake family | 1.C2 |
 | `NFR-17`, the ruleset | L3, 5.1, 5.2 |
 | D3, webhooks | 5.1, 5.4 |
@@ -738,27 +794,32 @@ Never an implementer step. The plan lists them so the checklist can record each 
 - **R1 — Task 0.2 is first, its evidence is not.** The design makes the CI read the plan's first task (P12-21). A run needs a pull request, so the read can happen only after PR 1 is pushed
   by the lead. The plan lists it first and fires the contingent tasks from it.
 - **R2 — The contingent tasks do not block the move.** The design puts them "before the `Shipped` move if it touches the surface". If the lead cannot read CI before PR 2 is due, PR 2
-  proceeds, and a later surface fix is a reviewed `Unshipped` diff against the 0.1.0 candidate, which costs nothing before a publish. The checklist records "not read".
+  proceeds, and a later surface fix is a reviewed `Unshipped` diff against the 0.1.0 candidate, which costs nothing before a publish. Such a diff is folded into `Shipped`
+  before task 5.6 (5.6 requires every `Unshipped` to hold `#nullable enable` alone) and the checklist records the fold, or "not read".
 - **R3 — "One `static partial` class" is a new class.** `HeaderDropLog` is an instance class and `ProxyWarnings` a static one, so neither can host the other. `TransportLog` holds all four
   generated methods and the two existing classes stop being `partial`.
 - **R4 — The gate is a source scan of attribute sites.** It counts types holding a `[LoggerMessage(` line, by the nearest preceding type declaration (one type per file). `LoggerMessage.Define`
   is not generator input. It lives in Core.Tests beside the other source scans, because Core.Tests may not reference a transport (SEAM-2).
 - **R5 — V6 is judged by the generator's output.** Eight builds hashing to one `LoggerMessage.g.cs`; the repeated `reproducible-pack.sh` runs are a smoke only (V7).
-- **R6 — V11 is incomplete.** `DexpaceClientOptions.cs:180` and `:191` (the `BaseAddress` and two timeout accessors), and the `fixedDelay` caller at `RetryOptions.cs:144`, have the same
-  defect and are fixed with the listed ones. The scanner cannot see helper methods, so the fix is guarded by a behavioural table plus a file-level ratchet (an allow-list of the nine files whose
-  `nameof(value)` is a method parameter).
+- **R6 — V11 is incomplete, twice.** (1) `DexpaceClientOptions.cs:180` and `:191` (the `BaseAddress` and two timeout accessors), and the `fixedDelay` caller at `RetryOptions.cs:144`, have the same
+  defect and are fixed with the listed ones. (2) Fourteen more accessors call `ArgumentOutOfRangeException.ThrowIf*(value…)` or `ArgumentException.ThrowIfNullOrWhiteSpace(value)`, which name the exception
+  after the argument expression, so a `nameof(value)` grep cannot see them (design, "Amendment 2026-10-22 (plan review)"). The guard is not a file-level allow-list but the extended
+  `InitAccessorScanner`, which recognises both spellings inside accessor bodies so the coverage test covers every site; the helper-routed accessors a line scan cannot see (`RequireDuration`,
+  `RequireNullOrPositive`, `RequireNullOrNonNegative`, `RequireUsable`, `RequireTimeout`) keep behavioural rows in the rejection table.
 - **R7 — Strong naming details the design left open.** The key is 2048-bit (the design's 160-byte figure was the probe's 1024-bit key); it is generated by a throwaway program and the blob
   layout is recorded in the knowledge note, not committed as a script; `*.snk binary` is added to `.gitattributes` because `* text=auto eol=lf` would otherwise touch it; the pin test compares
-  the property with the compiled Core, kit and test assemblies, and the other three libraries are covered by the preflight (they are not referenceable from the test projects).
-- **R8 — Signing reaches the tools solution.** `Directory.Build.props` applies to `tools/` and `.claude/skills/*`; V9 measured only `Dexpace.Sdk.sln`. Task 2.1 builds the tools solution and
-  narrows the condition if it must.
+  the property with all five built library DLLs (read by `AssemblyName.GetAssemblyName`, no project reference needed) and the test assembly's own key; the preflight (3.1) repeats the
+  check on the packed assemblies.
+- **R8 — Signing is scoped to `src/` and `tests/`.** `Directory.Build.props` applies to `tools/` and `.claude/skills/*` too, and V9 measured only `Dexpace.Sdk.sln`. The reviewer's probe showed
+  that signing the tools breaks their friend tests with `CS1726` (keyless `InternalsVisibleTo` in three tools projects), so task 2.1 conditions `SignAssembly` on the project path from the start
+  (not as a fallback on the wrong diagnostic) and the tools solution is verified unsigned. The main solution, NativeAOT smoke, packaging conformance, dependency audit and file-based scripts were measured fine with signing on.
 - **R9 — Preflight inputs.** The version is read from the package file names; the expected token is derived from `DexpacePublicKey`; an unsigned assembly and a wrongly-signed one share the
   token compare (the report distinguishes them), so the self-test proves the compare with `--expected-token`.
 - **R10 — CI placement.** The preflight and its self-test are unconditional on all three rows (no `Conditionals` entry); `Doc fences` is Linux-only (a `Conditionals` entry). The design's
   "`CiWorkflowTests` is unchanged" is read as: unchanged by `release.yml`; the new `ci.yml` steps (P12-4, P12-18) add rows.
 - **R11 — `release.yml` action pins are unverified.** The design's confidence in the NuGet and attestation actions' names, inputs and outputs is medium-high; the plan has the implementer copy
   them from each README and says so in the file header. Nothing in the plan runs the workflow.
-- **R12 — Fence compiler.** One generated project per fence, built in one invocation, with `#line` directives so diagnostics name page and line; `ImplicitUsings` on in the generated projects; the
+- **R12 — Fence compiler.** One generated project per fence, built in one invocation, with `#line` directives so diagnostics name page and line; `ImplicitUsings` on in the generated projects, which live under `Path.GetTempPath()` outside the repository (no inherited build props, `NuGetAudit` off, the logging abstractions always referenced, an unpinned optional package reported and not failed); the
   compile tests need the Release libraries built and fail with a message rather than skip.
 - **R13 — `ReleaseNotesTests` key rule.** The design says each item's "IDs or titles" appears; the plan fixes the extraction rule (leading ID, else kebab-case name, else package name, else first bold
   phrase; struck-through bullets excluded) and a non-vacuity floor.
@@ -769,4 +830,4 @@ Never an implementer step. The plan lists them so the checklist can record each 
 - **R18 — The guard list in housekeeping.** `GuardCheck.WritableSurface` and its test fixtures name `docs/architecture.md`. Deleting the file should not break them (they are path names); if a
   housekeeping test requires the file to exist, task 4.2 removes the entry and its fixture row in the same commit.
 - **R19 — Not verified in this plan:** that the repository is public (V19), the exact `NuGet/login` and attestation action inputs (R11), whether the eight generator builds reproduce V6's 6:2 split on
-  the implementer's machine (task 0.1 re-measures it), and that the tools solution builds signed (R8). No CI run, remote read or `gh` call was made in writing it.
+  the implementer's machine (task 0.1 re-measures it), and that the tools solution builds green unsigned with the scoped condition (R8; the reviewer measured it, this plan did not). No CI run, remote read or `gh` call was made in writing it.

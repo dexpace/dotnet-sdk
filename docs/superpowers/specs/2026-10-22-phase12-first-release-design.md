@@ -145,6 +145,14 @@ session, so the mechanics below are my knowledge, with my confidence:
 - An environment referenced by a workflow that does not exist is **created on first use, with no protection rules**. *High
   confidence.* So "inert until the environment exists" cannot rest on the environment alone (P12-3).
 
+
+**Amendment 2026-10-22 (plan review).** V11 missed the helper-routed accessors. It found the `ParamName` `"value"` defect by its `nameof(value)` spelling, but fourteen more validating `init`
+accessors report `"value"` because they call `ArgumentOutOfRangeException.ThrowIf*(value…)` or `ArgumentException.ThrowIfNullOrWhiteSpace(value)`, which name the exception after the argument
+expression: `HttpLoggingOptions.cs:57`, `RedirectOptions.cs:45`, `RetryOptions.cs:60`, `SystemNetHttpClientOptions.cs:121`, `AccessTokenCache.cs:72`, `AuthCredentials.cs:39`, and in the kit
+`CodecSubject.cs:29`, `InvariantSubject.cs:49`, `PackagingSubject.cs:19`, `:41`, `:63`, `TransportSuiteOptions.cs:32`, `:47` and `SuiteOptions.cs:35` (the five `ThrowIfNullOrWhiteSpace(value)`
+sites also report `"value"` for a null). P12-14 applies to them too, and the existing `RedirectOptionsTests.cs:31` and `HttpLoggingOptionsTests.cs:57` pin the defect and are edited with the fix.
+V11's row above is left as written.
+
 ---
 
 ## Scope and non-scope
