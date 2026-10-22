@@ -1,7 +1,7 @@
 # Phase 12 — First Release: Implementation Plan
 
 **Status:** Draft, for review. Written 2026-10-22 against `main` at `6b49af6` (phases 0 to 11 merged), on branch `107-phase-12-first-release` at tip
-`1b6b6c9` (the design commit), for issue #107. Revised 2026-10-22 after review (ParamName helper sites, signing scope, fence isolation, HEAD-only reproducible-pack, and smaller corrections). Design: [phase 12 design](../specs/2026-10-22-phase12-first-release-design.md) (filed by task 5.5 to
+`1b6b6c9` (the design commit), for issue #107. Revised 2026-10-22 after review (ParamName helper sites, signing scope, fence isolation, HEAD-only reproducible-pack, and smaller corrections). Design: [phase 12 design](2026-10-22-phase12-first-release-design.md) (filed with this plan to
 `docs/work/mvp/phase12/2026-10-22-phase12-first-release-design.md`), the authority for every decision below. The plan cites its facts (`V1`..`V20`),
 decisions (`P12-1`..`P12-26`) and ledger entries (`P12-D1`..`P12-D4`) rather than restating them. Format precedent: the phase 11 plan
 (`docs/work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation.md`).
