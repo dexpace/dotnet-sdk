@@ -465,3 +465,58 @@ item, and the waivers are the union. Each report records the suite that produced
 `ConformanceReport.Preamble` is the transport suite's). `SuiteOptions { AssertionTimeout, Waivers }` bounds and waives a run of the three newer suites; `TransportSuiteOptions` keeps the release bound only a
 socket-driving suite needs. `AppendixBMap` maps all 61 items of appendix B, and `tests/Dexpace.Sdk.Conformance.Tests/APPENDIX_B.md` says where each is evidenced; a five-rule test keeps the two honest
 (see [cross-cutting invariants](./cross-cutting-invariants.md)).
+
+## What a green run does not prove
+
+A green report is a statement about the assertions that ran, over the subject and the driver that ran them. This section gathers, in one place, what each suite's own preamble already says on every
+run, the permanent decisions a green transport run carries, the assertions each first-party driver leaves unexercised on purpose, and the rows of appendix B that name a file and not a behaviour. It
+restates nothing new about the kit: each line below is held by a test named beside it, so the list cannot drift from the code.
+
+**Each suite's preamble.** `ConformanceReport.Preamble` and its three siblings print these sentences at the top of every report (they are quoted in the suite sections above). In short:
+
+| Suite | A green run does not prove |
+|---|---|
+| [Transport](#what-the-kit-does-not-cover) | TLS or certificate handling (the fixture is plaintext HTTP/1.1 on the loopback interface); HTTP/2 or HTTP/3; connect-timeout behaviour (a local listener cannot portably accept slowly); any requirement no assertion cites |
+| [Invariant](#the-invariant-suite-phase-10) | any clause whose hook the driver did not supply (that assertion is `NotExercised`, never passed); anything about core's internals except through the hooks; behaviour over a real socket (the transport suite's); any requirement no assertion cites |
+| [Codec](#the-codec-suite-phase-10) | the codec's own metadata for models it was not given; configuration the driver's factory did not build; the wire format byte for byte; core's own typed readers, `SerdeExtensions` and `Tristate<T>`'s API (cited by reference); any requirement no assertion cites |
+| [Packaging](#the-packaging-suite-phase-10) | anything about a package it was not given; how the assemblies behave (it reads their metadata and never loads them); the build's reproducibility, repository signing or the release path (`NFR-12`, `NFR-16`: other gates); any requirement no assertion cites |
+
+Every preamble ends the same way: a green run proves that every assertion that ran met its clause or is waived, and nothing more. "No assertion cites" is not a pass: the requirement-coverage gate
+(`scripts/ci/requirement-coverage.cs --check`) owns that count, and the clauses the audit could not satisfy are listed in [`docs/deviations.md`](../deviations.md), not here.
+
+**The permanent waivers.** A `Waived` result is a recorded decision, not a pass (see [Statuses and waivers](#statuses-and-waivers)). A waiver stays needed: if its assertion starts to pass, the run
+fails until the waiver is deleted. Phase 8b closed every pending (`Owner`) waiver, and phase 11 retired the second permanent one for the SDK-built handler, so what remains is:
+
+- **`TRANSPORT-14`, `transport-14.name-malformed-dropped`**, on every `SocketsHttpHandler`-backed driver (the owned transport, the caller-built handler and the dependency-injection named client).
+  `SocketsHttpHandler` rejects the whole response on a malformed inbound header *name* before the adapter sees any header, and has no leniency switch, so the clause is unmet for the name (the value half
+  holds). It is one of the four counted unmet clauses (design §10 entry 32; `docs/deviations.md`). Pinned by `SystemNetConformanceTests` and `DependencyInjectionConformanceTests`.
+- **`TRANSPORT-2`, `transport-2.bodyless-not-resent`**, on the caller-built-handler subject only. A handler or `HttpClient` the caller supplies is the caller's native client, and its native re-send of a
+  body-less idempotent request is theirs (design §11 item 71); the handler the SDK builds ends that re-send and is not waived. Pinned by `The_handler_subject_adds_the_native_retry_of_a_callers_handler`.
+- **`TRANSPORT-11`, `transport-11.drop-logged`**, on the test-only raw-socket client, which computes the framing headers but logs nothing about the caller's copies it drops. Its reason must begin
+  "test-only transport" (`RawSocketConformanceTests`); it says nothing about the reference transport.
+
+**The `NotExercised` pins.** An assertion whose hook or face the driver lacks is `NotExercised`, which is not a pass. Each first-party driver asserts the exact list it leaves unexercised and fails on any
+other, so supplying a hook means deleting its name from the pin:
+
+| Driver | Left `NotExercised`, and why |
+|---|---|
+| Invariant, core's own composition (`InvariantConformanceTests`) | `xcut-23.resolution-deterministic`: it needs a host's container, which only the dependency-injection driver supplies |
+| Invariant, the dependency-injection driver (`InvariantResolutionConformanceTests`) | `xcut-14.bounded-under-burst`, `xcut-14.drains-after-insert`, `xcut-8.strict-factory-rejects`, `xcut-9.cycle-safe-walk`: they reach core internals only core's driver can supply |
+| Invariant, the NativeAOT smoke (`CheckPhase10Async`) | those four and `xcut-23.resolution-deterministic`: the hook-less assertions, with core's defaults |
+| Transport, the dependency-injection named client (`DependencyInjectionConformanceTests`) | `transport-15.borrowed-survives`: the container owns the client, so there is no borrowed `HttpClient` to survive disposal |
+| Transport, the raw-socket client (`RawSocketConformanceTests`) | `transport-15.borrowed-survives`, `transport-18.native-resend-identical`, `transport-22.adaptation-failure-releases`, `transport-30.proxy-discoverable-no-leak`, `transport-8.internal-cancel-is-terminal`: each needs a hook the client cannot supply; and `Vacuous`, measured, for `seam-15.after-dispose` and `transport-13.drop-log-once-per-name` |
+| Transport, the owned and handler subjects (`SystemNetConformanceTests`) | none left absent: every hook is supplied, `CreateWithProxy` included, so `transport-30` runs. This driver pins no list; a `NotExercised` result would surface as a skipped case, not a pass |
+
+A third-party driver that supplies fewer hooks than these gets a green report with more lines like these in it; read the `NotExercised` list before reading the colour.
+
+**Appendix B rows that name a file.** `tests/Dexpace.Sdk.Conformance.Tests/APPENDIX_B.md` maps all 61 items of the specification's conformance checklist: 17 are evidenced by a kit assertion (`suite`: a broken
+subject fails it, so the claim is as strong as a negative control), 8 are `restated` by the design for .NET, and 36 are `by reference`. A `by reference` row proves that a test file or gate exists and that the
+IDs are the item's own; it does not prove that the file asserts the clause, which is what each phase's checklist under `docs/work/mvp/` argues. The paging, server-sent-event, serde-handler,
+observability, configuration and bridge items, and most of the `NFR` items, are in that group. The Notes column names every clause that is vacuous,
+declined or deferred inside an otherwise-evidenced item (`PAGE-3` and `PAGE-12` are vacuous, `PAGE-21` holds on a stated domain, `NFR-4`'s package-validation baseline waits for the first publish), so a
+row never reads better than its worst clause. [The pagination vectors are not lifted into the kit](#what-the-kit-does-not-cover): the paging engine has one implementation and is not a seam.
+
+**Beyond the kit.** None of these suites runs a published package, a real TLS handshake, an HTTP/2 or HTTP/3 server or a registry. `NFR-12`'s release half (a rebuild from the tag reproduces the published
+bytes) and `NFR-16` (provenance on the release path) stay open until the first publish exercises the release path (`docs/first-release.md`). And a green kit run says nothing about requirements the
+specification states outside the ones the kit's suites cite: those are held by the unit, architecture and security tests each phase's checklist lists, and by the four counted unmet clauses in
+`docs/deviations.md`.
