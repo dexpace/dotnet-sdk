@@ -83,7 +83,15 @@ public sealed class HttpResponseMessageBodyOpenRaceTests
     private static Task<Stream> OpenAsync(HttpResponseMessageBody body, string face, CancellationToken token) =>
         face == "async" ? body.OpenReadAsync(token) : Task.Run(() => body.OpenRead(token), Ct);
 
+    // How long the first opener may take to reach the content. It must arrive, and a synchronous open starts on a thread-pool thread that a
+    // loaded runner can take far longer than the grace above to schedule: under the grace alone, the second open overtook it on a CI host.
+    private static readonly TimeSpan s_arrival = TimeSpan.FromSeconds(30);
+
     private static void WaitUntilEntered(OnceContent content, int count) => SpinWait.SpinUntil(() => content.Entered >= count, s_grace);
+
+    // The opener the scenario holds at the gate: waited for, never assumed.
+    private static void WaitForOpener(OnceContent content) =>
+        Assert.True(SpinWait.SpinUntil(() => content.Entered >= 1, s_arrival), "the first open never reached the content");
 
     [Theory]
     [MemberData(nameof(FacePairs))]
@@ -94,7 +102,7 @@ public sealed class HttpResponseMessageBodyOpenRaceTests
         try
         {
             var first = OpenAsync(body, firstFace, Ct);
-            WaitUntilEntered(content, 1);
+            WaitForOpener(content);
             var second = OpenAsync(body, secondFace, Ct);
             WaitUntilEntered(content, 2);
             content.Release();
@@ -141,7 +149,7 @@ public sealed class HttpResponseMessageBodyOpenRaceTests
         try
         {
             var first = OpenAsync(body, "sync", Ct);
-            WaitUntilEntered(content, 1);
+            WaitForOpener(content);
             var second = OpenAsync(body, secondFace, Ct);
             WaitUntilEntered(content, 2);
             content.Release();
@@ -168,7 +176,7 @@ public sealed class HttpResponseMessageBodyOpenRaceTests
         try
         {
             var first = OpenAsync(body, "sync", Ct);
-            WaitUntilEntered(content, 1);
+            WaitForOpener(content);
             var waiting = OpenAsync(body, face, cancel.Token);
             WaitUntilEntered(content, 2);
             await cancel.CancelAsync();
@@ -194,7 +202,7 @@ public sealed class HttpResponseMessageBodyOpenRaceTests
         try
         {
             var opening = OpenAsync(body, firstFace, Ct);
-            WaitUntilEntered(content, 1);
+            WaitForOpener(content);
             var waiting = OpenAsync(body, secondFace, Ct);
             WaitUntilEntered(content, 2);
             await body.DisposeAsync();
