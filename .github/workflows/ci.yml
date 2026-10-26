@@ -28,8 +28,10 @@ name: CI
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in
 #     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
 #     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
-#   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
-#   - Strong naming and author signing (NFR-16): phase 12.
+#   - Package-validation baseline (PackageValidationBaselineVersion): held until the first publish (nothing is published, so there is no version to
+#     compare against); docs/first-release.md "After the first publish" sets it.
+#   - Author signing (NFR-16): declined. Strong naming is built (phase 12, Dexpace.Sdk.snk, pinned by StrongNameKeyTests and checked on every packed assembly by the
+#     release preflight below), and NFR-16 rests on the build-provenance attestation release.yml makes at the held first publish (P12-13).
 #
 # Phase 10 completed what was inert: the NativeAOT smoke consumer below runs the invariant suite with core's defaults and the codec suite over the
 # System.Text.Json adapter (tests/Dexpace.Sdk.AotSmoke/SmokeChecks.Phase10.cs); NFR-11's public-signature type scan is
