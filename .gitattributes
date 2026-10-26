@@ -9,3 +9,6 @@
 docs/styleguide/git-and-code-review.md -text
 docs/styleguide/performance.md -text
 docs/styleguide/security.md -text
+
+# The strong-name key pair (Dexpace.Sdk.snk, NFR-16) is a binary blob; `* text=auto` must never touch it.
+*.snk binary
