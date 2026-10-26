@@ -180,7 +180,7 @@ The plan's five stacked pull requests were **replaced by the one merged branch**
 
 ## Gate results
 
-Run on 2026-10-26 at `fbf7f17` plus the register commit `db598fd` (the tip before this section was written), .NET SDK 10.0.401, Linux, from the repository root, in the order of `CLAUDE.md`'s *Build & test*.
+Run on 2026-10-26 at `541b0e6` (the tip before this correction; later commits change numbers in this file only), twice: once at `db598fd` and again after the checklist, corrections and status note landed, .NET SDK 10.0.401, Linux, from the repository root, in the order of `CLAUDE.md`'s *Build & test*.
 
 | Gate | Result |
 |---|---|
@@ -188,7 +188,7 @@ Run on 2026-10-26 at `fbf7f17` plus the register commit `db598fd` (the tip befor
 | `dotnet build Dexpace.Sdk.sln --configuration Release` | 0 warnings, 0 errors |
 | `dotnet format Dexpace.Sdk.sln --verify-no-changes` | exit 0 |
 | `dotnet test --solution Dexpace.Sdk.sln --configuration Release` with coverlet | 7 759 tests: 7 736 passed, 0 failed, 23 skipped (the pinned `NotExercised` rows and permanent waivers, unchanged) |
-| `coverage-gate.cs` (floor 80) and its self-test | aggregate 97.46%; self-test ok (14 cases) |
+| `coverage-gate.cs` (floor 80) and its self-test | aggregate 97.45%; self-test ok (14 cases) |
 | `Category=Security` (Core, SystemNet, DI) | 316 + 38 + 3 passed |
 | `Category=Conformance` (Core, SystemNet, DI, System.Text.Json, Conformance.Tests) | 51 (1 skipped), 142 (6), 126 (7), 24, 72 (9): 0 failed |
 | `dotnet pack`, `dependency-audit.cs` and its self-test, `packaging-conformance.cs` | 5 `.nupkg` and 5 `.snupkg` at `0.1.0-alpha.1`; 5 libraries conform; self-test ok; packaging verdict GREEN (8 passed) |
