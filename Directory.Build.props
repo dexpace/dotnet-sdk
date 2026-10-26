@@ -101,7 +101,10 @@
   </ItemGroup>
 
   <PropertyGroup Label="Package metadata">
-    <VersionPrefix>0.0.1</VersionPrefix>
+    <!-- The next version is 0.1.0 (phase 12, P12-7; docs/first-release.md proposes it: a first release that adds assertions is at least a minor
+         version). The alpha.1 suffix stays on main until the held release commit empties it, and the release preflight holds the version train
+         (one version across the five packages, a v-tag equal to it). -->
+    <VersionPrefix>0.1.0</VersionPrefix>
     <VersionSuffix>alpha.1</VersionSuffix>
     <Authors>dexpace</Authors>
     <Company>dexpace</Company>
