@@ -4,20 +4,23 @@
 namespace Housekeeping;
 
 /// <summary>
-/// The entry point: <c>probe</c> (stage 1, read-only) or <c>apply</c> (stage 2, <c>git mv</c> only).
+/// The entry point: <c>probe</c> (stage 1, read-only), <c>apply</c> (stage 2, <c>git mv</c> only) or <c>fences</c>
+/// (compiles the documentation's C# fences in a scratch directory outside the repository).
 /// </summary>
 /// <remarks>
 /// <code>
 /// dotnet run --project .claude/skills/housekeeping/src -- probe [--only links,citations] [--json] [--warn-only]
 /// dotnet run --project .claude/skills/housekeeping/src -- apply [--delivery mvp] [--phase 5a] [--rename a=b] [--write]
+/// dotnet run --project .claude/skills/housekeeping/src -- fences [--root PATH] [--libs DIR]
 /// </code>
 /// </remarks>
 internal static class Program
 {
     private const string Usage =
-        "usage: dotnet run --project .claude/skills/housekeeping/src -- <probe|apply> [options]\n" +
+        "usage: dotnet run --project .claude/skills/housekeeping/src -- <probe|apply|fences> [options]\n" +
         "  probe   read-only: report documentation drift (always first)\n" +
         "  apply   drain docs/superpowers/ into docs/work/ with git mv (dry run unless --write)\n" +
+        "  fences  compile the C# fences of the documentation that name Dexpace.Sdk (build Release first)\n" +
         "Pass --help after a command for its options.";
 
     /// <summary>Process entry point.</summary>
@@ -39,6 +42,8 @@ internal static class Program
                 return ProbeCli.Run(rest, output, error);
             case "apply":
                 return ApplyCli.Run(rest, output, error);
+            case "fences":
+                return FencesCli.Run(rest, output, error);
             case "-h" or "--help":
                 output.WriteLine(Usage);
                 return 0;

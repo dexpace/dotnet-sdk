@@ -16,7 +16,8 @@ HTTP/1.1 wire fixture, and per-requirement reporting with waivers. Run them agai
 
 ## Usage
 
-```csharp
+<!-- fragment: MyTransport is the reader's transport and Assert is their test framework's -->
+```csharp fragment
 using Dexpace.Sdk.Conformance;
 
 var subject = new TransportSubject { Name = "MyTransport", CreateAsync = settings => new MyTransport(settings.Logger) };
