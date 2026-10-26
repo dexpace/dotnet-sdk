@@ -718,6 +718,16 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
   code that compared `ParamName` to `"value"` must compare it to the property name. `InitAccessorScanner` now recognises both spellings of the defect, so a new accessor of either is
   caught by the coverage tests.
 
+#### Added
+
+- **`.github/workflows/release.yml`, inert, pinned by `ReleaseWorkflowTests`** (`NFR-16`, `NFR-12`'s release half; design "The release workflow", P12-2 to P12-4). Two triggers: a `v*` tag
+  push, and `workflow_dispatch` with a boolean `dry_run` that defaults to `true`; only a tag publishes. The `build` job (ubuntu) restores locked, builds, tests, packs the commit twice at two
+  paths with `SOURCE_DATE_EPOCH` set to the commit time (`scripts/ci/reproducible-pack.sh`), runs the dependency audit, the packaging conformance and the release preflight over pack 1, and
+  uploads the packages with a `SHA256SUMS` file. The `publish` job (`needs: build`, `environment: nuget`, the only job with `id-token: write` and `attestations: write`) stops at its first step
+  while the repository variable `NUGET_USER` is empty, naming `docs/first-release.md`; past it, it verifies the checksums, attests every package (GitHub artifact attestation, in place of
+  author signing), logs in with `NuGet/login` (no long-lived key) and pushes with `--skip-duplicate`. Nothing is published: the nuget.org organisation, the `Dexpace.*` prefix, the
+  trusted-publishing policy and the `nuget` environment are the lead's, and the action inputs are marked unverified in the file's header.
+
 
 Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
 for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under
