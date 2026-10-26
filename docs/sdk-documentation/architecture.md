@@ -24,7 +24,7 @@ repository's source.
 | [`transport.md`](./transport.md), [`dependency-injection.md`](./dependency-injection.md) | The reference transport and the host integration |
 | [`conformance.md`](./conformance.md), [`cross-cutting-invariants.md`](./cross-cutting-invariants.md) | The conformance kit and its four suites; the invariants that cut across the layers |
 | [`quality-gates.md`](./quality-gates.md), [`versioning.md`](./versioning.md) | Every blocking gate and how to run it; what a version number promises |
-| `write-a-transport.md`, `write-a-serde.md`, `write-a-response-handler.md`, `write-a-paging-strategy.md` | Implementing a seam, and proving the implementation |
+| [`write-a-transport.md`](./write-a-transport.md), [`write-a-serde.md`](./write-a-serde.md), [`write-a-response-handler.md`](./write-a-response-handler.md), [`write-a-paging-strategy.md`](./write-a-paging-strategy.md) | Implementing a seam, and proving the implementation |
 
 ## What this tree is not
 
@@ -154,10 +154,10 @@ response into a value, and it *owns* the response it is given. Each seam has a g
 
 | Seam | Guide | Proven by |
 |---|---|---|
-| `IAsyncHttpClient` / `IHttpClient` | `write-a-transport.md` | `TransportSuite` |
-| `ISerde` | `write-a-serde.md` | `CodecSuite` |
-| `IResponseHandler<T>` | `write-a-response-handler.md` | ordinary tests |
-| `IPageStrategy<TPage, T>` | `write-a-paging-strategy.md` | ordinary tests |
+| `IAsyncHttpClient` / `IHttpClient` | [`write-a-transport.md`](./write-a-transport.md) | `TransportSuite` |
+| `ISerde` | [`write-a-serde.md`](./write-a-serde.md) | `CodecSuite` |
+| `IResponseHandler<T>` | [`write-a-response-handler.md`](./write-a-response-handler.md) | ordinary tests |
+| `IPageStrategy<TPage, T>` | [`write-a-paging-strategy.md`](./write-a-paging-strategy.md) | ordinary tests |
 
 ## A call, end to end
 

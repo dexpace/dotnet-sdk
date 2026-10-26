@@ -24,7 +24,7 @@ Until then, build from a clone: `dotnet pack Dexpace.Sdk.sln --configuration Rel
 | You want | Install |
 |---|---|
 | To send requests and walk the SDK's guarantees | `Dexpace.Sdk.Core` and a transport: `Dexpace.Sdk.Http.SystemNet` |
-| Typed JSON bodies | `Dexpace.Sdk.Serialization.SystemTextJson` (or your own `ISerde`, `write-a-serde.md`) |
+| Typed JSON bodies | `Dexpace.Sdk.Serialization.SystemTextJson` (or your own `ISerde`, [`write-a-serde.md`](./write-a-serde.md)) |
 | Named clients configured from `appsettings.json` | `Dexpace.Sdk.Extensions.DependencyInjection` (it brings the transport) |
 | To prove your own transport or codec | `Dexpace.Sdk.Conformance` in a test project, never in production code |
 
@@ -130,7 +130,7 @@ internal sealed partial class WidgetJson : JsonSerializerContext;
 ```
 
 - **`ResponseHandlers.DeserializeOnSuccess<T>(serde)`** decodes a 2xx, throws `HttpResponseException` for a 4xx or 5xx, and throws a `DeserializationException` for anything else. `ResponseHandlers.Deserialize<T>`
-  decodes whatever the status. The handler streams, names `T` in a failure, and rejects a wire `null` for a reference type. To write your own, see `write-a-response-handler.md`.
+  decodes whatever the status. The handler streams, names `T` in a failure, and rejects a wire `null` for a reference type. To write your own, see [`write-a-response-handler.md`](./write-a-response-handler.md).
 - **`SendAsync<T>(request, handler, options, token)`** disposes the response after the handler runs, in every outcome. When you hold a `Response` yourself, `await response.Body.ReadValueAsync<Widget>(serde)` is the same read, and
   both stream rather than buffer.
 - **The context is the contract.** `SystemTextJsonSerde` takes a private copy of the options you give it and wires `Tristate<T>` (absent, `null` or present, for a PATCH) on the copy; a

@@ -11,7 +11,7 @@ shows them composed.
 | Piece | What it shows | Page |
 |---|---|---|
 | `OperationDescriptor` | a request built from a template, a path parameter and the client's `BaseAddress` | [`seams.md`](./seams.md#the-operation-input-projection) |
-| `WidgetHandler` | an `IResponseHandler<T>` that owns the response and maps a 404 to `WidgetNotFoundException` | `write-a-response-handler.md` |
+| `WidgetHandler` | an `IResponseHandler<T>` that owns the response and maps a 404 to `WidgetNotFoundException` | [`write-a-response-handler.md`](./write-a-response-handler.md) |
 | `BearerTokenAuthPolicy` | a token cache that refreshes early and retries once on a `401` | [`auth.md`](./auth.md) |
 | `Pageable.Create` | a lazy walk over a `Link: <…>; rel="next"` header, capped at 50 pages | [`pagination.md`](./pagination.md) |
 | `DexpaceClientOptions` | retry, redirect and the deadlines | [`retry.md`](./retry.md), [`redirect.md`](./redirect.md) |
@@ -337,4 +337,4 @@ internal sealed partial class WidgetJson : JsonSerializerContext;
 - **Compose, do not stack, retries.** If the host also adds `AddStandardResilienceHandler` to the named client, turn its retry off with `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`: two
   retry layers multiply attempts ([`dependency-injection.md`](./dependency-injection.md)).
 - To test a client like this one, hand the pipeline a `DelegateHttpClient` as its transport ([`seams.md`](./seams.md)) or `UseTransport(...)` on the builder; the conformance kit
-  (`write-a-transport.md`) is for proving a transport, not for testing your client.
+  ([`write-a-transport.md`](./write-a-transport.md)) is for proving a transport, not for testing your client.
