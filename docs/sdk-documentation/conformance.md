@@ -275,7 +275,7 @@ can deliver the 200 inside one attempt: the server answers by the pipeline's att
 The kit is versioned in lockstep with `Dexpace.Sdk.Core` and the transport it certifies, and never published ahead of or apart
 from them. **A release that adds an assertion is at least a minor version**, because a new assertion can turn a previously green
 third-party run red; a consumer absorbs it with a waiver by ID. The first published version is the first release's lockstep
-version: `0.1.0` is proposed, and `docs/first-release.md` makes the number phase 12's decision.
+version: phase 12 decided `0.1.0` (`0.1.0-alpha.1` on `main` until the held release commit empties the suffix; [`versioning.md`](./versioning.md)).
 
 ## What the kit does not cover
 
