@@ -695,7 +695,17 @@ Roadmap phase 7b, issue #10 (a later addition, not one of S1–S9), pinned by a 
   `CheckPhase8bAsync`.
 - `docs/sdk-documentation/transport.md`.
 
-### Phase 11 — deviation reconciliation
+### Phase 12 — first release
+
+Roadmap phase 12 prepares the first release (design and plan under `docs/work/mvp/phase12/`). The first NuGet publish is held: nothing here publishes, tags or pushes.
+
+#### Fixed
+
+- **`Dexpace.Sdk.Http.SystemNet` packs the same bytes from the same commit** (`NFR-12`, build half; design V6). The assembly held `[LoggerMessage]` methods in two classes
+  (`HeaderDropLog`, `ProxyWarnings`), and the `LoggerMessage` source generator orders the classes of one assembly differently from one compilation to the next, so two
+  builds of one commit differed and the `reproducible packages` job could go red. All four generated methods now live in one internal `TransportLog`; event ids, names,
+  levels and message templates are unchanged. `LoggerMessageDeterminismArchitectureTests` fails a second type with a generated log method in any library. No behaviour change.
+
 
 Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
 for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under

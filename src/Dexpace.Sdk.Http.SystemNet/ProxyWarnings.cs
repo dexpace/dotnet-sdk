@@ -16,7 +16,7 @@ namespace Dexpace.Sdk.Http.SystemNet;
 /// Each message names a feature and the <see cref="ProxyOptions"/> member that causes it, taken from the closed set of literals
 /// below. Nothing from the options is formatted into it: not the host, not a user name, not a password (<c>XCUT-18</c>).
 /// </remarks>
-internal static partial class ProxyWarnings
+internal static class ProxyWarnings
 {
     /// <summary>Logs one warning per unhonourable combination in <paramref name="options"/>; a clean configuration logs nothing.</summary>
     /// <param name="logger">Receives the warnings.</param>
@@ -49,18 +49,11 @@ internal static partial class ProxyWarnings
     {
         try
         {
-            LogUnsupported(logger, feature, member);
+            TransportLog.ProxyFeatureUnsupported(logger, feature, member);
         }
         catch (Exception ex) when (!ExceptionFacts.IsFatal(ex))
         {
             // Swallowed by design (OBS-20).
         }
     }
-
-    [LoggerMessage(
-        EventId = DexpaceLogEvents.TransportProxyFeatureUnsupportedId,
-        EventName = DexpaceLogEvents.TransportProxyFeatureUnsupported,
-        Level = LogLevel.Warning,
-        Message = "The transport cannot honour a proxy setting as written: {Feature} (ProxyOptions.{Member}) (TRANSPORT-30).")]
-    private static partial void LogUnsupported(ILogger logger, string feature, string member);
 }
