@@ -60,12 +60,15 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
 - [x] **Deviations audited.** `docs/deviations.md` exists and every row reads `as-built: …`. Phase 11. *Ticked 2026-10-20 (phase 11):* [`docs/deviations.md`](./deviations.md) holds all 33 design §10 entries and 72 §11 readings, each with an
       `as-built:` verdict (or `retired (repaired, task n.m)`), a disposition and a cited reason, and `LedgerAuditTests` (rules L1 to L11, a blocking step of the `Test` job) fails the build on a cited line past the end of its file, a missing row, a scan that reads no file or a count that
       disagrees with this file. The clauses unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half and `CFG-2` for a section of an unregistered configuration; the first count of 2026-10-20 said three and missed the last, found by the 2026-10-21 review), below the roadmap's five.
-- [ ] **One-time public-surface choices decided before the first `PublicAPI.Shipped.txt`.** Adding a public member
+- [x] **One-time public-surface choices decided before the first `PublicAPI.Shipped.txt`.** Adding a public member
       later is compatible; removing or narrowing one after the tag is a break. Phase 11 lists the choices here, and
       phase 12 decides them. ~~Candidates found so far (phase 10, 2026-10-14): whether `HttpResponseException(Response)` should refuse a non-error status (`XCUT-8`, P10-24;
       today every core mapping path goes through a guarded internal factory and the public constructor accepts a 200), and whether `ServiceResponseException`, public and never
       thrown (`XCUT-4`, P10-25), is deleted or argued into design §3.2.~~ *Both decided by phase 11 (2026-10-20): the constructor refuses `null` and a non-error status, and `ServiceResponseException` is deleted.*
-      The list for phase 12 (each is in `PublicAPI.Unshipped.txt` and a `CHANGELOG.md` line; nothing is shipped, so each can still change shape for free):
+      *Ticked 2026-10-26 (phase 12, P12-15):* every item of the list below was kept as built (the design's P12-15 table is the evidence, and `ServiceRequestException` stays rooted in `IOException`); task 1.2 completed
+      the `ParamName` item (a rejected range or format value now names its property too, with a **Breaking** `CHANGELOG.md` line), and the move happened in the commit `feat: move PublicAPI.Unshipped into Shipped for the first release (NFR-4)`:
+      each `src/*/PublicAPI.Shipped.txt` is `#nullable enable` plus the whole surface (Core 1 369 members, Conformance 475, SystemNet 39, DI 27, System.Text.Json 12), each `Unshipped` is `#nullable enable` alone, and
+      `NFR4ArchitectureTests` now asserts the `Shipped` shape. The list as decided (each was in `PublicAPI.Unshipped.txt` and a `CHANGELOG.md` line):
       - `ServiceRequestException` (and `ServiceRequestTimeoutException`) derives from `IOException`, not `SdkException`; `catch (SdkException)` no longer catches a transport failure (P11-7, the choice most worth a second look).
       - `ServiceResponseException` is removed; `HttpResponseException`'s public constructor throws `ArgumentNullException` and `ArgumentException` (P11-9).
       - A second open of a response body returns the same stream; an open after dispose throws `StreamClosedException` (P11-8).

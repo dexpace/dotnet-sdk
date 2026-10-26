@@ -80,8 +80,9 @@
     <!-- NFR-8/NFR-9: the trim, single-file and AOT analyzers run at the library's own build (design §9.2). -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
-    <!-- NFR-4's binary half. No PackageValidationBaselineVersion until the first published version (phase 12);
-         until then it checks the package's own consistency. -->
+    <!-- NFR-4's binary half. PackageValidationBaselineVersion is held until the first publish (phase 12 built everything else; docs/first-release.md
+         *After the first publish* sets it to the published version): there is no published package to compare against, so until then package
+         validation checks the package's own consistency. -->
     <EnablePackageValidation>true</EnablePackageValidation>
     <!-- NFR-12 (phase 12, P12-11): a .snupkg beside every .nupkg, for nuget.org's symbol server. The portable PDB is deterministic and carries
          the embedded source links (EmbedUntrackedSources, PublishRepositoryUrl); reproducible-pack.sh compares the .snupkg bytes across two
@@ -92,8 +93,9 @@
 
   <ItemGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">
     <!-- NFR-3/NFR-4: RS0016/RS0017 against the PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt beside each
-         project file, which the package's own build props pick up. Shipped stays empty until the first release
-         (phase 12); every public surface change until then is a reviewed Unshipped diff (roadmap constraint 8). -->
+         project file, which the package's own build props pick up. Shipped holds the whole surface as of the phase 12 move
+         (#nullable enable first); every public surface change from here is a reviewed Unshipped diff (roadmap constraint 8), and the release
+         preflight requires Unshipped to be back to #nullable enable alone at a tag. -->
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     <!-- RS0030 against the repository's BannedSymbols.txt (design §9.1). -->
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />

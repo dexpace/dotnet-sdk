@@ -717,6 +717,9 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
   and `DeclaredFloor`, and the timeouts of `SuiteOptions` and `TransportSuiteOptions`. The exception types and messages are unchanged, so code that catches by type is unaffected;
   code that compared `ParamName` to `"value"` must compare it to the property name. `InitAccessorScanner` now recognises both spellings of the defect, so a new accessor of either is
   caught by the coverage tests.
+- **The public surface is recorded as the first release's** (`NFR-4`, source half; P12-8). Each library's `PublicAPI.Unshipped.txt` moved into `PublicAPI.Shipped.txt` (`#nullable enable` first, then every
+  member in order: Core 1 369, Conformance 475, SystemNet 39, DI 27, System.Text.Json 12) and `Unshipped` is `#nullable enable` alone, so from here a surface change is a reviewed `Unshipped` diff against a
+  recorded baseline. A pure move: no member was added, removed or reshaped. `PackageValidationBaselineVersion` stays unset until the first publish (`docs/first-release.md`, *After the first publish*).
 
 #### Added
 

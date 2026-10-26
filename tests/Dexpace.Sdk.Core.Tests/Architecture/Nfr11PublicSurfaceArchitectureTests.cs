@@ -10,8 +10,8 @@ namespace Dexpace.Sdk.Core.Tests.Architecture;
 /// <summary>
 /// NFR-11 (design §9.2 and §11 item 2; phase 10, P10-11, V10): core's public and protected signatures name only types of the base class library's
 /// <c>System</c> namespaces, <c>Microsoft.Extensions.Logging</c> and core's own, so a consumer is never forced to reference a third-party type to
-/// call core. The design says "a test scanning <c>PublicAPI.Shipped.txt</c>"; that file is empty until phase 12 and its text format is not a type
-/// model, so the subject is the compiled assembly, which is the surface those files describe. <c>System.Net.Http</c> and <c>System.Text.Json</c> sit
+/// call core. The design says "a test scanning <c>PublicAPI.Shipped.txt</c>"; that file was empty when this test was written (phase 12 filled it) and its text format
+/// is not a type model, so the subject is the compiled assembly, which is the surface those files describe. <c>System.Net.Http</c> and <c>System.Text.Json</c> sit
 /// under <c>System</c> in the framework yet belong to the adapters: the scan refuses them beside the allow-list, and an allow-list under
 /// <c>System</c> alone would have admitted <c>HttpRequestMessage</c>, which is the scan's own negative control.
 /// </summary>

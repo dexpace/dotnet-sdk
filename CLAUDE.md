@@ -63,8 +63,8 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   (every library `await` uses `ConfigureAwait(false)`, including `await using` and `await foreach`) and off
   for tests, tools and the AOT smoke consumer.
 - **Library gates** (every project under `src/`, from `Directory.Build.props`): `IsTrimmable` +
-  `IsAotCompatible`, `EnablePackageValidation`, the public-API files (`PublicAPI.Shipped.txt` stays empty
-  until the first release; every surface change is a reviewed `PublicAPI.Unshipped.txt` diff, RS0016/RS0017),
+  `IsAotCompatible`, `EnablePackageValidation`, the public-API files (`PublicAPI.Shipped.txt` holds the
+  surface as of the phase 12 move; every later surface change is a reviewed `PublicAPI.Unshipped.txt` diff, RS0016/RS0017),
   the banned-API list (`BannedSymbols.txt`, RS0030), `MA0051`'s 70-line method cap, and the `IDE0073`
   license header.
 - **Immutable models.** `record` / `readonly record struct`; mutate via `with` expressions or `With*`
