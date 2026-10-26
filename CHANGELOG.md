@@ -6,6 +6,91 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Release notes (draft for 0.1.0)
+
+*Draft. This block becomes `## [0.1.0]` at the held release commit, when the version suffix is emptied and the date is set; `ReleaseNotesTests` fails if it stops naming an item of `docs/first-release.md`'s
+"What v1 ships without". Nothing is published yet.*
+
+`0.1.0` is the first release of the dexpace .NET SDK: an HTTP-client toolkit, not an HTTP client. Five packages ship at one version (lockstep SemVer, `docs/sdk-documentation/versioning.md`):
+`Dexpace.Sdk.Core` (models, bodies, the staged pipeline, auth, pagination, server-sent events, the serde seam and diagnostics; no transport and no codec), `Dexpace.Sdk.Http.SystemNet` (the reference transport over
+`System.Net.Http.HttpClient`), `Dexpace.Sdk.Serialization.SystemTextJson` (an `ISerde` over source-generated `System.Text.Json`), `Dexpace.Sdk.Extensions.DependencyInjection` (`AddDexpaceClient` over
+`IHttpClientFactory`) and `Dexpace.Sdk.Conformance` (the transport, invariant, codec and packaging suites). Everything targets `net10.0`, is trimmable and AOT-compatible, and is strong-named
+(`PublicKeyToken` `fb3fcc3028a3989e`). Before 1.0 a minor version may break the public API, and adding a conformance assertion is at least a minor.
+
+#### Breaking changes to know first
+
+Nothing was published before this release, so these are differences from the pre-release trees (phases 1 to 11), listed because a reader of those trees will meet them. The full text of each is under
+"Phase 11" and "Phase 12" below.
+
+- **A transport failure is an `IOException`, not an `SdkException`.** `ServiceRequestException` (and `ServiceRequestTimeoutException`) derives from `IOException` and implements `IRetryableError`, so `catch (SdkException)` no longer
+  catches it: catch `ServiceRequestException` or `IOException`. `ServiceResponseException` is removed (it was never thrown).
+- **A second open of a response body returns the first stream**; the first convenience read (`ReadAsBytes*`, `ReadAsString*`, `ReadValue*`) disposes a stream-backed body, so a second read throws `StreamClosedException`.
+- **A validating `init` accessor names its property in `ParamName`** for a null, and now for a range or format rejection too (it was `"value"`).
+- **`HttpResponseException` refuses a `null` or non-error response; `Request` refuses a `Uri` built without canonicalization; `RequestBody.FromFile` refuses a Unix special file; `Headers.Builder.AddInbound` no longer trims a
+  header name; `Page<T>` copies its list.**
+- **The owned `SystemNetHttpClient` and the DI named client no longer let the runtime re-send a body-less `GET`, `HEAD`, `OPTIONS`, `DELETE` or `TRACE` natively**; the retry layer decides (see `idle-connection-native-retry`
+  and `borrowed-handler-native-retry` below).
+- **An empty configuration value falls through to the next provider** for a section of the registered `IConfiguration`; **an SSE event is bounded** (8 MiB of `data` by default, `ServerSentEventTooLargeException`); **the retry
+  attempt header is set, not appended**, and may not be `Idempotency-Key`.
+
+#### Guidance for adopters
+
+- **Compose `AddStandardResilienceHandler` with `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, never with the SDK's `MaxRetryAttempts = 0`.** The first leaves the SDK's retry the only one; the second leaves the handler's default
+  retry in place, and it re-sends a `POST` body behind the SDK's re-send gate (measured: a `POST` answered `503` reached the server four times; `docs/sdk-documentation/dependency-injection.md`).
+- **A named client's settings are read once, at first resolution; there is no reload.** A reloaded `appsettings.json` does not reach a built client (see `di-no-reload`).
+- **Dispose the provider with `DisposeAsync`** (a synchronous dispose throws for an async-only transport), and **a configuration value cannot turn the environment proxy read on**: write
+  `Proxy = ProxyOptions.FromEnvironment()` (see `explicit-proxy`).
+
+#### What v1 ships without
+
+Each item is stated here because the register (`docs/first-release.md`) says the release notes must state every one; the reasons are there and in `docs/deviations.md`.
+
+Unsatisfied MUSTs (four clauses, each argued in design section 10):
+
+- `AUTH-15`: Digest MD5 and MD5-sess where the host's crypto refuses MD5 (a FIPS provider); an MD5-only challenge is declined and a SHA-256 offer is answered.
+- `PAGE-21`: a byte-for-byte query splice for percent-encoded unreserved characters; `Request.Url` is a `System.Uri`, which decodes `%7E` before the splice sees it.
+- `TRANSPORT-14`: the malformed inbound header name clause; `SocketsHttpHandler` rejects the whole response on such a name, and the conformance drivers carry one permanent waiver for it.
+- `CFG-2`: an empty configuration value falls through only for a section of the `IConfiguration` registered in the container; any other section keeps the merged read.
+
+SHOULD- and MAY-level requirements declined:
+
+- `HTTP-22`: the header-name interning pool is not built (the well-known names are shared statics; equality is by value).
+- `BODY-36`: no memory-mapped view of a file body.
+- `REDIR-27`: the redirect target header is `Location` and not configurable.
+- `TRANSPORT-28`: no zero-copy file path (`HttpClient` writes to its own connection stream).
+- `BODY-12`: the kernel file-to-socket path is not built, for the same reason.
+- `OBS-28`: the request and response byte-count milestones are not emitted as span events.
+- `SEAM-28`: the operation id is not attached to the context chain.
+- Authentication features outside the requirements: claims challenges, an `apiKey` in a query string or cookie, a preemptive Digest, `407` challenges in the pipeline and a `NamedKeyCredential` are not built.
+
+Behavioural asymmetries a consumer must know:
+
+- `async-redirect-pillar`: one `RedirectPolicy` serves both the synchronous and asynchronous standard pipelines, so both follow redirects (the reference contract has the async one not follow).
+- `two-meters`: enabling both the `Dexpace.Sdk` meter and `System.Net.Http`'s measures each attempt twice under `http.client.request.duration`; enable one.
+- `borrowed-client-traceparent`: a caller-supplied `HttpClient` whose handlers do not propagate sends no `traceparent` for a traced call while a `System.Net.Http` listener exists.
+- `link-cross-origin-guard`: the `Link` pagination strategy ends the walk at another origin unless `allowCrossOrigin: true`, so the bearer token is not handed to a server-chosen host.
+- `sync-borrowed-handlers`: `Execute` is a real `HttpClient.Send`; a handler overriding only `SendAsync` throws (primary) or is skipped (delegating) on the synchronous face.
+- `explicit-proxy`: the owned transport goes direct and never reads `HTTP_PROXY`/`NO_PROXY`; ask for the environment with `ProxyOptions.FromEnvironment()`.
+- `borrowed-client-default-deadline`: the transport's 100 second default deadline applies to a borrowed `HttpClient` too (the shorter bound wins; `Timeout = null` leaves the client's own).
+- `di-no-reload`: a named client's settings are read once; no change-token source is registered.
+- `di-handler-lifetime`: one handler chain per named client for the process, rotated inside by `PooledConnectionLifetime`; `ConfigureHttpClient` has no effect and the factory's own loggers are removed.
+- `borrowed-handler-native-retry`: a handler or `HttpClient` you supply keeps the runtime's native re-send, so a body-less request can arrive up to four times; retry through the SDK's pipeline.
+- `idle-connection-native-retry`: on the SDK-built transport, "reaches the server once" means not up to four times, not never twice (one idle-connection window remains, reasoned and not reproduced).
+- `di-empty-shadows`: for a section from an unregistered configuration an empty value still shadows the lower provider (the counted `CFG-2` residual); read the section from the configuration you register.
+- `public-query-splice`: the query splice behind `Cursor` and `PageNumber` is internal; a custom strategy builds its own query with `Query` and `Request.WithUrl`.
+
+Not built, each with a trigger (`docs/first-release.md`, "Post-v1 packages"):
+
+- `Dexpace.Sdk.Reactive`: an `IAsyncEnumerable<T>` to `IObservable<T>` bridge for pagination and SSE (trigger: a consumer composing with Rx operators).
+- `Dexpace.Sdk.Serialization.NewtonsoftJson` (trigger: DTOs modelled with Newtonsoft attributes) and `Dexpace.Sdk.Serialization.Xml` (trigger: a real consumer of a second wire format).
+- A second first-party transport (none planned: alternative stacks plug in under `HttpMessageHandler`).
+- Webhook verification (post-v1 by roadmap decision D3; trigger: the first consuming SDK that receives webhooks).
+- A published test-doubles package, `Dexpace.Sdk.Testing` (trigger: an author outside this repository asks for the fakes).
+
+#### Held
+
+The first publish itself is held on the lead's actions (nuget.org organisation and `Dexpace.*` prefix, trusted publishing, the `nuget` environment, the `main` ruleset): `docs/first-release.md`.
+
 ### Security
 
 Roadmap phase 1, defects S1–S9, each pinned by a `[Trait("Category", "Security")]` regression test in
@@ -717,6 +802,13 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
   and `DeclaredFloor`, and the timeouts of `SuiteOptions` and `TransportSuiteOptions`. The exception types and messages are unchanged, so code that catches by type is unaffected;
   code that compared `ParamName` to `"value"` must compare it to the property name. `InitAccessorScanner` now recognises both spellings of the defect, so a new accessor of either is
   caught by the coverage tests.
+- **The five assemblies are strong-named with a committed key** (`NFR-16`'s strong-naming half; P12-9, P12-10; design §9.2): `Dexpace.Sdk.snk` (2048-bit RSA, public by design, nothing trusts it),
+  `PublicKeyToken` `fb3fcc3028a3989e`, applied to every project under `src/` and `tests/` through `Directory.Build.props`; each library's `InternalsVisibleTo` grant to its own test project carries the key
+  (`DexpacePublicKey`), so a strong-named consumer no longer meets `CS8002` against these libraries. An assembly-identity change recorded before the first publish, not a breaking change: nothing was
+  published unsigned. `StrongNameKeyTests` pins the property against each built library; the tools solution stays unsigned. Author signing with a certificate is declined; `NFR-16` rests on the
+  build-provenance attestation `release.yml` makes at the held first publish (P12-13).
+- **The next version is `0.1.0`** (P12-7): `VersionPrefix` `0.1.0`, `VersionSuffix` `alpha.1`, so the packages on `main` are `0.1.0-alpha.1`; the held release commit empties the suffix and dates `## [0.1.0]`.
+  Lockstep SemVer and the pre-1.0 rules are in `docs/sdk-documentation/versioning.md`.
 - **The public surface is recorded as the first release's** (`NFR-4`, source half; P12-8). Each library's `PublicAPI.Unshipped.txt` moved into `PublicAPI.Shipped.txt` (`#nullable enable` first, then every
   member in order: Core 1 369, Conformance 475, SystemNet 39, DI 27, System.Text.Json 12) and `Unshipped` is `#nullable enable` alone, so from here a surface change is a reviewed `Unshipped` diff against a
   recorded baseline. A pure move: no member was added, removed or reshaped. `PackageValidationBaselineVersion` stays unset until the first publish (`docs/first-release.md`, *After the first publish*).
@@ -730,7 +822,39 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
   while the repository variable `NUGET_USER` is empty, naming `docs/first-release.md`; past it, it verifies the checksums, attests every package (GitHub artifact attestation, in place of
   author signing), logs in with `NuGet/login` (no long-lived key) and pushes with `--skip-duplicate`. Nothing is published: the nuget.org organisation, the `Dexpace.*` prefix, the
   trusted-publishing policy and the `nuget` environment are the lead's, and the action inputs are marked unverified in the file's header.
+- **`scripts/ci/release-preflight.cs` and its self-test** (`NFR-16`, `NFR-12`, `NFR-14`, `NFR-15`; P12-4): over a packed set it fails, naming the cause, unless the five packages are present at one version, each `.nupkg`
+  has a `.snupkg` beside it, and every packed `lib/net10.0` assembly (read in memory, never loaded) is strong-named with the committed key's token (`fb3fcc3028a3989e`); with `--tag` it also requires a tag equal to `v<version>`,
+  every `PublicAPI.Unshipped.txt` back to `#nullable enable` alone, a `## [<version>]` section in this file, and a tag commit that is an ancestor of `main`. Two blocking steps in `ci.yml` run it and `release-preflight-selftest.sh`
+  on all three rows. Without `--tag` a tag-dependent finding prints `would fail:` and the exit stays 0, so the dry run on `main` reports the missing `## [0.1.0-alpha.1]` section (this file's section is `## [0.1.0]`
+  from the held release commit, whose suffix is empty) without failing.
+- **A `.snupkg` symbol package beside every `.nupkg`** (`NFR-12`; P12-11): five libraries, five symbol packages, compared byte for byte by `reproducible-pack.sh` and its self-test, which flips a byte in one to prove the compare can fail.
+  The audits read `.nupkg` only.
+- **`housekeeping fences`** (P12-18): `dotnet run --project .claude/skills/housekeeping/src -- fences` compiles every ` ```csharp ` fence of `README.md`, `docs/sdk-documentation/*.md` and `src/*/README.md` that names a
+  `Dexpace.Sdk` namespace, as its own generated project outside the repository against the built Release libraries with warnings as errors; ` ```csharp fragment ` is counted and never compiled, and a fence needing an
+  unpinned optional package is reported, not failed. A blocking Linux `Doc fences` step in `ci.yml` runs it.
+- **Nine user-documentation pages under `docs/sdk-documentation/`** (P12-17): `architecture.md` (replaces the retired `docs/architecture.md`), `getting-started.md`, `example-end-to-end.md`, `quality-gates.md`,
+  `versioning.md` and the four guides `write-a-transport.md`, `write-a-serde.md`, `write-a-response-handler.md` and `write-a-paging-strategy.md`; `conformance.md` gains "What a green run does not prove";
+  `SECURITY.md`, `README.md` and `CONTRIBUTING.md` are refreshed for five packages and the release path.
 
+#### Audit back-fill
+
+The phase 12 audit (P12-19) walked the 55 first-parent commits of `main` since the foundation (`git log --first-parent main --oneline`; the earlier entries are not rewritten) and found these without an entry. Everything else is
+covered by the entries above and below, by phase or by subject.
+
+- **Test partition, loopback fixture and xUnit v3** (#22, roadmap phase 0, `SEAM-2`): `tests/Dexpace.Sdk.Http.SystemNet.Tests` split out of `Core.Tests`, which now references core and `TestSupport` only; a BCL-only `TcpListener`
+  HTTP/1.1 loopback fixture; the non-packable `tests/Dexpace.Sdk.TestSupport`; SEAM-2 and SSE-37 architecture tests; xUnit v3 on Microsoft.Testing.Platform (`global.json`'s `test.runner`), coverlet.MTP and TRX reports; a `Category`
+  trait on every test class, enforced by each suite's `TestCategoryTests`.
+- **Fixed:** the build restores again under `NuGetAudit` (#20): the explicit `Microsoft.SourceLink.GitHub` reference, whose `Microsoft.Build.Tasks.Git` carried advisory GHSA-23fw-v26w-5fgq (`NU1902` under warnings-as-errors), is removed
+  (the .NET 8+ SDK embeds Source Link), and `NuGetAuditMode=all` audits transitive packages for every target.
+- **Fixed:** the coverage gate keeps every report and fails closed (#35): reports are named per test project (`--coverlet-file-prefix`), and `scripts/ci/coverage-gate.cs` exits 3, before checking the floor, when a test project left no
+  report or more than one or a `src/` library has no coverage data; `coverage-gate-selftest.sh` proves each exit code.
+- **Fixed:** `scripts/knowledge --gaps` takes every prefix (`--gaps HTTP SEAM` read HTTP alone) and `--phase` credits every ID inside a cited range (#42); `--prefix-info` refuses a second prefix.
+- **Added:** the organisation label sync (#11, #12): `.github/workflows/labels.yml` calls the reusable workflow in `dexpace/.github` with the `common`, `docs`, `package` and `sdk` profiles (42 labels), on push, on a Monday
+  schedule and on dispatch.
+- **Changed:** dependency updates (#26, #27, #34, #53): the `actions/checkout`, `actions/setup-dotnet` and `actions/upload-artifact` majors in `ci.yml`, `Microsoft.CodeAnalysis.BannedApiAnalyzers` and `PublicApiAnalyzers` 4.14.0 to 5.6.0, and
+  the minor-and-patch group (`Meziantou.Analyzer`). Build-only; no package a consumer restores changed.
+
+### Phase 11 — deviation reconciliation
 
 Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
 for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under
