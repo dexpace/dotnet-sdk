@@ -83,6 +83,11 @@
     <!-- NFR-4's binary half. No PackageValidationBaselineVersion until the first published version (phase 12);
          until then it checks the package's own consistency. -->
     <EnablePackageValidation>true</EnablePackageValidation>
+    <!-- NFR-12 (phase 12, P12-11): a .snupkg beside every .nupkg, for nuget.org's symbol server. The portable PDB is deterministic and carries
+         the embedded source links (EmbedUntrackedSources, PublishRepositoryUrl); reproducible-pack.sh compares the .snupkg bytes across two
+         checkouts, and its self-test flips a byte in one. The audits read .nupkg only. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">

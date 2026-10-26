@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 #
 # NFR-12's build half (design §9.2; phase 10, P10-14): pack every library twice from two checkouts of HEAD at DIFFERENT paths, with
-# SOURCE_DATE_EPOCH pinned to the commit time, and require byte-identical packages (.nupkg, and .snupkg once symbols are packed). The compiler is
+# SOURCE_DATE_EPOCH pinned to the commit time, and require byte-identical packages (.nupkg and .snupkg). The compiler is
 # already deterministic (Deterministic + ContinuousIntegrationBuild); SOURCE_DATE_EPOCH fixes the zip-entry timestamps of the package containers; and
 # the two different paths prove that no absolute path leaks into an artefact (the assembly embeds a pdb path when nothing maps it), which packing
 # twice in one directory cannot see. Reproducibility across paths holds for a git checkout, which CI always is; a source tarball with no .git is not
@@ -18,8 +18,9 @@
 # per-entry and zip-metadata diagnostics below stay, and name the cause if the job is still red.
 #
 # --self-test proves the compare fails closed, as coverage-gate-selftest.sh does for coverage: it packs once, copies the pack, requires the
-# identical copy to compare clean, flips one byte in one .nupkg of the copy and requires the compare to exit 1 naming that package, and requires
-# the toolchain check to refuse a version other than the one pinned.
+# identical copy to compare clean, flips one byte in one .nupkg of the copy and requires the compare to exit 1 naming that package, requires the
+# toolchain check to refuse a version other than the one pinned, requires a .snupkg beside every .nupkg of the pack (phase 12, P12-11: the symbol
+# packages are part of what is compared), and flips one byte in one .snupkg of the copy and requires the compare to exit 1 naming it.
 #
 #   scripts/ci/reproducible-pack.sh [--self-test] [output-dir]      (default: artifacts/reproducible, or artifacts/reproducible-selftest)
 set -euo pipefail
@@ -163,7 +164,7 @@ compare_packs() {
 
 # The self-test: see the header. Each case prints ok or FAILED; the exit code is 0 only when every case held.
 run_self_test() {
-  local failed=0 first_package flipped size offset byte replacement output rc
+  local failed=0 first_package flipped size offset byte replacement output rc package symbols first_symbols missing=""
   first_package="$(ls "$out/1"/*.nupkg | head -n 1)"
   flipped="$(basename "$first_package")"
 
@@ -200,6 +201,45 @@ run_self_test() {
     echo "reproducible-pack: self-test FAILED a toolchain other than the pinned one should exit 1 naming both versions; got exit $rc:"
     echo "$output"
     failed=1
+  fi
+
+  # Every .nupkg has its .snupkg beside it (P12-11): a pack that silently dropped the symbols would otherwise compare clean.
+  for package in "$out/1"/*.nupkg; do
+    symbols="${package%.nupkg}.snupkg"
+    [[ -f "$symbols" ]] || missing="$missing $(basename "$package")"
+  done
+  if [[ -z "$missing" ]]; then
+    echo "reproducible-pack: self-test ok     every .nupkg of the pack has a .snupkg beside it"
+  else
+    echo "reproducible-pack: self-test FAILED no .snupkg beside:$missing"
+    failed=1
+  fi
+
+  # One flipped byte in a .snupkg of the copy fails the compare, naming it. The copy's .nupkg flipped above is restored first, so only the symbols differ.
+  cp "$out/1/$flipped" "$out/2/$flipped"
+  first_symbols=""
+  for symbols in "$out/1"/*.snupkg; do
+    first_symbols="$(basename "$symbols")"
+    break
+  done
+  if [[ -z "$first_symbols" ]]; then
+    echo "reproducible-pack: self-test FAILED the pack has no .snupkg to flip a byte in"
+    failed=1
+  else
+    size="$(wc -c < "$out/2/$first_symbols")"
+    offset=$((size / 2))
+    byte="$(dd if="$out/2/$first_symbols" bs=1 skip="$offset" count=1 2>/dev/null | od -An -tu1 | tr -d ' ')"
+    replacement="$(printf '\\x%02x' $(((byte + 1) % 256)))"
+    # shellcheck disable=SC2059
+    printf "$replacement" | dd of="$out/2/$first_symbols" bs=1 seek="$offset" count=1 conv=notrunc 2>/dev/null
+    output="$(compare_packs "$out/1" "$out/2" 2>&1)" && rc=0 || rc=$?
+    if [[ $rc -eq 1 ]] && grep -Fq "reproducible-pack: $first_symbols differs between the two packs" <<<"$output"; then
+      echo "reproducible-pack: self-test ok     one flipped byte in $first_symbols fails the compare (exit 1, named)"
+    else
+      echo "reproducible-pack: self-test FAILED one flipped byte in $first_symbols should exit 1 naming it; got exit $rc:"
+      echo "$output"
+      failed=1
+    fi
   fi
 
   return $failed
