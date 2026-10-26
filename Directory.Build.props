@@ -52,6 +52,30 @@
     <DexpaceIsLibrary Condition="$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').StartsWith('src$([System.IO.Path]::DirectorySeparatorChar)'))">true</DexpaceIsLibrary>
   </PropertyGroup>
 
+  <!-- NFR-16's strong-naming half (phase 12, P12-9, P12-10; design §9.2). Strong naming is an assembly identity, not a security measure on .NET:
+       it exists so a strong-named consumer does not meet CS8002 against an unsigned library, and it must be decided before 0.1.0 because adding a
+       strong name afterwards changes every assembly's identity. Dexpace.Sdk.snk is committed on purpose (the key is public by design; nothing trusts it).
+       It is a 2048-bit RSA key in the CALG_RSA_SIGN blob layout; a key exported as CALG_RSA_KEYX gives CS0281, and the .NET SDK has no cross-platform `sn -p`,
+       so DexpacePublicKey (the hex of the public key blob: 00240000 04800000, the blob length, then the PUBLICKEYBLOB) is the one place the public half is
+       written, and every library's InternalsVisibleTo reads it as Key="$(DexpacePublicKey)" (CS1726 otherwise, as a signed friend needs a keyed grant).
+       The public key token is fb3fcc3028a3989e; StrongNameKeyTests pins the property against each built library and pins this token as a literal, so a key rotation is a visible test edit.
+       Signing is scoped to src/ and tests/ by path (the friend test assemblies must be signed). The tools solution and the housekeeping skill stay
+       unsigned: they are not packed and their InternalsVisibleTo items are keyless, so signing them would break their friend tests with CS1726.
+       AssemblyVersion stays the SDK default (Major.Minor.Patch.0 from VersionPrefix): on net10.0 there are no binding redirects to feed. -->
+  <PropertyGroup Label="Strong naming">
+    <DexpacePublicKey>00240000048000001401000006020000002400005253413100080000010001002f5ae1624b3cc2e3aea0022831ff13acfb9224687d33d4b0c1721b360e0695f24ff397c72539383128726ad9b50d8ada52aea3b7893223a77e0e0a416478182f96a9fbc9b9317acea8e369481ce8efac786db7a02573f0ef315b0cd913d21496961ea70cf678adca33778ca63b527e1cee8f1b9783819ef1d9ee5bb6dc0963465726a2eb9ebaadb12220abf55c61c4238de3e8d8eb939ec3a5e88fb45a05154b636769e81a9b654ec658253a9c36241c9c58c3d4aec00f4340710f13fe11d0ab27d43615e1900974d238e6809a91e07eabc4a75eaca74ccf6075ad20597fa9ad9f8b06787d884b42482c5b4314c7cb4eb0ebf0fdb15def31a1b62edc33a138c4</DexpacePublicKey>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DexpaceRelativeProjectDirectory>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)'))</DexpaceRelativeProjectDirectory>
+    <DexpaceIsSigned Condition="$(DexpaceRelativeProjectDirectory.StartsWith('src$([System.IO.Path]::DirectorySeparatorChar)')) Or $(DexpaceRelativeProjectDirectory.StartsWith('tests$([System.IO.Path]::DirectorySeparatorChar)'))">true</DexpaceIsSigned>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Strong naming" Condition="'$(DexpaceIsSigned)' == 'true'">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)Dexpace.Sdk.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
   <PropertyGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">
     <!-- NFR-8/NFR-9: the trim, single-file and AOT analyzers run at the library's own build (design §9.2). -->
     <IsTrimmable>true</IsTrimmable>
@@ -59,6 +83,11 @@
     <!-- NFR-4's binary half. No PackageValidationBaselineVersion until the first published version (phase 12);
          until then it checks the package's own consistency. -->
     <EnablePackageValidation>true</EnablePackageValidation>
+    <!-- NFR-12 (phase 12, P12-11): a .snupkg beside every .nupkg, for nuget.org's symbol server. The portable PDB is deterministic and carries
+         the embedded source links (EmbedUntrackedSources, PublishRepositoryUrl); reproducible-pack.sh compares the .snupkg bytes across two
+         checkouts, and its self-test flips a byte in one. The audits read .nupkg only. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup Label="Library gates" Condition="'$(DexpaceIsLibrary)' == 'true'">
@@ -72,7 +101,10 @@
   </ItemGroup>
 
   <PropertyGroup Label="Package metadata">
-    <VersionPrefix>0.0.1</VersionPrefix>
+    <!-- The next version is 0.1.0 (phase 12, P12-7; docs/first-release.md proposes it: a first release that adds assertions is at least a minor
+         version). The alpha.1 suffix stays on main until the held release commit empties it, and the release preflight holds the version train
+         (one version across the five packages, a v-tag equal to it). -->
+    <VersionPrefix>0.1.0</VersionPrefix>
     <VersionSuffix>alpha.1</VersionSuffix>
     <Authors>dexpace</Authors>
     <Company>dexpace</Company>

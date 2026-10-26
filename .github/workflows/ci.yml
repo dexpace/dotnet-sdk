@@ -133,6 +133,17 @@ jobs:
       - name: Packaging conformance
         run: dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages
 
+      # NFR-16/NFR-12 (phase 12, P12-4): the release preflight over the packed set, here as a dry run (no tag): the five packages at one version, a
+      # .snupkg beside each, every packed assembly strong-named with the committed key's token. The tag-dependent findings (a settled
+      # PublicAPI.Unshipped.txt, a CHANGELOG.md section, the tag on main) print `would fail:` and do not fail a pull request; release.yml runs it with --tag.
+      - name: Release preflight
+        run: dotnet run scripts/ci/release-preflight.cs -- artifacts/packages
+
+      # The preflight's own regression check: a missing package or symbol package, a second version, a wrong key token, a wrong or off-main tag, a
+      # missing CHANGELOG.md section and an unsettled PublicAPI.Unshipped.txt must each fail it, naming the cause; without a tag the last two only warn.
+      - name: Release preflight - self-test
+        run: scripts/ci/release-preflight-selftest.sh artifacts/packages
+
       - name: Tools - restore (locked)
         run: dotnet restore tools/Dexpace.Tools.sln --locked-mode
 

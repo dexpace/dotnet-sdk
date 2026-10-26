@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Dexpace.Sdk.Serialization.SystemTextJson.Tests" />
+    <InternalsVisibleTo Include="Dexpace.Sdk.Serialization.SystemTextJson.Tests" Key="$(DexpacePublicKey)" />
   </ItemGroup>
 
 </Project>

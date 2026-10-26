@@ -33,6 +33,8 @@ public sealed partial class CiWorkflowTests
         ("Dependency audit", "dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages"),
         ("Dependency audit - self-test", "scripts/ci/dependency-audit-selftest.sh artifacts/packages"),
         ("Packaging conformance", "dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages"),
+        ("Release preflight", "dotnet run scripts/ci/release-preflight.cs -- artifacts/packages"),
+        ("Release preflight - self-test", "scripts/ci/release-preflight-selftest.sh artifacts/packages"),
         ("Tools - restore (locked)", "dotnet restore tools/Dexpace.Tools.sln --locked-mode"),
         ("Tools - build", "dotnet build tools/Dexpace.Tools.sln --configuration Release"),
         ("Tools - format", "dotnet format tools/Dexpace.Tools.sln --verify-no-changes"),
