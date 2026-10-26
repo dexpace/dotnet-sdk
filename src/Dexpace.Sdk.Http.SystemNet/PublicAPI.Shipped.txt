@@ -1,1 +1,40 @@
 #nullable enable
+Dexpace.Sdk.Http.SystemNet.HeaderDropLogging
+Dexpace.Sdk.Http.SystemNet.HeaderDropLogging.Every = 1 -> Dexpace.Sdk.Http.SystemNet.HeaderDropLogging
+Dexpace.Sdk.Http.SystemNet.HeaderDropLogging.FirstPerName = 0 -> Dexpace.Sdk.Http.SystemNet.HeaderDropLogging
+Dexpace.Sdk.Http.SystemNet.HeaderDropLogging.VerboseOnly = 2 -> Dexpace.Sdk.Http.SystemNet.HeaderDropLogging
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.Dispose() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.Execute(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> Dexpace.Sdk.Core.Http.Response.Response!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.ExecuteAsync(Dexpace.Sdk.Core.Http.Request.Request! request, Dexpace.Sdk.Core.Http.Request.RequestOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Dexpace.Sdk.Core.Http.Response.Response!>!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(Microsoft.Extensions.Logging.ILogger! logger) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpClient! client, Microsoft.Extensions.Logging.ILogger! logger) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpMessageHandler! handler) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.SystemNetHttpClient(System.Net.Http.HttpMessageHandler! handler, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.<Clone>$() -> Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Equals(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? other) -> bool
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.HeaderDropLogging.get -> Dexpace.Sdk.Http.SystemNet.HeaderDropLogging
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.HeaderDropLogging.init -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Logger.init -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Proxy.get -> Dexpace.Sdk.Core.Configuration.ProxyOptions?
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Proxy.init -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.ResendBufferLimit.get -> long
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.ResendBufferLimit.init -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.SystemNetHttpClientOptions() -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.TimeProvider.get -> System.TimeProvider!
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.TimeProvider.init -> void
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Timeout.get -> System.TimeSpan?
+Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Timeout.init -> void
+override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.Equals(object? obj) -> bool
+override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.GetHashCode() -> int
+override Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.ToString() -> string!
+static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClient.CreatePrimaryHandler(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions! options) -> System.Net.Http.SocketsHttpHandler!
+static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.operator !=(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? left, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? right) -> bool
+static Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions.operator ==(Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? left, Dexpace.Sdk.Http.SystemNet.SystemNetHttpClientOptions? right) -> bool

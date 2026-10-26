@@ -85,7 +85,12 @@ public sealed class InitAccessorParamNameTests
     [Fact]
     public void The_table_covers_every_validating_accessor()
     {
-        var sites = InitAccessorScanner.Find(SourceTreeRoot()).Select(static site => site.Key).Except(s_coveredInTheTransportTests, StringComparer.Ordinal);
+        // The null half only: the range and format rejections (and the null half of ThrowIfNullOrWhiteSpace) are InitAccessorRejectionParamNameTests', which checks
+        // its own coverage the same way (phase 12, task 1.2).
+        var sites = InitAccessorScanner.Find(SourceTreeRoot())
+            .Where(static site => site.Kind == InitAccessorScanner.SiteKind.Null)
+            .Select(static site => site.Key)
+            .Except(s_coveredInTheTransportTests, StringComparer.Ordinal);
 
         Assert.Equal(sites.Order(StringComparer.Ordinal), s_rows.Keys.Order(StringComparer.Ordinal));
     }
@@ -162,6 +167,105 @@ public sealed class InitAccessorParamNameTests
 
             Assert.Equal(["Bare.Name", "Bare.Named", "Bare.Items", "Bare.Items[]", "Bare.Arrow"], sites.Select(static site => site.Key));
             Assert.Equal([false, true, true, false, false], sites.Select(static site => site.NamesItsProperty));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    private const string RangeFixture = """
+        public sealed class Range
+        {
+            public int Bare
+            {
+                get;
+                init
+                {
+                    ArgumentOutOfRangeException.ThrowIfNegative(value);
+                    field = value;
+                }
+            }
+
+            public TimeSpan Named
+            {
+                get;
+                init
+                {
+                    ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero, nameof(Named));
+                    field = value;
+                }
+            }
+
+            public string Blank
+            {
+                get;
+                init
+                {
+                    ArgumentException.ThrowIfNullOrWhiteSpace(value);
+                    field = value;
+                }
+            }
+
+            public string BlankNamed
+            {
+                get;
+                init
+                {
+                    ArgumentException.ThrowIfNullOrEmpty(value, nameof(BlankNamed));
+                    field = value;
+                }
+            }
+
+            public string Thrown
+            {
+                get;
+                init => field = value.Length == 0 ? throw new ArgumentException("empty", nameof(value)) : value;
+            }
+
+            public string ThrownNamed
+            {
+                get;
+                init => field = value.Length == 0 ? throw new ArgumentOutOfRangeException(nameof(ThrownNamed), "empty") : value;
+            }
+
+            public IReadOnlyList<int> Items
+            {
+                get;
+                init
+                {
+                    foreach (var item in value)
+                    {
+                        ArgumentOutOfRangeException.ThrowIfNegative(item);
+                    }
+
+                    field = value;
+                }
+            }
+
+            public void Method(int value)
+            {
+                ArgumentOutOfRangeException.ThrowIfNegative(value);
+                ArgumentException.ThrowIfNullOrWhiteSpace(value.ToString());
+                throw new ArgumentException("x", nameof(value));
+            }
+        }
+    """;
+
+    [Fact]
+    public void The_scanner_flags_the_range_and_format_spellings_and_ignores_a_method_parameter()
+    {
+        var directory = Directory.CreateTempSubdirectory("accessors");
+        try
+        {
+            File.WriteAllText(Path.Combine(directory.FullName, "Range.cs"), RangeFixture);
+
+            var sites = InitAccessorScanner.Find(directory.FullName);
+
+            Assert.All(sites, static site => Assert.Equal(InitAccessorScanner.SiteKind.Rejection, site.Kind));
+            Assert.Equal(["Range.Bare", "Range.Named", "Range.Blank", "Range.BlankNamed", "Range.Thrown", "Range.ThrownNamed", "Range.Items[]"], sites.Select(static site => site.Key));
+            Assert.Equal([false, true, false, true, false, true, false], sites.Select(static site => site.NamesItsProperty));
+            Assert.Equal([false, false, true, true, false, false, false], sites.Select(static site => site.RejectsNull));
         }
         finally
         {

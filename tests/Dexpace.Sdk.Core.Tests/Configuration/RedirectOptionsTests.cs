@@ -28,7 +28,7 @@ public sealed class RedirectOptionsTests
     public void A_negative_MaxRedirects_throws_at_init()
     {
         var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new RedirectOptions { MaxRedirects = -1 });
-        Assert.Equal("value", ex.ParamName);
+        Assert.Equal("MaxRedirects", ex.ParamName);
     }
 
     [Fact]

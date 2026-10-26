@@ -26,7 +26,7 @@ public sealed record CodecSubject
         get;
         init
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(Name));
             field = value;
         }
     } = "codec";

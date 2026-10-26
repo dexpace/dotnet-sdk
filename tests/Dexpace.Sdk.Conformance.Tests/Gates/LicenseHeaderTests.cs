@@ -54,6 +54,14 @@ public sealed class LicenseHeaderTests
             var obj = Directory.CreateDirectory(Path.Combine(scripts.FullName, "obj"));
             File.WriteAllText(Path.Combine(obj.FullName, "ignored.cs"), "class E;\n");
 
+            // A nested git worktree under .claude/worktrees/ is a second checkout (with its own, possibly generated, headerless files and its own artifacts/), not this repository's source.
+            var nested = Directory.CreateDirectory(Path.Combine(root.FullName, ".claude", "worktrees", "w1", "src"));
+            File.WriteAllText(Path.Combine(nested.FullName, "nested.cs"), "class F;\n");
+            var nestedArtifacts = Directory.CreateDirectory(Path.Combine(root.FullName, ".claude", "worktrees", "w1", "artifacts", "release", "wt1"));
+            File.WriteAllText(Path.Combine(nestedArtifacts.FullName, "packed.cs"), "class G;\n");
+            var artifacts = Directory.CreateDirectory(Path.Combine(scripts.FullName, "artifacts"));
+            File.WriteAllText(Path.Combine(artifacts.FullName, "output.cs"), "class H;\n");
+
             Assert.Equal(
                 [Path.Combine("scripts", "generated-bad.cs"), Path.Combine("scripts", "half.cs"), Path.Combine("scripts", "none.cs"), Path.Combine("scripts", "second-line.cs")],
                 Offenders(root.FullName));
@@ -72,12 +80,17 @@ public sealed class LicenseHeaderTests
             .Select(sub => Path.Combine(root, sub))
             .Where(Directory.Exists)
             .SelectMany(dir => Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories))
-            .Where(static file => !InBuildOutput(file));
+            .Where(file => !NotThisRepositorysSource(root, file));
 
-    private static bool InBuildOutput(string file)
+    /// <summary>
+    /// Build output (<c>bin</c>, <c>obj</c>, <c>artifacts</c>: <c>scripts/ci/reproducible-pack.sh</c> checks out and builds <c>HEAD</c> twice under
+    /// <c>artifacts/</c>) and a nested git worktree (<c>.claude/worktrees/</c>, a second checkout whose own build output a scan of this tree must not read).
+    /// </summary>
+    private static bool NotThisRepositorysSource(string root, string file)
     {
-        var parts = file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return parts.Contains("bin") || parts.Contains("obj");
+        var parts = Path.GetRelativePath(root, file).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return parts.Contains("bin") || parts.Contains("obj") || parts.Contains("artifacts")
+            || (parts.Length > 2 && parts[0] == ".claude" && parts[1] == "worktrees");
     }
 
     private static bool HasHeader(string[] lines)

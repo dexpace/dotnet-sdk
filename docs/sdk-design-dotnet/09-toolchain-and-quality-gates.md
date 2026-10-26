@@ -75,6 +75,17 @@ pins that each gate with a command is a named step of `.github/workflows/ci.yml`
 | Appendix-C coverage and design §12 | blocking, Linux row: `requirement-coverage.cs --check` and `--check-section12`, each with a self-test |
 | Ledger audit (phase 11) | blocking: `LedgerAuditTests` holds `docs/deviations.md` to design §10 and §11, the release register, appendix C, the sources, the drivers' waivers and the negative scans |
 
+**Dated correction, 2026-10-26 (phase 12).** Four rows of the phase 11 table change, and three gates join it; "blocking" is as above. Nothing is published, so the rows that wait for a publish say so.
+
+| Reference gate | State at phase 12 |
+|---|---|
+| API-surface snapshot (**NFR-4**) | blocking: `RS0016`/`RS0017`, and `PublicAPI.Shipped.txt` now holds the whole surface (the one-time move of `PublicAPI.Unshipped.txt`, P12-8; `NFR4ArchitectureTests` asserts the shape); the package-validation baseline (`PackageValidationBaselineVersion`) is **held until the first publish** (a package of that id must exist on nuget.org to resolve), recorded in `docs/first-release.md` |
+| Reproducible artifacts (**NFR-12**) | blocking, and now over symbol packages too: a `.snupkg` beside every `.nupkg`, compared byte for byte; `LoggerMessageDeterminismArchitectureTests` holds the cause of the phase 10 red job (the `[LoggerMessage]` generator's class order) shut; the release half (a rebuild from the tag, modulo nuget.org's repository signature, P12-12) is held |
+| Signed publications (**NFR-16**) | **strong naming built** (`Dexpace.Sdk.snk`, `StrongNameKeyTests`, the preflight's token check); **author signing declined** for a GitHub artifact attestation in the release workflow's publish job (P12-13); closure held until the first publish |
+| Fence check (documentation compiles) | blocking, Linux row: `housekeeping fences` compiles every `csharp` fence that names `Dexpace.Sdk` (P12-18) |
+| Release preflight (phase 12) | blocking, all rows: `scripts/ci/release-preflight.cs` and its self-test over the packed set (five packages at one version, a `.snupkg` beside each, every assembly signed with the committed key; with a tag, the version, a settled `Unshipped`, the changelog section and the commit's place on `main`) |
+| Release workflow (phase 12) | `.github/workflows/release.yml`, pinned by `ReleaseWorkflowTests`, **inert** until the nuget.org setup exists (`docs/first-release.md`); not a pull-request check |
+
 ### 9.1 API-surface lock, and what the analyzers can and cannot see
 
 **NFR-4** is the one gate .NET provides twice, and both halves are needed. `PublicApiAnalyzers` makes the source-level
@@ -237,6 +248,14 @@ recommends.
 first-party projects the policy names, and every listed Dexpace project must carry the library's lockstep version (P9-3). "At most one third-party library" counts a root package whose closure is one publisher's lock-stepped family as one library (§10 entry 2). The AOT smoke gains `CheckPhase9Async` over the DI package (P9-21, V7).
 
 **As built (2026-10-20, phase 11, `eb3facc`):** built; the audit's allowance for core is a fixed set with a self-test (task 1.3).
+
+**Dated correction, 2026-10-26 (phase 12, P12-9, P12-10, P12-13).** *Strong naming is built.* `Dexpace.Sdk.snk` is committed (a 2048-bit RSA key in the `CALG_RSA_SIGN` blob layout; a `CALG_RSA_KEYX` key gives `CS0281`), its `PublicKeyToken` is
+`fb3fcc3028a3989e`, and `DexpacePublicKey` in `Directory.Build.props` is the one place the public half is written, read by every library's `InternalsVisibleTo Key=`. **It is scoped to the projects under `src/` and `tests/`, not every project:** a signed
+test assembly forces a keyed grant (`CS1726` otherwise), and the tools solution and the housekeeping skill, which are not packed and carry keyless grants, would break under it, so they stay unsigned. `StrongNameKeyTests` pins the property, the
+algorithm and the token, and the release preflight re-checks the token on every packed assembly. *Author signing is declined for v1:* the paragraph above that has the release job sign with the organisation's certificate is replaced by a
+GitHub artifact attestation over every package (`actions/attest-build-provenance` in `release.yml`'s publish job, verified with `gh attestation verify`), a mechanism substitution that keeps the provenance outcome (a certificate costs money and
+wants an HSM; the attestation is keyless). nuget.org's repository signature still applies to every package. `NFR-16` closes at the first publish. The release workflow (`.github/workflows/release.yml`) is inert until the nuget.org organisation, the `Dexpace.*` prefix,
+the trusted-publishing policy and the `nuget` environment exist.
 
 ### 9.3 Tests, and why a local server rather than only a stubbing library
 

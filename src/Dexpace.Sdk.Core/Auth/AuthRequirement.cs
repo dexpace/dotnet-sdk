@@ -54,7 +54,7 @@ public sealed record AuthRequirement
             {
                 if (scope is null)
                 {
-                    throw new ArgumentException("A scope must not be null.", nameof(value));
+                    throw new ArgumentException("A scope must not be null.", nameof(Scopes));
                 }
 
                 builder.Add(scope);

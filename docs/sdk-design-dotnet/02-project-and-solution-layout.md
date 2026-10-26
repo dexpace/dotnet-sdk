@@ -193,6 +193,11 @@ inspecting the produced PDB).
 
 **As built (2026-10-20, phase 11, `eb3facc`):** built. `global.json` pins `10.0.401` with `rollForward: latestPatch`; every project targets `net10.0` only; `InternalsVisibleTo` is granted to a library's own test project and nobody else (`packaging:nfr-3.no-internals-granted`); no SourceLink package is referenced, the SDK ships it.
 
+**Dated correction, 2026-10-26 (phase 12, P12-6, P12-7).** *The next version is `0.1.0`.* `VersionPrefix` is `0.1.0` and `VersionSuffix` `alpha.1` on `main`, so the packages build as `0.1.0-alpha.1`; the held release commit empties the suffix, dates the
+`CHANGELOG.md` section and is tagged `v0.1.0`, and the commit after it opens `0.2.0-alpha.1`. Lockstep stands. The pre-1.0 policy is written down in `docs/sdk-documentation/versioning.md`: a patch never breaks the public API or documented behaviour, a minor may (with a
+**Breaking** `CHANGELOG.md` line, a reviewed `PublicAPI` diff and, from the first publish, a `CompatibilitySuppressions.xml` entry), a conformance assertion added is at least a minor, `[Obsolete]` precedes a removal where it costs nothing, and from 1.0 SemVer is strict.
+The layout block above predates the strong-name key: `Dexpace.Sdk.snk` sits at the repository root beside `global.json` and `Directory.Build.props` (§9.2).
+
 ### 2.4 Enforcing the zero-dependency invariant, and what "standard library" means in .NET
 
 **SEAM-1** says core "MUST depend at runtime on nothing beyond its language's standard library plus a

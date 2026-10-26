@@ -21,7 +21,7 @@
 
   <!-- Internals go to this library's own test project only (design §2.3). -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Dexpace.Sdk.Conformance.Tests" />
+    <InternalsVisibleTo Include="Dexpace.Sdk.Conformance.Tests" Key="$(DexpacePublicKey)" />
   </ItemGroup>
 
 </Project>

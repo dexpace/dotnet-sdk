@@ -6,31 +6,48 @@ using System.Text.RegularExpressions;
 namespace Dexpace.Sdk.TestSupport.Source;
 
 /// <summary>
-/// Finds the null-rejecting <c>init</c> / <c>set</c> accessors of a source tree (SEAM-29, phase 11 task 2.5). An accessor's parameter is called
+/// Finds the validating <c>init</c> / <c>set</c> accessors of a source tree (SEAM-29, phase 11 task 2.5; phase 12 task 1.2). An accessor's parameter is called
 /// <c>value</c> whatever the property is, so <c>ArgumentNullException.ThrowIfNull(value)</c> reported <c>ParamName == "value"</c>, which names nothing; the rule
-/// is that the exception names the property (<c>ThrowIfNull(value, nameof(Property))</c>). A method whose own parameter is called <c>value</c> is not an
-/// accessor and is not reported.
+/// is that the exception names the property (<c>ThrowIfNull(value, nameof(Property))</c>). The defect has two spellings: <c>nameof(value)</c> passed to an
+/// exception, and a framework throw helper called on <c>value</c>, whose <c>ParamName</c> is the argument <em>expression</em> (<c>CallerArgumentExpression</c>),
+/// so <c>"value"</c> again. A method whose own parameter is called <c>value</c> is not an accessor and is not reported.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A source scan, not a syntax tree. An accessor is a line that is just <c>init</c> or <c>set</c>, or starts <c>init =&gt;</c> / <c>set =&gt;</c>; its body is the
 /// braces that follow (or the rest of that line); its property is the last identifier of the nearest <c>public</c>, <c>internal</c>, <c>private</c> or
 /// <c>protected</c> declaration above it that has no parenthesis before any <c>=</c>; the type is the file's name, one type per file. Inside the body, three
-/// spellings reject a null: <c>ArgumentNullException.ThrowIfNull(x)</c>, <c>ArgumentNullException.ThrowIfNull(x, nameof(P))</c> and
-/// <c>new ArgumentNullException(nameof(P)...)</c>. A site about <c>value</c> itself is the property's; a site about anything else, or about <c>value[...]</c>,
-/// is an <em>element</em> of the collection assigned.
+/// spellings reject a null (<see cref="SiteKind.Null"/>): <c>ArgumentNullException.ThrowIfNull(x)</c>, <c>ArgumentNullException.ThrowIfNull(x, nameof(P))</c> and
+/// <c>new ArgumentNullException(nameof(P)...)</c>. Three more reject a range or a format (<see cref="SiteKind.Rejection"/>):
+/// <c>ArgumentOutOfRangeException.ThrowIf*(x...)</c>, <c>ArgumentException.ThrowIfNullOrWhiteSpace(x...)</c> / <c>ThrowIfNullOrEmpty(x...)</c> (which also reject a
+/// null, <see cref="Site.RejectsNull"/>, as an <see cref="ArgumentNullException"/> named the same way, so they are one rejection site and not two) and
+/// <c>new Argument*Exception(..., nameof(P))</c>. A site about <c>value</c> itself is the property's; a site about anything else, or about <c>value[...]</c>,
+/// is an <em>element</em> of the collection assigned. A call to a helper method of the type (<c>RequireDuration(value)</c>) is invisible to a line scan; its
+/// accessors keep behavioural rows in the tests.
 /// </para>
 /// </remarks>
 public static partial class InitAccessorScanner
 {
-    /// <summary>One null-rejecting site in an accessor.</summary>
+    /// <summary>What a site rejects.</summary>
+    public enum SiteKind
+    {
+        /// <summary>A null (the three <c>ArgumentNullException</c> spellings).</summary>
+        Null,
+
+        /// <summary>A value out of range or of the wrong format: a range helper, <c>ThrowIfNullOrWhiteSpace</c>, or a thrown <c>Argument*Exception</c> naming a parameter.</summary>
+        Rejection,
+    }
+
+    /// <summary>One validating site in an accessor.</summary>
     /// <param name="File">The file, relative to the scanned root, with <c>/</c> separators.</param>
     /// <param name="Line">The 1-based line of the site.</param>
     /// <param name="Type">The file name without its extension.</param>
     /// <param name="Property">The property the accessor belongs to.</param>
     /// <param name="Element">Whether the site rejects a null element of the assigned collection rather than the value itself.</param>
     /// <param name="NamedParameter">The identifier inside the site's <c>nameof(...)</c>, or <see langword="null"/> when there is none.</param>
-    public sealed record Site(string File, int Line, string Type, string Property, bool Element, string? NamedParameter)
+    /// <param name="Kind">Whether the site rejects a null or a range or format.</param>
+    /// <param name="RejectsNull">Whether a <see cref="SiteKind.Rejection"/> site also rejects a null (<c>ThrowIfNullOrWhiteSpace</c> and <c>ThrowIfNullOrEmpty</c>).</param>
+    public sealed record Site(string File, int Line, string Type, string Property, bool Element, string? NamedParameter, SiteKind Kind = SiteKind.Null, bool RejectsNull = false)
     {
         /// <summary>The name a test table uses for the site: <c>Type.Property</c>, or <c>Type.Property[]</c> for an element.</summary>
         public string Key => Element ? $"{Type}.{Property}[]" : $"{Type}.{Property}";
@@ -41,6 +58,18 @@ public static partial class InitAccessorScanner
 
     [GeneratedRegex(@"ArgumentNullException\.ThrowIfNull\(\s*(?<arg>[^,()]+?)\s*(?:,\s*nameof\((?<name>\w+)\))?\s*\)", RegexOptions.CultureInvariant)]
     private static partial Regex ThrowIfNull();
+
+    [GeneratedRegex(@"ArgumentOutOfRangeException\.ThrowIf\w+\(\s*(?<arg>[^,()]+?)\s*[,)]", RegexOptions.CultureInvariant)]
+    private static partial Regex ThrowIfOutOfRange();
+
+    [GeneratedRegex(@"ArgumentException\.ThrowIfNullOr(?:WhiteSpace|Empty)\(\s*(?<arg>[^,()]+?)\s*[,)]", RegexOptions.CultureInvariant)]
+    private static partial Regex ThrowIfNullOrBlank();
+
+    [GeneratedRegex(@"new\s+(?!ArgumentNullException)Argument\w*Exception\(", RegexOptions.CultureInvariant)]
+    private static partial Regex NewArgument();
+
+    [GeneratedRegex(@"nameof\((?<name>\w+)\)", RegexOptions.CultureInvariant)]
+    private static partial Regex NameOf();
 
     [GeneratedRegex(@"new\s+ArgumentNullException\(\s*nameof\((?<name>\w+)\)", RegexOptions.CultureInvariant)]
     private static partial Regex NewArgumentNull();
@@ -94,6 +123,33 @@ public static partial class InitAccessorScanner
             var name = created.Groups["name"].Value;
             sites.Add(new Site(file, line, type, property, element, name == "value" ? null : name));
         }
+
+        AddRejections(sites, file, type, property, line, text);
+    }
+
+    // The range and format spellings: a framework helper on `value` (or on an element), and a thrown Argument*Exception that names a parameter.
+    private static void AddRejections(List<Site> sites, string file, string type, string property, int line, string text)
+    {
+        foreach (var (pattern, rejectsNull) in new[] { (ThrowIfOutOfRange(), false), (ThrowIfNullOrBlank(), true) })
+        {
+            foreach (Match call in pattern.Matches(text))
+            {
+                sites.Add(new Site(file, line, type, property, call.Groups["arg"].Value != "value", NamedAfter(text, call.Index), SiteKind.Rejection, rejectsNull));
+            }
+        }
+
+        foreach (Match created in NewArgument().Matches(text))
+        {
+            var element = text[..created.Index].Contains("value[", StringComparison.Ordinal);
+            sites.Add(new Site(file, line, type, property, element, NamedAfter(text, created.Index), SiteKind.Rejection));
+        }
+    }
+
+    // The `nameof(X)` a call passes (the last on its line), or null when it passes none or passes `nameof(value)`, which names nothing.
+    private static string? NamedAfter(string text, int from)
+    {
+        var names = NameOf().Matches(text, from);
+        return names.Count == 0 || names[^1].Groups["name"].Value == "value" ? null : names[^1].Groups["name"].Value;
     }
 
     private static bool IsAccessorKeyword(string trimmed) =>

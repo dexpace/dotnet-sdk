@@ -88,10 +88,10 @@ public class ServerSentEventTests
     public void A_null_data_list_or_a_null_element_is_rejected()
     {
         var nullList = Assert.Throws<ArgumentNullException>(() => new ServerSentEvent { Data = null! });
-        Assert.Equal("value", nullList.ParamName);
+        Assert.Equal("Data", nullList.ParamName);
 
         var nullElement = Assert.Throws<ArgumentException>(() => new ServerSentEvent { Data = ["a", null!] });
-        Assert.Equal("value", nullElement.ParamName);
+        Assert.Equal("Data", nullElement.ParamName);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class ServerSentEventTests
         var ex = Assert.Throws<ArgumentException>(() => new ServerSentEvent { Id = "SECRET\0ID" });
 
         Assert.DoesNotContain("SECRET", ex.Message, StringComparison.Ordinal);
-        Assert.Equal("value", ex.ParamName);
+        Assert.Equal("Id", ex.ParamName);
     }
 
     [Fact]

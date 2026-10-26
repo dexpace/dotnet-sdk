@@ -13,7 +13,8 @@ are [`logging-and-redaction.md`](./logging-and-redaction.md) (phase 5b).
 Tracing is `System.Diagnostics.Activity` and metrics are `System.Diagnostics.Metrics`; both live in the shared framework, so
 the SDK adds no dependency. Subscribe to the source and the meter by name:
 
-```csharp
+<!-- fragment: needs the OpenTelemetry packages (not pinned here) and a host that owns services -->
+```csharp fragment
 services.AddOpenTelemetry()
     .WithTracing(t => t.AddSource("Dexpace.Sdk"))
     .WithMetrics(m => m.AddMeter("Dexpace.Sdk"));

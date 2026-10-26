@@ -65,7 +65,7 @@ public sealed class NupkgReaderTests : IDisposable
 
         Assert.Equal("True", facts.AssemblyMetadata["IsTrimmable"]);
         Assert.Equal("True", facts.AssemblyMetadata["IsAotCompatible"]);
-        Assert.Contains("Dexpace.Sdk.Core.Tests", facts.InternalsVisibleTo);
+        Assert.Contains(facts.InternalsVisibleTo, static grant => grant.StartsWith("Dexpace.Sdk.Core.Tests, PublicKey=0024", StringComparison.Ordinal));
         Assert.Equal(".NETCoreApp,Version=v10.0", facts.TargetFramework);
         Assert.False(string.IsNullOrEmpty(facts.InformationalVersion));
     }

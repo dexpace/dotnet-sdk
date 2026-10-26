@@ -28,8 +28,10 @@ name: CI
 #   - SSE-37 architecture test (serde independence of SSE and paging): wired in
 #     tests/Dexpace.Sdk.Core.Tests/Architecture/Sse37ArchitectureTests.cs, and reported as skipped until the
 #     Dexpace.Sdk.Core.ServerSentEvents namespace holds a type; phase 7 lands it, and the test enforces with no edit.
-#   - Package-validation baseline (PackageValidationBaselineVersion): phase 12, at the first published version.
-#   - Strong naming and author signing (NFR-16): phase 12.
+#   - Package-validation baseline (PackageValidationBaselineVersion): held until the first publish (nothing is published, so there is no version to
+#     compare against); docs/first-release.md "After the first publish" sets it.
+#   - Author signing (NFR-16): declined. Strong naming is built (phase 12, Dexpace.Sdk.snk, pinned by StrongNameKeyTests and checked on every packed assembly by the
+#     release preflight below), and NFR-16 rests on the build-provenance attestation release.yml makes at the held first publish (P12-13).
 #
 # Phase 10 completed what was inert: the NativeAOT smoke consumer below runs the invariant suite with core's defaults and the codec suite over the
 # System.Text.Json adapter (tests/Dexpace.Sdk.AotSmoke/SmokeChecks.Phase10.cs); NFR-11's public-signature type scan is
@@ -133,6 +135,17 @@ jobs:
       - name: Packaging conformance
         run: dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages
 
+      # NFR-16/NFR-12 (phase 12, P12-4): the release preflight over the packed set, here as a dry run (no tag): the five packages at one version, a
+      # .snupkg beside each, every packed assembly strong-named with the committed key's token. The tag-dependent findings (a settled
+      # PublicAPI.Unshipped.txt, a CHANGELOG.md section, the tag on main) print `would fail:` and do not fail a pull request; release.yml runs it with --tag.
+      - name: Release preflight
+        run: dotnet run scripts/ci/release-preflight.cs -- artifacts/packages
+
+      # The preflight's own regression check: a missing package or symbol package, a second version, a wrong key token, a wrong or off-main tag, a
+      # missing CHANGELOG.md section and an unsettled PublicAPI.Unshipped.txt must each fail it, naming the cause; without a tag the last two only warn.
+      - name: Release preflight - self-test
+        run: scripts/ci/release-preflight-selftest.sh artifacts/packages
+
       - name: Tools - restore (locked)
         run: dotnet restore tools/Dexpace.Tools.sln --locked-mode
 
@@ -144,6 +157,13 @@ jobs:
 
       - name: Tools - test
         run: dotnet test --solution tools/Dexpace.Tools.sln --configuration Release --no-build
+
+      # Blocking (phase 12, P12-18). Every ```csharp fence of README.md, docs/sdk-documentation/*.md and src/*/README.md that names
+      # Dexpace.Sdk is compiled against the Release libraries built above, warnings as errors; ```csharp fragment is counted, never
+      # compiled. The generated projects live outside the checkout, so one row suffices (it needs the Linux build's Release output).
+      - name: Doc fences
+        if: runner.os == 'Linux'
+        run: dotnet run --project .claude/skills/housekeeping/src -- fences
 
       # Blocking. A structural check over committed files, so one row suffices; the tool's own tests run on all
       # three above.

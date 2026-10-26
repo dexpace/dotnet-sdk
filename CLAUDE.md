@@ -39,11 +39,14 @@ dotnet run scripts/ci/coverage-gate.cs -- artifacts/test-results 80     # after 
 scripts/ci/coverage-gate-selftest.sh artifacts/test-results            # the gate fails closed on a missing report (#33)
 dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/packages  # constraint 2, over deps.json and nuspecs
 dotnet run scripts/ci/packaging-conformance.cs -- artifacts/packages  # the kit's packaging suite over the packed .nupkg files (NFR-1, -2, -3, -8, -10, -13 to -15)
+dotnet run scripts/ci/release-preflight.cs -- artifacts/packages      # five packages at one version, a .snupkg beside each, every assembly signed with the committed key (add --tag v<version> for the release checks)
+scripts/ci/release-preflight-selftest.sh artifacts/packages            # the preflight fails on each kind of finding
 dotnet run scripts/ci/requirement-coverage.cs -- --check               # every appendix-C ID owned by a checklist row, with its level and a mark (--report prints the tallies)
 scripts/ci/requirement-coverage-selftest.sh                            # the coverage gate fails on each kind of finding
 scripts/ci/reproducible-pack.sh                                        # pack HEAD from two git checkouts at different paths, byte-compare (NFR-12)
 dotnet publish tests/Dexpace.Sdk.AotSmoke --configuration Release --output artifacts/aot-smoke && ./artifacts/aot-smoke/Dexpace.Sdk.AotSmoke
 dotnet build tools/Dexpace.Tools.sln --configuration Release && dotnet test --solution tools/Dexpace.Tools.sln --configuration Release
+dotnet run --project .claude/skills/housekeeping/src -- fences          # every csharp fence that names Dexpace.Sdk compiles against the built Release libraries (after the Release build)
 scripts/knowledge verify-structure
 ```
 
@@ -63,8 +66,8 @@ tests and tools — targets **`net10.0` only**, set once in `Directory.Build.pro
   (every library `await` uses `ConfigureAwait(false)`, including `await using` and `await foreach`) and off
   for tests, tools and the AOT smoke consumer.
 - **Library gates** (every project under `src/`, from `Directory.Build.props`): `IsTrimmable` +
-  `IsAotCompatible`, `EnablePackageValidation`, the public-API files (`PublicAPI.Shipped.txt` stays empty
-  until the first release; every surface change is a reviewed `PublicAPI.Unshipped.txt` diff, RS0016/RS0017),
+  `IsAotCompatible`, `EnablePackageValidation`, the public-API files (`PublicAPI.Shipped.txt` holds the
+  surface as of the phase 12 move; every later surface change is a reviewed `PublicAPI.Unshipped.txt` diff, RS0016/RS0017),
   the banned-API list (`BannedSymbols.txt`, RS0030), `MA0051`'s 70-line method cap, and the `IDE0073`
   license header.
 - **Immutable models.** `record` / `readonly record struct`; mutate via `with` expressions or `With*`
@@ -119,6 +122,7 @@ dotnet-sdk/
 ├── BannedSymbols.txt                # RS0030 banned-API list for src/
 ├── .editorconfig                    # formatting + analyzer severities
 ├── global.json                      # pinned .NET SDK + the Microsoft.Testing.Platform test runner
+├── Dexpace.Sdk.snk                  # the committed strong-name key (public by design; PublicKeyToken fb3fcc3028a3989e)
 ├── nuget.config
 ├── src/
 │   ├── Dexpace.Sdk.Core/                        # toolkit; no transport, no concrete codec
@@ -161,10 +165,10 @@ dotnet-sdk/
 │   ├── Dexpace.Sdk.TestSupport/                 # fake transports, time, diagnostics listeners (not packed)
 │   └── Dexpace.Sdk.AotSmoke/                    # NativeAOT smoke consumer, published and run in CI
 ├── scripts/
-│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs (one policy record per library), packaging-conformance.cs, requirement-coverage{.cs,-selftest.sh}, reproducible-pack.sh
+│   ├── ci/                          # coverage-gate{.cs,-selftest.sh}, dependency-audit.cs (one policy record per library), packaging-conformance.cs, requirement-coverage{.cs,-selftest.sh}, reproducible-pack.sh, release-preflight{.cs,-selftest.sh}
 │   └── knowledge                    # the knowledge-lookup CLI
 ├── tools/Dexpace.Tools.sln          # tools/Knowledge{,.Tests} + .claude/skills/{housekeeping,knowledge-harvest}/{src,tests}
-├── .github/                         # ci.yml, labels.yml, dependabot.yml, CODEOWNERS, issue/PR templates
+├── .github/                         # workflows/{ci.yml, release.yml (inert), labels.yml}, dependabot.yml, CODEOWNERS, issue/PR templates
 └── docs/                            # see docs/README.md
 ```
 
@@ -248,6 +252,13 @@ Layered, bottom-up:
   value (a numeric accessor message may echo the number), and with no host `IStartupValidator.Validate()` or the first resolution fails the same way. An empty value is absent and, for a section of the `IConfiguration` registered in the container, falls through to the next provider (`CFG-2`); a section from any other configuration keeps the merged read, where an empty value still hides the lower provider (a counted unmet clause); there is no reload; a codec is required
   (`UseSerde`); dispose the provider with `DisposeAsync` (a synchronous dispose throws for an async-only transport); no configuration value turns the environment proxy read on. Compose `AddStandardResilienceHandler` with
   `o.Retry.ShouldHandle = _ => ValueTask.FromResult(false)`, never with the SDK's `MaxRetryAttempts = 0` (`docs/sdk-documentation/dependency-injection.md`).
+- **Strong naming is built, signing is scoped, and an assembly holds one `[LoggerMessage]` type.** The five libraries and every test project are signed with `Dexpace.Sdk.snk` (`SignAssembly` for projects under `src/` and `tests/` only, by path, in `Directory.Build.props`; the tools and
+  `.claude/skills` stay unsigned because their `InternalsVisibleTo` grants are keyless, `CS1726`); each library grants `InternalsVisibleTo` to its own test project with `Key="$(DexpacePublicKey)"`, and `StrongNameKeyTests` pins that property, the `CALG_RSA_SIGN` algorithm (a `CALG_RSA_KEYX` key is `CS0281`)
+  and the token. The `LoggerMessage` generator orders the classes of one assembly differently from one build to the next, which broke `reproducible packages`, so a library holds at most one type with `[LoggerMessage]` methods (`TransportLog` is SystemNet's) and
+  `LoggerMessageDeterminismArchitectureTests` fails a second one; a fix for a nondeterminism is judged by the generator's output, never by a run count.
+- **The release path is built and held.** Packages are `0.1.0-alpha.1` on `main`; `PublicAPI.Shipped.txt` holds the surface and `Unshipped` is `#nullable enable` alone at a tag. `.github/workflows/release.yml` (a `v*` tag, or a dry-run dispatch) is inert: its publish job stops at a guard while the repository variable `NUGET_USER` is empty,
+  and nothing was ever pushed. Author signing is declined for a GitHub attestation. `PackageValidationBaselineVersion`, `NFR-12`'s release half and `NFR-16`'s closure wait for the first publish, which waits on actions outside the repository (the nuget.org organisation and `Dexpace.*` prefix, trusted publishing,
+  the `nuget` environment, the `main` ruleset): `docs/first-release.md` is the register and *Release path* the order. A dry run of the preflight on `main` prints one `would fail:` line (the changelog section of the not-yet-released version), by design.
 - **Central Package Management is on.** Add new dependency versions to `Directory.Packages.props`, and
   reference them without a `Version` attribute.
 
@@ -259,6 +270,8 @@ Read [`docs/README.md`](docs/README.md) first — it is the ownership table for 
   siblings: 645 requirement IDs across 19 prefixes (`SEAM`, `HTTP`, `IO`, `BODY`, `CTX`, `PIPE`, `RECOV`,
   `RETRY`, `REDIR`, `AUTH`, `PAGE`, `SSE`, `SERDE`, `OBS`, `CFG`, `TRANSPORT`, `ASYNC`, `XCUT`, `NFR`).
   Appendix C is the canonical ID index. Cite IDs in code comments, tests and phase documents.
+- **`docs/sdk-documentation/`** — one page per area, each as built at its phase's close; start at `architecture.md`, then `getting-started.md` and `example-end-to-end.md`. Phase 12 added `quality-gates.md` (every gate, the command, where CI runs it), `versioning.md` (lockstep SemVer, what
+  a `0.y` minor may break) and the four guides `write-a-transport.md`, `write-a-serde.md`, `write-a-response-handler.md` and `write-a-paging-strategy.md`. Every ` ```csharp ` fence that names `Dexpace.Sdk` is compiled by `housekeeping fences`, so a page that rots fails CI.
 - **`docs/sdk-design-dotnet/`** — how each spec area maps to idiomatic .NET (retrofitted from
   `sdk-design-ruby`). Every section ends with an **As built (d45e64b)** verdict; §10 is the deviation ledger,
   §11 the spec-ambiguity resolutions, §12 the coverage index. Where it and this file disagree about the code's
@@ -331,4 +344,4 @@ waivers (`TRANSPORT-14`'s malformed-name clause and `TRANSPORT-2`'s native retry
 requirement-coverage scripts, the appendix-B map and its gate, the cross-path reproducible pack, the `NFR-11`, `NFR-4`, license-header, analyzer-waiver and CI-completeness tests, the `GetBaseException` and `ConcurrentDictionary` constructor bans and `CheckPhase10Async`, with `NFR-17`'s repository ruleset the one open action — see
 `docs/sdk-documentation/cross-cutting-invariants.md`; and phase 11's deviation audit — every design §10 entry and §11 reading re-measured against the code in `docs/deviations.md`, the 4 counted unmet clauses
 (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half, `CFG-2` for a section of an unregistered configuration), the repairs (transport failures derive from `IOException`, a second open returns the same stream, the plaintext filter that ends the native re-send, an empty configuration value that falls through for the registered root's sections,
-`WaitOrDisposeAsync`, the bounded SSE event, the `Uri` check), the `LedgerAuditTests` gate and the generated design §12 table — see `docs/deviations.md` and `docs/work/mvp/phase11/`): only the release path (12).
+`WaitOrDisposeAsync`, the bounded SSE event, the `Uri` check), the `LedgerAuditTests` gate and the generated design §12 table — see `docs/deviations.md` and `docs/work/mvp/phase11/`; and phase 12's first release — the strong-named, symbol-carrying, reproducible `0.1.0-alpha.1` packages (one `[LoggerMessage]` type per assembly, `Dexpace.Sdk.snk`, `.snupkg`), the `PublicAPI` surface moved into `Shipped`, the release preflight, the inert `release.yml` pinned by `ReleaseWorkflowTests`, `housekeeping fences`, the nine user-documentation pages, the draft release notes in `CHANGELOG.md` and the rewritten `docs/first-release.md` — see `docs/work/mvp/phase12/`): nothing in the roadmap is unbuilt, and **the first publish is held** on the lead's actions in `docs/first-release.md` (the CI read, the `main` ruleset, the nuget.org setup, the release commit and tag).

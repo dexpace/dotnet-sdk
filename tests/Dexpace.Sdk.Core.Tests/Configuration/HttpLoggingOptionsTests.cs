@@ -54,7 +54,7 @@ public sealed class HttpLoggingOptionsTests
     public void A_negative_preview_size_throws_and_an_oversized_one_clamps()
     {
         var thrown = Assert.Throws<ArgumentOutOfRangeException>(() => new HttpLoggingOptions { BodyPreviewSize = -1 });
-        Assert.Equal("value", thrown.ParamName, ignoreCase: true);
+        Assert.Equal("BodyPreviewSize", thrown.ParamName);
 
         Assert.Equal(Array.MaxLength, new HttpLoggingOptions { BodyPreviewSize = int.MaxValue }.BodyPreviewSize);
         Assert.Equal(0, new HttpLoggingOptions { BodyPreviewSize = 0 }.BodyPreviewSize);

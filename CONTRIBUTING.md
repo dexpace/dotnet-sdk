@@ -2,13 +2,13 @@
 
 Thanks for your interest in the dexpace .NET SDK. The work follows a v1 roadmap of thirteen phases
 ([`docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md`](docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md));
-**nothing is published yet**: every package under `src/` is at `0.0.1-alpha.1`, and what remains
+**nothing is published yet**: every package under `src/` is at `0.1.0-alpha.1`, and what remains
 before the first release is tracked in [`docs/first-release.md`](docs/first-release.md). Pull
 requests are welcome; this page is the flow they go through.
 
 ## Setup
 
-The repository is one solution, `Dexpace.Sdk.sln`: three packages under `src/`, their test projects
+The repository is one solution, `Dexpace.Sdk.sln`: five packages under `src/`, their test projects
 and a NativeAOT smoke consumer under `tests/`. A second solution, `tools/Dexpace.Tools.sln`, builds
 the repository's own tools (the knowledge CLI and the housekeeping skill). Every project targets
 **`net10.0`**, and the .NET SDK is pinned in `global.json` (`10.0.401`, rolling forward to the latest
@@ -60,10 +60,14 @@ Run the suites through `dotnet test`, not `dotnet run`: `Directory.Build.targets
 rejects and which you must not pass again yourself.
 
 If your change touches documentation (`docs/`, `CLAUDE.md`, a README), also run the drift probe and
-fix what it reports:
+fix what it reports, and, when a page has a C# fence that names `Dexpace.Sdk`, compile the fences against the
+Release build (a fence that cannot stand alone is marked ` ```csharp fragment ` with a one-line reason above it;
+[quality-gates.md](docs/sdk-documentation/quality-gates.md) lists every gate):
 
 ```bash
 dotnet run --project .claude/skills/housekeeping/src -- probe
+dotnet build Dexpace.Sdk.sln --configuration Release
+dotnet run --project .claude/skills/housekeeping/src -- fences
 ```
 
 ## How a change is made
@@ -104,6 +108,16 @@ most often bite. The ones every change meets:
 - **Versions are central.** A package version lives in `Directory.Packages.props`; a
   `PackageReference` carries no `Version`.
 - **The two-line MIT header** opens every `.cs` file, source and tests alike.
+
+## Releasing
+
+Contributors never tag or publish. A release is one tagged commit that carries all five packages at one version
+(lockstep), a dated `CHANGELOG.md` section, `PublicAPI.Unshipped.txt` files that hold nothing but `#nullable enable`,
+and a green `main`; the maintainers' procedure, the blockers still open and what happens after the first publish are
+the *Release path* of [`docs/first-release.md`](docs/first-release.md), and what a version number promises is
+[versioning.md](docs/sdk-documentation/versioning.md). The release workflow,
+[`release.yml`](.github/workflows/release.yml), is inert until the first publish, which is held, and the packages it would push are checked first by
+[`scripts/ci/release-preflight.cs`](scripts/ci/release-preflight.cs), which every pull request already runs over the packed set.
 
 ## Commit messages
 

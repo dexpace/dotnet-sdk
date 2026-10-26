@@ -20,7 +20,7 @@
   <!-- Internals go to this library's own test project only (design §2.3). Adapters build against the public
        surface, exactly as an outside adapter author does. -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Dexpace.Sdk.Core.Tests" />
+    <InternalsVisibleTo Include="Dexpace.Sdk.Core.Tests" Key="$(DexpacePublicKey)" />
   </ItemGroup>
 
 </Project>
