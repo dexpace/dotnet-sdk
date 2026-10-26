@@ -14,12 +14,15 @@ namespace Dexpace.Sdk.Conformance.Tests.Gates;
 /// under the four subsections <i>Unsatisfied MUSTs</i>, <i>SHOULD- and MAY-level requirements declined for v1</i>, <i>Behavioural asymmetries a consumer must know</i> and
 /// <i>Post-v1 packages</i> is an item unless it is struck through (<c>~~</c>, kept for the record); its key is the leading requirement ID (<c>AUTH-15</c>), else the leading
 /// kebab-case name (<c>async-redirect-pillar</c>), else the leading package name (<c>Dexpace.Sdk.Reactive</c>), else the first bold phrase up to its first parenthesis, comma or
-/// full stop. A key is stated when it appears in a bullet line of the draft block.
+/// full stop. A key is stated when it appears in a bullet line of the draft block. Once the release commit has turned the draft into <c>## [0.1.0] - &lt;date&gt;</c>, the
+/// dated section is the block, so the release workflow's own test step still passes on the tagged commit.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed partial class ReleaseNotesTests
 {
     private const string BlockHeading = "### Release notes (draft for 0.1.0)";
+
+    private const string ReleasedHeading = "## [0.1.0]";
 
     private static readonly string[] s_sections =
     [
@@ -46,6 +49,23 @@ public sealed partial class ReleaseNotesTests
 
         Assert.NotNull(block);
         Assert.Empty(MissingKeys(Register, block));
+    }
+
+    [Fact]
+    public void The_block_is_still_found_once_the_release_commit_dates_it()
+    {
+        // docs/first-release.md (Release path): the release commit turns the draft into the version's own section, and release.yml runs this suite on that commit's tag,
+        // so the gate must read the dated section too, or the release build goes red on its own release notes.
+        var changelog = Changelog;
+        var released = changelog.Replace("## [Unreleased]\n\n" + BlockHeading + "\n", "## [Unreleased]\n\n## [0.1.0] - 2026-12-01\n", StringComparison.Ordinal);
+        Assert.NotEqual(changelog, released);
+
+        var block = DraftBlock(released);
+
+        Assert.NotNull(block);
+        Assert.Empty(MissingKeys(Register, block));
+        Assert.Contains("catch (SdkException)", string.Join('\n', FirstList(block)), StringComparison.Ordinal);
+        Assert.Null(DraftBlock("## [Unreleased]\n\n## [0.1.0-alpha.1] - 2026-12-01\n\n- `AUTH-15`\n"));
     }
 
     [Fact]
@@ -131,10 +151,16 @@ public sealed partial class ReleaseNotesTests
         Assert.Null(DraftBlock("## [Unreleased]\n\n### Security\n"));
     }
 
+    // The draft block, or, after the release commit, the dated section it became (`## [0.1.0] - <date>`; a pre-release section such as `## [0.1.0-alpha.1]` is not it).
     private static string? DraftBlock(string changelog)
     {
         var lines = changelog.Split('\n');
         var start = Array.FindIndex(lines, static line => line == BlockHeading);
+        if (start < 0)
+        {
+            start = Array.FindIndex(lines, static line => line.StartsWith(ReleasedHeading, StringComparison.Ordinal));
+        }
+
         if (start < 0)
         {
             return null;
