@@ -23,7 +23,7 @@ repository's source.
 | [`serde.md`](./serde.md), [`sse.md`](./sse.md), [`pagination.md`](./pagination.md) | Typed bodies and `Tristate<T>`, server-sent events, paged iteration |
 | [`transport.md`](./transport.md), [`dependency-injection.md`](./dependency-injection.md) | The reference transport and the host integration |
 | [`conformance.md`](./conformance.md), [`cross-cutting-invariants.md`](./cross-cutting-invariants.md) | The conformance kit and its four suites; the invariants that cut across the layers |
-| `quality-gates.md`, `versioning.md` | Every blocking gate and how to run it; what a version number promises |
+| [`quality-gates.md`](./quality-gates.md), [`versioning.md`](./versioning.md) | Every blocking gate and how to run it; what a version number promises |
 | `write-a-transport.md`, `write-a-serde.md`, `write-a-response-handler.md`, `write-a-paging-strategy.md` | Implementing a seam, and proving the implementation |
 
 ## What this tree is not
@@ -91,7 +91,7 @@ Read from the bottom, as a request is built:
 
 ## The five packages
 
-All five target `net10.0` and are versioned together (`versioning.md`).
+All five target `net10.0` and are versioned together ([`versioning.md`](./versioning.md)).
 
 | Package | Provides | Third-party dependencies |
 |---|---|---|
@@ -161,7 +161,7 @@ response into a value, and it *owns* the response it is given. Each seam has a g
 
 ## A call, end to end
 
-This program is complete: the documentation build compiles it (`dotnet run --project .claude/skills/housekeeping/src -- fences`, `quality-gates.md`).
+This program is complete: the documentation build compiles it (`dotnet run --project .claude/skills/housekeeping/src -- fences`, [`quality-gates.md`](./quality-gates.md)).
 
 ```csharp
 using System.Text.Json.Serialization;

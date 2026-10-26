@@ -3,7 +3,7 @@
 **As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). This page takes you from nothing to a typed call: install the
 packages, build a client with and without dependency injection, send a request and read a typed answer, handle the failures a call can raise, and dispose what you own. Every
 C# fence below is a complete program that the documentation build compiles against the built libraries with warnings as errors (`dotnet run --project
-.claude/skills/housekeeping/src -- fences`, `quality-gates.md`); the addresses are placeholders. [`architecture.md`](./architecture.md) is the map of the
+.claude/skills/housekeeping/src -- fences`, [`quality-gates.md`](./quality-gates.md)); the addresses are placeholders. [`architecture.md`](./architecture.md) is the map of the
 packages, and [`example-end-to-end.md`](./example-end-to-end.md) is the same material grown into one SDK slice.
 
 ## Install
@@ -276,4 +276,4 @@ or redirected with the same method: a single-use body is never sent twice, so th
 - Behaviour you will want to tune: [`retry.md`](./retry.md), [`redirect.md`](./redirect.md), [`auth.md`](./auth.md), [`configuration.md`](./configuration.md).
 - Streaming: [`sse.md`](./sse.md) for `text/event-stream`, [`pagination.md`](./pagination.md) for list endpoints.
 - Extending it: the four `write-a-*` guides, linked from [`architecture.md`](./architecture.md#the-seams).
-- What the version number promises: `versioning.md`.
+- What the version number promises: [`versioning.md`](./versioning.md).

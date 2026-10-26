@@ -4,7 +4,7 @@
 the toolkit exists for: the client of a small imaginary `widgets` API, written the way a generated or hand-written service SDK would write it. It has an operation, a typed response
 handler that maps a status to the SDK's own exception, bearer authentication, a paged list over a `Link` header, retry and redirect switched on, redacted logging, and the dependency-injection
 registration a consumer of that SDK would call. The two programs at the end are complete and are compiled by the documentation build against the built libraries with warnings as errors
-(`dotnet run --project .claude/skills/housekeeping/src -- fences`, `quality-gates.md`); every excerpt before them is a slice of the first. The API, its host and its
+(`dotnet run --project .claude/skills/housekeeping/src -- fences`, [`quality-gates.md`](./quality-gates.md)); every excerpt before them is a slice of the first. The API, its host and its
 token variable are made up. Each subsystem's own page ([`pipelines.md`](./pipelines.md), [`auth.md`](./auth.md), [`pagination.md`](./pagination.md), and so on) says what it guarantees; this one
 shows them composed.
 
