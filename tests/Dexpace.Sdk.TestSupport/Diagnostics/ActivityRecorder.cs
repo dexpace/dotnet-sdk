@@ -24,6 +24,7 @@ public sealed class ActivityRecorder : IDisposable
     private readonly List<Activity> _started = [];
     private readonly List<Activity> _stopped = [];
     private readonly Lock _gate = new();
+    private readonly bool _scoped;
     private readonly ActivitySource? _rootSource;
     private readonly Activity? _previous;
 
@@ -37,6 +38,9 @@ public sealed class ActivityRecorder : IDisposable
     private ActivityRecorder(string[] sourceNames, bool scoped)
     {
         var names = new HashSet<string>(sourceNames, StringComparer.Ordinal);
+
+        // Set before the listener is registered: its callbacks run on other threads from that moment, before Root exists.
+        _scoped = scoped;
         if (scoped)
         {
             names.Add(RootSourceName);
@@ -106,14 +110,11 @@ public sealed class ActivityRecorder : IDisposable
 
     private void Record(List<Activity> list, Activity activity)
     {
-        if (Root is null && _rootSource is not null)
+        // Read Root once: another thread's activity can stop while the constructor is still creating it.
+        var root = Root;
+        if (_scoped && (root is null || ReferenceEquals(activity, root) || activity.TraceId != root.TraceId))
         {
-            // The root is being created: it is neither reported nor does it have a trace to compare with yet.
-            return;
-        }
-
-        if (_rootSource is not null && (ReferenceEquals(activity, Root) || activity.TraceId != Root!.TraceId))
-        {
+            // Before the root exists nothing of this recorder's trace has started, so whatever stops then is foreign.
             return;
         }
 
