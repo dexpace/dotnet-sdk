@@ -82,7 +82,7 @@ public sealed record SystemNetHttpClientOptions
         {
             if (value is { } timeout && (timeout <= TimeSpan.Zero || timeout > s_maxTimeout))
             {
-                throw new ArgumentOutOfRangeException(nameof(value), "A timeout must be greater than zero and at most 49 days; use null for no transport default.");
+                throw new ArgumentOutOfRangeException(nameof(Timeout), "A timeout must be greater than zero and at most 49 days; use null for no transport default.");
             }
 
             field = value;
@@ -98,7 +98,7 @@ public sealed record SystemNetHttpClientOptions
         {
             field = Enum.IsDefined(value)
                 ? value
-                : throw new ArgumentOutOfRangeException(nameof(value), "The header drop logging mode is not a defined HeaderDropLogging.");
+                : throw new ArgumentOutOfRangeException(nameof(HeaderDropLogging), "The header drop logging mode is not a defined HeaderDropLogging.");
         }
     } = HeaderDropLogging.FirstPerName;
 
@@ -118,7 +118,7 @@ public sealed record SystemNetHttpClientOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(ResendBufferLimit));
             field = value;
         }
     } = 1_048_576;

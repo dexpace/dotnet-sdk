@@ -706,6 +706,18 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
   builds of one commit differed and the `reproducible packages` job could go red. All four generated methods now live in one internal `TransportLog`; event ids, names,
   levels and message templates are unchanged. `LoggerMessageDeterminismArchitectureTests` fails a second type with a generated log method in any library. No behaviour change.
 
+#### Changed
+
+- **Breaking (phase 12):** a value rejected for its range or format by a validating `init` accessor now reports the property in `ArgumentException.ParamName`; it was `"value"`,
+  the accessor's parameter (`SEAM-29`, `HTTP-2` to `HTTP-4`; design V11 and its amendment). Phase 11 did this for a null; this completes it. The properties are
+  `ProxyOptions.Type`, `Host` and `Port`; `RetryOptions.MaxRetryAttempts`, `BaseDelay`, `MaxDelay`, `FixedDelay`, `Multiplier`, `Jitter`, `RetryableStatusCodes` and
+  `AttemptHeaderName`; `DexpaceClientOptions.BaseAddress`, `OverallTimeout` and `AttemptTimeout`; `RequestOptions.Timeout` and `MaxRetries`; `HttpLoggingOptions.BodyPreviewSize`;
+  `RedirectOptions.MaxRedirects`; `AuthRequirement.Scopes`; `AuthCredentials.TokenRefreshMargin`; `AccessTokenCache.RefreshMargin`; `SystemNetHttpClientOptions.Timeout`,
+  `HeaderDropLogging` and `ResendBufferLimit`; and, in the conformance kit, the `Name` of the transport, codec, invariant and packaging subjects, `PackagingSubject.CoreId`
+  and `DeclaredFloor`, and the timeouts of `SuiteOptions` and `TransportSuiteOptions`. The exception types and messages are unchanged, so code that catches by type is unaffected;
+  code that compared `ParamName` to `"value"` must compare it to the property name. `InitAccessorScanner` now recognises both spellings of the defect, so a new accessor of either is
+  caught by the coverage tests.
+
 
 Roadmap phase 11 re-measured every design §10 entry and §11 reading against the code (`docs/deviations.md`, the as-built ledger, held by `LedgerAuditTests`), repaired what could be repaired
 for free before the first release, and corrected what could not; the clauses still unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s malformed-name half and `CFG-2` for a section of an unregistered configuration), from seven. Design, plan and checklist under

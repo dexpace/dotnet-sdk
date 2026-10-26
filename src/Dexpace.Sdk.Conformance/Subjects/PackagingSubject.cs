@@ -16,7 +16,7 @@ public sealed record PackagingSubject
         get;
         init
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(Name));
             field = value;
         }
     } = "packages";
@@ -38,7 +38,7 @@ public sealed record PackagingSubject
         get;
         init
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(CoreId));
             field = value;
         }
     } = "Dexpace.Sdk.Core";
@@ -60,7 +60,7 @@ public sealed record PackagingSubject
         get;
         init
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(DeclaredFloor));
             field = value;
         }
     } = "net10.0";

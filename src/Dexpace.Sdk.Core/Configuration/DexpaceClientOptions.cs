@@ -49,7 +49,7 @@ public sealed record DexpaceClientOptions
     public Uri? BaseAddress
     {
         get;
-        init => field = RequireUsable(value);
+        init => field = RequireUsable(value, nameof(BaseAddress));
     }
 
     /// <summary>
@@ -87,7 +87,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            RequireTimeout(value);
+            RequireTimeout(value, nameof(OverallTimeout));
             field = value;
         }
     }
@@ -112,7 +112,7 @@ public sealed record DexpaceClientOptions
         get;
         init
         {
-            RequireTimeout(value);
+            RequireTimeout(value, nameof(AttemptTimeout));
             field = value;
         }
     }
@@ -162,7 +162,7 @@ public sealed record DexpaceClientOptions
 
     private static string BuildDefaultUserAgent() => string.Join(' ', BuildInfo.IdentityTokens);
 
-    private static Uri? RequireUsable(Uri? value)
+    private static Uri? RequireUsable(Uri? value, string paramName)
     {
         if (value is null)
         {
@@ -177,18 +177,18 @@ public sealed record DexpaceClientOptions
             throw new ArgumentException(
                 "The base address must be an absolute http or https URI with no fragment: "
                 + UrlRedactor.Default.Redact(value),
-                nameof(value));
+                paramName);
         }
 
         return value;
     }
 
-    private static void RequireTimeout(TimeSpan? value)
+    private static void RequireTimeout(TimeSpan? value, string paramName)
     {
         if (value is { } timeout && (timeout <= TimeSpan.Zero || timeout > s_maxTimeout))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(value),
+                paramName,
                 "A timeout must be greater than zero and at most 49 days; use null for no timeout.");
         }
     }

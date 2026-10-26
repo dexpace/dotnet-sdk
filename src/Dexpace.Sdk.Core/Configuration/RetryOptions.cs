@@ -57,7 +57,7 @@ public sealed record RetryOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(MaxRetryAttempts));
             field = value;
         }
     } = 2;
@@ -72,7 +72,7 @@ public sealed record RetryOptions
         get;
         init
         {
-            RequireDuration(value);
+            RequireDuration(value, nameof(BaseDelay));
             field = value;
         }
     } = TimeSpan.FromMilliseconds(200);
@@ -88,7 +88,7 @@ public sealed record RetryOptions
         {
             if (!double.IsFinite(value) || value < 1.0)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), "The multiplier must be a finite number of at least 1.0.");
+                throw new ArgumentOutOfRangeException(nameof(Multiplier), "The multiplier must be a finite number of at least 1.0.");
             }
 
             field = value;
@@ -105,7 +105,7 @@ public sealed record RetryOptions
         get;
         init
         {
-            RequireDuration(value);
+            RequireDuration(value, nameof(MaxDelay));
             field = value;
         }
     } = TimeSpan.FromSeconds(8);
@@ -122,7 +122,7 @@ public sealed record RetryOptions
         {
             if (!(value >= 0.0 && value <= 1.0))
             {
-                throw new ArgumentOutOfRangeException(nameof(value), "The jitter fraction must lie in [0, 1].");
+                throw new ArgumentOutOfRangeException(nameof(Jitter), "The jitter fraction must lie in [0, 1].");
             }
 
             field = value;
@@ -141,7 +141,7 @@ public sealed record RetryOptions
         {
             if (value is { } fixedDelay)
             {
-                RequireDuration(fixedDelay);
+                RequireDuration(fixedDelay, nameof(FixedDelay));
             }
 
             field = value;
@@ -201,7 +201,7 @@ public sealed record RetryOptions
             {
                 if (code is < 400 or > 599)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(value), "A retryable status must be an error status, 400 to 599.");
+                    throw new ArgumentOutOfRangeException(nameof(RetryableStatusCodes), "A retryable status must be an error status, 400 to 599.");
                 }
             }
 
@@ -229,12 +229,12 @@ public sealed record RetryOptions
         {
             if (value is not null && !HttpHeaderSyntax.IsValidName(value))
             {
-                throw new ArgumentException("The attempt header name must be a valid HTTP header name (an RFC 9110 token).", nameof(value));
+                throw new ArgumentException("The attempt header name must be a valid HTTP header name (an RFC 9110 token).", nameof(AttemptHeaderName));
             }
 
             if (value is not null && string.Equals(value, HttpHeaderName.WellKnown.IdempotencyKey.Original, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException("The attempt header name may not be the idempotency key's name, which the attempt stamp must preserve.", nameof(value));
+                throw new ArgumentException("The attempt header name may not be the idempotency key's name, which the attempt stamp must preserve.", nameof(AttemptHeaderName));
             }
 
             field = value;
@@ -286,11 +286,11 @@ public sealed record RetryOptions
         return hash.ToHashCode();
     }
 
-    private static void RequireDuration(TimeSpan value)
+    private static void RequireDuration(TimeSpan value, string paramName)
     {
         if (value < TimeSpan.Zero || value > s_maxRepresentable)
         {
-            throw new ArgumentOutOfRangeException(nameof(value), "A duration must be zero or greater and no more than about 292 years.");
+            throw new ArgumentOutOfRangeException(paramName, "A duration must be zero or greater and no more than about 292 years.");
         }
     }
 

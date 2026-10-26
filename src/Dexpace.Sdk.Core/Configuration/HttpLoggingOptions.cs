@@ -54,7 +54,7 @@ public sealed record HttpLoggingOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(BodyPreviewSize));
             field = Math.Min(value, Array.MaxLength);
         }
     } = DefaultBodyPreviewSize;

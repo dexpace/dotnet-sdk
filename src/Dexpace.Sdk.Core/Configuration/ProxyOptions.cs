@@ -50,7 +50,7 @@ public sealed record ProxyOptions
             field = value switch
             {
                 ProxyType.Http or ProxyType.Socks4 or ProxyType.Socks5 => value,
-                _ => throw new ArgumentOutOfRangeException(nameof(value), "The proxy type is not a defined ProxyType."),
+                _ => throw new ArgumentOutOfRangeException(nameof(Type), "The proxy type is not a defined ProxyType."),
             };
         }
     }
@@ -66,7 +66,7 @@ public sealed record ProxyOptions
             ArgumentNullException.ThrowIfNull(value, nameof(Host));
             field = IsValidHost(value)
                 ? value
-                : throw new ArgumentException("The proxy host is blank or contains a character that is not allowed in a host.", nameof(value));
+                : throw new ArgumentException("The proxy host is blank or contains a character that is not allowed in a host.", nameof(Host));
         }
     }
 
@@ -79,7 +79,7 @@ public sealed record ProxyOptions
         {
             field = value is >= 0 and <= 65535
                 ? value
-                : throw new ArgumentOutOfRangeException(nameof(value), "The proxy port must be in 0 to 65535.");
+                : throw new ArgumentOutOfRangeException(nameof(Port), "The proxy port must be in 0 to 65535.");
         }
     }
 
