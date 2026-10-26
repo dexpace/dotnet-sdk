@@ -3,7 +3,7 @@
 The .NET counterpart to [`dexpace/java-sdk`](https://github.com/dexpace/java-sdk) and
 [`dexpace/python-sdk`](https://github.com/dexpace/python-sdk). It is an **HTTP-client
 toolkit, not an HTTP client**: it provides immutable HTTP models, a transport SPI, a staged pipeline
-with retry, redirect, auth and instrumentation policies, and pagination, with SSE and more to come.
+with retry, redirect, auth and instrumentation policies, pagination and server-sent events.
 Consuming libraries plug in a concrete transport via the `IHttpClient` / `IAsyncHttpClient` interfaces.
 
 The public API follows .NET idioms — `record` and `readonly record struct` for immutable models,
@@ -13,7 +13,7 @@ Java and Python ports.
 
 ## Status
 
-Pre-release: nothing is published yet, and every package is at `0.0.1-alpha.1`. Five NuGet packages are built:
+Pre-release: nothing is published yet, and every package is at `0.1.0-alpha.1`. Five NuGet packages are built:
 
 | Package | What it is |
 |---|---|
@@ -23,9 +23,10 @@ Pre-release: nothing is published yet, and every package is at `0.0.1-alpha.1`. 
 | [`Dexpace.Sdk.Extensions.DependencyInjection`](src/Dexpace.Sdk.Extensions.DependencyInjection/README.md) | Host integration: named clients as keyed services over `Microsoft.Extensions.DependencyInjection`, configured from an `IConfigurationSection` with strict grammars and fail-at-start validation ([guide](docs/sdk-documentation/dependency-injection.md)) |
 | [`Dexpace.Sdk.Conformance`](src/Dexpace.Sdk.Conformance/README.md) | The conformance kit: framework-free suites for the `TRANSPORT` and `ASYNC` requirements, the cross-cutting invariants, codecs and package metadata, a loopback HTTP/1.1 wire fixture, and per-requirement reporting with waivers; for adapter authors' test projects ([guide](docs/sdk-documentation/conformance.md), [invariants](docs/sdk-documentation/cross-cutting-invariants.md)) |
 
-What is not built yet — the deviation audit (roadmap phase 11) and the release path (phase 12) — is
-scheduled by the [v1 roadmap](docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md), and what the first release needs is
-in [docs/first-release.md](docs/first-release.md). The normative specification is
+Everything the [v1 roadmap](docs/work/mvp/2026-09-27-dotnet-sdk-v1-roadmap-design.md) schedules is built, the deviation audit (phase 11) and
+the release path (phase 12: strong-named assemblies, symbol packages, a release preflight and an inert release workflow) included. **The first
+publish is held**: it waits on actions outside the repository, and [docs/first-release.md](docs/first-release.md) is the register of what each
+needs. The normative specification is
 [docs/product-spec/](docs/product-spec.md) and the .NET design is [docs/sdk-design-dotnet/](docs/sdk-design-dotnet.md);
 [docs/README.md](docs/README.md) indexes the rest.
 
@@ -103,6 +104,10 @@ if (response.IsSuccess)
     Console.WriteLine(await response.Body.ReadAsStringAsync());
 }
 ```
+
+Start with [getting-started.md](docs/sdk-documentation/getting-started.md) for a typed call with and without dependency injection,
+[example-end-to-end.md](docs/sdk-documentation/example-end-to-end.md) for one whole SDK slice, and
+[architecture.md](docs/sdk-documentation/architecture.md) for the map of the packages and the page that covers each subsystem.
 
 ## Conventions
 
