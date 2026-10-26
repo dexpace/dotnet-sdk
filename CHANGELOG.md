@@ -796,8 +796,9 @@ Roadmap phase 12 prepares the first release (design and plan under `docs/work/mv
 - **Breaking (phase 12):** a value rejected for its range or format by a validating `init` accessor now reports the property in `ArgumentException.ParamName`; it was `"value"`,
   the accessor's parameter (`SEAM-29`, `HTTP-2` to `HTTP-4`; design V11 and its amendment). Phase 11 did this for a null; this completes it. The properties are
   `ProxyOptions.Type`, `Host` and `Port`; `RetryOptions.MaxRetryAttempts`, `BaseDelay`, `MaxDelay`, `FixedDelay`, `Multiplier`, `Jitter`, `RetryableStatusCodes` and
-  `AttemptHeaderName`; `DexpaceClientOptions.BaseAddress`, `OverallTimeout` and `AttemptTimeout`; `RequestOptions.Timeout` and `MaxRetries`; `HttpLoggingOptions.BodyPreviewSize`;
-  `RedirectOptions.MaxRedirects`; `AuthRequirement.Scopes`; `AuthCredentials.TokenRefreshMargin`; `AccessTokenCache.RefreshMargin`; `SystemNetHttpClientOptions.Timeout`,
+  `AttemptHeaderName`; `DexpaceClientOptions.BaseAddress`, `OverallTimeout` and `AttemptTimeout`; `RequestOptions.Timeout` and `MaxRetries`; `HttpLoggingOptions.BodyPreviewSize`, and
+  `AllowedHeaderNames`, `AllowedQueryParameters` and `UrlValuedHeaderNames` (a null or a null element, which reported the helper's `"source"`); `ServerSentEvent.Id`, `Data` (a null or a null element
+  too) and `Retry`; `RedirectOptions.MaxRedirects`; `AuthRequirement.Scopes`; `AuthCredentials.TokenRefreshMargin`; `AccessTokenCache.RefreshMargin`; `SystemNetHttpClientOptions.Timeout`,
   `HeaderDropLogging` and `ResendBufferLimit`; and, in the conformance kit, the `Name` of the transport, codec, invariant and packaging subjects, `PackagingSubject.CoreId`
   and `DeclaredFloor`, and the timeouts of `SuiteOptions` and `TransportSuiteOptions`. The exception types and messages are unchanged, so code that catches by type is unaffected;
   code that compared `ParamName` to `"value"` must compare it to the property name. `InitAccessorScanner` now recognises both spellings of the defect, so a new accessor of either is

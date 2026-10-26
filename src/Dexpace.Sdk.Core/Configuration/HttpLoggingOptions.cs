@@ -63,14 +63,14 @@ public sealed record HttpLoggingOptions
     public IReadOnlyCollection<string> AllowedHeaderNames
     {
         get;
-        init => field = Copy(value);
+        init => field = Copy(value, nameof(AllowedHeaderNames));
     } = DefaultAllowedHeaderNames;
 
     /// <summary>The query parameter names whose values survive redaction in <c>url.full</c> (OBS-12); default <c>api-version</c>.</summary>
     public IReadOnlyCollection<string> AllowedQueryParameters
     {
         get;
-        init => field = Copy(value);
+        init => field = Copy(value, nameof(AllowedQueryParameters));
     } = UrlRedactor.DefaultQueryAllowList;
 
     /// <summary>
@@ -80,7 +80,7 @@ public sealed record HttpLoggingOptions
     public IReadOnlyCollection<string> UrlValuedHeaderNames
     {
         get;
-        init => field = Copy(value);
+        init => field = Copy(value, nameof(UrlValuedHeaderNames));
     } = s_defaultUrlValuedHeaderNames;
 
     /// <summary>
@@ -89,14 +89,14 @@ public sealed record HttpLoggingOptions
     /// </summary>
     public bool OmitDisallowedHeaders { get; init; }
 
-    private static ImmutableArray<string> Copy(IReadOnlyCollection<string> source)
+    private static ImmutableArray<string> Copy(IReadOnlyCollection<string> source, string paramName)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(source, paramName);
         foreach (var item in source)
         {
             if (item is null)
             {
-                throw new ArgumentException("The collection must not contain a null element.", nameof(source));
+                throw new ArgumentException("The collection must not contain a null element.", paramName);
             }
         }
 

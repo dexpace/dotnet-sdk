@@ -7,6 +7,7 @@ using Dexpace.Sdk.Core.Configuration;
 using Dexpace.Sdk.Core.Http.Common;
 using Dexpace.Sdk.Core.Http.Request;
 using Dexpace.Sdk.Core.Operations;
+using Dexpace.Sdk.Core.ServerSentEvents;
 using Dexpace.Sdk.TestSupport.Source;
 using Xunit;
 
@@ -20,7 +21,9 @@ namespace Dexpace.Sdk.Core.Tests.Configuration;
 /// <c>Type.Property</c>; a <c> (null)</c> suffix selects the null half of <c>ThrowIfNullOrWhiteSpace</c>, and any other suffix a second row for the same property.
 /// The rows the scanner sees are checked for coverage by <see cref="The_table_covers_every_rejecting_accessor"/>; the rows after the marker comment are the accessors
 /// that route through a helper method (<c>RequireDuration</c>, <c>RequireNullOrPositive</c>, <c>RequireNullOrNonNegative</c>, <c>RequireUsable</c>,
-/// <c>RequireTimeout</c>), which a line scan cannot see, kept as behavioural rows. The reference transport's three are in its own test project.
+/// <c>RequireTimeout</c>; and <c>ServerSentEvent</c>'s <c>RejectNul</c>, <c>RejectBadRetry</c> and <c>CopyOf</c> and <c>HttpLoggingOptions</c>' <c>Copy</c>, which the
+/// phase 12 review found still naming <c>"value"</c> and <c>"source"</c>), which a line scan cannot see, kept as behavioural rows. The reference transport's three are
+/// in its own test project.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed class InitAccessorRejectionParamNameTests
@@ -75,6 +78,16 @@ public sealed class InitAccessorRejectionParamNameTests
         ["DexpaceClientOptions.BaseAddress"] = () => _ = new DexpaceClientOptions { BaseAddress = new Uri("/relative", UriKind.Relative) },
         ["DexpaceClientOptions.OverallTimeout"] = () => _ = new DexpaceClientOptions { OverallTimeout = TimeSpan.Zero },
         ["DexpaceClientOptions.AttemptTimeout"] = () => _ = new DexpaceClientOptions { AttemptTimeout = TimeSpan.Zero },
+        ["ServerSentEvent.Id"] = () => _ = new ServerSentEvent { Id = "a\0b" },
+        ["ServerSentEvent.Retry"] = () => _ = new ServerSentEvent { Retry = TimeSpan.FromMilliseconds(-1) },
+        ["ServerSentEvent.Data (null)"] = () => _ = new ServerSentEvent { Data = null! },
+        ["ServerSentEvent.Data (null element)"] = () => _ = new ServerSentEvent { Data = ["a", null!] },
+        ["HttpLoggingOptions.AllowedHeaderNames (null)"] = () => _ = new HttpLoggingOptions { AllowedHeaderNames = null! },
+        ["HttpLoggingOptions.AllowedHeaderNames (null element)"] = () => _ = new HttpLoggingOptions { AllowedHeaderNames = ["accept", null!] },
+        ["HttpLoggingOptions.AllowedQueryParameters (null)"] = () => _ = new HttpLoggingOptions { AllowedQueryParameters = null! },
+        ["HttpLoggingOptions.AllowedQueryParameters (null element)"] = () => _ = new HttpLoggingOptions { AllowedQueryParameters = ["api-version", null!] },
+        ["HttpLoggingOptions.UrlValuedHeaderNames (null)"] = () => _ = new HttpLoggingOptions { UrlValuedHeaderNames = null! },
+        ["HttpLoggingOptions.UrlValuedHeaderNames (null element)"] = () => _ = new HttpLoggingOptions { UrlValuedHeaderNames = ["location", null!] },
     };
 
     public static TheoryData<string> Accessors => new(s_rows.Keys.Order(StringComparer.Ordinal));

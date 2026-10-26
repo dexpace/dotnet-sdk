@@ -54,7 +54,7 @@ public sealed record ServerSentEvent
         get => _id;
         init
         {
-            RejectNul(value);
+            RejectNul(value, nameof(Id));
             _id = value;
         }
     }
@@ -68,7 +68,7 @@ public sealed record ServerSentEvent
     public IReadOnlyList<string> Data
     {
         get => _data;
-        init => _data = CopyOf(value);
+        init => _data = CopyOf(value, nameof(Data));
     }
 
     /// <summary>The comment text (a line starting with a colon), latest wins, or <see langword="null"/> (SSE-6).</summary>
@@ -83,7 +83,7 @@ public sealed record ServerSentEvent
         get => _retry;
         init
         {
-            RejectBadRetry(value);
+            RejectBadRetry(value, nameof(Retry));
             _retry = value;
         }
     }
@@ -125,15 +125,15 @@ public sealed record ServerSentEvent
         return hash.ToHashCode();
     }
 
-    private static void RejectNul(string? value)
+    private static void RejectNul(string? value, string paramName)
     {
         if (value is not null && value.Contains('\0', StringComparison.Ordinal))
         {
-            throw new ArgumentException("An event id must not contain U+0000; the parser ignores such an id (SSE-9).", nameof(value));
+            throw new ArgumentException("An event id must not contain U+0000; the parser ignores such an id (SSE-9).", paramName);
         }
     }
 
-    private static void RejectBadRetry(TimeSpan? value)
+    private static void RejectBadRetry(TimeSpan? value, string paramName)
     {
         if (value is not { } retry)
         {
@@ -145,14 +145,14 @@ public sealed record ServerSentEvent
             || retry.Ticks / TimeSpan.TicksPerMillisecond > MaxRetryMilliseconds)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(value),
+                paramName,
                 "An event retry must be a whole number of milliseconds from zero to Int32.MaxValue (SSE-11).");
         }
     }
 
-    private static ReadOnlyCollection<string> CopyOf(IReadOnlyList<string> value)
+    private static ReadOnlyCollection<string> CopyOf(IReadOnlyList<string> value, string paramName)
     {
-        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(value, paramName);
         if (value.Count == 0)
         {
             return s_noData;
@@ -161,7 +161,7 @@ public sealed record ServerSentEvent
         var copy = new string[value.Count];
         for (var i = 0; i < copy.Length; i++)
         {
-            copy[i] = value[i] ?? throw new ArgumentException("A data line must not be null.", nameof(value));
+            copy[i] = value[i] ?? throw new ArgumentException("A data line must not be null.", paramName);
         }
 
         return new ReadOnlyCollection<string>(copy);
