@@ -10,8 +10,8 @@ repository's source.
 
 | Page | Covers |
 |---|---|
-| `getting-started.md` | Install, build a client with and without dependency injection, a typed call, errors, disposal |
-| `example-end-to-end.md` | One worked slice: an operation, a response handler, bearer auth, pagination, retry, redirect, the DI registration, logging |
+| [`getting-started.md`](./getting-started.md) | Install, build a client with and without dependency injection, a typed call, errors, disposal |
+| [`example-end-to-end.md`](./example-end-to-end.md) | One worked slice: an operation, a response handler, bearer auth, pagination, retry, redirect, the DI registration, logging |
 | [`http.md`](./http.md) | The domain model: `Request`, `Response`, `Headers`, `Status`, `Query`, `RequestOptions`, `ETag`, `HttpRange` |
 | [`seams.md`](./seams.md) | The transport seam, the codec seam and the operation-input projection |
 | [`io.md`](./io.md), [`bodies.md`](./bodies.md) | The stream helpers and the request and response bodies |
