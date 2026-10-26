@@ -156,6 +156,13 @@ jobs:
       - name: Tools - test
         run: dotnet test --solution tools/Dexpace.Tools.sln --configuration Release --no-build
 
+      # Blocking (phase 12, P12-18). Every ```csharp fence of README.md, docs/sdk-documentation/*.md and src/*/README.md that names
+      # Dexpace.Sdk is compiled against the Release libraries built above, warnings as errors; ```csharp fragment is counted, never
+      # compiled. The generated projects live outside the checkout, so one row suffices (it needs the Linux build's Release output).
+      - name: Doc fences
+        if: runner.os == 'Linux'
+        run: dotnet run --project .claude/skills/housekeeping/src -- fences
+
       # Blocking. A structural check over committed files, so one row suffices; the tool's own tests run on all
       # three above.
       - name: Knowledge corpus structure

@@ -22,13 +22,16 @@ dotnet run --project .claude/skills/housekeeping/src -- apply            # dry r
 dotnet run --project .claude/skills/housekeeping/src -- apply --write    # performs them
 ```
 
+A third command, `fences`, is independent of the two stages: it compiles the C# fences of the documentation
+([The fence check](#the-fence-check)).
+
 A console project (`net10.0`, `IsPackable=false`, every type `internal`) that references **no
 package**: the BCL covers process spawning, regular expressions and JSON, and the argument parser is a
 few dozen hand-written lines because `System.CommandLine` is a package. It is not in `Dexpace.Sdk.sln`,
 so the library build, test and pack never touch it. It inherits the root `Directory.Build.props`, so
 warnings-as-errors, `latest-recommended` analyzers and code style in build apply to it exactly as to
 the SDK; the only local dial-down is `CA1707` for the test method names (see `.editorconfig` here).
-It is a hand-run tool, not a CI step. Run it before claiming the documentation is current, after
+It is a hand-run tool; the `fences` command is also a CI step (`Doc fences`). Run it before claiming the documentation is current, after
 landing a phase, and whenever `docs/superpowers/` has something in it.
 
 ## Stage 1 — probe
@@ -203,26 +206,52 @@ not a transliteration. Every deliberate difference:
 - **Regex dialect**: `^`/`$` need `RegexOptions.Multiline` in .NET (Ruby's are line anchors by
   default); digits are `[0-9]`, since .NET's `\d` matches every Unicode decimal digit.
 
-## Deliberately not ported: the fence check
+## The fence check
 
-The Node original ships a tenth tool, `check-fences.mjs`, which extracts every ` ```typescript `
-fence that imports from the workspace and typechecks the lot against `dist/`. It is **not** ported
-yet: this repository has no worked-example documentation beyond the three package READMEs, whose
-snippets were compiled by hand when they were written.
+The Node original ships a tenth tool, `check-fences.mjs`, which extracts every ` ```typescript ` fence that imports from the workspace and
+typechecks the lot against `dist/`. This is the .NET analogue (phase 12, P12-18), a **compiler** step, closer to Node's than to Ruby's executor.
 
-The .NET analogue, when it is worth building, is a **compiler** step, closer to Node's than to
-Ruby's executor. Extract every ` ```csharp ` fence in `README.md`, `docs/sdk-documentation/*.md` and
-`src/*/README.md` that names a `Dexpace.Sdk` namespace (a `using Dexpace.Sdk…;` or a qualified
-`Dexpace.Sdk.` type — the test is for the *namespace*, not for a `using` line, which is the
-single-line-import trap Node documented); write each into a generated temp project under the
-scratch directory — top-level statements, `net10.0`, `<Reference>`s to the built
-`src/*/bin/Release/net10.0/*.dll` rather than `ProjectReference`s, so the check proves the fence
-against what ships — and `dotnet build` it with warnings as errors. A fence with no `Dexpace.Sdk`
-reference is an illustrative fragment and is skipped; one that references an optional package not
-in `Directory.Packages.props` is reported, not failed. The scratch directory goes through
-`Guard.AssertWritable` like every other write. A C# example's failure mode is a compile error, so
-compiling is the whole contract — running it would need a stubbed transport and adds nothing a
-compile does not already catch.
+```bash
+dotnet build Dexpace.Sdk.sln --configuration Release                     # the fences compile against what ships
+dotnet run --project .claude/skills/housekeeping/src -- fences           # exit 0 clean, 1 on a failure, 2 on a usage error
+dotnet run --project .claude/skills/housekeeping/src -- fences --root /tmp/a-fixture-tree --libs /tmp/some-dlls
+```
+
+It extracts every ` ```csharp ` fence in `README.md`, `docs/sdk-documentation/*.md` and `src/*/README.md` whose text names the
+`Dexpace.Sdk` namespace. The test is for the *namespace*, not for a `using` line (the single-line-import trap Node documented): a
+`using Dexpace.Sdk…;` counts, and so does a qualified `Dexpace.Sdk.` type with no import at all. A fence with no `Dexpace.Sdk` mention is
+somebody else's API in an illustrative snippet; it is not extracted and not counted. Every extracted fence is a complete program (top-level
+statements) or the declarations a reader would add to one (a fence with no statements still has an entry point, a generated `Main` that the
+compiler ignores when global code exists), and every one compiles with **warnings as errors**.
+
+**The info string** is the only opt-out. ` ```csharp fragment ` marks an excerpt that cannot stand alone (it uses a `transport` declared on
+the page above, or a package this repository does not pin); it is counted and reported (`path:line: [fence] fragment`), never compiled. Put
+the reason in a one-line HTML comment directly above the fence (`<!-- fragment: … -->`), where a reader of the source finds it and a
+rendered page does not.
+
+**What a fence is compiled against.** One generated project per fence, written under `Directory.CreateTempSubdirectory("dexpace-fences-")`
+and removed in a `finally`, each path through `Guard.AssertWritable` like every other write the skill makes. `net10.0`, `Exe`, `Nullable`
+and `ImplicitUsings` on, `TreatWarningsAsErrors`, `NuGetAudit` off; a `<Reference>` to each built `src/<Id>/bin/Release/net10.0/<Id>.dll`
+(or the `Dexpace.Sdk.*.dll` files under `--libs`), not a `ProjectReference`, so the check proves the fence against what ships; and a
+`PackageReference` to `Microsoft.Extensions.Logging.Abstractions` at the version `Directory.Packages.props` pins, read as text, **always**,
+because Core's public surface exposes `ILogger` and a raw `<Reference>` does not bring the assembly that defines it (`CS0012`). A fence that
+names the host-integration package, or a `Microsoft.Extensions.DependencyInjection`, `Options`, `Configuration`, `Logging` or `Diagnostics`
+namespace, also gets `Microsoft.Extensions.Http`, whose closure carries them; any other package `Directory.Packages.props` pins is added when
+its namespace appears. All projects build in one `dotnet build` of a generated solution, and each source file opens with a
+`#line <n> "<page>"` directive, so a diagnostic names the page and the line (`path:line: [fence] CS0103: …`).
+
+**The scratch directory is outside the repository, and the guard is not why.** `Guard.AssertWritable` refuses only the frozen paths
+(`Guard.cs:80-84`), so it is the skill's convention for a write and not isolation. The isolation is the location: MSBuild finds
+`Directory.Build.props`, `Directory.Build.targets` and `Directory.Packages.props` by walking up from a project, so a project anywhere under the
+repository would inherit warnings-as-errors with the analyzers, the lock files, `NuGetAudit=all`, strong naming and central package
+management (a versioned `PackageReference` is then `NU1008`). Outside the tree none of them is found, and nothing here has to be kept in step
+with a future repository property. The scratch directory receives a copy of `global.json`, so the SDK is the one the repository pins.
+
+**A fence that needs an optional package not in `Directory.Packages.props` is reported, not failed.** `using Microsoft.Extensions.Hosting;`
+prints `path:line: [fence] skipped: needs Microsoft.Extensions.Hosting`, is counted as skipped and does not change the exit code. The run ends
+with `n compiled, m fragments, s skipped, k failed`. A compile needs the Release libraries; without them the command fails with a message
+that says to build them, because a skipped compile is a gate that reports green without having compiled anything. The command's own project
+references no package (the tool's rule).
 
 ## Its own tests
 
@@ -253,6 +282,7 @@ checks rot. No case count is written here on purpose; `dotnet test` reports it.
     Chapters.cs             the ninth, `chapters`, in its own file
     Probe.cs                runs the checks; text and JSON rendering; the argument reader
     Apply.cs                stage 2 — git mv only, guarded twice, dry by default
+    Fences.cs               the `fences` command: extract, resolve packages, generate, build, report
   tests/
     Housekeeping.Tests.csproj
     Fixture.cs              builds the throwaway repositories the tests probe
@@ -260,4 +290,5 @@ checks rot. No case count is written here on purpose; `dotnet test` reports it.
     ProbeTests.cs           every check has a fixture it fires on, the read-only contract, the CLI
     ChaptersTests.cs        the clause rule, ranges, negations, the two regression fixtures, the gaps
     ApplyTests.cs           the target mapping, every batch refusal, the CLI
+    FencesTests.cs          which fences, the compile (clean, broken, fragment, skipped), the scratch root and the guard
 ```

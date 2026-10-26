@@ -15,7 +15,8 @@ and are not described here, except where they meet the log.
 
 Logging is off. `DexpaceClientOptions.Logging` is an `HttpLoggingOptions` whose `Level` defaults to `HttpLogLevel.None`:
 
-```csharp
+<!-- fragment: an excerpt that continues the quick start; transport, request, loggerFactory and cancellationToken are the caller's -->
+```csharp fragment
 var options = new DexpaceClientOptions
 {
     Logging = new HttpLoggingOptions { Level = HttpLogLevel.Headers },

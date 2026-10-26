@@ -39,6 +39,7 @@ public sealed partial class CiWorkflowTests
         ("Tools - build", "dotnet build tools/Dexpace.Tools.sln --configuration Release"),
         ("Tools - format", "dotnet format tools/Dexpace.Tools.sln --verify-no-changes"),
         ("Tools - test", "dotnet test --solution tools/Dexpace.Tools.sln --configuration Release"),
+        ("Doc fences", "-- fences"),
         ("Knowledge corpus structure", "scripts/knowledge verify-structure"),
         ("Requirement coverage self-test", "scripts/ci/requirement-coverage-selftest.sh"),
         ("Requirement coverage", "dotnet run scripts/ci/requirement-coverage.cs -- --check"),
@@ -52,6 +53,7 @@ public sealed partial class CiWorkflowTests
     /// <summary>The steps allowed an <c>if:</c>, and the condition: the Linux-only structural checks, and the upload that must run after a failure (it is not a gate).</summary>
     internal static IReadOnlyDictionary<string, string> Conditionals { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["Doc fences"] = "runner.os == 'Linux'",
         ["Knowledge corpus structure"] = "runner.os == 'Linux'",
         ["Requirement coverage self-test"] = "runner.os == 'Linux'",
         ["Requirement coverage"] = "runner.os == 'Linux'",

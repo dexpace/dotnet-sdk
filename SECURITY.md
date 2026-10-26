@@ -2,10 +2,17 @@
 
 ## Supported versions
 
-Nothing has been published yet. The three packages under `src/` are built, but every one is at
-`0.0.1-alpha.1` and none is on NuGet, so there is no released version to support and no patched
+Nothing has been published yet. The five packages under `src/` (`Dexpace.Sdk.Core`,
+`Dexpace.Sdk.Http.SystemNet`, `Dexpace.Sdk.Serialization.SystemTextJson`,
+`Dexpace.Sdk.Extensions.DependencyInjection` and `Dexpace.Sdk.Conformance`) are built in lockstep, but every
+one is at `0.1.0-alpha.1` and none is on NuGet, so there is no released version to support and no patched
 release to point at. Until the first release, the supported revision is the tip of `main` — report
-against a commit SHA. Once a version is published, this section will name the supported release lines.
+against a commit SHA.
+
+Once versions are published, only **the latest minor of the `0.x` line** is supported: a fix ships as a patch of
+that minor, and an older minor gets no backport. From 1.0 this section will name the supported major and minor
+lines. A release is all five packages at one version
+([versioning policy](docs/sdk-documentation/versioning.md)).
 
 The defects fixed before any release (roadmap phase 1, S1–S9) are listed in `CHANGELOG.md` under
 `[Unreleased]` → `Security`. Because no consumer could hold an affected version, no advisory was
@@ -19,7 +26,8 @@ Please **do not** open a public issue, pull request or discussion for a security
 
 Report it privately by email to
 [oaljarrah@dexpace.org](mailto:oaljarrah@dexpace.org) with `[SECURITY]` in
-the subject line.
+the subject line. When GitHub private vulnerability reporting is enabled on the repository, its *Security* tab
+(*Report a vulnerability*) is a second private channel; the email address is the one that is always valid.
 
 Include what you can of the following:
 
@@ -47,6 +55,9 @@ The SDK is a **toolkit**: `Dexpace.Sdk.Core` performs no network I/O of its own.
 - **Resource exhaustion** — the SDK's own bounded buffers, retry delays and pagination caps.
 - **The transport adapter** — `Dexpace.Sdk.Http.SystemNet`, as far as its own mapping, redirect
   handling and cancellation go — and the `Dexpace.Sdk.Serialization.SystemTextJson` codec.
+- **Host integration** — `Dexpace.Sdk.Extensions.DependencyInjection`: the configuration reader and its
+  grammars, the start-time validation (a failure never quotes a configured value), and the named client's
+  transport.
 
 Vulnerabilities in the .NET runtime, `System.Net.Http`, `System.Text.Json` or
 `Microsoft.Extensions.Logging.Abstractions` themselves belong upstream; report them there, and tell us
