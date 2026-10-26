@@ -46,14 +46,14 @@ Phase 12 adds the gates of the release path. Each is a step of `ci.yml` and a ro
 
 | Gate | Protects | Run it locally |
 |---|---|---|
-| Strong naming | `NFR-16`'s strong-naming half: the five libraries and their friend test assemblies are signed with the committed key, and `StrongNameKeyTests` pins the public key, its algorithm (`CALG_RSA_SIGN`, not the `CALG_RSA_KEYX` that produces `CS0281`) and the key on every `InternalsVisibleTo`. The tools stay unsigned | `dotnet test --project tests/Dexpace.Sdk.Conformance.Tests --configuration Release --filter-class "*StrongNameKeyTests"` |
+| Strong naming | `NFR-16`'s strong-naming half: the five libraries and their friend test assemblies are signed with the committed key `Dexpace.Sdk.snk` (`PublicKeyToken` `fb3fcc3028a3989e`), and `StrongNameKeyTests` pins the public key and that token, its algorithm (`CALG_RSA_SIGN`, not the `CALG_RSA_KEYX` that produces `CS0281`) and the key on every `InternalsVisibleTo`. The tools stay unsigned | `dotnet test --project tests/Dexpace.Sdk.Conformance.Tests --configuration Release --filter-class "*StrongNameKeyTests"` |
 | Symbol packages | `NFR-12`: `IncludeSymbols` with `snupkg` gives a `.snupkg` per `.nupkg`, and the pack compare covers them | `dotnet pack Dexpace.Sdk.sln --configuration Release --output artifacts/packages` |
 | One `[LoggerMessage]` type per assembly | the generator orders classes nondeterministically ([below](#the-reproducible-pack-and-what-one-green-run-proves)) | `dotnet test --project tests/Dexpace.Sdk.Core.Tests --configuration Release --filter-class "*LoggerMessageDeterminismArchitectureTests"` |
-| Release preflight | `NFR-16`, `NFR-12`: the packed set is five packages at one version with a `.snupkg` beside each, every packed assembly carries the committed key's token, and, given a `--tag`, the tag equals the version, no `PublicAPI.Unshipped.txt` holds a member, `CHANGELOG.md` has `## [<version>]`, and the tag commit is an ancestor of `main` | `dotnet run scripts/ci/release-preflight.cs -- artifacts/packages`, and its self-test `scripts/ci/release-preflight-selftest.sh artifacts/packages` |
-| Release workflow | `ReleaseWorkflowTests` pins `.github/workflows/release.yml`: two triggers, minimum permissions, no secret, a guard before the push. It is inert until the first publish | `dotnet test --project tests/Dexpace.Sdk.Conformance.Tests --configuration Release --filter-class "*ReleaseWorkflowTests"` |
+| Release preflight | `NFR-16`, `NFR-12`: the packed set is five packages at one version with a `.snupkg` beside each, every packed assembly carries the committed key's token (`fb3fcc3028a3989e`), and, given a `--tag`, the tag equals the version, no `PublicAPI.Unshipped.txt` holds a member, `CHANGELOG.md` has `## [<version>]`, and the tag commit is an ancestor of `main` | `dotnet run scripts/ci/release-preflight.cs -- artifacts/packages`, and its self-test `scripts/ci/release-preflight-selftest.sh artifacts/packages` |
+| Release workflow | `ReleaseWorkflowTests` pins [`.github/workflows/release.yml`](../../.github/workflows/release.yml): two triggers, minimum permissions, no secret, a guard before the push. It is inert until the first publish | `dotnet test --project tests/Dexpace.Sdk.Conformance.Tests --configuration Release --filter-class "*ReleaseWorkflowTests"` |
 
-`scripts/ci/release-preflight.cs` and `release.yml` belong to the release path in [`docs/first-release.md`](../first-release.md); this page lists them with the other gates because they run in CI or against its
-output.
+[`scripts/ci/release-preflight.cs`](../../scripts/ci/release-preflight.cs) and [`release.yml`](../../.github/workflows/release.yml) belong to the release path in [`docs/first-release.md`](../first-release.md); this page lists them
+with the other gates because they run in CI or against its output.
 
 ### The architecture tests
 

@@ -85,7 +85,8 @@ Pin the minor while the major is `0`, because a minor may break:
 </ItemGroup>
 ```
 
-A patch inside that range is a fix you want. From 1.0 a floating minor (`1.*`) is what SemVer is for. If a library of yours exposes a `Dexpace.Sdk` type in its own public API, treat its version as part of
+The assemblies are strong-named (`PublicKeyToken` `fb3fcc3028a3989e`), so a strong-named consumer references them without `CS8002`; the key is committed and public by design, an assembly identity and not a trust
+root. A patch inside that range is a fix you want. From 1.0 a floating minor (`1.*`) is what SemVer is for. If a library of yours exposes a `Dexpace.Sdk` type in its own public API, treat its version as part of
 yours: a minor of the SDK that breaks you is a minor of yours (before 1.0) or a major (after).
 
 ## Reading the changelog

@@ -115,8 +115,9 @@ Contributors never tag or publish. A release is one tagged commit that carries a
 (lockstep), a dated `CHANGELOG.md` section, `PublicAPI.Unshipped.txt` files that hold nothing but `#nullable enable`,
 and a green `main`; the maintainers' procedure, the blockers still open and what happens after the first publish are
 the *Release path* of [`docs/first-release.md`](docs/first-release.md), and what a version number promises is
-[versioning.md](docs/sdk-documentation/versioning.md). The release workflow, `release.yml`, is inert until the first
-publish, which is held.
+[versioning.md](docs/sdk-documentation/versioning.md). The release workflow,
+[`release.yml`](.github/workflows/release.yml), is inert until the first publish, which is held, and the packages it would push are checked first by
+[`scripts/ci/release-preflight.cs`](scripts/ci/release-preflight.cs), which every pull request already runs over the packed set.
 
 ## Commit messages
 
