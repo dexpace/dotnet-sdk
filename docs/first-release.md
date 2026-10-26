@@ -21,13 +21,16 @@ itself.
 Design §2.1 lists the MVP set, and §2.3 fixes lockstep versioning: one `VersionPrefix`, and one coherent set per
 release.
 
-| Package | Exists? | Target frameworks at `d45e64b` | Published? | Owner of what is missing |
+| Package | Exists? | Target framework | Published? | Owner of what is missing |
 |---|---|---|---|---|
-| `Dexpace.Sdk.Core` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 0–7, 10 |
-| `Dexpace.Sdk.Http.SystemNet` | yes | `net8.0` | no — `0.0.1-alpha.1` | phases 1, 8b |
-| `Dexpace.Sdk.Serialization.SystemTextJson` | yes | `net8.0;net10.0` | no — `0.0.1-alpha.1` | phase 7a |
-| `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.0.1-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` proposed (a release that adds an assertion is at least a minor version) | phase 10 completed it on 2026-10-14 (the invariant, codec and packaging suites beside the transport suite: four suites); phase 12 publishes it and decides the number |
-| `Dexpace.Sdk.Extensions.DependencyInjection` | yes (phase 9) | `net10.0` | no — `0.0.1-alpha.1`; it references `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` and `Microsoft.Extensions.Http` (the hosting family's one root), at the lockstep version | phase 12 (the release path) |
+| `Dexpace.Sdk.Core` | yes | `net10.0` | no — `0.1.0-alpha.1` | built (phases 0–7, 10); phase 12 holds the publish |
+| `Dexpace.Sdk.Http.SystemNet` | yes | `net10.0` | no — `0.1.0-alpha.1` | built (phases 1, 8b); phase 12 holds the publish |
+| `Dexpace.Sdk.Serialization.SystemTextJson` | yes | `net10.0` | no — `0.1.0-alpha.1` | built (phase 7a); phase 12 holds the publish |
+| `Dexpace.Sdk.Conformance` | yes (phase 8a) | `net10.0` | no — `0.1.0-alpha.1`; the first published version is the first release's lockstep version, `0.1.0` (decided by phase 12, P12-7: a release that adds an assertion is at least a minor version) | built; phase 10 completed it on 2026-10-14 (the invariant, codec and packaging suites beside the transport suite: four suites); phase 12 holds the publish |
+| `Dexpace.Sdk.Extensions.DependencyInjection` | yes (phase 9) | `net10.0` | no — `0.1.0-alpha.1`; it references `Dexpace.Sdk.Core`, `Dexpace.Sdk.Http.SystemNet` and `Microsoft.Extensions.Http` (the hosting family's one root), at the lockstep version | built (phase 9); phase 12 holds the publish |
+
+*Updated 2026-10-26 (phase 12):* the table reads the packages as built at the end of phase 12 (all five at `0.1.0-alpha.1`, every one `net10.0`; the `net8.0` column the register was opened with is gone, per the paragraph below). The first-publish
+status is the blockers' below.
 
 The target frameworks changed in phase 0. The lead approved the roadmap's decision D1 on 2026-09-28: every package
 targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .NET 8 leaves support on 2026-11-10.
@@ -42,9 +45,11 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
       `dotnet --version` from inside each checkout) and a self-test (`reproducible-pack.sh --self-test`) on hypothesis (a), that the runner's SDK patch differs from `global.json`'s, **without reading the failing job's log** (a remote read);
       whether the job is now green is the first thing to read in the next CI run, and if it is red its `reproducible-pack:` lines name the entry that differs. Phase 11 also adds blocking steps: the dependency-audit self-test, the
       reproducible-pack self-test and `Section 12`, and the ledger audit runs in the existing `Test` step.
+      *Phase 12 (2026-10-26), still open:* the cause is found and fixed. Hypothesis (a) was not it: the `LoggerMessage` source generator orders the `[LoggerMessage]` classes of one assembly differently from one build to the next, and `Dexpace.Sdk.Http.SystemNet` held two; every library now holds at most one (`TransportLog`), held by `LoggerMessageDeterminismArchitectureTests`, and eight builds give one `LoggerMessage.g.cs` hash. Locally `reproducible-pack.sh` reports 10 of 10 files byte-identical across two paths, symbols included, repeatedly. **No CI run has been read:** the implementation was done under a no-remote-action rule (nothing pushed, no `gh`), so the lead action L1 (read the first run of the phase 12 pull request on all five jobs, the `reproducible-pack:` lines, the macOS `FileRequestBodyTests` rows, any `InstrumentationContextTests` or `OperationSpanLifecycleTests` red, and whether the repository is public) is open, and so is the first green run on `main`. This line ticks when the lead records that run.
 - [ ] **The `main` ruleset requires the CI jobs (`NFR-17`'s merge half).** A `required_status_checks` rule naming `build & test (ubuntu-latest)`, `build & test (windows-latest)`,
       `build & test (macos-latest)`, `reproducible packages` and `NativeAOT smoke`; design V9 found none (no classic protection either), so a red job does not block a merge.
       An admin-only repository setting that phase 10 did not apply (request text in the phase 10 checklist's *Open items*). Read it back with `gh api repos/dexpace/dotnet-sdk/rulesets` and tick this line.
+      *Phase 12 (2026-10-26), still open (lead action L3, P12-20):* nothing in the repository can apply it. The default ruling is that the lead applies the rule before the first publish; the alternative, declining it, is a fifth counted unmet clause (one commit across `docs/deviations.md` and the list below, V17), which would spend the budget of five.
 - [x] **The nine P0 defects closed, with permanent `Security` regression tests.** The defects are header CR/LF
       injection, a caller-set `Host`, transport auto-redirect with cross-origin credential forwarding, credentials
       over `http`, deny-list URL redaction, the attempt-leaking `PipelineContext`, the `Retry-After` overflow, the
@@ -54,9 +59,9 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
       vacuous with a design §10 or §11 citation; or listed below under *Unsatisfied MUSTs*. Phases 2–10 own the
       rows, and phase 10's row-count gate proves the total. **Phase 10 (2026-10-14) built the gate and it is green:** `dotnet run scripts/ci/requirement-coverage.cs -- --check` reports all 645 IDs of appendix C owned by a checklist row, each with its level and a legend mark,
       and no finding in a MUST row; it is a blocking Linux step of `ci.yml`. ~~**The line stays open** because the script's tally still reads 16 MUST rows as ⏳ in the row that owns them: `NFR-17` (the ruleset line above), and hand-offs whose closing evidence sits in a later phase's checklist in a table
-      the script does not read as owning (the 12 `RECOV` rows `RECOV-17` to `-24`, `-27`, `-28`, `-29` and `-34`, which 4b's table leaves ⏳ and 6a's table closes, and `BODY-4`, `BODY-5` and `BODY-10`, 3b's hand-offs to 6a, 6b, 6c and 3a: `BODY-4` and `BODY-5` carry a 2026-10-08 correction under 3b's table, not in the row, and `BODY-10` rests on 3a's `HTTP-39` row). `HTTP-44` and `HTTP-45` are not among them: 7a's checklist owns them last, at ✅. Phase 11 gives those 15 rows their dated corrections and ticks this line; it also decides whether `NFR-17` is the only MUST left open.~~ *Phase 11 (2026-10-20):* the 15 hand-off rows have their closing rows in the [phase 11 checklist](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-checklist.md) (with the rows of every ID a repair changed, and the five SHOULD/MAY hand-offs the same measurement found), and the script's tally of resolved MUST rows reads ⏳ 1: `NFR-17`, the ruleset line above, which names this register as its owner. **The line stays open for `NFR-17` alone.**
+      the script does not read as owning (the 12 `RECOV` rows `RECOV-17` to `-24`, `-27`, `-28`, `-29` and `-34`, which 4b's table leaves ⏳ and 6a's table closes, and `BODY-4`, `BODY-5` and `BODY-10`, 3b's hand-offs to 6a, 6b, 6c and 3a: `BODY-4` and `BODY-5` carry a 2026-10-08 correction under 3b's table, not in the row, and `BODY-10` rests on 3a's `HTTP-39` row). `HTTP-44` and `HTTP-45` are not among them: 7a's checklist owns them last, at ✅. Phase 11 gives those 15 rows their dated corrections and ticks this line; it also decides whether `NFR-17` is the only MUST left open.~~ *Phase 11 (2026-10-20):* the 15 hand-off rows have their closing rows in the [phase 11 checklist](./work/mvp/phase11/2026-10-19-phase11-deviation-reconciliation-checklist.md) (with the rows of every ID a repair changed, and the five SHOULD/MAY hand-offs the same measurement found), and the script's tally of resolved MUST rows reads ⏳ 1: `NFR-17`, the ruleset line above, which names this register as its owner. **The line stays open for `NFR-17` alone.** *Phase 12 (2026-10-26):* unchanged: the tally still reads ⏳ 1, `NFR-17`, and this line ticks with the ruleset line above.
 - [ ] **Conformance green.** `Dexpace.Sdk.Conformance` passes against every shipped transport on every CI row, with
-      waivers listed by requirement ID. It is written by phase 8a and completed by phase 10 (2026-10-14: the invariant, codec and packaging suites, with three first-party drivers that each pin their `NotExercised` list).
+      waivers listed by requirement ID. It is written by phase 8a and completed by phase 10 (2026-10-14: the invariant, codec and packaging suites, with three first-party drivers that each pin their `NotExercised` list). *Phase 12 (2026-10-26):* green locally on this tree (the three drivers and the kit's own tests); it is also a step of the release build job. It ticks with the CI line, which is the first green run on every row.
 - [x] **Deviations audited.** `docs/deviations.md` exists and every row reads `as-built: …`. Phase 11. *Ticked 2026-10-20 (phase 11):* [`docs/deviations.md`](./deviations.md) holds all 33 design §10 entries and 72 §11 readings, each with an
       `as-built:` verdict (or `retired (repaired, task n.m)`), a disposition and a cited reason, and `LedgerAuditTests` (rules L1 to L11, a blocking step of the `Test` job) fails the build on a cited line past the end of its file, a missing row, a scan that reads no file or a count that
       disagrees with this file. The clauses unmet on a stated domain are four (`AUTH-15`, `PAGE-21`, `TRANSPORT-14`'s name half and `CFG-2` for a section of an unregistered configuration; the first count of 2026-10-20 said three and missed the last, found by the 2026-10-21 review), below the roadmap's five.
@@ -79,22 +84,35 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
         parameters became overloads), and `ServerSentEventTooLargeException` (default 8 MiB, P11-19, the default to check).
       - Validating `init` accessors report their property in `ParamName`; an empty configuration value falls through to the next provider (P11-17).
 - [ ] **A reachable `SECURITY.md` contact.** Phase 0 creates the file; this line is ticked only when the contact is
-      confirmed to be monitored.
-- [ ] **NuGet ownership settled.**
-      - The `Dexpace` package-ID prefix is reserved on nuget.org.
-      - The owning account or organisation is settled.
-      - Publishing uses nuget.org trusted publishing (OIDC) from the release workflow, with no long-lived API key
-        committed or stored as a plain secret. If trusted publishing is not available to the organisation at
-        release time, a scoped key in a protected GitHub environment is the fallback, and it is recorded here as
-        such. Phase 12.
-- [ ] **Signing decided.** Two decisions, both phase 12's:
+      confirmed to be monitored. *Phase 12 (2026-10-26), still open (lead action L4, P12-24):* `SECURITY.md` is rewritten (five packages, only the latest minor of `0.x` supported, the `oaljarrah@dexpace.org` contact kept, and GitHub private vulnerability
+      reporting named as a second channel *when enabled*, because the file must not claim a setting only the lead can turn on). Ticked when the lead confirms the mailbox is monitored and enables private vulnerability reporting.
+- [ ] **NuGet ownership settled.** **Held (phase 12, 2026-10-26):** `.github/workflows/release.yml` is authored and inert; every item below is outside the repository, and the lead's (L5, L6). The order in which the hold releases (P12-25):
+      1. Create the nuget.org **organisation** `dexpace` (the owner of all five IDs and of every future `Dexpace.*` package). The alternative is reserving only `Dexpace.Sdk.*`, which leaves a later non-SDK package unprotected.
+      2. Request the **`Dexpace.*` package-ID prefix** reservation for it.
+      3. Create the **trusted-publishing policy** (nuget.org OIDC) for repository `dexpace/dotnet-sdk`, workflow `release.yml`, environment `nuget`. No long-lived API key is committed or stored as a secret anywhere:
+         `NuGet/login` exchanges the publish job's OIDC token for a short-lived key. If trusted publishing is unavailable to the organisation at release time, a scoped key in the protected `nuget` environment is the
+         fallback, **recorded here as such**; a first push of a brand-new package ID is the case to check at that point (not verified here).
+      4. Create the GitHub environment **`nuget`** with required reviewers, and set its variable **`NUGET_USER`** (the nuget.org profile name). The workflow's first publish step fails naming this register while the variable is empty,
+         because an environment referenced by a job is created on first use with no protection rules, so its existence cannot be the guard.
+      5. Apply the `main` ruleset (the line above).
+      6. Only then tag (below). **Do not tag before this order completes.**
+      The workflow's action inputs (`NuGet/login`'s `user` input and `NUGET_API_KEY` output, `actions/attest-build-provenance`'s `subject-path`, `actions/download-artifact`'s inputs and the majors of all three) were written without
+      network access and are **unverified against each action's README**; verify them before lifting the hold (the file's header says so).
+- [x] **Signing decided.** Two decisions, both phase 12's:
       - Strong naming, with a committed key. Design §9.2 says keep it for strong-named consumers, not as a security
         measure.
       - Author signing with an organisation certificate (`NFR-16`).
 
       nuget.org's repository signature applies to every package regardless of these decisions.
-- [ ] **Versioning policy written.** Lockstep SemVer. The pre-1.0 policy states what a `0.x` minor may break. The
+      *Ticked 2026-10-26 (phase 12, P12-9, P12-10, P12-13):* **strong naming is built**: `Dexpace.Sdk.snk` (2048-bit RSA, committed, public by design), `PublicKeyToken` `fb3fcc3028a3989e`, applied to every project under `src/` and `tests/` (the tools stay
+      unsigned), each library's `InternalsVisibleTo` keyed with `DexpacePublicKey`; `StrongNameKeyTests` pins the property against each built library and the token as a literal; the release preflight re-checks the token on every packed assembly.
+      **Author signing is declined for v1:** a code-signing certificate costs money and wants an HSM, and `NFR-16` (SHOULD) rests instead on a GitHub artifact attestation over every package (`actions/attest-build-provenance` in `release.yml`'s publish job),
+      verified with `gh attestation verify <file> --repo dexpace/dotnet-sdk`. That mechanism is built and held: `NFR-16` closes at the first publish (*After the first publish*), not here.
+- [x] **Versioning policy written.** Lockstep SemVer. The pre-1.0 policy states what a `0.x` minor may break. The
       next version after `0.0.1-alpha.1` is phase 12's decision.
+      *Ticked 2026-10-26 (phase 12, P12-6, P12-7):* [`docs/sdk-documentation/versioning.md`](./sdk-documentation/versioning.md) states the policy (what the public API is, what a `0.y` minor and patch may contain, **Breaking** `CHANGELOG.md` lines,
+      `*REMOVED*`, `[Obsolete]` first, a conformance assertion is at least a minor, strictness from 1.0). The next version is **`0.1.0`**: `VersionPrefix` `0.1.0` with `VersionSuffix` `alpha.1` on `main`, so the packages build as `0.1.0-alpha.1`.
+      Had the lead ruled to publish `0.1.0-alpha.1` first, only the release commit's suffix and the tag name (`v0.1.0-alpha.1`) change.
 - [ ] **User documentation.**
       - `docs/sdk-documentation/`, with one page per area, each written at its phase's close.
       - An architecture page, a getting-started page, and one end-to-end example.
@@ -102,8 +120,12 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
       - A conformance page stating what a green conformance run does **not** prove.
 
       Phase 12 assembles these pages.
-- [ ] **`CHANGELOG.md` complete.** Phase 0 back-filled PRs #3–#9 on 2026-09-29, and every later phase adds its own
+      *Ticked 2026-10-26 (phase 12, P12-17, P12-18):* the set is complete: `architecture.md`, `getting-started.md`, `example-end-to-end.md`, `quality-gates.md`, `versioning.md`, the four `write-a-*` guides and the conformance page's "What a green run does not prove" section, beside
+      the per-area pages; `docs/architecture.md`, which they supersede, is retired. They cannot rot silently: `housekeeping fences` compiles every fence that names `Dexpace.Sdk` (21 compiled, 4 marked fragments, 0 failed) and is a blocking Linux CI step.
+- [x] **`CHANGELOG.md` complete.** Phase 0 back-filled PRs #3–#9 on 2026-09-29, and every later phase adds its own
       `[Unreleased]` entry.
+      *Ticked 2026-10-26 (phase 12, P12-16, P12-19):* the audit walked the 55 first-parent commits of `main` and back-filled the ten pull requests, in six groups, that had no entry (#11/#12, #20, #22, #26/#27/#34/#53, #35, #42; recorded in the checklist and under "Audit back-fill"); the Phase 12 section is
+      written; and the head of `[Unreleased]` carries the draft release notes (summary, the breaking changes to read first, the `ShouldHandle` and no-reload guidance, and every item of *What v1 ships without*), which `ReleaseNotesTests` keeps complete. The draft becomes `## [0.1.0]` at the release commit.
 
 ## What v1 ships without
 
@@ -259,20 +281,32 @@ There is deliberately **no** OpenTelemetry package, because the OTel SDK subscri
 
 ## Release path
 
-Not yet wired. Phase 12 owns this path:
+**Built and held (phase 12, 2026-10-26).** The path exists end to end and has never run: `.github/workflows/release.yml` is pinned by `ReleaseWorkflowTests` and inert until the setup under *NuGet ownership settled* exists. What it does:
 
-1. A `v*` tag triggers `.github/workflows/release.yml`. Nothing else triggers it.
-2. The workflow runs a locked restore, build and test.
-3. It runs `dotnet pack` with `SOURCE_DATE_EPOCH` set to the commit time, and package validation.
-4. It author-signs the packages, if that is decided.
-5. It pushes through trusted publishing.
+1. **Triggers.** A `v*` tag push, or a manual run (`workflow_dispatch`) whose boolean `dry_run` defaults to `true`. Nothing else triggers it. Only a tag publishes: a tag push, or a manual run started on a tag ref with `dry_run` set to `false`.
+2. **The `build` job** (ubuntu; the three-OS matrix and the NativeAOT smoke are `ci.yml`'s, on `main`): a full-history checkout, a locked restore, the build, the whole test run, then `scripts/ci/reproducible-pack.sh artifacts/release` with `SOURCE_DATE_EPOCH` at the
+   commit time (the commit is packed twice, at two paths, and must be byte-identical, `.snupkg` included), the dependency audit and the packaging conformance over the first pack, [`scripts/ci/release-preflight.cs`](../scripts/ci/release-preflight.cs) over
+   it (with `--tag` on a tag ref), and a `SHA256SUMS` file; the packages are uploaded as one artifact. The preflight refuses unless the five packages are at one version with a `.snupkg` beside each, every packed assembly is strong-named with the committed key's
+   token, and, with a tag, the tag is `v<version>` on a commit of `main`, every `PublicAPI.Unshipped.txt` holds `#nullable enable` alone and this changelog has a `## [<version>]` section.
+3. **The `publish` job** (`needs: build`, `environment: nuget`; the only job granted `id-token: write` and `attestations: write`) has no checkout. Its **first step is the guard**: it fails, naming this file, while `vars.NUGET_USER` is empty. After it: verify
+   the checksums, attest every package (GitHub artifact attestation, in place of author signing), `NuGet/login` for a short-lived key, and `dotnet nuget push` with `--skip-duplicate`, which also pushes the `.snupkg` beside each package (unverified, see above).
+4. **A dry run on `main` is expected to print one `would fail:` line** from the preflight (`CHANGELOG.md has no ## [0.1.0-alpha.1] section`): the changelog section is created at the release commit, with the suffix emptied, and a run without `--tag` reports it and exits 0.
+5. **If the repository is private** (lead action L2, unanswered), GitHub artifact attestations may be unavailable without GitHub Enterprise Cloud: the attestation step and its pins in `ReleaseWorkflowTests` are removed, and `NFR-16` falls back to nuget.org's
+   repository signature, which would then be declined as a SHOULD in *SHOULD- and MAY-level requirements declined for v1* in the same change. Visibility was not read.
+
+The release itself is the lead's (L9), in this order, after *NuGet ownership settled*, the CI line and the ruleset line are done: the **release commit** (empty `VersionSuffix`; the draft release notes become `## [0.1.0] - <date>`; every `Unshipped` file is
+`#nullable enable` alone), then the tag **`v0.1.0`** on it, which runs the workflow, then the **next-train commit** (`0.2.0-alpha.1`). The stages and their commands are in [`versioning.md`](./sdk-documentation/versioning.md) and [`quality-gates.md`](./sdk-documentation/quality-gates.md).
 
 ### After the first publish
 
-- Set `PackageValidationBaselineVersion` to the published version, so API compatibility runs against it from then
-  on (`NFR-4`'s binary half).
-- Close `NFR-12`'s release half, which requires a published package byte-identical to a rebuild from its tag, and
-  close `NFR-16`. Both are only checkable against a real publish.
+Each item is only checkable against a real publish, so each waits (held, phase 12):
+
+- **`PackageValidationBaselineVersion`** (`NFR-4`'s binary half): set it to the published version in `Directory.Build.props` (the library-gates group; it cannot be set earlier, because the package does not exist on nuget.org to resolve and setting it would break every
+  build), so API compatibility runs against it from then on; each intended break needs a reviewed `CompatibilitySuppressions.xml` entry.
+- **`NFR-12`'s release half**, as read by P12-12: nuget.org repository-signs every package, so "byte-identical to the published artifact" is unsatisfiable as worded; the clause is read as: a **rebuild from the tag reproduces the attested pre-push digests byte for byte**, and
+  **the nuget.org copy equals them once its `.signature.p7s` entry is removed**, compared entry by entry (removing an entry rewrites the zip directory, so the whole-file digest differs). Exercise it once and then record it as a design §11 item.
+- **`NFR-16`'s closure:** `gh attestation verify <file> --repo dexpace/dotnet-sdk` over a downloaded package succeeds. Until then the mechanism is built and the requirement is open.
+- Then the release commit, the tag and the next-train commit above.
 
 ## Post-release triggers
 
