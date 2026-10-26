@@ -58,7 +58,7 @@ The register has eleven open or ticked blockers; the phase closes five, leaves f
 | CI not run on `main` since `6b49af6` | **Not read.** No remote action was authorised for the implementation, so L1 (the first CI run of this branch's pull request, all five jobs) is open. The result goes into this table when the lead has it. |
 | The reproducible-pack fix unproven | Root cause found and fixed (1.1); proven by the generator's output, not a run count, and by 10 of 10 byte-identical files on every local run. CI confirmation is L1. |
 | macOS `FromFile` unverified | **Not read** (needs the macOS row). Contingent task 1.C1 was not triggered because nothing was read; if the row is red, it lands before the next release as a `UnixFileKind` fix. |
-| About fifteen `ParamName` `value` accessors | **Fixed** (1.2): the 14 accessors of the `ThrowIf*(value…)` spelling and every `nameof(value)` and helper-routed one; the scanner learned both spellings so a future one is caught. |
+| About fifteen `ParamName` `value` accessors | **Fixed** (1.2): the 14 accessors of the `ThrowIf*(value…)` spelling and every `nameof(value)` and helper-routed one; the scanner learned both spellings so a future one is caught. *Review, 2026-10-26:* six helper-routed accessors were still missed (`ServerSentEvent.Id`, `Data` and `Retry` reported `"value"`; `HttpLoggingOptions.AllowedHeaderNames`, `AllowedQueryParameters` and `UrlValuedHeaderNames` reported `"source"`); fixed with behavioural rows in `InitAccessorRejectionParamNameTests` (`a6d76e2`). |
 | The Core flake family (`InstrumentationContextTests`, `OperationSpanLifecycleTests`) | **Not read**; contingent task 1.C2 not triggered. See the intermittent test below. |
 | `NFR-17`, the ruleset | L3, open. |
 | D3, webhooks | Unchanged (post-v1, the lead's, P12-23). |
@@ -199,4 +199,13 @@ Run on 2026-10-26 at `541b0e6` (the tip before this correction; later commits ch
 | `housekeeping probe` | no drift found |
 | `requirement-coverage.cs --check` / `--check-section12` / self-test | no finding in a MUST row; section 12 current; self-test ok |
 | NativeAOT publish and run | no warning; `aot-smoke: all checks passed` |
-| `scripts/knowledge verify-structure` | OK: 3 346 harvested entries, 66 notes |
+| `scripts/knowledge verify-structure` | OK: 3 346 harvested entries, 69 notes (*review, 2026-10-26:* this row said 66, the count before this phase's three notes landed) |
+
+## Review (2026-10-26)
+
+An independent review of the merged branch after the close-out. Each fix is its own commit, and the final gate above was re-run green after them (7 770 tests, 0 failed, 23 skipped; every other row as above):
+
+- `a6d76e2` (fix): the six helper-routed `init` accessors in the row above now name their property; the **Breaking** `CHANGELOG.md` line lists them.
+- `66a0a73` (test): the release path turns the draft release-notes block into `## [0.1.0] - <date>` at the release commit. `ReleaseNotesTests` found only the draft heading, so on that commit it would have failed `release.yml`'s own test step. It now reads the dated section too.
+- `6d4375f` (docs): `docs/first-release.md`'s *User documentation* blocker was dated "Ticked" but its box was empty.
+- `d81ff31` (docs): the four `write-a-*` guides linked "Node's" source page to themselves.
