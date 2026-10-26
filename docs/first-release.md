@@ -113,7 +113,7 @@ targets `net10.0` only, set once in `Directory.Build.props` (PR #21), because .N
       *Ticked 2026-10-26 (phase 12, P12-6, P12-7):* [`docs/sdk-documentation/versioning.md`](./sdk-documentation/versioning.md) states the policy (what the public API is, what a `0.y` minor and patch may contain, **Breaking** `CHANGELOG.md` lines,
       `*REMOVED*`, `[Obsolete]` first, a conformance assertion is at least a minor, strictness from 1.0). The next version is **`0.1.0`**: `VersionPrefix` `0.1.0` with `VersionSuffix` `alpha.1` on `main`, so the packages build as `0.1.0-alpha.1`.
       Had the lead ruled to publish `0.1.0-alpha.1` first, only the release commit's suffix and the tag name (`v0.1.0-alpha.1`) change.
-- [ ] **User documentation.**
+- [x] **User documentation.**
       - `docs/sdk-documentation/`, with one page per area, each written at its phase's close.
       - An architecture page, a getting-started page, and one end-to-end example.
       - The `write-a-{transport,serde,response-handler,paging-strategy}` guides.
