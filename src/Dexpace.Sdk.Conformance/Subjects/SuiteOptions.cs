@@ -32,7 +32,7 @@ public sealed record SuiteOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, nameof(AssertionTimeout));
             field = value;
         }
     } = TimeSpan.FromSeconds(30);

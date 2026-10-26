@@ -36,7 +36,7 @@ public sealed record AuthCredentials
         get => _tokenRefreshMargin;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero);
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero, nameof(TokenRefreshMargin));
             _tokenRefreshMargin = value;
         }
     }

@@ -29,7 +29,7 @@ public sealed class TransportSuiteOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, nameof(AssertionTimeout));
             field = value;
         }
     } = TimeSpan.FromSeconds(30);
@@ -44,7 +44,7 @@ public sealed class TransportSuiteOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero, nameof(ReleaseTimeout));
             field = value;
         }
     } = TimeSpan.FromSeconds(10);

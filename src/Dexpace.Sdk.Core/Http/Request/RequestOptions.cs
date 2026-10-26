@@ -33,7 +33,7 @@ public sealed record RequestOptions
     public TimeSpan? Timeout
     {
         get;
-        init => field = RequireNullOrPositive(value);
+        init => field = RequireNullOrPositive(value, nameof(Timeout));
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ public sealed record RequestOptions
     public int? MaxRetries
     {
         get;
-        init => field = RequireNullOrNonNegative(value);
+        init => field = RequireNullOrNonNegative(value, nameof(MaxRetries));
     }
 
     /// <summary>
@@ -141,21 +141,21 @@ public sealed record RequestOptions
         return HashCode.Combine(Timeout, MaxRetries, tagHash, Auth, OperationAuth);
     }
 
-    private static TimeSpan? RequireNullOrPositive(TimeSpan? value)
+    private static TimeSpan? RequireNullOrPositive(TimeSpan? value, string paramName)
     {
         if (value is { } span && span <= TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(value), "A timeout must be positive; use null to keep the configured one.");
+            throw new ArgumentOutOfRangeException(paramName, "A timeout must be positive; use null to keep the configured one.");
         }
 
         return value;
     }
 
-    private static int? RequireNullOrNonNegative(int? value)
+    private static int? RequireNullOrNonNegative(int? value, string paramName)
     {
         if (value is < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(value), "MaxRetries must be zero or greater; zero means no retries.");
+            throw new ArgumentOutOfRangeException(paramName, "MaxRetries must be zero or greater; zero means no retries.");
         }
 
         return value;

@@ -42,7 +42,7 @@ public sealed record RedirectOptions
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(MaxRedirects));
             field = value;
         }
     } = 3;

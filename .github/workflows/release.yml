@@ -1,0 +1,179 @@
+# .github/workflows/release.yml
+#
+# NFR-16 (SHOULD), NFR-12's release half and the first NuGet publish (roadmap phase 12; design "The release workflow", P12-2 to P12-4, P12-13).
+#
+# THIS WORKFLOW IS INERT: nothing is published until all of the following exist, none of which a commit can create
+# (docs/first-release.md, "Blockers" and "Release path"):
+#   1. a nuget.org organisation owning the Dexpace.* ID prefix (reserved by nuget.org on request);
+#   2. a nuget.org trusted-publishing policy for dexpace/dotnet-sdk, workflow release.yml, environment nuget;
+#   3. the repository environment `nuget`, with required reviewers, and its variable NUGET_USER (the nuget.org profile name).
+# Until then the publish job stops at its first step, naming what is missing. The build job runs on every trigger, so the release path is
+# reviewable and exercised now (a manual run is a dry run by default), not improvised at the first tag.
+#
+# Triggers: a `v*` tag push, and a manual run. Only a tag publishes: a tag push, or a manual run started on a tag ref with dry_run set to false.
+# A manual run on a branch never publishes, whatever dry_run says, because NFR-12's release half rebuilds the published package from its tag.
+#
+# No long-lived registry key exists anywhere: NuGet/login exchanges the job's OIDC token for a short-lived key under the trusted-publishing
+# policy, and the workflow never reads a repository credential. id-token: write and attestations: write are granted to the publish job only.
+# Author signing with a code-signing certificate is declined for v1 (P12-13); the GitHub artifact attestation over every package is what NFR-16
+# is met by, and `gh attestation verify <file> --repo dexpace/dotnet-sdk` checks it. NFR-16 stays open until the first publish exercises that path.
+#
+# UNVERIFIED: the input and output names of NuGet/login (the `user` input, the NUGET_API_KEY output), of actions/attest-build-provenance
+# (`subject-path`) and of actions/download-artifact, their major versions, and that `dotnet nuget push` on a .nupkg glob pushes the .snupkg
+# lying beside each one, were written from memory and were NOT checked against the action READMEs or the dotnet documentation (the authoring
+# session had no network). Verify each against its README before lifting the hold. If the repository is private, GitHub artifact
+# attestations may be unavailable (docs/first-release.md records the fallback): the attestation step is then removed with its pins in
+# tests/Dexpace.Sdk.Conformance.Tests/Gates/ReleaseWorkflowTests.cs.
+#
+# The publish job has no checkout and no setup-dotnet: it needs nothing from the repository, only the downloaded artifact, so
+# `dotnet nuget push` runs on the runner image's preinstalled .NET SDK and global.json does not apply to it. That is harmless for a push of
+# finished packages.
+#
+# Pinned by tests/Dexpace.Sdk.Conformance.Tests/Gates/ReleaseWorkflowTests.cs (the file is read as text, as CiWorkflowTests reads ci.yml). The
+# three-operating-system matrix and the NativeAOT smoke are ci.yml's job on main; a tag points at a commit on main (the preflight refuses
+# any other), so every released commit has passed them.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify only; never publish."
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: build release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Full history: the preflight checks that a tag's commit is on main, and the pack takes its timestamps from the commit.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore (locked)
+        run: dotnet restore Dexpace.Sdk.sln --locked-mode
+
+      - name: Build
+        run: dotnet build Dexpace.Sdk.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution Dexpace.Sdk.sln --configuration Release --no-build
+
+      # NFR-12's build half on the release path: the commit is packed twice at two paths with SOURCE_DATE_EPOCH at the commit time and the
+      # script fails on any difference; package validation runs inside each pack. Pack 1 is what is audited, attested and published.
+      - name: Pack twice and compare
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          scripts/ci/reproducible-pack.sh artifacts/release
+
+      - name: Dependency audit
+        run: dotnet run scripts/ci/dependency-audit.cs -- Release artifacts/release/1
+
+      - name: Packaging conformance
+        run: dotnet run scripts/ci/packaging-conformance.cs -- artifacts/release/1
+
+      # Five packages at one version, a .snupkg beside each, every assembly strong-named with the committed key. On a tag ref it also
+      # refuses a tag that is not the packages' version, an Unshipped surface file that holds more than the header, a CHANGELOG.md with no
+      # section for the version, and a tag whose commit is not on main; on a branch the tag-dependent checks are reported, not failed.
+      - name: Release preflight
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            dotnet run scripts/ci/release-preflight.cs -- artifacts/release/1 --tag "$GITHUB_REF_NAME"
+          else
+            dotnet run scripts/ci/release-preflight.cs -- artifacts/release/1
+          fi
+
+      - name: Checksums
+        working-directory: artifacts/release/1
+        run: sha256sum *.nupkg *.snupkg > SHA256SUMS
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            artifacts/release/1/*.nupkg
+            artifacts/release/1/*.snupkg
+            artifacts/release/1/SHA256SUMS
+          if-no-files-found: error
+
+  publish:
+    name: publish to nuget.org
+    needs: build
+    if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The guard (P12-3). A referenced environment is created on first use with no protection rules, so its existence cannot be the guard:
+      # an unset NUGET_USER is, and it is set only when the nuget.org setup above exists.
+      - name: Guard - the registry setup exists
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          if [[ -z "$NUGET_USER" ]]; then
+            echo "::error::The repository variable NUGET_USER is not set, so the nuget.org organisation, the trusted-publishing policy and the nuget environment do not exist yet. Nothing is published. See docs/first-release.md, Blockers: NuGet ownership."
+            exit 1
+          fi
+
+      - name: Download packages
+        uses: actions/download-artifact@v7
+        with:
+          name: packages
+          path: packages
+
+      - name: Verify checksums
+        working-directory: packages
+        run: sha256sum --check SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            packages/*.nupkg
+            packages/*.snupkg
+
+      - name: NuGet login (trusted publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # Versions are immutable on nuget.org, so a re-run after a partial push completes the set and cannot change a package already published.
+      # The .snupkg beside each .nupkg is pushed to the symbol server with it.
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "packages/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

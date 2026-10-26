@@ -7,9 +7,10 @@ using Xunit;
 namespace Dexpace.Sdk.Http.SystemNet.Tests;
 
 /// <summary>
-/// SEAM-29 (phase 11, task 2.5): a null into a validating <c>init</c> accessor of the transport's options names the property, not <c>value</c>. The core and
-/// conformance-kit accessors are in <c>InitAccessorParamNameTests</c> of the core tests; this table is the transport's two, and
-/// <see cref="The_table_covers_every_validating_accessor_of_the_transport"/> re-scans its sources so a third cannot slip in.
+/// SEAM-29 (phase 11, task 2.5; phase 12, task 1.2): a null into a validating <c>init</c> accessor of the transport's options names the property, not <c>value</c>,
+/// and so does a value rejected for its range or format. The core and conformance-kit accessors are in <c>InitAccessorParamNameTests</c> and
+/// <c>InitAccessorRejectionParamNameTests</c> of the core tests; these tables are the transport's two null accessors and three rejecting ones, and
+/// <see cref="The_table_covers_every_validating_accessor_of_the_transport"/> re-scans its sources so another cannot slip in.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed class InitAccessorParamNameTests
@@ -20,7 +21,17 @@ public sealed class InitAccessorParamNameTests
         ["SystemNetHttpClientOptions.TimeProvider"] = () => _ = new SystemNetHttpClientOptions { TimeProvider = null! },
     };
 
+    // Phase 12, task 1.2 (P12-14): a range or format rejection names the property too; it used to report "value".
+    private static readonly Dictionary<string, Action> s_rejectionRows = new(StringComparer.Ordinal)
+    {
+        ["SystemNetHttpClientOptions.Timeout"] = () => _ = new SystemNetHttpClientOptions { Timeout = TimeSpan.Zero },
+        ["SystemNetHttpClientOptions.HeaderDropLogging"] = () => _ = new SystemNetHttpClientOptions { HeaderDropLogging = (HeaderDropLogging)99 },
+        ["SystemNetHttpClientOptions.ResendBufferLimit"] = () => _ = new SystemNetHttpClientOptions { ResendBufferLimit = -1 },
+    };
+
     public static TheoryData<string> Accessors => new(s_rows.Keys.Order(StringComparer.Ordinal));
+
+    public static TheoryData<string> Rejections => new(s_rejectionRows.Keys.Order(StringComparer.Ordinal));
 
     [Theory]
     [MemberData(nameof(Accessors))]
@@ -31,12 +42,26 @@ public sealed class InitAccessorParamNameTests
         Assert.Equal(accessor[(accessor.IndexOf('.', StringComparison.Ordinal) + 1)..], thrown.ParamName);
     }
 
+    [Theory]
+    [MemberData(nameof(Rejections))]
+    public void A_rejected_value_names_the_property(string accessor)
+    {
+        var thrown = Assert.ThrowsAny<ArgumentException>(s_rejectionRows[accessor]);
+
+        Assert.Equal(accessor[(accessor.IndexOf('.', StringComparison.Ordinal) + 1)..], thrown.ParamName);
+    }
+
     [Fact]
     public void The_table_covers_every_validating_accessor_of_the_transport()
     {
         var sites = InitAccessorScanner.Find(SourceDirectory());
 
-        Assert.Equal(sites.Select(static site => site.Key).Order(StringComparer.Ordinal), s_rows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            sites.Where(static site => site.Kind == InitAccessorScanner.SiteKind.Null).Select(static site => site.Key).Order(StringComparer.Ordinal),
+            s_rows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            sites.Where(static site => site.Kind == InitAccessorScanner.SiteKind.Rejection).Select(static site => site.Key).Order(StringComparer.Ordinal),
+            s_rejectionRows.Keys.Order(StringComparer.Ordinal));
         Assert.All(sites, static site => Assert.True(site.NamesItsProperty, $"{site.File}:{site.Line} ({site.Key})"));
     }
 

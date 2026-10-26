@@ -69,7 +69,7 @@ public sealed class AccessTokenCache
         get;
         init
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero);
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, TimeSpan.Zero, nameof(RefreshMargin));
             field = value;
         }
     } = DefaultRefreshMargin;

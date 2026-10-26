@@ -46,7 +46,7 @@ public sealed record InvariantSubject
         get;
         init
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(Name));
             field = value;
         }
     } = "core";
