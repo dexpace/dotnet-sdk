@@ -1,6 +1,6 @@
 # Write a serde
 
-**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's [`write-a-serde.md`](./write-a-serde.md) (`nodejs-sdk`, `origin/main`) and restated for `ISerde`. The seam
+**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's `docs/sdk-documentation/write-a-serde.md` (`nodejs-sdk`, `origin/main`) and restated for `ISerde`. The seam
 and the typed readers that sit on it are described in [`seams.md`](./seams.md) and [`serde.md`](./serde.md); the normative text is `docs/product-spec/14-serialization-serde.md` (`SERDE-1` to `SERDE-30`).
 This page is for the author of a **codec**: an implementation of `ISerde` for a wire format core does not ship.
 

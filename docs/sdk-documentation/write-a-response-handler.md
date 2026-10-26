@@ -1,6 +1,6 @@
 # Write a response handler
 
-**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's [`write-a-response-handler.md`](./write-a-response-handler.md) (`nodejs-sdk`, `origin/main`) and restated for
+**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's `docs/sdk-documentation/write-a-response-handler.md` (`nodejs-sdk`, `origin/main`) and restated for
 `IResponseHandler<T>`. A response handler turns a `Response` into your model. Core ships two as factories and a lazy wrapper; write your own when none fits, which a generated SDK does for every operation
 whose status codes mean something of its own.
 

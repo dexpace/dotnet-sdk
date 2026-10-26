@@ -1,6 +1,6 @@
 # Write a transport
 
-**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's [`write-a-transport.md`](./write-a-transport.md)
+**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's `docs/sdk-documentation/write-a-transport.md`
 (`nodejs-sdk`, `origin/main`) and restated for the .NET seams: the interfaces are `IAsyncHttpClient` and `IHttpClient`, the proof is `Dexpace.Sdk.Conformance`'s `TransportSuite`, and the rules are the
 thirty `TRANSPORT-N` clauses of `docs/product-spec/17-transport-adapter-conformance-contract.md` as the reference transport meets them ([`transport.md`](./transport.md)).
 

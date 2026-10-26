@@ -1,6 +1,6 @@
 # Write a paging strategy
 
-**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's [`write-a-paging-strategy.md`](./write-a-paging-strategy.md) (`nodejs-sdk`, `origin/main`) and restated for
+**As built by phase 12, written against source on 2026-10-26** (branch `109-phase-12-first-release`). Ported from Node's `docs/sdk-documentation/write-a-paging-strategy.md` (`nodejs-sdk`, `origin/main`) and restated for
 `IPageStrategy<in TPage, T>`. [`pagination.md`](./pagination.md) is the reference for the engine (the two views of a walk, the cap, cancellation, the `Link` origin guard); this page is for the author of a
 strategy, or of a fetcher for an API that is already wrapped in functions.
 
