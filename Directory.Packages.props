@@ -21,7 +21,7 @@
     <!-- The one third-party root of the hosting family, taken only by Dexpace.Sdk.Extensions.DependencyInjection (design §10
          entry 2, phase 9 P9-3). Its closure is the 13 Microsoft.Extensions.* packages of phase 9's V5, all band-matched;
          scripts/ci/dependency-audit.cs names it once, in the package's policy. -->
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Build-only analyzers (PrivateAssets=all)">
