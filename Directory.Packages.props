@@ -50,7 +50,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.14" />
     <!-- ResilienceCompositionTests (phase 9 P9-19, V6): the standard resilience handler composed under a named client, to pin the one-retry-layer
          guidance (XCUT-10). Test-only and on its own 10.x line: nothing here reaches a library's closure. -->
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
   </ItemGroup>
 
 </Project>
