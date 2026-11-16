@@ -47,7 +47,7 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <!-- AddEnvironmentVariables(prefix) for CFG-3's test: the host's own "__" to ":" rule, proven rather than re-implemented (phase 9,
          task 2.8). Not in the hosting family's closure, so it never reaches a library. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0" />
     <!-- ResilienceCompositionTests (phase 9 P9-19, V6): the standard resilience handler composed under a named client, to pin the one-retry-layer
          guidance (XCUT-10). Test-only and on its own 10.x line: nothing here reaches a library's closure. -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
